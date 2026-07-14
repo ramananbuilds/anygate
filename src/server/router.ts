@@ -19,7 +19,7 @@ import {
 } from '../openai-adapter.js';
 import { sendJson, readBody } from '../http-utils.js';
 import { relayAnthropicMessages } from '../upstream-forward.js';
-import { resolveProviderCredential } from '../env.js';
+import { resolveProviderCredential } from '../core/env.js';
 import { oauthAuthRef } from '../registry/import-build.js';
 import {
   injectClaudeCodeBillingSystemLine,
@@ -29,7 +29,7 @@ import {
 import { writeSecureLogLine, resetTraceLog } from '../trace-log.js';
 import type { LanguageModel } from 'ai';
 import { createLanguageModel, isSdkMigratedNpm, maxToolsForNpm } from '../provider-factory.js';
-import { formatUpstreamError, upstreamHttpStatus } from '../codex/upstream-error.js';
+import { formatUpstreamError, upstreamHttpStatus } from '../core/errors.js';
 import {
   translateRequest as sdkTranslateRequest,
   streamAnthropicResponse,

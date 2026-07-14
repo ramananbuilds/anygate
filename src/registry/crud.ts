@@ -1,6 +1,6 @@
 // src/registry/crud.ts — add/remove providers in the native registry
 
-import { GLOBAL_OPENCODE_KEYRING_ACCOUNT, parseAuthRef, deleteProviderCredential } from '../env.js';
+import { GLOBAL_OPENCODE_KEYRING_ACCOUNT, parseAuthRef, deleteProviderCredential } from '../core/env.js';
 import { goRegistryStub, zenRegistryStub } from './builtins.js';
 import { loadRegistry, saveRegistry } from './io.js';
 import type { RegistryProvider, RegistrySubscriptionFilter } from './types.js';

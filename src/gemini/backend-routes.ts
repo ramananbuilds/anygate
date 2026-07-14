@@ -5,7 +5,7 @@ import {
   type CloudCodeBackend,
 } from '../cloud-code-backend.js';
 import type { ProxyRoute } from '../proxy.js';
-import type { LocalProviderModel } from '../types.js';
+import type { LocalProviderModel } from '../core/types.js';
 
 interface GeminiBackendInput extends BackendPartitionInput {
   originalAliasId: string;

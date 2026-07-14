@@ -3,7 +3,7 @@
 // endpoint selection, and provider quirks.
 import type { LanguageModel } from 'ai';
 import { wrapLanguageModel, extractReasoningMiddleware } from 'ai';
-import { VERTEX_ANTHROPIC_NPM, CODEX_RESPONSES_LITE_VERSION, CODEX_RESPONSES_LITE_WS_URL } from './constants.js';
+import { VERTEX_ANTHROPIC_NPM, CODEX_RESPONSES_LITE_VERSION, CODEX_RESPONSES_LITE_WS_URL } from './core/constants.js';
 import { extractOpenAiAccountId } from './oauth/openai.js';
 import { createResponsesWebSocketFetch } from './oauth/responses-websocket.js';
 import {

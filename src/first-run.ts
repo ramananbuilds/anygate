@@ -6,7 +6,7 @@ import { printWelcomePanel } from './ui.js';
 import {
   migrateGlobalOpencodeCredential,
   readGlobalOpencodeCredential,
-} from './env.js';
+} from './core/env.js';
 import { findOpencodeBinary } from './opencode-serve.js';
 import { zenRegistryStub } from './registry/builtins.js';
 import { importFromOpencode } from './registry/import-opencode.js';

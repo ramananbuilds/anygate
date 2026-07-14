@@ -4,7 +4,7 @@ import {
   init_provider_templates
 } from "./chunk-SZIOBBTH.js";
 
-// src/constants.ts
+// src/core/constants.ts
 import { homedir } from "os";
 import { join } from "path";
 
@@ -100,7 +100,7 @@ var package_default = {
   }
 };
 
-// src/constants.ts
+// src/core/constants.ts
 var BACKENDS = {
   zen: {
     id: "zen",
@@ -1599,7 +1599,7 @@ function getVertexModelsPath(env = process.env) {
   return join2(getAppHome(env), "vertex-models.json");
 }
 
-// src/config.ts
+// src/core/config.ts
 import { dirname } from "path";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 function readJsonFile(path) {
@@ -2840,7 +2840,7 @@ async function refreshStoredOAuthCredential(providerId, cred) {
   return tokensToStoredCredential(tokens, cred.refresh, cred.accountId, cred.providerData);
 }
 
-// src/env.ts
+// src/core/env.ts
 function detectConflicts() {
   return CONFLICTING_ENV_VARS.filter((name) => process.env[name] !== void 0).map((name) => ({ name, value: process.env[name] }));
 }
@@ -4080,6 +4080,98 @@ function extractBearerToken(value) {
   return sanitizeCredential(match?.[1]);
 }
 
+// src/core/errors.ts
+var AnygateError = class extends Error {
+  /** HTTP status to surface to the client (e.g. 401, 404, 429, 502). */
+  httpStatus;
+  /** Whether the caller (proxy router, CLI) may safely retry the request. */
+  retryable;
+  /** User-facing message safe to show in a TUI / browser (no stack traces). */
+  userMessage;
+  constructor(opts) {
+    super(opts.userMessage, opts.cause !== void 0 ? { cause: opts.cause } : void 0);
+    this.name = new.target.name;
+    this.httpStatus = opts.httpStatus;
+    this.retryable = opts.retryable ?? false;
+    this.userMessage = opts.userMessage;
+  }
+};
+var UpstreamUnreachableError = class extends Error {
+  constructor(cause) {
+    super(`Upstream unreachable: ${cause instanceof Error ? cause.message : String(cause)}`);
+    this.name = "UpstreamUnreachableError";
+  }
+};
+function formatUpstreamError(err) {
+  if (!err || typeof err !== "object") return "Upstream model request failed.";
+  const rec = err;
+  if (rec.data?.error?.message) {
+    const short = sanitizeMessage(rec.data.error.message);
+    return rec.statusCode ? `${short} (HTTP ${rec.statusCode})` : short;
+  }
+  if (rec.responseBody) {
+    try {
+      const parsed = JSON.parse(rec.responseBody);
+      if (parsed.error?.message) {
+        const short = sanitizeMessage(parsed.error.message);
+        return rec.statusCode ? `${short} (HTTP ${rec.statusCode})` : short;
+      }
+    } catch {
+    }
+  }
+  const last = rec.lastError;
+  if (last?.message) {
+    const code = last.statusCode;
+    const short = sanitizeMessage(last.message);
+    return code ? `${short} (HTTP ${code})` : short;
+  }
+  const fromList = rec.errors?.[rec.errors.length - 1];
+  if (fromList?.message) {
+    const short = sanitizeMessage(fromList.message);
+    return fromList.statusCode ? `${short} (HTTP ${fromList.statusCode})` : short;
+  }
+  if (rec.message) {
+    const short = sanitizeMessage(rec.message);
+    if (short && !short.includes("file://") && !short.includes("APICallError") && short.length < 240) {
+      return rec.statusCode ? `${short} (HTTP ${rec.statusCode})` : short;
+    }
+  }
+  return "Upstream model request failed.";
+}
+function upstreamHttpStatus(err, message) {
+  if (err instanceof AnygateError) return err.httpStatus;
+  if (err && typeof err === "object" && "statusCode" in err) {
+    const code = err.statusCode;
+    if (code === 400 || code === 401 || code === 403 || code === 404 || code === 429) return code;
+  }
+  if (message.includes("HTTP 429") || message.includes("429")) return 429;
+  if (message.includes("HTTP 400")) return 400;
+  return 500;
+}
+function anthropicErrorType(status) {
+  switch (status) {
+    case 400:
+      return "invalid_request_error";
+    case 401:
+      return "authentication_error";
+    case 403:
+      return "permission_error";
+    case 404:
+      return "not_found_error";
+    case 429:
+      return "rate_limit_error";
+    default:
+      return "api_error";
+  }
+}
+function sanitizeMessage(message) {
+  const line = message.split("\n")[0]?.trim() ?? message;
+  if (line.startsWith("RetryError") || line.includes("AI_RetryError")) {
+    return "Upstream model request failed after retries.";
+  }
+  return line;
+}
+
 // src/upstream-forward.ts
 function anthropicUpstreamHeaders(apiKey, stream = false, inboundBeta, authType, claudeCodeSessionId, extraHeaders) {
   const key = sanitizeCredential(apiKey) ?? apiKey.trim();
@@ -4099,12 +4191,6 @@ function anthropicUpstreamHeaders(apiKey, stream = false, inboundBeta, authType,
   }
   return headers;
 }
-var UpstreamUnreachableError = class extends Error {
-  constructor(cause) {
-    super(`Upstream unreachable: ${cause instanceof Error ? cause.message : String(cause)}`);
-    this.name = "UpstreamUnreachableError";
-  }
-};
 async function fetchWithOAuthRetry(apiKey, request, refreshToken) {
   let response = await request(apiKey);
   if (response.status !== 401 || !refreshToken) {
@@ -4988,76 +5074,6 @@ function resolveUpstreamTools(tools, messages) {
     upstream.push(tool4);
   }
   return upstream;
-}
-
-// src/codex/upstream-error.ts
-function formatUpstreamError(err) {
-  if (!err || typeof err !== "object") return "Upstream model request failed.";
-  const rec = err;
-  if (rec.data?.error?.message) {
-    const short = sanitizeMessage(rec.data.error.message);
-    return rec.statusCode ? `${short} (HTTP ${rec.statusCode})` : short;
-  }
-  if (rec.responseBody) {
-    try {
-      const parsed = JSON.parse(rec.responseBody);
-      if (parsed.error?.message) {
-        const short = sanitizeMessage(parsed.error.message);
-        return rec.statusCode ? `${short} (HTTP ${rec.statusCode})` : short;
-      }
-    } catch {
-    }
-  }
-  const last = rec.lastError;
-  if (last?.message) {
-    const code = last.statusCode;
-    const short = sanitizeMessage(last.message);
-    return code ? `${short} (HTTP ${code})` : short;
-  }
-  const fromList = rec.errors?.[rec.errors.length - 1];
-  if (fromList?.message) {
-    const short = sanitizeMessage(fromList.message);
-    return fromList.statusCode ? `${short} (HTTP ${fromList.statusCode})` : short;
-  }
-  if (rec.message) {
-    const short = sanitizeMessage(rec.message);
-    if (short && !short.includes("file://") && !short.includes("APICallError") && short.length < 240) {
-      return rec.statusCode ? `${short} (HTTP ${rec.statusCode})` : short;
-    }
-  }
-  return "Upstream model request failed.";
-}
-function upstreamHttpStatus(err, message) {
-  if (err && typeof err === "object" && "statusCode" in err) {
-    const code = err.statusCode;
-    if (code === 400 || code === 401 || code === 403 || code === 404 || code === 429) return code;
-  }
-  if (message.includes("HTTP 429") || message.includes("429")) return 429;
-  if (message.includes("HTTP 400")) return 400;
-  return 500;
-}
-function anthropicErrorType(status) {
-  switch (status) {
-    case 400:
-      return "invalid_request_error";
-    case 401:
-      return "authentication_error";
-    case 403:
-      return "permission_error";
-    case 404:
-      return "not_found_error";
-    case 429:
-      return "rate_limit_error";
-    default:
-      return "api_error";
-  }
-}
-function sanitizeMessage(message) {
-  const line = message.split("\n")[0]?.trim() ?? message;
-  if (line.startsWith("RetryError") || line.includes("AI_RetryError")) {
-    return "Upstream model request failed after retries.";
-  }
-  return line;
 }
 
 // src/sdk-adapter.ts
@@ -6422,146 +6438,6 @@ function normalizeProviders(raw, opts) {
   return result;
 }
 
-// src/registry/refresh-credentials.ts
-var PLACEHOLDER_KEYS = /* @__PURE__ */ new Set([
-  "anything",
-  "local",
-  "ollama",
-  "none",
-  "n/a",
-  "na",
-  "placeholder",
-  "test",
-  "no-key"
-]);
-var ENV_FALLBACK_BY_PROVIDER = {
-  anthropic: ["ANTHROPIC_API_KEY"],
-  openai: ["OPENAI_API_KEY"]
-};
-function isPlaceholderProviderKey(key) {
-  if (!key?.trim()) return true;
-  return PLACEHOLDER_KEYS.has(key.trim().toLowerCase());
-}
-function isLikelyPlaceholderKey(key) {
-  if (isPlaceholderProviderKey(key)) return true;
-  const trimmed = key?.trim() ?? "";
-  if (trimmed.length <= 2) return true;
-  return false;
-}
-function cachedModelCount(provider) {
-  return provider.modelsCache?.models.length ?? 0;
-}
-function skipWithCachedModels(provider, reason) {
-  const count = cachedModelCount(provider);
-  return {
-    id: provider.id,
-    name: provider.name,
-    ok: true,
-    skipped: true,
-    modelCount: count > 0 ? count : void 0,
-    reason
-  };
-}
-async function resolveRefreshCredential(provider, resolveKey) {
-  let key;
-  try {
-    key = await resolveKey(provider);
-  } catch {
-    key = null;
-  }
-  if (!isLikelyPlaceholderKey(key)) return key;
-  for (const envVar of ENV_FALLBACK_BY_PROVIDER[provider.id] ?? []) {
-    const fromEnv = process.env[envVar]?.trim();
-    if (fromEnv && !isLikelyPlaceholderKey(fromEnv)) return fromEnv;
-  }
-  return key;
-}
-
-// src/registry/import-build.ts
-function oauthAuthRef(providerId) {
-  return `keyring:oauth:provider:${providerId}`;
-}
-function toOAuthRegistryId(id) {
-  if (id === "openai") return "openai-oauth";
-  if (id === "xai") return "xai-oauth";
-  return id;
-}
-function normalizeImportProviderIdentity(provider) {
-  if (provider.id === "opencode") {
-    return { ...provider, id: "zen", name: "OpenCode Zen" };
-  }
-  if (provider.id === "opencode-go") {
-    return { ...provider, id: "go", name: "OpenCode Go" };
-  }
-  return provider;
-}
-function buildImportProviderList(raw, authEntries) {
-  const oauthByProviderId = /* @__PURE__ */ new Map();
-  const covered = /* @__PURE__ */ new Set();
-  const merged = [];
-  for (const provider of normalizeProviders(raw)) {
-    const normalized = normalizeImportProviderIdentity(provider);
-    if (covered.has(normalized.id)) continue;
-    merged.push(normalized);
-    covered.add(normalized.id);
-  }
-  for (const provider of raw) {
-    if (provider.id === "opencode" || provider.id === "opencode-go") continue;
-    if (covered.has(provider.id)) continue;
-    const authEntry = authEntries[provider.id];
-    if (!isOpencodeOAuth(authEntry)) continue;
-    const oauthProviders = normalizeProviders(
-      [{ ...provider, key: authEntry.access }],
-      { includeOAuthPlaceholders: true }
-    );
-    if (oauthProviders.length === 0) continue;
-    const registryId = toOAuthRegistryId(provider.id);
-    oauthByProviderId.set(registryId, authEntry);
-    merged.push({ ...oauthProviders[0], id: registryId, apiKey: "" });
-    covered.add(registryId);
-    covered.add(provider.id);
-  }
-  return { providers: merged, oauth: { oauthByProviderId } };
-}
-function isOAuthImportProvider(providerId, oauth) {
-  return oauth.oauthByProviderId.has(providerId);
-}
-var OPENCODE_OAUTH_PROVIDER_IDS = /* @__PURE__ */ new Set([
-  "xai",
-  "openai",
-  "github",
-  "gitlab",
-  "kimi",
-  "moonshot"
-]);
-var OPENCODE_MANUAL_ONLY_IDS = /* @__PURE__ */ new Set([
-  "google-vertex",
-  "vertex",
-  "bedrock",
-  "azure"
-]);
-function classifyOpencodeCredentialGap(providerId) {
-  if (OPENCODE_MANUAL_ONLY_IDS.has(providerId)) return "manual-only";
-  if (OPENCODE_OAUTH_PROVIDER_IDS.has(providerId)) return "oauth-no-token";
-  return "no-api-key";
-}
-function listCredentialSkippedProviders(raw, authEntries, importedIds, alreadyReportedIds = /* @__PURE__ */ new Set(), registryProviderIds = /* @__PURE__ */ new Set()) {
-  const skipped = [];
-  for (const provider of raw) {
-    if (provider.id === "opencode" || provider.id === "opencode-go") continue;
-    if (importedIds.has(provider.id)) continue;
-    if (alreadyReportedIds.has(provider.id)) continue;
-    const hasApiKey = !!provider.key?.trim() && !isLikelyPlaceholderKey(provider.key);
-    if (hasApiKey) continue;
-    if (isOpencodeOAuth(authEntries[provider.id])) continue;
-    if (!provider.models || Object.keys(provider.models).length === 0) continue;
-    const reason = classifyOpencodeCredentialGap(provider.id);
-    if (reason !== "oauth-no-token" && !registryProviderIds.has(provider.id)) continue;
-    skipped.push({ id: provider.id, name: provider.name, reason });
-  }
-  return skipped;
-}
-
 // src/registry/materialize.ts
 init_provider_templates();
 function cachedModelToLocal(cached, provider) {
@@ -6691,7 +6567,6 @@ async function loadRegistryProviders(diag, opts) {
 }
 
 // src/provider-catalog.ts
-init_provider_templates();
 async function fetchProviderCatalog(opts) {
   return loadRegistryProviders(void 0, opts);
 }
@@ -6704,18 +6579,6 @@ function providersForPicker(providers) {
     });
   }
   return providers.sort((a, b) => a.name.localeCompare(b.name, void 0, { sensitivity: "base", numeric: true }));
-}
-async function resolveLocalProviderApiKey(provider) {
-  const direct = provider.apiKey?.trim();
-  if (direct) return direct;
-  if (provider.authType === "none") return "anonymous";
-  const template = getTemplateById(provider.id);
-  if (template?.apiKeyOptional || template?.anonymousFreeModels) {
-    return "anonymous";
-  }
-  const reg = loadRegistry().providers.find((p8) => p8.id === provider.id);
-  const authRef = reg?.authRef ?? (provider.id === "zen" || provider.id === "go" ? "keyring:global:opencode" : oauthAuthRef(provider.id));
-  return resolveProviderCredential(provider.id, authRef);
 }
 function formatRegistryAuthLabel(provider) {
   if (provider.authType === "oauth" || provider.authRef.includes("oauth:provider:")) {
@@ -7077,6 +6940,146 @@ async function streamOpenAiResponse(model, params, responseModelId, onChunk) {
     }
   }
   onChunk("data: [DONE]\n\n");
+}
+
+// src/registry/refresh-credentials.ts
+var PLACEHOLDER_KEYS = /* @__PURE__ */ new Set([
+  "anything",
+  "local",
+  "ollama",
+  "none",
+  "n/a",
+  "na",
+  "placeholder",
+  "test",
+  "no-key"
+]);
+var ENV_FALLBACK_BY_PROVIDER = {
+  anthropic: ["ANTHROPIC_API_KEY"],
+  openai: ["OPENAI_API_KEY"]
+};
+function isPlaceholderProviderKey(key) {
+  if (!key?.trim()) return true;
+  return PLACEHOLDER_KEYS.has(key.trim().toLowerCase());
+}
+function isLikelyPlaceholderKey(key) {
+  if (isPlaceholderProviderKey(key)) return true;
+  const trimmed = key?.trim() ?? "";
+  if (trimmed.length <= 2) return true;
+  return false;
+}
+function cachedModelCount(provider) {
+  return provider.modelsCache?.models.length ?? 0;
+}
+function skipWithCachedModels(provider, reason) {
+  const count = cachedModelCount(provider);
+  return {
+    id: provider.id,
+    name: provider.name,
+    ok: true,
+    skipped: true,
+    modelCount: count > 0 ? count : void 0,
+    reason
+  };
+}
+async function resolveRefreshCredential(provider, resolveKey) {
+  let key;
+  try {
+    key = await resolveKey(provider);
+  } catch {
+    key = null;
+  }
+  if (!isLikelyPlaceholderKey(key)) return key;
+  for (const envVar of ENV_FALLBACK_BY_PROVIDER[provider.id] ?? []) {
+    const fromEnv = process.env[envVar]?.trim();
+    if (fromEnv && !isLikelyPlaceholderKey(fromEnv)) return fromEnv;
+  }
+  return key;
+}
+
+// src/registry/import-build.ts
+function oauthAuthRef(providerId) {
+  return `keyring:oauth:provider:${providerId}`;
+}
+function toOAuthRegistryId(id) {
+  if (id === "openai") return "openai-oauth";
+  if (id === "xai") return "xai-oauth";
+  return id;
+}
+function normalizeImportProviderIdentity(provider) {
+  if (provider.id === "opencode") {
+    return { ...provider, id: "zen", name: "OpenCode Zen" };
+  }
+  if (provider.id === "opencode-go") {
+    return { ...provider, id: "go", name: "OpenCode Go" };
+  }
+  return provider;
+}
+function buildImportProviderList(raw, authEntries) {
+  const oauthByProviderId = /* @__PURE__ */ new Map();
+  const covered = /* @__PURE__ */ new Set();
+  const merged = [];
+  for (const provider of normalizeProviders(raw)) {
+    const normalized = normalizeImportProviderIdentity(provider);
+    if (covered.has(normalized.id)) continue;
+    merged.push(normalized);
+    covered.add(normalized.id);
+  }
+  for (const provider of raw) {
+    if (provider.id === "opencode" || provider.id === "opencode-go") continue;
+    if (covered.has(provider.id)) continue;
+    const authEntry = authEntries[provider.id];
+    if (!isOpencodeOAuth(authEntry)) continue;
+    const oauthProviders = normalizeProviders(
+      [{ ...provider, key: authEntry.access }],
+      { includeOAuthPlaceholders: true }
+    );
+    if (oauthProviders.length === 0) continue;
+    const registryId = toOAuthRegistryId(provider.id);
+    oauthByProviderId.set(registryId, authEntry);
+    merged.push({ ...oauthProviders[0], id: registryId, apiKey: "" });
+    covered.add(registryId);
+    covered.add(provider.id);
+  }
+  return { providers: merged, oauth: { oauthByProviderId } };
+}
+function isOAuthImportProvider(providerId, oauth) {
+  return oauth.oauthByProviderId.has(providerId);
+}
+var OPENCODE_OAUTH_PROVIDER_IDS = /* @__PURE__ */ new Set([
+  "xai",
+  "openai",
+  "github",
+  "gitlab",
+  "kimi",
+  "moonshot"
+]);
+var OPENCODE_MANUAL_ONLY_IDS = /* @__PURE__ */ new Set([
+  "google-vertex",
+  "vertex",
+  "bedrock",
+  "azure"
+]);
+function classifyOpencodeCredentialGap(providerId) {
+  if (OPENCODE_MANUAL_ONLY_IDS.has(providerId)) return "manual-only";
+  if (OPENCODE_OAUTH_PROVIDER_IDS.has(providerId)) return "oauth-no-token";
+  return "no-api-key";
+}
+function listCredentialSkippedProviders(raw, authEntries, importedIds, alreadyReportedIds = /* @__PURE__ */ new Set(), registryProviderIds = /* @__PURE__ */ new Set()) {
+  const skipped = [];
+  for (const provider of raw) {
+    if (provider.id === "opencode" || provider.id === "opencode-go") continue;
+    if (importedIds.has(provider.id)) continue;
+    if (alreadyReportedIds.has(provider.id)) continue;
+    const hasApiKey = !!provider.key?.trim() && !isLikelyPlaceholderKey(provider.key);
+    if (hasApiKey) continue;
+    if (isOpencodeOAuth(authEntries[provider.id])) continue;
+    if (!provider.models || Object.keys(provider.models).length === 0) continue;
+    const reason = classifyOpencodeCredentialGap(provider.id);
+    if (reason !== "oauth-no-token" && !registryProviderIds.has(provider.id)) continue;
+    skipped.push({ id: provider.id, name: provider.name, reason });
+  }
+  return skipped;
 }
 
 // src/server/router.ts
@@ -10432,6 +10435,8 @@ export {
   gatewayProviderLabel,
   createGatewayModelCatalog,
   buildDedupedModelRows,
+  formatUpstreamError,
+  upstreamHttpStatus,
   grabRoundTripSignature,
   silenceSdkWarnings,
   parseToolArguments,
@@ -10441,15 +10446,12 @@ export {
   encodeToolUseId,
   serializeToolResultContent,
   translateRequest,
-  formatUpstreamError,
-  upstreamHttpStatus,
   aliasModelId,
   startProxyCatalog,
   startProxy,
   cachedModelToLocal,
   fetchProviderCatalog,
   providersForPicker,
-  resolveLocalProviderApiKey,
   formatRegistryAuthLabel,
   resolveProvidersForDisplay,
   routableModelsForTarget,
@@ -10491,4 +10493,4 @@ export {
   quitClaudeAppGracefully,
   launchOrRestartClaudeApp
 };
-//# sourceMappingURL=chunk-EKTDCNP7.js.map
+//# sourceMappingURL=chunk-NBCBHKA2.js.map

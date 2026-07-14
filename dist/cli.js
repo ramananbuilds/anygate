@@ -131,7 +131,6 @@ import {
   removeProviderFromRegistry,
   resolveApiKey,
   resolveContextWindow,
-  resolveLocalProviderApiKey,
   resolveModelSource,
   resolveProviderCredential,
   resolveProviderTemplate,
@@ -164,9 +163,10 @@ import {
   validateCustomEndpointUrl,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-EKTDCNP7.js";
+} from "./chunk-NBCBHKA2.js";
 import {
   filterTemplates,
+  getTemplateById,
   init_provider_templates,
   listAddableTemplates,
   listSupportedTemplates,
@@ -992,6 +992,21 @@ async function pickLocalModel(provider, conflicts, prefs) {
   }
   relayOutro("Launching", fmtModel(modelLabel, selectedModel.id));
   return selectedModel;
+}
+
+// src/core/credentials.ts
+init_provider_templates();
+async function resolveLocalProviderApiKey(provider) {
+  const direct = provider.apiKey?.trim();
+  if (direct) return direct;
+  if (provider.authType === "none") return "anonymous";
+  const template = getTemplateById(provider.id);
+  if (template?.apiKeyOptional || template?.anonymousFreeModels) {
+    return "anonymous";
+  }
+  const reg = loadRegistry().providers.find((p15) => p15.id === provider.id);
+  const authRef = reg?.authRef ?? (provider.id === "zen" || provider.id === "go" ? "keyring:global:opencode" : oauthAuthRef(provider.id));
+  return resolveProviderCredential(provider.id, authRef);
 }
 
 // src/favorites.ts
@@ -4056,7 +4071,7 @@ async function startCloudCodeCatalogBackend(routes, startingAliasId, trace) {
   return { port: handle.port, token: handle.token, handle };
 }
 
-// src/agent-io.ts
+// src/core/agent-io.ts
 var agentStdoutMode = false;
 function setAgentStdoutMode(enabled) {
   agentStdoutMode = enabled;
@@ -12359,7 +12374,7 @@ Error: ${parsed.error}
       console.log("Usage: anygate ui [--trace]\n\nOpen the settings UI in your browser.");
       return 0;
     }
-    const { runUiCommand } = await import("./ui-command-2BXNZUHW.js");
+    const { runUiCommand } = await import("./ui-command-V4MRGKF3.js");
     return runUiCommand({ trace: parsed.trace });
   }
   if (parsed.command === "models") {

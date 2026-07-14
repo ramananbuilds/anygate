@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   agyArgsAreNonInteractive,
   agyArgsIncludeModelFlag,
@@ -6,8 +6,8 @@ import {
   formatAgyCapacityWarning,
   resolveAntigravityBootModel,
 } from '../src/antigravity.js';
-import { buildAntigravityChildEnv } from '../src/env.js';
-import type { LocalProvider } from '../src/types.js';
+import { buildAntigravityChildEnv } from './../src/core/env.js';
+import type { LocalProvider } from './../src/core/types.js';
 
 describe('agy launch args', () => {
   it('detects --model flag', () => {

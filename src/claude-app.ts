@@ -1,8 +1,9 @@
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { fetchProviderCatalog, providersForPicker, resolveLocalProviderApiKey } from './provider-catalog.js';
-import { loadPreferences, savePreferences } from './config.js';
-import { resolveApiKey, readFromCredentialStore } from './env.js';
+import { fetchProviderCatalog, providersForPicker } from './provider-catalog.js';
+import { resolveLocalProviderApiKey } from './core/credentials.js';
+import { loadPreferences, savePreferences } from './core/config.js';
+import { resolveApiKey, readFromCredentialStore } from './core/env.js';
 import { resolveOrCollectApiKey } from './key-setup.js';
 import { pickCodexProvider, pickCodexModel } from './codex/prompts.js';
 import { resolveBootSelection } from './codex/favorites-launch.js';
@@ -12,14 +13,14 @@ import {
 } from './codex/routing.js';
 import { startServer, type ServerHandle } from './server/router.js';
 import { createGatewayModelCatalog, type ServerModelInfo } from './server/models.js';
-import { BACKENDS } from './constants.js';
+import { BACKENDS } from './core/constants.js';
 import { loadServerModels } from './server/index.js';
 import { filterServerModelsByFavorites } from './server/catalog-filter.js';
 import { writeAnygateIConfig, getClaudeDesktopHome } from './claude-desktop/app-config.js';
 import { getProxyDebugLogPath } from './trace-log.js';
 import { readSessionLock, recoverSession, hasStaleSession, writeSessionLock, setupExitCleanup, cleanupSession, backupMetaJson, isConcurrentLiveSession, waitForShutdown } from './claude-desktop/app-session.js';
 import { launchOrRestartClaudeApp, claudeAppSupported, isClaudeAppRunning, quitClaudeAppGracefully } from './claude-desktop/app-launch.js';
-import type { LocalProvider, LocalProviderModel } from './types.js';
+import type { LocalProvider, LocalProviderModel } from './core/types.js';
 import {
   buildCloudCodeProxyRoute,
   startCloudCodeCatalogBackend,
@@ -209,7 +210,7 @@ export async function runClaudeAppCommand(args: string[], boot?: { launchProvide
         const model = antigravityProvider?.models.find(m => m.id === fav.modelId);
         return model?.modelFormat === 'cloud-code' ? model : null;
       })
-      .filter((m): m is import('./types.js').LocalProviderModel => m !== null);
+      .filter((m): m is import('./core/types.js').LocalProviderModel => m !== null);
 
     const regularFavorites = favorites.filter(
       fav => !cloudCodeFavoriteModels.some(m => m.id === fav.modelId && fav.providerId === 'antigravity'),

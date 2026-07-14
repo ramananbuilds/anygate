@@ -1,7 +1,7 @@
 // src/constants.ts
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import pkg from '../package.json' with { type: 'json' };
+import pkg from '../../package.json' with { type: 'json' };
 import type { BackendConfig, ModelFormat } from './types.js';
 
 export const BACKENDS: Record<'zen' | 'go', BackendConfig> = {

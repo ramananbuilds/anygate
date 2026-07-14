@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -12,7 +12,7 @@ import { emptyRegistry, loadRegistry, saveRegistry } from '../src/registry/io.js
 import { zenRegistryStub } from '../src/registry/builtins.js';
 import { providerAuthHelpText } from '../src/registry/provider-auth.js';
 import { PROVIDER_TEMPLATES } from '../src/provider-templates.js';
-import * as env from '../src/env.js';
+import * as env from './../src/core/env.js';
 
 const selectMock = vi.hoisted(() => vi.fn());
 

@@ -1,8 +1,8 @@
 // src/registry/import-opencode.ts — one-shot import from OpenCode serve API
 
-import { resolveProviderCredential, saveProviderCredential } from '../env.js';
+import { resolveProviderCredential, saveProviderCredential } from '../core/env.js';
 import { fetchRawOpencodeProviders } from '../opencode-serve.js';
-import type { LocalProvider } from '../types.js';
+import type { LocalProvider } from '../core/types.js';
 import { localProviderToRegistry } from './convert.js';
 import {
   buildImportProviderList,

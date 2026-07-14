@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   createLanguageModel,
   deepMergeProviderOptions,
@@ -10,7 +10,7 @@ import {
   shouldUseOpenAiResponsesEndpoint,
   thinkingProviderOptions,
 } from '../src/provider-factory.js';
-import { VERTEX_ANTHROPIC_NPM } from '../src/constants.js';
+import { VERTEX_ANTHROPIC_NPM } from './../src/core/constants.js';
 
 describe('isSdkMigratedNpm', () => {
   it('returns true for any OpenCode-assigned npm except anthropic', () => {

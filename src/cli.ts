@@ -6,11 +6,11 @@ import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findClaudeBinary, launchClaude } from './launch.js';
-import { resolveApiKey, detectConflicts, buildChildEnv, readGlobalOpencodeCredential } from './env.js';
+import { resolveApiKey, detectConflicts, buildChildEnv, readGlobalOpencodeCredential } from './core/env.js';
 import { claudeCodeClientModelId } from './context-model-id.js';
 import { resolveOrCollectApiKey } from './key-setup.js';
 import { needsFirstRunSetup, runFirstRunWizard } from './first-run.js';
-import { MAX_MODEL_CATALOG } from './constants.js';
+import { MAX_MODEL_CATALOG } from './core/constants.js';
 import { startProxy, startProxyCatalog } from './proxy.js';
 import type { ProxyHandle, ProxyRoute } from './proxy.js';
 import {
@@ -18,13 +18,14 @@ import {
   makeRouteResolver,
 } from './catalog.js';
 import { runServerCommand } from './server/index.js';
-import type { ModelFormat } from './types.js';
-import { loadPreferences, savePreferences, recordLaunchSelection } from './config.js';
+import type { ModelFormat } from './core/types.js';
+import { loadPreferences, savePreferences, recordLaunchSelection } from './core/config.js';
 import { pickLocalModel, browseAllModels } from './prompts.js';
-import { fetchProviderCatalog, providersForPicker, resolveLocalProviderApiKey } from './provider-catalog.js';
-import { BACKENDS, VERSION } from './constants.js';
+import { fetchProviderCatalog, providersForPicker } from './provider-catalog.js';
+import { resolveLocalProviderApiKey } from './core/credentials.js';
+import { BACKENDS, VERSION } from './core/constants.js';
 import { checkForUpdates, formatUpdateNotification } from './update-check.js';
-import type { ParsedArgs, ModelInfo, FavoriteModel, LocalProvider, LocalProviderModel } from './types.js';
+import type { ParsedArgs, ModelInfo, FavoriteModel, LocalProvider, LocalProviderModel } from './core/types.js';
 import { addFavorite, removeFavorite, isFavorite } from './favorites.js';
 import {
   browseByProviderChoice,
@@ -43,7 +44,7 @@ import { prepareClaudeTraceLog, printTraceLog } from './trace-log.js';
 import { ANTIGRAVITY_BASE_URLS } from './oauth/antigravity-oauth.js';
 import { providersForTarget } from './target-compatibility.js';
 import { refreshModelsDevCacheAsync } from './registry/models-dev.js';
-import { setAgentStdoutMode, isAgentStdoutMode } from './agent-io.js';
+import { setAgentStdoutMode, isAgentStdoutMode } from './core/agent-io.js';
 import {
   findProviderAndModel,
   normalizeClaudeAgentArgs,

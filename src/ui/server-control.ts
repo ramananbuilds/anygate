@@ -3,7 +3,7 @@
 // Stops automatically when the UI process exits, same as closing a terminal running
 // `anygate server` with Ctrl+C.
 
-import { BACKENDS, MAX_MODEL_CATALOG } from '../constants.js';
+import { BACKENDS, MAX_MODEL_CATALOG } from '../core/constants.js';
 import {
   getSavedServerPassword,
   getServerExposedProviders,
@@ -18,8 +18,8 @@ import {
   setServerFreeModelsOnly,
   setServerListenMode,
   setServerMaskGatewayIds,
-} from '../config.js';
-import type { FavoriteModel } from '../types.js';
+} from '../core/config.js';
+import type { FavoriteModel } from '../core/types.js';
 import { startServer, type ServerHandle } from '../server/router.js';
 import {
   buildDedupedModelRows,

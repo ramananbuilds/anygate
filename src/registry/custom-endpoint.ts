@@ -1,6 +1,6 @@
 // src/registry/custom-endpoint.ts — add custom OpenAI/Anthropic-compatible providers
 
-import { saveProviderCredential } from '../env.js';
+import { saveProviderCredential } from '../core/env.js';
 import { deriveBrand } from '../models.js';
 import { resolveContextWindow } from '../context-window.js';
 import { fetchTemplateModels } from './fetch-template-models.js';

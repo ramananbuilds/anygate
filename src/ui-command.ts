@@ -8,7 +8,7 @@ import * as p from '@clack/prompts';
 import { getAppHome } from './paths.js';
 import { handleUiApiRequest, type UiServerLifecycleEvent } from './ui/api.js';
 import { getUiDebugLogPath, makeTraceLogger } from './trace-log.js';
-import { VERSION } from './constants.js';
+import { VERSION } from './core/constants.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, 'ui', 'public');

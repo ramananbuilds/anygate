@@ -1,14 +1,14 @@
-﻿import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import * as env from '../src/env.js';
+import * as env from './../src/core/env.js';
 import {
   formatRegistryAuthLabel,
   providersForPicker,
-  resolveLocalProviderApiKey,
   resolveProvidersForDisplay,
 } from '../src/provider-catalog.js';
+import { resolveLocalProviderApiKey } from '../src/core/credentials.js';
 import { emptyRegistry, saveRegistry } from '../src/registry/io.js';
 
 describe('provider-catalog-display', () => {

@@ -1,7 +1,7 @@
 // tests/cli.test.ts
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { parseArgs, rootHelpText, claudeHelpText, serverHelpText, modelsHelpText, main } from '../src/cli.js';
-import { VERSION } from '../src/constants.js';
+import { VERSION } from './../src/core/constants.js';
 import { codexHelpText } from '../src/codex.js';
 import { codexAppHelpText } from '../src/codex-app.js';
 import { claudeAppHelpText } from '../src/claude-app.js';

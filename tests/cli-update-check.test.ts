@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { main } from '../src/cli.js';
-import { VERSION } from '../src/constants.js';
+import { VERSION } from './../src/core/constants.js';
 
 describe('CLI update notifications', () => {
   let tempHome: string;

@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -13,7 +13,7 @@ import {
   resolveVertexProject,
   vertexModelsToServerModels,
 } from '../src/server/vertex-config.js';
-import { VERTEX_ANTHROPIC_NPM } from '../src/constants.js';
+import { VERTEX_ANTHROPIC_NPM } from './../src/core/constants.js';
 
 describe('vertex-config', () => {
   let tempHome = '';

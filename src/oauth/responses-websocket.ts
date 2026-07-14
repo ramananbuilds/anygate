@@ -14,7 +14,7 @@
 
 import type { FetchFunction } from '@ai-sdk/provider-utils';
 import type { RawData, WebSocket as WsWebSocket } from 'ws';
-import { CODEX_RESPONSES_WEBSOCKETS_BETA } from '../constants.js';
+import { CODEX_RESPONSES_WEBSOCKETS_BETA } from '../core/constants.js';
 
 const RESPONSES_LITE_HEADER = 'x-openai-internal-codex-responses-lite';
 // Responses event types after which the stream is complete and the socket closes.

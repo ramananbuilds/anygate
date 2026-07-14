@@ -8,7 +8,7 @@ vi.mock('../src/proxy.js', async (importOriginal) => {
   };
 });
 
-vi.mock('../src/env.js', () => ({
+vi.mock('../src/core/env.js', () => ({
   resolveProviderCredential: vi.fn().mockResolvedValue('fresh-token'),
 }));
 
@@ -24,7 +24,7 @@ import {
   startCloudCodeCatalogBackend,
 } from '../src/cloud-code-backend.js';
 import { startProxyCatalog } from '../src/proxy.js';
-import type { LocalProviderModel } from '../src/types.js';
+import type { LocalProviderModel } from './../src/core/types.js';
 
 const model: LocalProviderModel = {
   id: 'gemini-3.5-flash-low',

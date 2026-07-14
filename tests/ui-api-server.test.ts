@@ -3,9 +3,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ServerModelInfo } from '../src/server/models.js';
-import type { FavoriteModel } from '../src/types.js';
+import type { FavoriteModel } from './../src/core/types.js';
 import { createMockRequest, createMockResponse } from './helpers/ui-api-test-utils.js';
-import { VERSION } from '../src/constants.js';
+import { VERSION } from './../src/core/constants.js';
 
 const testModel: ServerModelInfo = {
   id: 'test-model',
@@ -44,8 +44,8 @@ vi.mock('../src/server/index.js', async () => {
 
 // Server password lives in the OS keychain, keyed globally (not per ANYGATE_HOME) — mock
 // it out so tests don't read/write the real machine keychain, matching server-index.test.ts.
-vi.mock('../src/config.js', async () => {
-  const actual = await vi.importActual<typeof import('../src/config.js')>('../src/config.js');
+vi.mock('../src/core/config.js', async () => {
+  const actual = await vi.importActual<typeof import('../src/core/config.js')>('../src/core/config.js');
   return {
     ...actual,
     getSavedServerPassword: vi.fn(async () => state.savedPassword),

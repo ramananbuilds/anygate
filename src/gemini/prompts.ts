@@ -1,7 +1,7 @@
 // src/gemini/prompts.ts
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import type { LocalProvider, LocalProviderModel, UserPreferences } from '../types.js';
+import type { LocalProvider, LocalProviderModel, UserPreferences } from '../core/types.js';
 import {
   confirmLaunchMessage,
   modelSelectOption,

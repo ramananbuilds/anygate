@@ -1,6 +1,6 @@
 // src/models.ts
-import type { ModelInfo, BackendConfig } from './types.js';
-import { classifyModelFormat } from './constants.js';
+import type { ModelInfo, BackendConfig } from './core/types.js';
+import { classifyModelFormat } from './core/constants.js';
 import { shouldHideModel } from './model-compatibility.js';
 import { loadOpencodeCache, resolveContextWindow } from './context-window.js';
 

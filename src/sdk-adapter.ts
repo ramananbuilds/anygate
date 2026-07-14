@@ -18,7 +18,7 @@ import {
 } from './provider-factory.js';
 import { resolveUpstreamTools } from './tool-search.js';
 import type { AnthropicRequestMessage, AnthropicToolDefinition } from './proxy-types.js';
-import { anthropicErrorType, upstreamHttpStatus } from './codex/upstream-error.js';
+import { anthropicErrorType, upstreamHttpStatus } from './core/errors.js';
 
 export { silenceSdkWarnings };
 

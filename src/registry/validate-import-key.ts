@@ -7,7 +7,7 @@ import { resolveModelSource } from './model-source.js';
 import { effectiveProviderBaseUrl, resolveProviderTemplate, syntheticTemplate } from './resolve-template.js';
 import { validateCustomEndpointUrl } from './url-security.js';
 import type { RegistryProvider } from './types.js';
-import type { LocalProvider } from '../types.js';
+import type { LocalProvider } from '../core/types.js';
 
 export type ImportKeySkipReason = 'placeholder-key' | 'invalid-key' | 'untested-manual';
 

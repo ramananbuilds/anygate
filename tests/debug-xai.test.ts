@@ -1,5 +1,5 @@
 import { describe, it } from 'vitest';
-import { resolveProviderCredential } from '../src/env';
+import { resolveProviderCredential } from '../src/core/env.js';
 
 describe('xAI endpoint probes', () => {
   it('should test api.x.ai/v1/models with xAI API Key', async () => {

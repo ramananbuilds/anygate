@@ -23,7 +23,7 @@ import {
   type CodexSdkCallParams,
 } from './codex-responses-adapter.js';
 import { silenceSdkWarnings } from './sdk-adapter.js';
-import { formatUpstreamError, upstreamHttpStatus } from './codex/upstream-error.js';
+import { formatUpstreamError, upstreamHttpStatus } from './core/errors.js';
 import { getCodexProxyDebugLogPath, makeTraceLogger } from './trace-log.js';
 
 export function estimateCodexRequestChars(params: CodexSdkCallParams): number {

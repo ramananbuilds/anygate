@@ -4,7 +4,7 @@ import { execSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { LocalProvider } from './types.js';
+import type { LocalProvider } from './core/types.js';
 import { normalizeProviders, type RawProvider } from './providers.js';
 
 const isWindows = process.platform === 'win32';

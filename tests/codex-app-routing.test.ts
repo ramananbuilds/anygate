@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { startProxyCatalog } from '../src/proxy.js';
 import { buildCodexAppProviderCatalogRoutes } from '../src/codex/app-provider-routes.js';
 import { buildCodexProxyRoutesForProvider } from '../src/codex/routing.js';
-import type { LocalProvider } from '../src/types.js';
+import type { LocalProvider } from './../src/core/types.js';
 
 vi.mock('../src/proxy.js', async importOriginal => {
   const actual = await importOriginal<typeof import('../src/proxy.js')>();

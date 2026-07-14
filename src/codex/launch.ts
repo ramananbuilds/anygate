@@ -1,4 +1,4 @@
-﻿// Spawn Codex CLI with anygate-launch profile.
+// Spawn Codex CLI with anygate-launch profile.
 import { execFileSync, execSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -7,7 +7,7 @@ import { CODEX_LAUNCH_SANDBOX, profileName } from './profile.js';
 import { codexProviderEnvKey } from './routing.js';
 import type { CodexRoute } from './routing.js';
 import { PROXY_PLACEHOLDER_KEY } from '../codex-proxy.js';
-import { getAppPathOverride } from '../config.js';
+import { getAppPathOverride } from '../core/config.js';
 
 const isWindows = process.platform === 'win32';
 

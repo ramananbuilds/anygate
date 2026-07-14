@@ -2,7 +2,7 @@
 
 import { positiveSecondsToMs, sleepMs } from './pkce.js';
 import type { OAuthTokenResponse } from './types.js';
-import { VERSION } from '../constants.js';
+import { VERSION } from '../core/constants.js';
 import { postOAuthRefresh } from './refresh-http.js';
 
 const CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';

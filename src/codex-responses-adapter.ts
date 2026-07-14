@@ -18,7 +18,7 @@ import {
   thinkingProviderOptions,
   type ReasoningMetadata,
 } from './provider-factory.js';
-import { formatUpstreamError } from './codex/upstream-error.js';
+import { formatUpstreamError } from './core/errors.js';
 
 export { silenceSdkWarnings };
 

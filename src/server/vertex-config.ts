@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { resolveContextWindow } from '../context-window.js';
-import { VERTEX_ANTHROPIC_NPM } from '../constants.js';
+import { VERTEX_ANTHROPIC_NPM } from '../core/constants.js';
 import { getVertexModelsPath } from '../paths.js';
 import { getReasoningCapabilities } from '../provider-factory.js';
 import { createGatewayModelCatalog, type ModelCatalog, type ServerModelInfo } from './models.js';

@@ -1,4 +1,4 @@
-import { MAX_MODEL_CATALOG } from '../constants.js';
+import { MAX_MODEL_CATALOG } from '../core/constants.js';
 import type { ResolvedFavorite } from '../favorites-resolver.js';
 import type { AntigravityRoute, CatalogFixture, CatalogModelEntry } from './types.js';
 import {

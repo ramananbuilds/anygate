@@ -1,7 +1,7 @@
 // src/prompts.ts
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import type { UserPreferences, ConflictInfo, LocalProvider, LocalProviderModel } from './types.js';
+import type { UserPreferences, ConflictInfo, LocalProvider, LocalProviderModel } from './core/types.js';
 import {
   confirmLaunchMessage,
   fmtModel,

@@ -1,9 +1,9 @@
 import { startProxyCatalog, aliasModelId, type ProxyHandle, type ProxyRoute } from './proxy.js';
 import { claudeCodeClientModelId } from './context-model-id.js';
 import { ANTIGRAVITY_BASE_URLS } from './oauth/antigravity-oauth.js';
-import { resolveProviderCredential } from './env.js';
+import { resolveProviderCredential } from './core/env.js';
 import { oauthAuthRef } from './registry/import-build.js';
-import type { LocalProviderModel } from './types.js';
+import type { LocalProviderModel } from './core/types.js';
 
 export interface CloudCodeBackend {
   port: number;

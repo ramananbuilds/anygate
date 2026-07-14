@@ -1,5 +1,5 @@
 import type { ResolvedFavorite } from '../favorites-resolver.js';
-import type { LocalProviderModel } from '../types.js';
+import type { LocalProviderModel } from '../core/types.js';
 import { getReasoningCapabilities } from '../provider-factory.js';
 import {
   catalogEntryFromModel,

@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest';
 import { loadRegistry } from '../src/registry/io.js';
-import { resolveProviderCredential, resolveProviderOAuthAccountId } from '../src/env.js';
+import { resolveProviderCredential, resolveProviderOAuthAccountId } from './../src/core/env.js';
 
 function extractModels(data: unknown): any[] {
   if (!data || typeof data !== 'object') return [];

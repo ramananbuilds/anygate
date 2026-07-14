@@ -2,7 +2,7 @@
 
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { migrateGlobalOpencodeCredential, readGlobalOpencodeCredential, resolveProviderCredential } from './env.js';
+import { migrateGlobalOpencodeCredential, readGlobalOpencodeCredential, resolveProviderCredential } from './core/env.js';
 import {
   formatRegistryAuthLabel,
   resolveProvidersForDisplay,
@@ -34,8 +34,8 @@ import { authenticateProvider, providerAuthHelpText, type ProviderAuthMethod } f
 import { supportsNativeOAuth } from './oauth/types.js';
 import { browseAllModels } from './prompts.js';
 import { cachedModelToLocal } from './registry/materialize.js';
-import { loadPreferences } from './config.js';
-import type { LocalProvider } from './types.js';
+import { loadPreferences } from './core/config.js';
+import type { LocalProvider } from './core/types.js';
 import {
   fmtCount,
   fmtEnabledStar,

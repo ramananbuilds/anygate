@@ -1,10 +1,7 @@
-import { resolveProviderCredential } from './env.js';
 import type { CompatibilityAgent } from './model-compatibility.js';
-import { oauthAuthRef } from './registry/import-build.js';
 import { loadRegistry } from './registry/io.js';
 import { loadRegistryProviders } from './registry/load.js';
-import { getTemplateById } from './provider-templates.js';
-import type { LocalProvider } from './types.js';
+import type { LocalProvider } from './core/types.js';
 import type { ServerModelInfo } from './server/models.js';
 
 export async function fetchProviderCatalog(
@@ -23,24 +20,6 @@ export function providersForPicker(providers: LocalProvider[]): LocalProvider[] 
   }
 
   return providers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
-}
-
-/** Resolve API key when provider.apiKey is empty (registry authRef or global OpenCode key). */
-export async function resolveLocalProviderApiKey(provider: LocalProvider): Promise<string | null> {
-  const direct = provider.apiKey?.trim();
-  if (direct) return direct;
-  
-  if (provider.authType === 'none') return 'anonymous';
-
-  const template = getTemplateById(provider.id);
-  if (template?.apiKeyOptional || template?.anonymousFreeModels) {
-    return 'anonymous';
-  }
-
-  const reg = loadRegistry().providers.find(p => p.id === provider.id);
-  const authRef = reg?.authRef
-    ?? (provider.id === 'zen' || provider.id === 'go' ? 'keyring:global:opencode' : oauthAuthRef(provider.id));
-  return resolveProviderCredential(provider.id, authRef);
 }
 
 /** Human-readable auth line for `providers list` and provider detail. */

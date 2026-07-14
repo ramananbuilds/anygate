@@ -2,6 +2,7 @@ import { Readable } from 'node:stream';
 import type { ServerResponse } from 'node:http';
 import { sanitizeCredential } from './server/auth.js';
 import { CLAUDE_CODE_USER_AGENT } from './oauth/claude-identity.js';
+import { UpstreamUnreachableError } from './core/errors.js';
 
 export function anthropicUpstreamHeaders(
   apiKey: string,
@@ -27,13 +28,6 @@ export function anthropicUpstreamHeaders(
     headers['anthropic-beta'] = inboundBeta;
   }
   return headers;
-}
-
-export class UpstreamUnreachableError extends Error {
-  constructor(cause: unknown) {
-    super(`Upstream unreachable: ${cause instanceof Error ? cause.message : String(cause)}`);
-    this.name = 'UpstreamUnreachableError';
-  }
 }
 
 export async function fetchWithOAuthRetry<TResponse extends { status: number }>(

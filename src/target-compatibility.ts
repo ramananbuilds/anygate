@@ -1,5 +1,5 @@
 import { shouldHideModel, type CompatibilityAgent } from './model-compatibility.js';
-import type { LocalProvider, LocalProviderModel } from './types.js';
+import type { LocalProvider, LocalProviderModel } from './core/types.js';
 
 export type RelayLaunchTarget =
   | 'claude'

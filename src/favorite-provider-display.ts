@@ -1,4 +1,4 @@
-import type { LocalProvider } from './types.js';
+import type { LocalProvider } from './core/types.js';
 
 const OAUTH_FAVORITE_NAMES: Record<string, string> = {
   'claude-code': 'Claude Code OAuth (Anthropic subscription)',

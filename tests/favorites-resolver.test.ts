@@ -6,7 +6,7 @@ import {
   type ResolveContext,
 } from '../src/favorites-resolver.js';
 import { shouldHideModel } from '../src/model-compatibility.js';
-import type { FavoriteModel, LocalProvider, ModelInfo } from '../src/types.js';
+import type { FavoriteModel, LocalProvider, ModelInfo } from './../src/core/types.js';
 
 const sampleLocalProvider: LocalProvider = {
   id: 'anthropic',

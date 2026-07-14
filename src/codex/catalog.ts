@@ -1,5 +1,5 @@
 // model_catalog_json for Codex — schema from codex-rs ModelInfo.
-import type { LocalProviderModel } from '../types.js';
+import type { LocalProviderModel } from '../core/types.js';
 import { stripGoogleModelPrefix } from '../registry/google-model-id.js';
 import {
   buildCodexReasoningLevels,

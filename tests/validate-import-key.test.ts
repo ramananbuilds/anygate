@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { isLikelyPlaceholderKey } from '../src/registry/refresh-credentials.js';
 import { validateImportKey } from '../src/registry/validate-import-key.js';
-import type { LocalProvider } from '../src/types.js';
+import type { LocalProvider } from './../src/core/types.js';
 import type { RegistryProvider } from '../src/registry/types.js';
 
 vi.mock('../src/registry/fetch-template-models.js', () => ({

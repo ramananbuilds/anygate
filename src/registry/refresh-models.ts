@@ -1,6 +1,6 @@
 // src/registry/refresh-models.ts — user-initiated model list refresh per modelSource
 
-import { BACKENDS } from '../constants.js';
+import { BACKENDS } from '../core/constants.js';
 import { getModels } from '../models.js';
 import { fetchAnthropicModels } from './custom-endpoint.js';
 import { fetchTemplateModels } from './fetch-template-models.js';
@@ -21,7 +21,7 @@ import {
   pricingPlatformForProvider,
 } from './pricing.js';
 import { cachedModelCount, isLikelyPlaceholderKey, resolveRefreshCredential, skipWithCachedModels } from './refresh-credentials.js';
-import { readGlobalOpencodeCredential } from '../env.js';
+import { readGlobalOpencodeCredential } from '../core/env.js';
 import type { CachedModel, ProviderRegistry, RegistryProvider } from './types.js';
 import { buildOpenAiOAuthModels, CHATGPT_CODEX_UNSUPPORTED_MODELS } from '../data/openai-oauth-models.js';
 import { buildXaiOAuthModels } from '../data/xai-oauth-models.js';

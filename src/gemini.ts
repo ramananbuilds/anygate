@@ -1,10 +1,11 @@
 // src/gemini.ts — anygate gemini: launch Google Gemini CLI with registry providers
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { fetchProviderCatalog, providersForPicker, resolveLocalProviderApiKey } from './provider-catalog.js';
-import { loadPreferences, recordLaunchSelection } from './config.js';
+import { fetchProviderCatalog, providersForPicker } from './provider-catalog.js';
+import { resolveLocalProviderApiKey } from './core/credentials.js';
+import { loadPreferences, recordLaunchSelection } from './core/config.js';
 import { findProviderAndModel, planLaunchWizard, wantsCleanAgentStdout } from './launch-target.js';
-import { setAgentStdoutMode, isAgentStdoutMode } from './agent-io.js';
+import { setAgentStdoutMode, isAgentStdoutMode } from './core/agent-io.js';
 import { findGeminiBinary, prepareGeminiChildEnv, launchGemini } from './gemini/launch.js';
 import {
   pickGeminiProvider,
@@ -18,7 +19,7 @@ import { getGeminiProxyDebugLogPath, printTraceLog } from './trace-log.js';
 import type { ProxyRoute, ProxyHandle } from './proxy.js';
 import type { CloudCodeBackend } from './cloud-code-backend.js';
 import { rewriteGeminiBackendRoutes } from './gemini/backend-routes.js';
-import { VERSION } from './constants.js';
+import { VERSION } from './core/constants.js';
 import { providersForTarget } from './target-compatibility.js';
 
 export function geminiHelpText(): string {

@@ -7,7 +7,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { VERSION } from './constants.js';
+import { VERSION } from './core/constants.js';
 import { getAppHome } from './paths.js';
 
 export const UPDATE_CHECK_TTL_MS = 24 * 60 * 60 * 1000;

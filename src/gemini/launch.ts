@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { getAppPathOverride } from '../config.js';
+import { getAppPathOverride } from '../core/config.js';
 import { findBinaryOnPath } from '../binary-lookup.js';
 
 const isWindows = process.platform === 'win32';

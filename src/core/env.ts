@@ -1,12 +1,12 @@
 // src/env.ts
 import { CONFLICTING_ENV_VARS } from './constants.js';
-import { claudeCodeClientModelId, stripOneMContextSuffix } from './context-model-id.js';
-import { resolveContextWindow } from './context-window.js';
-import { oauthCredentialToKeychainJson } from './registry/opencode-auth.js';
+import { claudeCodeClientModelId, stripOneMContextSuffix } from '../context-model-id.js';
+import { resolveContextWindow } from '../context-window.js';
+import { oauthCredentialToKeychainJson } from '../registry/opencode-auth.js';
 import {
   parseStoredOAuthCredential,
-} from './oauth/types.js';
-import { refreshStoredOAuthCredential, oauthCredentialShouldRefresh } from './oauth/refresh.js';
+} from '../oauth/types.js';
+import { refreshStoredOAuthCredential, oauthCredentialShouldRefresh } from '../oauth/refresh.js';
 import type { ConflictInfo } from './types.js';
 
 export function detectConflicts(): ConflictInfo[] {

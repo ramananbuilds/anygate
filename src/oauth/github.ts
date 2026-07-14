@@ -5,7 +5,7 @@
 
 import { positiveSecondsToMs, sleepMs } from './pkce.js';
 import type { OAuthTokenResponse } from './types.js';
-import { VERSION } from '../constants.js';
+import { VERSION } from '../core/constants.js';
 
 // Public OAuth App client ID used by VS Code GitHub Copilot extension
 const CLIENT_ID = 'Iv1.b507a08c87ecfe98';

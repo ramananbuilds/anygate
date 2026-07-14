@@ -1,9 +1,10 @@
 // codex-app.ts — anygate codex-app / chatgpt: launch the ChatGPT desktop app (Codex mode) with registry providers
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { fetchProviderCatalog, providersForPicker, resolveLocalProviderApiKey } from './provider-catalog.js';
-import { loadPreferences, savePreferences } from './config.js';
-import { resolveApiKey, readFromCredentialStore } from './env.js';
+import { fetchProviderCatalog, providersForPicker } from './provider-catalog.js';
+import { resolveLocalProviderApiKey } from './core/credentials.js';
+import { loadPreferences, savePreferences } from './core/config.js';
+import { resolveApiKey, readFromCredentialStore } from './core/env.js';
 import { resolveOrCollectApiKey } from './key-setup.js';
 import { startCodexProxy } from './codex-proxy.js';
 import type { CodexProxyHandle, CodexProxyRoute } from './codex-proxy.js';
@@ -19,7 +20,7 @@ import {
 import { buildCodexAppProviderCatalogRoutes } from './codex/app-provider-routes.js';
 import { applyAppConfigPatch, previewAppConfigToml } from './codex/app-config.js';
 import { PREVIEW_PROXY_PORT, type CodexAppConfigSpec } from './codex/app-profile.js';
-import type { LocalProvider, LocalProviderModel } from './types.js';
+import type { LocalProvider, LocalProviderModel } from './core/types.js';
 import {
   backupConfigToml,
   checkAppSessionLock,
@@ -48,7 +49,7 @@ import {
   hasApplicationDefaultCredentials,
   type VertexModelEntry,
 } from './server/vertex-config.js';
-import { VERTEX_ANTHROPIC_NPM } from './constants.js';
+import { VERTEX_ANTHROPIC_NPM } from './core/constants.js';
 import { resolveContextWindow } from './context-window.js';
 import {
   buildCodexProxyRoutesFromResolved,
@@ -165,7 +166,7 @@ function providerForCodexPicker(provider: LocalProvider): LocalProvider {
   return { ...provider, models: routableModelsForProvider(provider, 'codex-app') };
 }
 
-function vertexEntryToLocalModel(entry: VertexModelEntry): import('./types.js').LocalProviderModel {
+function vertexEntryToLocalModel(entry: VertexModelEntry): import('./core/types.js').LocalProviderModel {
   return {
     id: entry.id,
     name: entry.display_name,

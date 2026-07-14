@@ -15,7 +15,7 @@ import {
   setSavedServerPassword,
   setServerFreeModelsOnly,
   setServerListenMode,
-} from '../src/config.js';
+} from './../src/core/config.js';
 import { getAppHome, getConfigPath } from '../src/paths.js';
 
 let tempHome: string;

@@ -1,4 +1,4 @@
-﻿// tests/env.test.ts
+// tests/env.test.ts
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import {
   detectConflicts,
@@ -10,8 +10,8 @@ import {
   anygateIKeyEnvVar,
   resolveProviderCredential,
   GLOBAL_OPENCODE_KEYRING_ACCOUNT,
-} from '../src/env.js';
-import { BACKENDS, CONFLICTING_ENV_VARS } from '../src/constants.js';
+} from './../src/core/env.js';
+import { BACKENDS, CONFLICTING_ENV_VARS } from './../src/core/constants.js';
 
 // Snapshot of all conflicting vars before any test so we can restore them
 const originalConflictingValues: Record<string, string | undefined> = {};

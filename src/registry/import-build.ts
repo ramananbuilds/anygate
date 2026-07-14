@@ -1,6 +1,6 @@
 // import-opencode.ts — merge API-key and OAuth providers for OpenCode import
 
-import type { LocalProvider } from '../types.js';
+import type { LocalProvider } from '../core/types.js';
 import { normalizeProviders, type RawProvider } from '../providers.js';
 import {
   isOpencodeOAuth,

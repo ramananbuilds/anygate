@@ -8,7 +8,7 @@ import {
   thinkingProviderOptions,
 } from '../provider-factory.js';
 import { silenceSdkWarnings } from '../sdk-adapter.js';
-import { formatUpstreamError } from '../codex/upstream-error.js';
+import { formatUpstreamError } from '../core/errors.js';
 import { readBody } from '../http-utils.js';
 import { translateRequest, type TranslateRequestOptions } from './request-adapter.js';
 import { formatCloudCodeChunk, mapFinishReason, normalizeFunctionCallArgs } from './response-adapter.js';

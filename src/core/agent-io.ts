@@ -1,4 +1,4 @@
-﻿/** When true, anygate must not write UI to stdout (child owns NDJSON/JSONL). */
+/** When true, anygate must not write UI to stdout (child owns NDJSON/JSONL). */
 
 let agentStdoutMode = false;
 

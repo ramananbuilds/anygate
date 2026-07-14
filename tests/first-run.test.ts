@@ -1,11 +1,11 @@
-﻿import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { needsFirstRunSetup } from '../src/first-run.js';
 import { emptyRegistry, saveRegistry } from '../src/registry/io.js';
 import { zenRegistryStub } from '../src/registry/builtins.js';
-import * as env from '../src/env.js';
+import * as env from './../src/core/env.js';
 
 describe('needsFirstRunSetup', () => {
   let home: string;

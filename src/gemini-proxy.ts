@@ -17,7 +17,7 @@ import { silenceSdkWarnings } from './sdk-adapter.js';
 import { getGeminiProxyDebugLogPath, makeTraceLogger } from './trace-log.js';
 import type { ProxyRoute, ProxyHandle } from './proxy.js';
 import { routeLookupIds } from './context-model-id.js';
-import { formatUpstreamError } from './codex/upstream-error.js';
+import { formatUpstreamError } from './core/errors.js';
 
 function mapFinishReason(reason: string): string {
   if (reason === 'stop' || reason === 'tool-calls') return 'STOP';

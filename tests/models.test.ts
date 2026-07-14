@@ -5,8 +5,8 @@ import {
   mergeModels,
   groupModels,
 } from '../src/models.js';
-import { classifyModelFormat } from '../src/constants.js';
-import type { ModelInfo } from '../src/types.js';
+import { classifyModelFormat } from './../src/core/constants.js';
+import type { ModelInfo } from './../src/core/types.js';
 
 describe('deriveBrand', () => {
   it.each([

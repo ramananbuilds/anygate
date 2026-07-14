@@ -12,7 +12,7 @@ vi.mock('../src/proxy.js', async (importOriginal) => {
   };
 });
 
-vi.mock('../src/env.js', () => ({
+vi.mock('../src/core/env.js', () => ({
   resolveProviderCredential: vi.fn().mockResolvedValue('fresh-token'),
 }));
 

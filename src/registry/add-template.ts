@@ -1,6 +1,6 @@
 // src/registry/add-template.ts — add a provider from a builtin template
 
-import { saveProviderCredential } from '../env.js';
+import { saveProviderCredential } from '../core/env.js';
 import { isSdkMigratedNpm } from '../provider-factory.js';
 import type { ProviderTemplate } from '../provider-templates.js';
 import { classifyFreeStatus, isFreeStatus } from '../free-models.js';

@@ -2,7 +2,7 @@ import { execFileSync, execSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { getAppPathOverride } from '../config.js';
+import { getAppPathOverride } from '../core/config.js';
 
 const isWindows = process.platform === 'win32';
 

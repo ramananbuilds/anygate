@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,7 +14,7 @@ import { buildCodexChildEnv } from '../src/codex/launch.js';
 import { ownedAppCatalogPaths, removeAppCatalogs } from '../src/codex/app-session.js';
 import type { CodexRoute } from '../src/codex/routing.js';
 import type { ResolvedFavorite } from '../src/favorites-resolver.js';
-import type { LocalProvider, FavoriteModel, ModelInfo } from '../src/types.js';
+import type { LocalProvider, FavoriteModel, ModelInfo } from './../src/core/types.js';
 
 const anthropicProvider: LocalProvider = {
   id: 'anthropic',

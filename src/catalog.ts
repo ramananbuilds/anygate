@@ -1,11 +1,11 @@
 // Route map + catalog assembly for the mid-session /model switch menu.
-import { BACKENDS, MAX_MODEL_CATALOG } from './constants.js';
+import { BACKENDS, MAX_MODEL_CATALOG } from './core/constants.js';
 import { claudeCodeClientModelId } from './context-model-id.js';
 import { ANTIGRAVITY_BASE_URLS } from './oauth/antigravity-oauth.js';
 import { isSdkMigratedNpm } from './provider-factory.js';
 import { aliasModelId } from './proxy.js';
 import type { ProxyRoute } from './proxy.js';
-import type { FavoriteModel, LocalProvider, LocalProviderModel, ModelInfo } from './types.js';
+import type { FavoriteModel, LocalProvider, LocalProviderModel, ModelInfo } from './core/types.js';
 
 export function localModelToRoute(lp: LocalProvider, model: LocalProviderModel): ProxyRoute | null {
   if (model.modelFormat === 'anthropic' && !model.baseUrl) return null;

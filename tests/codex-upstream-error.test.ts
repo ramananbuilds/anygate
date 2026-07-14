@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatUpstreamError, upstreamHttpStatus, anthropicErrorType } from '../src/codex/upstream-error.js';
+import { formatUpstreamError, upstreamHttpStatus, anthropicErrorType } from '../src/core/errors.js';
 
 describe('formatUpstreamError', () => {
   it('uses lastError message and status without stack', () => {

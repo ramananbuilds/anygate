@@ -12,7 +12,7 @@ import {
   resolveLaunchTarget,
   wantsCleanAgentStdout,
 } from '../src/launch-target.js';
-import type { LocalProvider } from '../src/types.js';
+import type { LocalProvider } from './../src/core/types.js';
 
 const providers: LocalProvider[] = [
   {

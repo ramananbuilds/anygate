@@ -1,9 +1,10 @@
 // codex.ts — anygate codex: launch OpenAI Codex CLI with registry providers
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { fetchProviderCatalog, providersForPicker, resolveLocalProviderApiKey } from './provider-catalog.js';
-import { loadPreferences, recordLaunchSelection } from './config.js';
-import { resolveApiKey, readFromCredentialStore } from './env.js';
+import { fetchProviderCatalog, providersForPicker } from './provider-catalog.js';
+import { resolveLocalProviderApiKey } from './core/credentials.js';
+import { loadPreferences, recordLaunchSelection } from './core/config.js';
+import { resolveApiKey, readFromCredentialStore } from './core/env.js';
 import { resolveOrCollectApiKey } from './key-setup.js';
 import { startCodexProxy } from './codex-proxy.js';
 import type { CodexProxyHandle } from './codex-proxy.js';
@@ -38,7 +39,7 @@ import {
   hasApplicationDefaultCredentials,
   type VertexModelEntry,
 } from './server/vertex-config.js';
-import { VERTEX_ANTHROPIC_NPM } from './constants.js';
+import { VERTEX_ANTHROPIC_NPM } from './core/constants.js';
 import { resolveContextWindow } from './context-window.js';
 import type { ResolvedFavorite } from './favorites-resolver.js';
 import {
@@ -52,7 +53,7 @@ import {
   resolveCodexFavorites,
 } from './codex/favorites-launch.js';
 import { getFavoritesCatalogPath } from './codex/profile.js';
-import type { LocalProvider, LocalProviderModel } from './types.js';
+import type { LocalProvider, LocalProviderModel } from './core/types.js';
 import {
   buildSingleModelCloudCodeRoute,
   needsCloudCodeBackend,
@@ -60,7 +61,7 @@ import {
   type CloudCodeBackend,
 } from './cloud-code-backend.js';
 import { getCodexProxyDebugLogPath, printTraceLog } from './trace-log.js';
-import { setAgentStdoutMode, isAgentStdoutMode } from './agent-io.js';
+import { setAgentStdoutMode, isAgentStdoutMode } from './core/agent-io.js';
 import {
   findProviderAndModel,
   planLaunchWizard,
@@ -130,7 +131,7 @@ ${pc.bold('Favorites:')}
 
 async function writeLaunchArtifacts(
   route: CodexRoute,
-  selectedModel: import('./types.js').LocalProviderModel,
+  selectedModel: import('./core/types.js').LocalProviderModel,
   providerName: string,
   proxyPort?: number,
 ): Promise<{ profilePath: string; catalogPath: string }> {
@@ -163,7 +164,7 @@ async function writeFavoritesLaunchArtifacts(
   const catalog = buildFavoritesCodexCatalog(undefined, resolved);
   writeOverlayFile(catalogPath, serializeCatalog(catalog));
   const profilePath = getProfileOutputPath();
-  const model = starting.model as import('./types.js').LocalProviderModel;
+  const model = starting.model as import('./core/types.js').LocalProviderModel;
   const dummyRoute: CodexRoute = {
     tier: 'proxy',
     modelId: codexCliFavoritesSlug(starting.providerId, model.id),
@@ -195,7 +196,7 @@ function printCodexCleanupReminder(hadProxy: boolean): void {
   p.log.info(parts.join(' '));
 }
 
-function vertexEntryToLocalModel(entry: VertexModelEntry): import('./types.js').LocalProviderModel {
+function vertexEntryToLocalModel(entry: VertexModelEntry): import('./core/types.js').LocalProviderModel {
   return {
     id: entry.id,
     name: entry.display_name,

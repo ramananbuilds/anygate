@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { LocalProvider } from '../src/types.js';
+import type { LocalProvider } from './../src/core/types.js';
 import type { RegistryProvider } from '../src/registry/types.js';
 
 vi.mock('../src/opencode-serve.js', () => ({
@@ -9,7 +9,7 @@ vi.mock('../src/registry/io.js', () => ({
   loadRegistry: vi.fn(),
   saveRegistry: vi.fn(),
 }));
-vi.mock('../src/env.js', () => ({
+vi.mock('../src/core/env.js', () => ({
   resolveProviderCredential: vi.fn(),
   saveProviderCredential: vi.fn(),
 }));
@@ -27,7 +27,7 @@ vi.mock('../src/registry/validate-import-key.js', async importOriginal => {
 
 import { fetchRawOpencodeProviders } from '../src/opencode-serve.js';
 import { loadRegistry, saveRegistry } from '../src/registry/io.js';
-import { saveProviderCredential } from '../src/env.js';
+import { saveProviderCredential } from './../src/core/env.js';
 import { importFromOpencode } from '../src/registry/import-opencode.js';
 import { validateImportKey } from '../src/registry/validate-import-key.js';
 import { goRegistryStub, zenRegistryStub } from '../src/registry/builtins.js';

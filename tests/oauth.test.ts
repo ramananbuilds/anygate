@@ -6,7 +6,7 @@ import { completeAntigravityExchange, resolveAntigravityOnboardTierId } from '..
 import { postOAuthRefresh } from '../src/oauth/refresh-http.js';
 import { oauthCredentialShouldRefresh, refreshStoredOAuthCredential } from '../src/oauth/refresh.js';
 import { codexCompatibleProviders } from '../src/codex/routing.js';
-import type { LocalProvider } from '../src/types.js';
+import type { LocalProvider } from './../src/core/types.js';
 
 describe('oauth types', () => {
   it('detects expiring oauth credentials', () => {

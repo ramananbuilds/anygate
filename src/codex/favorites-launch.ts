@@ -4,7 +4,7 @@ import { buildFavoritesList, resolveFavorite } from '../favorites-resolver.js';
 import type { ResolveContext, ResolvedFavorite } from '../favorites-resolver.js';
 import { shouldHideModel, type CompatibilityAgent } from '../model-compatibility.js';
 import { resolveCodexRoute } from './routing.js';
-import type { LocalProvider, LocalProviderModel, FavoriteModel } from '../types.js';
+import type { LocalProvider, LocalProviderModel, FavoriteModel } from '../core/types.js';
 import { codexCliFavoritesSlug } from './favorites-catalog.js';
 
 export type FavoriteStartingModelResult =

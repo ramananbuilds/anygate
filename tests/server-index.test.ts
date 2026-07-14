@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ModelInfo } from '../src/types.js';
+import type { ModelInfo } from './../src/core/types.js';
 import type { ServerModelInfo } from '../src/server/models.js';
 
 const originalStdinIsTTY = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
@@ -36,11 +36,11 @@ const models: ModelInfo[] = [{
   modelFormat: 'anthropic',
 }];
 
-vi.mock('../src/env.js', () => ({
+vi.mock('../src/core/env.js', () => ({
   resolveApiKey: () => state.apiKey,
 }));
 
-vi.mock('../src/config.js', () => ({
+vi.mock('../src/core/config.js', () => ({
   getSavedServerPassword: () => state.savedPassword,
   getServerExposedProviders: () => null,
   getServerMaskGatewayIds: () => true,

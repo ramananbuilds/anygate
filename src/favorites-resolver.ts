@@ -1,8 +1,8 @@
 // src/favorites-resolver.ts
-import type { FavoriteModel, LocalProvider, LocalProviderModel, ModelInfo } from './types.js';
+import type { FavoriteModel, LocalProvider, LocalProviderModel, ModelInfo } from './core/types.js';
 import type { ServerModelInfo } from './server/models.js';
 import { shouldHideModel, type CompatibilityAgent } from './model-compatibility.js';
-import { resolveLocalProviderApiKey } from './provider-catalog.js';
+import { resolveLocalProviderApiKey } from './core/credentials.js';
 
 export interface ResolvedFavorite {
   providerId: string;

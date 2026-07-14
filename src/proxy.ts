@@ -7,7 +7,8 @@ import { readBody, extractApiKey, sendJson } from './http-utils.js';
 import { formatAnthropicModelEntry, formatAnthropicModelList } from './server/models.js';
 import { claudeCodeClientModelId, routeLookupIds, stripOneMContextSuffix } from './context-model-id.js';
 import { getProxyDebugLogPath, redactTraceLine, resetTraceLog } from './trace-log.js';
-import { fetchWithOAuthRetry, relayAnthropicMessages, UpstreamUnreachableError } from './upstream-forward.js';
+import { fetchWithOAuthRetry, relayAnthropicMessages } from './upstream-forward.js';
+import { UpstreamUnreachableError } from './core/errors.js';
 import {
   CLAUDE_CODE_CLI_VERSION,
   injectClaudeCodeBillingSystemLine,
@@ -24,7 +25,7 @@ import {
   generateAnthropicResponse,
   silenceSdkWarnings,
 } from './sdk-adapter.js';
-import { anthropicErrorType, upstreamHttpStatus } from './codex/upstream-error.js';
+import { anthropicErrorType, upstreamHttpStatus } from './core/errors.js';
 
 type ProxyLog = (message: string | (() => string)) => void;
 

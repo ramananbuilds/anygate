@@ -15,7 +15,7 @@ import {
 } from '../src/registry/models-dev.js';
 import { isRoutableModel } from '../src/codex/routing.js';
 import { normalizeProviders } from '../src/providers.js';
-import type { LocalProviderModel } from '../src/types.js';
+import type { LocalProviderModel } from './../src/core/types.js';
 
 describe('shouldHideModel', () => {
   it('allows unknown models by default', () => {

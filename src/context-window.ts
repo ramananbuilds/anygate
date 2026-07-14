@@ -5,7 +5,7 @@
 //   2. ID-pattern heuristics for models not in cache
 //   3. 200K default (Claude Code's own fallback for unknown models)
 import { readFileSync } from 'node:fs';
-import { OPENCODE_CACHE_PATH } from './constants.js';
+import { OPENCODE_CACHE_PATH } from './core/constants.js';
 
 export const DEFAULT_CONTEXT_WINDOW = 200_000;
 

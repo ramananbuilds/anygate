@@ -1,5 +1,5 @@
 // src/providers.ts
-import type { LocalProvider, LocalProviderModel } from './types.js';
+import type { LocalProvider, LocalProviderModel } from './core/types.js';
 import { deriveBrand } from './models.js';
 import { resolveContextWindow } from './context-window.js';
 import { shouldHideModel, type CompatibilityAgent } from './model-compatibility.js';
