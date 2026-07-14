@@ -1,0 +1,28 @@
+node_modules/
+docs/plans/
+*.js.map
+*.tgz
+.env
+.env.*
+.DS_Store
+*.log
+npm-debug.log*
+coverage/
+*.tsbuildinfo
+spike/
+vertex-models.json
+
+# IDE / Editor folders
+.vscode/
+.idea/
+.cursor/
+
+# Local agent planning / logs
+.claude/
+.gemini/
+.planning/
+docs/superpowers/
+ANTIGRAVITY-DEBUG-SESSION.md
+
+# scratch build/test logs
+*.out.txt
