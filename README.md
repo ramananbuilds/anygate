@@ -1,6 +1,7 @@
 <p align="center">
-  <img src="assets/banner.png" alt="anygate banner" width="100%">
+  <img src="assets/banner.svg" alt="anygate" width="100%">
 </p>
+
 
 # anygate
 
