@@ -1,7 +1,7 @@
 import pc from 'picocolors';
 import { networkInterfaces } from 'node:os';
 import * as p from '@clack/prompts';
-import { relayIntro } from '../agents/shared/ui.js';
+import { gateIntro } from '../agents/shared/ui.js';
 import { resolveApiKey, readFromCredentialStore } from '../core/env.js';
 import { sanitizeCredential } from './auth.js';
 import {
@@ -312,7 +312,7 @@ async function configureExposedProviders(): Promise<string[] | null | undefined>
 }
 
 async function runServerWizard(): Promise<{ runConfig: ServerRunConfig; promptForPassword: boolean } | undefined> {
-  relayIntro('Server');
+  gateIntro('Server');
 
   const startMode = await askServerStartMode();
   if (!startMode) return undefined;
@@ -353,7 +353,7 @@ async function runServerWizard(): Promise<{ runConfig: ServerRunConfig; promptFo
 }
 
 async function runVertexServerCommand(): Promise<number> {
-  relayIntro('Vertex Gateway');
+  gateIntro('Vertex Gateway');
 
   const vertexConfig = buildVertexRuntimeConfig();
   if (!vertexConfig) {

@@ -2,7 +2,7 @@
 
 > Route any model into any coding agent — launch tools, switch providers, and run local API gateways.
 
-This document is the authoritative map of the **anygate** codebase for developers, agents, and contributors. It supersedes the Codex-first framing in `AGENTS.md`/`CLAUDE.md`, which are partly stale (they describe a v0.3.0 Codex-centric build). anygate is now **Claude-Code-first** and at **v0.4.4**.
+This document is the authoritative map of the **anygate** codebase for developers, agents, and contributors. It supersedes the Codex-first framing in `AGENTS.md`/`CLAUDE.md`, which are partly stale (they describe a v0.3.0 Codex-centric build). anygate is now **Claude-Code-first** and at **v0.1.0**.
 
 ---
 
@@ -33,7 +33,7 @@ Backends you can wire up:
 
 | Field | Value |
 |-------|-------|
-| Version | `0.4.4` (see [package.json](file:///e:/anygate/package.json)) |
+| Version | `0.1.0` (see [package.json](file:///e:/anygate/package.json)) |
 | Package | **unscoped** `anygate` (npm public, `access: public`) |
 | License | MIT |
 | Node | `>=18` |
@@ -42,7 +42,7 @@ Backends you can wire up:
 | Repo | `https://github.com/ramanan-techlover/anygate` |
 
 > [!IMPORTANT]
-> This project was forked/renamed from a predecessor product. The current codebase contains **no user-facing references** to the old name/author. Internally, a few legacy code identifiers still carry the old name (e.g. `relayIntro`/`relayOutro` in [src/ui.ts](file:///e:/anygate/src/ui.ts), `RELAY_LAUNCH_FLAGS`/`parseRelayLaunchFlag` in [src/cli.ts](file:///e:/anygate/src/cli.ts)). These are **internal only** and not surfaced to users. The `package.json` `description` field ("Relay any model into any coding agent") still contains the old word "Relay" and should be cleaned as backlog (see §11).
+> This project was forked/renamed from a predecessor product. The current codebase contains **no user-facing references** to the old name/author. Internally, a few legacy code identifiers still carry the old name (e.g. `gatewayIntro`/`gatewayOutro` in [src/ui.ts](file:///e:/anygate/src/ui.ts), `GATEWAY_LAUNCH_FLAGS`/`parseGatewayLaunchFlag` in [src/cli.ts](file:///e:/anygate/src/cli.ts)). These are **internal only** and not surfaced to users. The `package.json` `description` field ("Gateway any model into any coding agent") still contains the old word "Gateway" and should be cleaned as backlog (see §11).
 
 ---
 
@@ -253,7 +253,7 @@ npm run refresh:models-dev         # rebuild dev model cache
 ## 11. Known limitations & housekeeping backlog
 
 > [!WARNING]
-> **Backlog item — stale "Relay" string:** `package.json` `description` still reads *"Relay any model into any coding agent…"*. The user-facing README uses "Route any model". Normalize `package.json` `description` and `keywords` (drop `"relay"`) for full consistency.
+> **Backlog item — stale "Gateway" string:** `package.json` `description` still reads *"Gateway any model into any coding agent…"*. The user-facing README uses "Route any model". Normalize `package.json` `description` and `keywords` (drop `"gateway"`) for full consistency.
 
 Other known limitations (by design):
 - Cost display in Codex is always inaccurate for non-Anthropic models (Codex applies its own pricing table).

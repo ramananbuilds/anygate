@@ -16,8 +16,8 @@ import { applyClaudeCodeOAuthIdentity } from '../../oauth/claude-code-identity.j
 import { ANTIGRAVITY_BASE_URLS } from '../../oauth/antigravity-oauth.js';
 import type { AntigravityRoute, CatalogFixture } from './types.js';
 import {
-  injectRelayModels,
-  resolveRelayCatalogSlots,
+  injectGatewayModels,
+  resolveGateCatalogSlots,
   buildListModelConfigsResponse,
   buildListExperimentsResponse,
 } from './catalog.js';
@@ -63,10 +63,10 @@ function isUserTurnRequest(parsed: Record<string, unknown> | undefined): boolean
  *
  * Serves:
  * - loadCodeAssist → from local fixture (no Google contact)
- * - fetchAvailableModels → local catalog with injected relay models
- * - streamGenerateContent (relay models) → translated via Vercel AI SDK (streaming)
- * - generateContent (relay models) → translated via Vercel AI SDK (unary)
- * - Non-relay model requests → 403 rejected
+ * - fetchAvailableModels → local catalog with injected gateway models
+ * - streamGenerateContent (gateway models) → translated via Vercel AI SDK (streaming)
+ * - generateContent (gateway models) → translated via Vercel AI SDK (unary)
+ * - Non-gateway model requests → 403 rejected
  * - Other endpoints → empty 200 (permissive)
  *
  * URL matching is case-insensitive to support both REST-style paths
@@ -84,9 +84,9 @@ export async function startCloudCodeGateway(
   const log = opts.logFn ?? (() => {});
 
   const catalogFixture = catalogFixtureRaw as unknown as CatalogFixture;
-  const injectedCatalog = injectRelayModels(catalogFixture, routes, templateKey);
+  const injectedCatalog = injectGatewayModels(catalogFixture, routes, templateKey);
 
-  const selectedSlotRoutes = resolveRelayCatalogSlots(injectedCatalog, routes, templateKey);
+  const selectedSlotRoutes = resolveGateCatalogSlots(injectedCatalog, routes, templateKey);
   const selectedSlotIds = new Set<string>();
   const routeMap = new Map<string, AntigravityRoute>();
   const reasoningEchoesByConversation = new Map<string, string[]>();
@@ -249,7 +249,7 @@ export async function startCloudCodeGateway(
         respondJson(res, 403, {
           error: {
             code: 403,
-            message: `Non-Relay model "${model ?? 'unknown'}" rejected in privacy mode`,
+            message: `Non-anygate model "${model ?? 'unknown'}" rejected in privacy mode`,
           },
         });
         return;
@@ -261,7 +261,7 @@ export async function startCloudCodeGateway(
         return;
       }
       if (lowerUrl.includes('userquota')) {
-        respondJson(res, 200, { quotaSummary: { remainingQueries: 9999, totalQueries: 9999, quotaType: 'RELAY_UNLIMITED' } });
+        respondJson(res, 200, { quotaSummary: { remainingQueries: 9999, totalQueries: 9999, quotaType: 'GATEWAY_UNLIMITED' } });
         return;
       }
       if (lowerUrl.includes('userinfo')) {
@@ -327,7 +327,7 @@ export async function startCloudCodeGateway(
         respondJson(res, 200, { projects: [] });
         return;
       }
-      if (lowerUrl.includes('migrate')) {
+      if (lowerUrl.includes('upgrade')) {
         respondJson(res, 200, {});
         return;
       }
@@ -637,7 +637,7 @@ async function handleStreamingRequest(
     oauthAccountId: route.oauthAccountId,
     providerData: route.providerData,
   });
-  const responseId = `relay-${Date.now()}`;
+  const responseId = `gateway-${Date.now()}`;
 
   const { fullStream } = streamText({
     model: langModel,
@@ -771,7 +771,7 @@ async function handleUnaryRequest(
     oauthAccountId: route.oauthAccountId,
     providerData: route.providerData,
   });
-  const responseId = `relay-${Date.now()}`;
+  const responseId = `gateway-${Date.now()}`;
 
   const result = await generateText({
     model: langModel,
@@ -818,5 +818,5 @@ async function handleUnaryRequest(
     responseId,
   };
 
-  respondJson(res, 200, { response, traceId: 'relay-trace', metadata: {} });
+  respondJson(res, 200, { response, traceId: 'gateway-trace', metadata: {} });
 }

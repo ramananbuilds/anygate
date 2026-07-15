@@ -1,7 +1,7 @@
 import { shouldHideModel, type CompatibilityAgent } from './model-compatibility.js';
 import type { LocalProvider, LocalProviderModel } from '../../../src/core/types.js';
 
-export type RelayLaunchTarget =
+export type GatewayLaunchTarget =
   | 'claude'
   | 'claude-app'
   | 'codex'
@@ -11,7 +11,7 @@ export type RelayLaunchTarget =
   | 'antigravity';
 
 export interface TargetCompatibilityContext {
-  target: RelayLaunchTarget;
+  target: GatewayLaunchTarget;
   providerId: string;
   authType?: 'api' | 'oauth' | 'none';
   model: LocalProviderModel;
@@ -22,7 +22,7 @@ export interface TargetCompatibilityResult {
   reason?: string;
 }
 
-function blacklistAgentForTarget(target: RelayLaunchTarget): CompatibilityAgent {
+function blacklistAgentForTarget(target: GatewayLaunchTarget): CompatibilityAgent {
   if (target === 'claude-app') return 'codex-app';
   return target;
 }
@@ -55,7 +55,7 @@ export function isTargetCompatibleModel(ctx: TargetCompatibilityContext): Target
 
 export function routableModelsForTarget(
   provider: LocalProvider,
-  target: RelayLaunchTarget,
+  target: GatewayLaunchTarget,
 ): LocalProviderModel[] {
   return provider.models.filter(model =>
     isTargetCompatibleModel({
@@ -67,13 +67,13 @@ export function routableModelsForTarget(
   );
 }
 
-export function providerForTarget(provider: LocalProvider, target: RelayLaunchTarget): LocalProvider {
+export function providerForTarget(provider: LocalProvider, target: GatewayLaunchTarget): LocalProvider {
   return { ...provider, models: routableModelsForTarget(provider, target) };
 }
 
 export function providersForTarget(
   providers: LocalProvider[],
-  target: RelayLaunchTarget,
+  target: GatewayLaunchTarget,
 ): LocalProvider[] {
   return providers
     .map(provider => providerForTarget(provider, target))

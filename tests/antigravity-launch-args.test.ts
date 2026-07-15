@@ -17,12 +17,12 @@ describe('agy launch args', () => {
   });
 
   it('prepends the catalog display label when --model is absent', () => {
-    expect(buildAgyLaunchArgs('deepseek-v4-flash (Relay)', ['-p', 'hi']))
-      .toEqual(['--model', 'deepseek-v4-flash (Relay)', '-p', 'hi']);
+    expect(buildAgyLaunchArgs('deepseek-v4-flash (anygate)', ['-p', 'hi']))
+      .toEqual(['--model', 'deepseek-v4-flash (anygate)', '-p', 'hi']);
   });
 
   it('preserves user --model override', () => {
-    expect(buildAgyLaunchArgs('deepseek-v4-flash (Relay)', ['--model', 'custom-id']))
+    expect(buildAgyLaunchArgs('deepseek-v4-flash (anygate)', ['--model', 'custom-id']))
       .toEqual(['--model', 'custom-id']);
   });
 
@@ -43,7 +43,7 @@ describe('agy launch args', () => {
     );
   });
 
-  it('matches AGY boot --model by exact ID, visible Relay label, or unique prefix', () => {
+  it('matches AGY boot --model by exact ID, visible Gateway label, or unique prefix', () => {
     const provider: LocalProvider = {
       id: 'xai-oauth',
       name: 'xAI SuperGrok',
@@ -69,7 +69,7 @@ describe('agy launch args', () => {
     };
 
     expect(resolveAntigravityBootModel(provider, 'grok-4.3').model?.id).toBe('grok-4.3');
-    expect(resolveAntigravityBootModel(provider, 'Grok 4.3 (Relay - xAI SuperGrok)').model?.id).toBe('grok-4.3');
+    expect(resolveAntigravityBootModel(provider, 'Grok 4.3 (anygate - xAI SuperGrok)').model?.id).toBe('grok-4.3');
     expect(resolveAntigravityBootModel(provider, 'grok-code').model?.id).toBe('grok-code-fast');
   });
 

@@ -54,8 +54,8 @@ Read before touching core modules. Companion to [02_ARCHITECTURE.md](./02_ARCHIT
 > bugs in the one function.
 
 > [!WARNING]
-> **Stale "Relay" string:** `package.json` `description` and `keywords` still contain the old
-> "Relay" word. Normalize for consistency (backlog item — see
+> **Stale "Gateway" string:** `package.json` `description` and `keywords` still contain the old
+> "Gateway" word. Normalize for consistency (backlog item — see
 > [02_ARCHITECTURE.md](./02_ARCHITECTURE.md)#12-known-limitations--housekeeping-backlog)).
 
 ---
@@ -66,8 +66,8 @@ Read before touching core modules. Companion to [02_ARCHITECTURE.md](./02_ARCHIT
 - Sub-launchers live in per-agent folders (`codex/`, `gemini/`, `claude-desktop/`) — now under
   `src/agents/` (`agents/codex/`, `agents/gemini/`, `agents/claude/`).
 - Pure, testable functions are preferred; they are what vitest covers.
-- Legacy identifiers from the rename (`relayIntro`, `relayOutro`, `RELAY_LAUNCH_FLAGS`,
-  `parseRelayLaunchFlag`) were **removed** during the restructure — do not reintroduce them.
+- Legacy identifiers from the rename (`gatewayIntro`, `gatewayOutro`, `GATEWAY_LAUNCH_FLAGS`,
+  `parseGatewayLaunchFlag`) were **removed** during the restructure — do not reintroduce them.
 
 ---
 

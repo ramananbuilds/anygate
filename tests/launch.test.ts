@@ -72,7 +72,7 @@ describe('findBinaryOnPath', () => {
     // Regression: commit d887984 hardened detection to argv-based execFileSync;
     // the shared-helper refactor reintroduced shell-string execSync. A name with
     // shell metacharacters must not execute anything.
-    const marker = join(mkdtempSync(join(tmpdir(), 'relay-inj-')), 'pwned');
+    const marker = join(mkdtempSync(join(tmpdir(), 'gateway-inj-')), 'pwned');
     try {
       const result = findBinaryOnPath(`no-such-binary; touch ${marker}`, []);
       expect(result).toBeNull();
@@ -85,18 +85,18 @@ describe('findBinaryOnPath', () => {
 
 describe('findClaudeBinary app path override', () => {
   let tempHome: string;
-  let previousRelayHome: string | undefined;
+  let previousGatewayHome: string | undefined;
 
   beforeEach(() => {
     tempHome = mkdtempSync(join(tmpdir(), 'anygate-launch-test-'));
-    previousRelayHome = process.env['ANYGATE_HOME'];
-    process.env['ANYGATE_HOME'] = join(tempHome, 'relay-home');
+    previousGatewayHome = process.env['ANYGATE_HOME'];
+    process.env['ANYGATE_HOME'] = join(tempHome, 'gateway-home');
   });
 
   afterEach(() => {
     rmSync(tempHome, { recursive: true, force: true });
-    if (previousRelayHome === undefined) delete process.env['ANYGATE_HOME'];
-    else process.env['ANYGATE_HOME'] = previousRelayHome;
+    if (previousGatewayHome === undefined) delete process.env['ANYGATE_HOME'];
+    else process.env['ANYGATE_HOME'] = previousGatewayHome;
   });
 
   it('prefers a saved app path override over auto-detection', () => {

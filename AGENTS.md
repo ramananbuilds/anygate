@@ -94,7 +94,7 @@ cli.ts
 
 **Env isolation:** `buildChildEnv()` copies `process.env`, deletes all 17 vars in `CONFLICTING_ENV_VARS`, then sets `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`. `launchClaude()` also passes `--model`. Isolation applies to the child process only — the parent shell is not mutated (except `OPENCODE_API_KEY` during key setup). Codex may persist the model to `~/.Codex/settings.json` independently; that is outside anygate's control.
 
-**Preferences** (at `~/.anygate/config.json`, migrated from legacy `conf` path on first read): `lastBackend`, `lastModel`, `lastProvider`, `recentModelsByProvider`, `favoriteModels`, `subscriptionTier`, and a 1-hour model list cache. Override path with `ANYGATE_HOME`. All writes are skipped when `dryRun === true`.
+**Preferences** (at `~/.anygate/config.json`, loaded from legacy `conf` path on first read): `lastBackend`, `lastModel`, `lastProvider`, `recentModelsByProvider`, `favoriteModels`, `subscriptionTier`, and a 1-hour model list cache. Override path with `ANYGATE_HOME`. All writes are skipped when `dryRun === true`.
 
 **API key storage** uses `@napi-rs/keyring` (installed as `optionalDependencies`) for cross-platform credential store access. The module is loaded via dynamic `import()` so a missing native binary degrades gracefully. `tsup.config.ts` marks `@napi-rs/keyring` and all `@ai-sdk/*` provider packages as `external` so they resolve from `node_modules` at runtime (keeps `dist/cli.js` small).
 
@@ -127,7 +127,7 @@ In all cases `process.env['OPENCODE_API_KEY']` is set immediately so the key is 
 
 **Large catalog UX** (`src/prompts.ts`): `MODEL_SEARCH_THRESHOLD = 25` — lists above this show search or paginated browse. `MODEL_PAGE_SIZE = 15` — prev/next pagination. `selectModelWithSearch`, `selectLargeCatalog`, `pickModelFromPagedList`.
 
-**Shared upstream forwarding** (`src/upstream-forward.ts`): `relayAnthropicMessages`, `postJsonUpstream`, anthropic header helpers — used by `proxy.ts` and `server/router.ts`.
+**Shared upstream forwarding** (`src/upstream-forward.ts`): `gatewayAnthropicMessages`, `postJsonUpstream`, anthropic header helpers — used by `proxy.ts` and `server/router.ts`.
 
 **Provider catalog helpers** (`src/provider-catalog.ts`): `fetchProviderCatalog`, `resolveLocalProviders`, `providersForPicker`, `localProvidersToServerModels`, `resolveProvidersForDisplay`, `formatRegistryAuthLabel` — registry-first catalog resolution used by CLI, server, and providers command.
 

@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -23,7 +23,7 @@ describe.skipIf(process.platform === 'win32')('resolveOpencodeAuthPath', () => {
 
 describe.skipIf(process.platform === 'win32')('readOpencodeAuthFile', () => {
   it('parses oauth entries', () => {
-    const home = mkdtempSync(join(tmpdir(), 'relay-oauth-'));
+    const home = mkdtempSync(join(tmpdir(), 'gateway-oauth-'));
     const dataHome = join(home, 'share');
     mkdirSync(join(dataHome, 'opencode'), { recursive: true });
     const path = join(dataHome, 'opencode', 'auth.json');
@@ -39,7 +39,7 @@ describe.skipIf(process.platform === 'win32')('readOpencodeAuthFile', () => {
   });
 
   it('warns when auth file is world-readable', () => {
-    const home = mkdtempSync(join(tmpdir(), 'relay-oauth-'));
+    const home = mkdtempSync(join(tmpdir(), 'gateway-oauth-'));
     const path = join(home, 'auth.json');
     writeFileSync(path, '{}', 'utf8');
     chmodSync(path, 0o644);

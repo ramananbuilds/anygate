@@ -36,11 +36,24 @@ export function printPanel(title: string, lines: string[]): void {
   process.stdout.write(`${pc.gray('├' + '─'.repeat(width + 2) + '╯')}\n`);
 }
 
-export function relayIntro(section: string): void {
+export function gateIntro(section: string): void {
   p.intro(`${pc.bold(pc.cyan('anygate'))}${pc.bold(` — ${section}`)}`);
 }
 
-export function relayOutro(status: string, detail?: string): void {
+/** Prints the anygate ASCII banner (ANSI Shadow) to stdout. */
+export function printAsciiBanner(): void {
+  const banner = [
+    '█████╗ ███╗   ██╗██╗   ██╗ ██████╗  █████╗ ████████╗███████╗',
+    '██╔══██╗████╗  ██║╚██╗ ██╔╝██╔════╝ ██╔══██╗╚══██╔══╝██╔════╝',
+    '███████║██╔██╗ ██║ ╚████╔╝ ██║  ███╗███████║   ██║   █████╗  ',
+    '██╔══██║██║╚██╗██║  ╚██╔╝  ██║   ██║██╔══██║   ██║   ██╔══╝  ',
+    '██║  ██║██║ ╚████║   ██║   ╚██████╔╝██║  ██║   ██║   ███████╗',
+    '╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝',
+  ].join('\n');
+  process.stdout.write(pc.cyanBright(banner) + '\n');
+}
+
+export function gateOutro(status: string, detail?: string): void {
   p.outro(detail
     ? `${pc.green(status)} ${pc.dim('—')} ${detail}`
     : pc.green(status));

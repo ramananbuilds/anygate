@@ -17,11 +17,11 @@ export interface AppInfo {
   installed: boolean;
   path: string | null;
   pathSource: 'auto' | 'override' | null;
-  relayCommand: string;
+  gatewayCommand: string;
   launchCommand: string | null;
 }
 
-export interface RelayLaunchOptions {
+export interface GatewayLaunchOptions {
   providerId?: string;
   modelId?: string;
   favorites?: boolean;
@@ -34,41 +34,41 @@ interface SupportedAppDefinition {
   name: string;
   type: 'cli' | 'app';
   detectId: string;
-  relayCommand: string;
+  gatewayCommand: string;
 }
 
 const SUPPORTED_APPS: SupportedAppDefinition[] = [
-  { id: 'claude', name: 'Claude Code CLI', type: 'cli', detectId: 'claude', relayCommand: 'claude' },
-  { id: 'codex', name: 'Codex CLI', type: 'cli', detectId: 'codex', relayCommand: 'codex' },
-  { id: 'gemini', name: 'Gemini CLI', type: 'cli', detectId: 'gemini', relayCommand: 'gemini' },
-  { id: 'agy', name: 'Antigravity CLI', type: 'cli', detectId: 'agy', relayCommand: 'agy' },
+  { id: 'claude', name: 'Claude Code CLI', type: 'cli', detectId: 'claude', gatewayCommand: 'claude' },
+  { id: 'codex', name: 'Codex CLI', type: 'cli', detectId: 'codex', gatewayCommand: 'codex' },
+  { id: 'gemini', name: 'Gemini CLI', type: 'cli', detectId: 'gemini', gatewayCommand: 'gemini' },
+  { id: 'agy', name: 'Antigravity CLI', type: 'cli', detectId: 'agy', gatewayCommand: 'agy' },
   {
     id: 'antigravity',
     name: 'Antigravity (App)',
     type: 'app',
     detectId: 'antigravity',
-    relayCommand: 'antigravity',
+    gatewayCommand: 'antigravity',
   },
   {
     id: 'antigravity-ide',
     name: 'Antigravity IDE (App)',
     type: 'app',
     detectId: 'antigravity-ide',
-    relayCommand: 'antigravity-ide',
+    gatewayCommand: 'antigravity-ide',
   },
   {
     id: 'claude-app',
     name: 'Claude Code Desktop',
     type: 'app',
     detectId: 'claude-app',
-    relayCommand: 'claude-app',
+    gatewayCommand: 'claude-app',
   },
   {
     id: 'codex-app',
     name: 'ChatGPT Desktop (Codex)',
     type: 'app',
     detectId: 'codex-app',
-    relayCommand: 'codex-app',
+    gatewayCommand: 'codex-app',
   },
 ];
 
@@ -311,25 +311,25 @@ function quoteShellArg(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
-function relayCliPath(): string {
+function gatewayCliPath(): string {
   return 'anygate';
 }
 
-export function getRelayLaunchCommand(appId: string, options: RelayLaunchOptions = {}): string {
+export function getGatewayLaunchCommand(appId: string, options: GatewayLaunchOptions = {}): string {
   const app = getSupportedApp(appId);
   if (!app) throw new Error(`Unsupported app: ${appId}`);
 
-  const args = [app.relayCommand];
+  const args = [app.gatewayCommand];
   if (options.trace) {
     args.push('--trace');
   }
   if (options.providerId && options.modelId) {
     args.push('--provider', options.providerId, '--model', options.modelId);
   } else if (options.providerId || options.modelId) {
-    throw new Error('Both providerId and modelId are required for an explicit Relay launch.');
+    throw new Error('Both providerId and modelId are required for an explicit anygate launch.');
   }
 
-  return getTerminalLaunchCommand(relayCliPath(), args, {
+  return getTerminalLaunchCommand(gatewayCliPath(), args, {
     cwd: options.cwd,
     displayCommand: ['anygate', ...args].join(' '),
   });
@@ -346,8 +346,8 @@ export function getSupportedApps(): AppInfo[] {
       installed,
       path,
       pathSource,
-      relayCommand: app.relayCommand,
-      launchCommand: installed ? getRelayLaunchCommand(app.id) : null,
+      gatewayCommand: app.gatewayCommand,
+      launchCommand: installed ? getGatewayLaunchCommand(app.id) : null,
     };
   });
 }

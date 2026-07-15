@@ -62,7 +62,7 @@ const BLACKLIST_ENTRIES = (blacklistData as IncompatibleModelFile).entries ?? []
 // models; keep normal Google API models governed by the generic rules below.
 // Intentionally local allow-list, not model-incompatible.json:
 // model-incompatible.json is deny-only and has no allow/deny polarity.
-// Moving this would require a data schema migration. See
+// Moving this would require a data schema upgradeion. See
 // docs/superpowers/specs/2026-07-08-agent-launch-consolidation-design.md#111--antigravitys-model-allow-list-vs-the-shared-blacklist-file-deferred
 const ANTIGRAVITY_VALIDATED_AGENT_MODELS = new Set([
   'gemini-3.5-flash-low',
@@ -113,7 +113,7 @@ export function shouldHideModel(ctx: CompatibilityContext): boolean {
   return hideReason(ctx) !== null;
 }
 
-// ── Zen/Go model discovery (migrated from deleted src/models.ts) ─────────────
+// ── Zen/Go model discovery (upgraded from deleted src/models.ts) ─────────────
 
 export function readModelsFromCache(
   backendId: 'zen' | 'go',

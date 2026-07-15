@@ -96,7 +96,7 @@ export function formatCloudCodeChunk(opts: CloudCodeChunkOptions): Record<string
 
   return {
     response,
-    traceId: 'relay-trace',
+    traceId: 'gateway-trace',
     metadata: {},
   };
 }

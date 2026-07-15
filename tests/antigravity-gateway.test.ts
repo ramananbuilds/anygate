@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { generateText, streamText } from 'ai';
 import { createLanguageModel } from '../src/gateway/provider-factory.js';
 import { startCloudCodeGateway, type CloudCodeGatewayHandle } from '../src/gateway/antigravity/cloud-code-gateway.js';
@@ -53,7 +53,7 @@ const testRoutes: AntigravityRoute[] = [
     providerName: 'OpenCode Zen',
     modelId: 'deepseek-v4-flash-free',
     upstreamModelId: 'deepseek-v4-flash-free',
-    displayName: 'DeepSeek V4 Flash (Relay)',
+    displayName: 'DeepSeek V4 Flash (anygate)',
     npm: '@ai-sdk/openai-compatible',
     apiKey: 'test-key',
     baseURL: 'https://api.example.com',
@@ -65,7 +65,7 @@ const testRoutes: AntigravityRoute[] = [
     providerName: 'Groq',
     modelId: 'llama-3.3-70b',
     upstreamModelId: 'llama-3.3-70b',
-    displayName: 'Llama 3.3 70B (Relay)',
+    displayName: 'Llama 3.3 70B (anygate)',
     npm: '@ai-sdk/openai-compatible',
     apiKey: 'groq-key',
     authType: 'api',
@@ -135,17 +135,17 @@ describe('cloud-code-gateway', () => {
 
   // --- fetchAvailableModels ---
 
-  it('serves fetchAvailableModels with injected relay models', async () => {
+  it('serves fetchAvailableModels with injected gateway models', async () => {
     const handle = await start();
     const res = await postJson(handle, '/v1internal:fetchAvailableModels', {});
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.models['anygate__zen__deepseek-v4-flash-free']).toBeDefined();
     expect(data.models['anygate__groq__llama-3.3-70b']).toBeDefined();
-    expect(data.models['anygate__zen__deepseek-v4-flash-free'].displayName).toBe('DeepSeek V4 Flash (Relay)');
+    expect(data.models['anygate__zen__deepseek-v4-flash-free'].displayName).toBe('DeepSeek V4 Flash (anygate)');
     expect(data.defaultAgentModelId).toBe('gemini-3.5-flash-low');
-    expect(data.models[data.defaultAgentModelId].displayName).toBe('DeepSeek V4 Flash (Relay)');
-    expect(data.models['gemini-3.5-flash-extra-low'].displayName).toBe('Llama 3.3 70B (Relay)');
+    expect(data.models[data.defaultAgentModelId].displayName).toBe('DeepSeek V4 Flash (anygate)');
+    expect(data.models['gemini-3.5-flash-extra-low'].displayName).toBe('Llama 3.3 70B (anygate)');
     expect(data.agentModelSorts[0].groups[0].modelIds).toEqual([
       'gemini-3.5-flash-low',
       'gemini-3.5-flash-extra-low',
@@ -180,13 +180,13 @@ describe('cloud-code-gateway', () => {
     expect(data.allowedModelConfigs[0].requestedModelId).toBe('gemini-3.5-flash-low');
     expect(data.allowedModelConfigs[1].requestedModelId).toBe('gemini-3.5-flash-extra-low');
     expect(data.clientModelConfigs.map((config: any) => config.label)).toEqual([
-      'DeepSeek V4 Flash (Relay)',
-      'Llama 3.3 70B (Relay)',
+      'DeepSeek V4 Flash (anygate)',
+      'Llama 3.3 70B (anygate)',
     ]);
     expect(data.clientModelConfigs[1].modelOrAlias.alias).toBe('gemini-3.5-flash-extra-low');
     expect(data.clientModelSorts[0].groups[0].modelLabels).toEqual([
-      'DeepSeek V4 Flash (Relay)',
-      'Llama 3.3 70B (Relay)',
+      'DeepSeek V4 Flash (anygate)',
+      'Llama 3.3 70B (anygate)',
     ]);
   });
 
@@ -285,7 +285,7 @@ describe('cloud-code-gateway', () => {
 
   // --- Streaming GenerateContent ---
 
-  it('rejects generation for non-relay models with 403', async () => {
+  it('rejects generation for non-gateway models with 403', async () => {
     vi.mocked(createLanguageModel).mockClear();
     const handle = await start();
     const res = await postJson(handle, '/v1internal:streamGenerateContent?alt=sse', {
@@ -365,7 +365,7 @@ describe('cloud-code-gateway', () => {
     expect(text).toContain('response');
   });
 
-  it('handles relay model streaming requests via fullStream', async () => {
+  it('handles gateway model streaming requests via fullStream', async () => {
     const handle = await start();
     const res = await postJson(handle, '/v1internal:streamGenerateContent?alt=sse', {
       model: 'anygate__zen__deepseek-v4-flash-free',
@@ -401,7 +401,7 @@ describe('cloud-code-gateway', () => {
     });
   });
 
-  it('keeps relay catalog ids routable for compatibility', async () => {
+  it('keeps gateway catalog ids routable for compatibility', async () => {
     vi.mocked(createLanguageModel).mockClear();
     const handle = await start();
     const res = await postJson(handle, '/v1internal:streamGenerateContent?alt=sse', {
@@ -464,7 +464,7 @@ describe('cloud-code-gateway', () => {
         providerName: 'OpenAI OAuth',
         modelId: 'gpt-5.4-mini',
         upstreamModelId: 'gpt-5.4-mini',
-        displayName: 'GPT-5.4 Mini (Relay)',
+        displayName: 'GPT-5.4 Mini (anygate)',
         npm: '@ai-sdk/openai',
         apiKey: 'oauth-token',
         authType: 'oauth',
@@ -496,7 +496,7 @@ describe('cloud-code-gateway', () => {
         providerName: 'Claude Code OAuth',
         modelId: 'claude-sonnet-4-6',
         upstreamModelId: 'claude-sonnet-4-6',
-        displayName: 'Claude Sonnet 4.6 (Relay)',
+        displayName: 'Claude Sonnet 4.6 (anygate)',
         npm: '@ai-sdk/anthropic',
         apiKey: 'oauth-token',
         authType: 'oauth',
@@ -565,7 +565,7 @@ describe('cloud-code-gateway', () => {
           providerName: 'Antigravity OAuth',
           modelId: 'gemini-3.5-flash-extra-low',
           upstreamModelId: 'gemini-3.5-flash-extra-low',
-          displayName: 'Gemini 3.5 Flash (Low) (Relay)',
+          displayName: 'Gemini 3.5 Flash (Low) (anygate)',
           modelFormat: 'cloud-code',
           npm: '@ai-sdk/openai-compatible',
           apiKey: 'cloud-code-token',

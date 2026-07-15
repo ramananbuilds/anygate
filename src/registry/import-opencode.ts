@@ -13,7 +13,7 @@ import {
   type OAuthImportContext,
 } from './import-build.js';
 import { loadRegistry, saveRegistry } from './io.js';
-import { migrateLegacyCloudProviders } from './migrate.js';
+import { upgradeLegacyCloudProviders } from './upgrade.js';
 import { readOpencodeAuthFile, oauthCredentialToKeychainJson } from './opencode-auth.js';
 import type { RegistryProvider } from './types.js';
 import { isValidProviderId } from './validate.js';
@@ -115,7 +115,7 @@ export async function importFromOpencode(options: ImportOpencodeOptions = {}): P
   const { providers: fetched, oauth } = buildImportProviderList(raw, authEntries);
 
   const registry = loadRegistry();
-  migrateLegacyCloudProviders(registry);
+  upgradeLegacyCloudProviders(registry);
   const imported: RegistryProvider[] = [];
   const skipped: ImportOpencodeResult['skipped'] = [];
   const keysSkipped: ImportKeySkipped[] = [];

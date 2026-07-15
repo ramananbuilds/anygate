@@ -49,8 +49,8 @@ export async function fetchWithOAuthRetry<TResponse extends { status: number }>(
   return { response, apiKey: refreshed, refreshed: true };
 }
 
-/** Relay an Anthropic /v1/messages response (JSON or SSE) to the client. */
-export async function relayAnthropicMessages(
+/** Gateway an Anthropic /v1/messages response (JSON or SSE) to the client. */
+export async function forwardAnthropicMessages(
   res: ServerResponse,
   messagesUrl: string,
   body: Record<string, unknown>,

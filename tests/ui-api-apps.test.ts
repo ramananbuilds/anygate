@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,7 +20,7 @@ vi.mock('../src/agents/shared/native-launcher.js', () => ({
       type: 'cli',
       installed: true,
       path: '/bin/claude',
-      relayCommand: 'claude',
+      gatewayCommand: 'claude',
       launchCommand: 'mock-launch',
     }
   ],
@@ -30,11 +30,11 @@ vi.mock('../src/agents/shared/native-launcher.js', () => ({
   },
   getSupportedApp: (id: string) => {
     if (id === 'claude') {
-      return { id: 'claude', name: 'Claude Code CLI', type: 'cli', detectId: 'claude', relayCommand: 'claude' };
+      return { id: 'claude', name: 'Claude Code CLI', type: 'cli', detectId: 'claude', gatewayCommand: 'claude' };
     }
     return undefined;
   },
-  getRelayLaunchCommand: (appId: string, options: { providerId?: string; modelId?: string; cwd?: string; trace?: boolean }) => {
+  getGatewayLaunchCommand: (appId: string, options: { providerId?: string; modelId?: string; cwd?: string; trace?: boolean }) => {
     const args = [appId];
     if (options.trace) args.push('--trace');
     if (options.providerId && options.modelId) {
@@ -47,18 +47,18 @@ vi.mock('../src/agents/shared/native-launcher.js', () => ({
 
 describe('UI API Apps endpoints', () => {
   let tempHome: string;
-  let previousRelayHome: string | undefined;
+  let previousGatewayHome: string | undefined;
 
   beforeEach(() => {
     tempHome = mkdtempSync(join(tmpdir(), 'anygate-ui-api-test-'));
-    previousRelayHome = process.env['ANYGATE_HOME'];
-    process.env['ANYGATE_HOME'] = join(tempHome, 'relay-home');
+    previousGatewayHome = process.env['ANYGATE_HOME'];
+    process.env['ANYGATE_HOME'] = join(tempHome, 'gateway-home');
   });
 
   afterEach(() => {
     rmSync(tempHome, { recursive: true, force: true });
-    if (previousRelayHome === undefined) delete process.env['ANYGATE_HOME'];
-    else process.env['ANYGATE_HOME'] = previousRelayHome;
+    if (previousGatewayHome === undefined) delete process.env['ANYGATE_HOME'];
+    else process.env['ANYGATE_HOME'] = previousGatewayHome;
   });
 
   it('handles GET /api/apps', async () => {

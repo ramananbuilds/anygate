@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,13 +16,13 @@ describe('codex app session', () => {
   let home: string;
   let prevHome: string | undefined;
   let prevUserProfile: string | undefined;
-  let prevRelayHome: string | undefined;
+  let prevGatewayHome: string | undefined;
 
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'relay-codex-app-session-'));
+    home = mkdtempSync(join(tmpdir(), 'gateway-codex-app-session-'));
     prevHome = process.env.HOME;
     prevUserProfile = process.env.USERPROFILE;
-    prevRelayHome = process.env.ANYGATE_HOME;
+    prevGatewayHome = process.env.ANYGATE_HOME;
     process.env.HOME = home;
     process.env.USERPROFILE = home;
     process.env.ANYGATE_HOME = join(home, '.anygate');
@@ -34,8 +34,8 @@ describe('codex app session', () => {
     else process.env.HOME = prevHome;
     if (prevUserProfile === undefined) delete process.env.USERPROFILE;
     else process.env.USERPROFILE = prevUserProfile;
-    if (prevRelayHome === undefined) delete process.env.ANYGATE_HOME;
-    else process.env.ANYGATE_HOME = prevRelayHome;
+    if (prevGatewayHome === undefined) delete process.env.ANYGATE_HOME;
+    else process.env.ANYGATE_HOME = prevGatewayHome;
   });
 
   function proxySpec(catalogPath: string): CodexAppConfigSpec {

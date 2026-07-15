@@ -9,8 +9,8 @@ import {
   navOption,
   printEnvConflictPanel,
   providerSelectOption,
-  relayIntro,
-  relayOutro,
+  gateIntro,
+  gateOutro,
   formatModelLabel,
 } from './ui.js';
 import { scoreModelSearch } from './model-search.js';
@@ -371,6 +371,6 @@ export async function pickLocalModel(
     return null;
   }
 
-  relayOutro('Launching', fmtModel(modelLabel, selectedModel.id));
+  gateOutro('Launching', fmtModel(modelLabel, selectedModel.id));
   return selectedModel;
 }

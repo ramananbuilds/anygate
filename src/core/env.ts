@@ -79,10 +79,10 @@ export function buildAntigravityChildEnv(gatewayUrl: string): NodeJS.ProcessEnv 
   // This prevents the race condition where loadCodeAssist fails and falls back
   // to the hardcoded, unsupported FLASH_LITE model.
   // The local Cloud Code Gateway ignores these keys, so any dummy value works.
-  env['ANTIGRAVITY_API_KEY'] = 'relay-dummy-key';
-  env['GEMINI_API_KEY'] = 'relay-dummy-key';
-  env['GOOGLE_API_KEY'] = 'relay-dummy-key';
-  env['GOOGLE_GEMINI_API_KEY'] = 'relay-dummy-key';
+  env['ANTIGRAVITY_API_KEY'] = 'gateway-dummy-key';
+  env['GEMINI_API_KEY'] = 'gateway-dummy-key';
+  env['GOOGLE_API_KEY'] = 'gateway-dummy-key';
+  env['GOOGLE_GEMINI_API_KEY'] = 'gateway-dummy-key';
 
   return env;
 }
@@ -104,7 +104,7 @@ export function classifyKeyringError(err: unknown): string {
 }
 
 const KEYRING_SERVICE = 'anygate';
-/** @deprecated Use GLOBAL_OPENCODE_KEYRING_ACCOUNT — kept for migration reads */
+/** @deprecated Use GLOBAL_OPENCODE_KEYRING_ACCOUNT — kept for upgradeion reads */
 const KEYRING_ACCOUNT = 'anygate';
 // Windows Credential Manager caps a single credential blob at 2560 bytes (CredWriteW).
 // keyring-rs encodes the password as UTF-16 (2 bytes/char) before that check, so the
@@ -241,10 +241,10 @@ export async function readGlobalOpencodeCredential(diag?: (msg: string) => void)
 }
 
 /**
- * Migrate legacy keychain entries to `global:opencode`.
+ * Upgrade legacy keychain entries to `global:opencode`.
  * Protocol: read → write → verify → delete old (only after verify succeeds).
  */
-export async function migrateGlobalOpencodeCredential(diag?: (msg: string) => void): Promise<boolean> {
+export async function upgradeGlobalOpencodeCredential(diag?: (msg: string) => void): Promise<boolean> {
   const existing = await readKeyringAccount(GLOBAL_OPENCODE_KEYRING_ACCOUNT, diag);
   if (existing) return true;
 
@@ -267,7 +267,7 @@ export async function migrateGlobalOpencodeCredential(diag?: (msg: string) => vo
 
   const verified = await readKeyringAccount(GLOBAL_OPENCODE_KEYRING_ACCOUNT, diag);
   if (verified !== legacy) {
-    diag?.('credential migration verification failed — keeping legacy keychain entries');
+    diag?.('credential upgradeion verification failed — keeping legacy keychain entries');
     return false;
   }
 

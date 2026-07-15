@@ -95,7 +95,7 @@ export interface ProviderModelSpec {
 }
 
 /** True when this provider routes through the SDK adapter (local providers + Zen/Go openai-format). */
-export function isSdkMigratedNpm(npm: string | undefined): boolean {
+export function isSdkUpgradedNpm(npm: string | undefined): boolean {
   return !!npm && npm !== '@ai-sdk/anthropic';
 }
 

@@ -61,8 +61,8 @@ provider you actually want to use.
 ## Origin note
 
 The project was forked/renamed from a predecessor product. User-facing copy (README,
-UI) says "Route any model". The legacy `relay*` identifiers were removed during the
+UI) says "Route any model". The legacy `gateway*` identifiers were removed during the
 domain-split restructure; launch messaging now lives in
 [src/gateway/server.ts](../src/gateway/server.ts) and provider launch flags in
 [src/providers/command.ts](../src/providers/command.ts). `package.json` `description`
-still contains the word "Relay" and is backlog to clean (see [06_CONVENTIONS.md](./06_CONVENTIONS.md)).
+still contains the word "Gateway" and is backlog to clean (see [06_CONVENTIONS.md](./06_CONVENTIONS.md)).

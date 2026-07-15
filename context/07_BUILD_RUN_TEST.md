@@ -102,4 +102,4 @@ The `tests/helpers/` folder holds shared fixtures.
 > Provider credential resolution is not centralized — fix all divergent copies on credential bugs.
 
 > [!WARNING]
-> `package.json` `description`/`keywords` still carry the legacy "Relay" word (backlog).
+> `package.json` `description`/`keywords` still carry the legacy "Gateway" word (backlog).

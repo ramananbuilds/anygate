@@ -5,7 +5,7 @@ import {
   isTargetCompatibleModel,
   providersForTarget,
   routableModelsForTarget,
-  type RelayLaunchTarget,
+  type GatewayLaunchTarget,
 } from '../../../src/agents/shared/target-compatibility.js';
 import type { LocalProvider, LocalProviderModel } from '../../../src/core/types.js';
 
@@ -31,7 +31,7 @@ export interface CodexRoute {
 export function isRoutableModel(
   model: LocalProviderModel,
   providerId: string,
-  agent: RelayLaunchTarget = 'codex',
+  agent: GatewayLaunchTarget = 'codex',
   authType?: LocalProvider['authType'],
 ): boolean {
   return isTargetCompatibleModel({ target: agent, providerId, authType, model }).compatible;
@@ -40,7 +40,7 @@ export function isRoutableModel(
 /** Registry providers with at least one routable model (includes Anthropic). */
 export function codexCompatibleProviders(
   providers: LocalProvider[],
-  agent: RelayLaunchTarget = 'codex',
+  agent: GatewayLaunchTarget = 'codex',
 ): LocalProvider[] {
   return providersForTarget(providers, agent);
 }
@@ -113,7 +113,7 @@ export function resolveCodexRoute(
 
 export function routableModelsForProvider(
   provider: LocalProvider,
-  agent: RelayLaunchTarget = 'codex',
+  agent: GatewayLaunchTarget = 'codex',
 ): LocalProviderModel[] {
   return routableModelsForTarget(provider, agent);
 }
@@ -122,7 +122,7 @@ export function buildCodexProxyRoutesForProvider(
   provider: LocalProvider,
   apiKey: string,
   selectedModelId?: string,
-  agent: RelayLaunchTarget = 'codex',
+  agent: GatewayLaunchTarget = 'codex',
 ): CodexProxyRoute[] {
   const routable = routableModelsForProvider(provider, agent);
   const ordered = selectedModelId

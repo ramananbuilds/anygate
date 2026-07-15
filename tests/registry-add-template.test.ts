@@ -9,7 +9,7 @@ import type { ProviderTemplate } from '../src/providers/provider-templates.js';
 import type { ProviderRegistry } from '../src/registry/types.js';
 
 vi.mock('../src/core/env.js', () => ({ saveProviderCredential: vi.fn() }));
-vi.mock('../src/gateway/provider-factory.js', () => ({ isSdkMigratedNpm: vi.fn() }));
+vi.mock('../src/gateway/provider-factory.js', () => ({ isSdkUpgradedNpm: vi.fn() }));
 vi.mock('../src/registry/fetch-template-models.js', () => ({ fetchTemplateModels: vi.fn() }));
 vi.mock('../src/registry/io.js', () => ({ loadRegistry: vi.fn(), saveRegistry: vi.fn() }));
 vi.mock('../src/registry/pricing.js', () => ({
@@ -33,7 +33,7 @@ describe('registry/add-template', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    vi.mocked(providerFactory.isSdkMigratedNpm).mockReturnValue(true);
+    vi.mocked(providerFactory.isSdkUpgradedNpm).mockReturnValue(true);
     vi.mocked(env.saveProviderCredential).mockResolvedValue(true);
     
     vi.mocked(io.loadRegistry).mockReturnValue({
@@ -61,7 +61,7 @@ describe('registry/add-template', () => {
   });
 
   it('fails if npm is not available', async () => {
-    vi.mocked(providerFactory.isSdkMigratedNpm).mockReturnValue(false);
+    vi.mocked(providerFactory.isSdkUpgradedNpm).mockReturnValue(false);
     const res = await addProviderFromTemplate(dummyTemplate, 'key');
     expect(res.added).toBe(false);
     expect(res.error).toContain('is not available in anygate');

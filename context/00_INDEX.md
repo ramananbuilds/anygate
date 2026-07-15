@@ -7,7 +7,7 @@ written so another agent can build, modify, or debug anygate from scratch withou
 needing to read every source file first.
 
 > Project: **anygate** — a Node.js CLI + visual launcher that routes *any* model into
-> *any* coding agent. Version `0.4.4`. License MIT. Maintainer `ramanan-techlover`.
+> *any* coding agent. Version `0.1.0`. License MIT. Maintainer `ramanan-techlover`.
 
 ## Reading order (do not skip)
 
@@ -25,7 +25,7 @@ needing to read every source file first.
 
 | Field | Value |
 |-------|-------|
-| Version | `0.4.4` |
+| Version | `0.1.0` |
 | Runtime | Node.js 18+ (ESM, `"type": "module"`) |
 | Language | TypeScript (strict, ES2022 target) |
 | Bundle | single `dist/cli.js` via `tsup` (shebang `#!/usr/bin/env node`) |
@@ -52,7 +52,7 @@ needing to read every source file first.
 > copies. This fixed the Kilo Code "No credential" bug.
 
 > [!WARNING]
-> `package.json` `description`/`keywords` still carry the legacy "Relay" word. Normalize
+> `package.json` `description`/`keywords` still carry the legacy "Gateway" word. Normalize
 > for consistency (backlog item). User-facing copy already says "Route any model".
 
 ## Where to look for things

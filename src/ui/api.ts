@@ -1,4 +1,4 @@
-import { getSupportedApps, getSupportedApp, getRelayLaunchCommand, detectApp } from '../agents/shared/native-launcher.ts';
+import { getSupportedApps, getSupportedApp, getGatewayLaunchCommand, detectApp } from '../agents/shared/native-launcher.ts';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -686,7 +686,7 @@ async function handleLaunchApp(req: IncomingMessage, res: ServerResponse, opts: 
     }
 
     if (!favorites && (providerId || modelId) && (!providerId || !modelId)) {
-      sendJson(res, 400, { error: 'Both providerId and modelId are required to launch a specific Relay model.' });
+      sendJson(res, 400, { error: 'Both providerId and modelId are required to launch a specific anygate model.' });
       return;
     }
 
@@ -718,7 +718,7 @@ async function handleLaunchApp(req: IncomingMessage, res: ServerResponse, opts: 
       recordLaunchFolder(launchFolder);
     }
 
-    const launchCmd = getRelayLaunchCommand(appId, {
+    const launchCmd = getGatewayLaunchCommand(appId, {
       providerId,
       modelId,
       cwd: launchFolder,

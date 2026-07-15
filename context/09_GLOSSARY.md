@@ -99,7 +99,7 @@ Boot flags: `--provider`, `--model`, `--dry-run`, `--setup`, `--trace`, `--verte
 |------|---------|
 | Registry provider | A provider configured once via `anygate providers` (Groq, Mistral, Together, OpenRouter, SDK templates, custom endpoints). |
 | OpenCode Zen / Go | Cloud backends via an OpenCode API key (`BACKENDS`). |
-| OpenCode import | One-time migration of an existing OpenCode setup. |
+| OpenCode import | One-time import of an existing OpenCode setup. |
 | Vertex AI | Claude on Google Vertex via `gcloud` ADC + `anygate server --vertex`. |
 | `authType` | `'api'` \| `'oauth'` \| `'none'` on a `LocalProvider`. |
 | OAuth device-code | Flows for `github-copilot`, `openai-oauth`, `xai-oauth`, `antigravity-oauth`. |

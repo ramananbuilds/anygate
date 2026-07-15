@@ -43,7 +43,7 @@ companion to [02_ARCHITECTURE.md](./02_ARCHITECTURE.md) and [04_DATA_FLOW.md](./
 ```
 anygate providers add <template>   # built-in SDK-backed template
 anygate providers add custom        # custom OpenAI/Anthropic-compatible endpoint
-anygate providers import            # one-time OpenCode migration
+anygate providers import            # one-time OpenCode import
 anygate providers auth <id>         # OAuth device-code flow
 anygate providers refresh-models    # refresh cached catalogs
 anygate providers list              # show configured providers

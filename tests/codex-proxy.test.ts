@@ -194,9 +194,9 @@ describe('startCodexProxy', () => {
 });
 
 describe('Codex compaction protection', () => {
-  it('detects and shrinks oversized relay-started compaction requests before upstream', () => {
+  it('detects and shrinks oversized gateway-started compaction requests before upstream', () => {
     const body = {
-      model: 'relay-model',
+      model: 'gateway-model',
       stream: true,
       previous_response_id: 'resp_previous',
       input: [
@@ -234,7 +234,7 @@ describe('Codex compaction protection', () => {
 
   it('strips tools from a detected compaction request so the model must return a text summary', () => {
     const body = {
-      model: 'relay-model',
+      model: 'gateway-model',
       stream: true,
       previous_response_id: 'resp_previous',
       tools: [{ type: 'function', name: 'read_file', parameters: {} }],
@@ -264,7 +264,7 @@ describe('Codex compaction protection', () => {
 
   it('caps output tokens on a detected compaction request to bound a runaway generation', () => {
     const body = {
-      model: 'relay-model',
+      model: 'gateway-model',
       stream: true,
       previous_response_id: 'resp_previous',
       input: [
@@ -290,7 +290,7 @@ describe('Codex compaction protection', () => {
 
   it('does not raise an already-tighter client-supplied output cap on compaction', () => {
     const body = {
-      model: 'relay-model',
+      model: 'gateway-model',
       stream: true,
       input: [
         ...Array.from({ length: 240 }, (_, i) => ({
@@ -315,7 +315,7 @@ describe('Codex compaction protection', () => {
   });
 
   it('keeps tools on a normal (non-compaction) request', () => {
-    const body = { model: 'relay-model', stream: true, input: 'hello' };
+    const body = { model: 'gateway-model', stream: true, input: 'hello' };
     const params: CodexSdkCallParams = {
       messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }],
       tools: { read_file: {} } as CodexSdkCallParams['tools'],
@@ -333,7 +333,7 @@ describe('Codex compaction protection', () => {
     // 427KB body (> 2x the 200K window) was misclassified as compaction by the old size
     // heuristic, stripping its tools mid-task.
     const body = {
-      model: 'relay-model',
+      model: 'gateway-model',
       stream: true,
       input: Array.from({ length: 89 }, (_, i) => ({
         type: 'message',
@@ -358,7 +358,7 @@ describe('Codex compaction protection', () => {
 
   it('classifies a small request with a compaction_trigger item as compaction', () => {
     const body = {
-      model: 'relay-model',
+      model: 'gateway-model',
       stream: true,
       input: [
         { type: 'message', role: 'user', content: 'short conversation' },
@@ -372,7 +372,7 @@ describe('Codex compaction protection', () => {
     // Older Codex versions send the summarization prompt as the final user message
     // (codex-rs templates/compact/prompt.md) instead of a compaction_trigger item.
     const body = {
-      model: 'relay-model',
+      model: 'gateway-model',
       stream: true,
       input: [
         { type: 'message', role: 'user', content: 'earlier conversation' },
@@ -384,7 +384,7 @@ describe('Codex compaction protection', () => {
 
   it('ignores the checkpoint marker when it appears mid-history (e.g. quoted in a diff)', () => {
     const body = {
-      model: 'relay-model',
+      model: 'gateway-model',
       stream: true,
       input: [
         { type: 'message', role: 'user', content: 'You are performing a CONTEXT CHECKPOINT COMPACTION — this string appears in a file we are reviewing.' },

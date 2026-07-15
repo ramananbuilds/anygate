@@ -26,13 +26,13 @@ import {
   waitForAntigravityIdeQuit,
 } from '../../../src/gateway/antigravity/launch-ide.js';
 import { pickLocalModel } from '../../agents/shared/prompts.js';
-import { providerSelectOption, formatModelLabel, relayIntro, relayOutro } from '../../agents/shared/ui.js';
+import { providerSelectOption, formatModelLabel, gateIntro, gateOutro } from '../../agents/shared/ui.js';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { FavoriteModel, UserPreferences, LocalProvider, LocalProviderModel } from '../../../src/core/types.js';
 import type { CatalogFixture } from '../../../src/gateway/antigravity/types.js';
 
-const AGY_FAVORITES_PROVIDER_ID = '__relay_agy_favorites__';
+const AGY_FAVORITES_PROVIDER_ID = '__gateway_agy_favorites__';
 const AGY_FAVORITES_PROVIDER_LABEL = '★ Antigravity CLI Favorites';
 
 /** True when child args already select a model (--model or --model=). */
@@ -74,7 +74,7 @@ function resolveFavoriteModel(
 function normalizeAgyModelSelector(value: string): string {
   return value
     .trim()
-    .replace(/\s*\(Relay(?: - .*)?\)\s*$/i, '')
+    .replace(/\s*\(anygate(?: - .*)?\)\s*$/i, '')
     .toLowerCase();
 }
 
@@ -329,7 +329,7 @@ async function runAntigravityCommand(
 ): Promise<number> {
   const prefs = loadPreferences();
 
-  relayIntro(intro);
+  gateIntro(intro);
   if (
     tracePrefix === 'agy'
     && (prefs.favoriteModels?.length ?? 0) > 0
@@ -388,7 +388,7 @@ async function runAntigravityCommand(
   p.log.success(`Active model: ${formatModelLabel(model)} ${pc.dim('via')} ${provider.name}`);
   if (trace) p.log.info(`Gateway trace → ${pc.dim(traceLogPath)}`);
 
-  relayOutro('Launching', `${formatModelLabel(model)} (${provider.name})`);
+  gateOutro('Launching', `${formatModelLabel(model)} (${provider.name})`);
 
   try {
     const cleanEnv = buildAntigravityChildEnv(gatewayHandle.url);
@@ -421,7 +421,7 @@ export async function runAntigravityAppCommand(
       const profileDir = join(homedir(), '.anygate', 'antigravity', 'app-profile');
       if (isAntigravityAppRunning(profileDir)) {
         const restart = await p.confirm({
-          message: 'Restart Antigravity to apply this Relay gateway?',
+          message: 'Restart Antigravity to apply this Gateway gateway?',
           initialValue: true,
         });
         if (p.isCancel(restart) || !restart) {
@@ -438,7 +438,7 @@ export async function runAntigravityAppCommand(
       const launchCode = await launchAntigravityApp(env, profileDir, gatewayHandle.url, childArgs);
       if (launchCode !== 0) return launchCode;
 
-      p.log.info('Antigravity is using the Relay Cloud Code gateway.');
+      p.log.info('Antigravity is using the Gateway Cloud Code gateway.');
       p.log.info(pc.cyan('Press Ctrl+C to stop the gateway.'));
       await waitForShutdown();
       await new Promise(r => setTimeout(r, SHUTDOWN_DRAIN_MS));
@@ -473,7 +473,7 @@ export async function runAntigravityIdeCommand(
       const profileDir = join(homedir(), '.anygate', 'antigravity', 'profile');
       if (isAntigravityIdeRunning(profileDir)) {
         const restart = await p.confirm({
-          message: 'Restart Antigravity IDE to apply this Relay gateway?',
+          message: 'Restart Antigravity IDE to apply this Gateway gateway?',
           initialValue: true,
         });
         if (p.isCancel(restart) || !restart) {
@@ -490,7 +490,7 @@ export async function runAntigravityIdeCommand(
       const launchCode = await launchAntigravityIde(env, profileDir, gatewayHandle.url, childArgs);
       if (launchCode !== 0) return launchCode;
 
-      p.log.info('Antigravity IDE is using the Relay Cloud Code gateway.');
+      p.log.info('Antigravity IDE is using the Gateway Cloud Code gateway.');
       p.log.info(pc.cyan('Press Ctrl+C to stop the gateway.'));
       await waitForShutdown();
       await new Promise(r => setTimeout(r, SHUTDOWN_DRAIN_MS));

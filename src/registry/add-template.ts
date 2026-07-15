@@ -1,7 +1,7 @@
 // src/registry/add-template.ts — add a provider from a builtin template
 
 import { saveProviderCredential } from '../core/env.js';
-import { isSdkMigratedNpm } from '../gateway/provider-factory.ts';
+import { isSdkUpgradedNpm } from '../gateway/provider-factory.ts';
 import type { ProviderTemplate } from '../providers/provider-templates.ts';
 import { classifyFreeStatus, isFreeStatus } from '../agents/shared/free-models.ts';
 import { fetchTemplateModels } from './fetch-template-models.js';
@@ -26,7 +26,7 @@ export interface AddTemplateResult {
 async function probeTemplatePackage(template: ProviderTemplate): Promise<string | null> {
   if (!template.supported) return template.unsupportedReason ?? 'Provider is not supported yet.';
   if (!template.npm) return 'Template is missing an SDK package.';
-  if (!isSdkMigratedNpm(template.npm) && template.npm !== '@ai-sdk/anthropic') {
+  if (!isSdkUpgradedNpm(template.npm) && template.npm !== '@ai-sdk/anthropic') {
     return `SDK package ${template.npm} is not available in anygate.`;
   }
   try {

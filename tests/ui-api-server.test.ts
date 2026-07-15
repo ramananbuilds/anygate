@@ -98,12 +98,12 @@ async function call(
 
 describe('UI API Server endpoints', () => {
   let tempHome: string;
-  let previousRelayHome: string | undefined;
+  let previousGatewayHome: string | undefined;
 
   beforeEach(() => {
     tempHome = mkdtempSync(join(tmpdir(), 'anygate-ui-api-server-test-'));
-    previousRelayHome = process.env['ANYGATE_HOME'];
-    process.env['ANYGATE_HOME'] = join(tempHome, 'relay-home');
+    previousGatewayHome = process.env['ANYGATE_HOME'];
+    process.env['ANYGATE_HOME'] = join(tempHome, 'gateway-home');
     state.apiKey = 'test-key';
     state.models = [testModel];
     state.failNextStartWithPortConflict = false;
@@ -121,8 +121,8 @@ describe('UI API Server endpoints', () => {
     // Best-effort cleanup — stop any server left running by a test.
     await call('POST', '/api/server/stop');
     rmSync(tempHome, { recursive: true, force: true });
-    if (previousRelayHome === undefined) delete process.env['ANYGATE_HOME'];
-    else process.env['ANYGATE_HOME'] = previousRelayHome;
+    if (previousGatewayHome === undefined) delete process.env['ANYGATE_HOME'];
+    else process.env['ANYGATE_HOME'] = previousGatewayHome;
   });
 
   it('reports not running before anything is started', async () => {
@@ -133,9 +133,9 @@ describe('UI API Server endpoints', () => {
   });
 
   it('returns cached update status for the UI', async () => {
-    const relayHome = process.env['ANYGATE_HOME']!;
-    mkdirSync(relayHome, { recursive: true });
-    writeFileSync(join(relayHome, 'update-check.json'), JSON.stringify({
+    const gatewayHome = process.env['ANYGATE_HOME']!;
+    mkdirSync(gatewayHome, { recursive: true });
+    writeFileSync(join(gatewayHome, 'update-check.json'), JSON.stringify({
       latestVersion: '9.0.0',
       checkedAt: Date.now(),
     }));

@@ -20,26 +20,26 @@ describe('version comparison', () => {
   });
 
   it('formats the npm update instruction', () => {
-    expect(formatUpdateNotification('0.4.3', '0.4.4')).toBe(
-      '🔔 Update available: 0.4.3 → 0.4.4. Run npm install -g anygate@latest to update.',
+    expect(formatUpdateNotification('0.4.3', '0.1.0')).toBe(
+      '🔔 Update available: 0.4.3 → 0.1.0. Run npm install -g anygate@latest to update.',
     );
   });
 });
 
 describe('update checks', () => {
   let tempHome: string;
-  let previousRelayHome: string | undefined;
+  let previousGatewayHome: string | undefined;
 
   beforeEach(() => {
     tempHome = mkdtempSync(join(tmpdir(), 'anygate-update-check-'));
-    previousRelayHome = process.env['ANYGATE_HOME'];
+    previousGatewayHome = process.env['ANYGATE_HOME'];
     process.env['ANYGATE_HOME'] = tempHome;
   });
 
   afterEach(() => {
     rmSync(tempHome, { recursive: true, force: true });
-    if (previousRelayHome === undefined) delete process.env['ANYGATE_HOME'];
-    else process.env['ANYGATE_HOME'] = previousRelayHome;
+    if (previousGatewayHome === undefined) delete process.env['ANYGATE_HOME'];
+    else process.env['ANYGATE_HOME'] = previousGatewayHome;
     vi.restoreAllMocks();
   });
 

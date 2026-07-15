@@ -70,7 +70,7 @@ Pick your backend:
 - **Server tab in the UI:** Run the same API gateway as `anygate server` — favorites-only or specific providers, discovery id masking for Claude Desktop / Cowork, local or network listen mode — from a browser form instead of a terminal wizard. Shows live URLs, the API key, and the full model catalog once started, with a one-click Stop.
 - **Native provider registry:** `anygate providers` stores config in `~/.anygate/providers.json` and secrets in the OS keychain — no OpenCode binary required at launch. See **[docs/PROVIDERS.md](docs/PROVIDERS.md)** for a full list of providers and known issues.
 - **Provider templates:** Add Groq, Mistral, Together, OpenRouter, and 15+ SDK-backed providers, plus custom OpenAI/Anthropic-compatible endpoints.
-- **OpenCode import:** One-time migration from OpenCode (`providers import`); validates API keys and skips placeholders like `anything`.
+- **OpenCode import:** One-time import from OpenCode (`providers import`); validates API keys and skips placeholders like `anything`.
 - **OpenCode Zen / Go:** Optional cloud backends when you have an OpenCode API key.
 - **SDK adapter proxy:** Non-Anthropic providers route through the Vercel AI SDK (same packages OpenCode uses), so Claude Code still speaks Anthropic format. Labeled `(via proxy)` in the picker.
 - **Favorite models:** Save up to 20 and switch mid-session with Claude Code's `/model` command.

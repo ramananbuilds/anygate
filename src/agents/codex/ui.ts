@@ -7,8 +7,8 @@ import {
   logActiveModel,
   logProxy,
   printPanel,
-  relayIntro,
-  relayOutro,
+  gateIntro,
+  gateOutro,
 } from '../../agents/shared/ui.js';
 
 export {
@@ -20,11 +20,11 @@ export {
 } from '../../agents/shared/ui.js';
 
 export function codexAppIntro(): void {
-  relayIntro('Codex App');
+  gateIntro('Codex App');
 }
 
 export function codexCliIntro(): void {
-  relayIntro('Codex');
+  gateIntro('Codex');
 }
 
 export function printCodexAppSessionPanel(opts: {
@@ -54,11 +54,11 @@ export function printCodexCliCleanupPanel(restoreCommand: string): void {
 }
 
 export function codexAppOutro(modelLabel: string): void {
-  relayOutro('Codex App', fmtModel(modelLabel));
+  gateOutro('Codex App', fmtModel(modelLabel));
 }
 
 export function codexCliOutro(providerName: string, modelLabel: string, modelId: string): void {
-  relayOutro(
+  gateOutro(
     'Launching Codex',
     `${fmtProvider(providerName)} ${pc.dim('/')} ${fmtModel(modelLabel, modelId)}`,
   );

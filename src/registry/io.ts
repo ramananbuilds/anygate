@@ -15,7 +15,7 @@ import { dirname } from 'node:path';
 import { getAppHome, getProvidersPath } from '../core/paths.ts';
 import type { ProviderRegistry, RegistryProvider } from './types.js';
 import { REGISTRY_SCHEMA_VERSION } from './types.js';
-import { migrateLegacyCloudProviders, migrateOAuthOpenAiProvider, migrateOAuthXaiProvider } from './migrate.js';
+import { upgradeLegacyCloudProviders, upgradeOAuthOpenAiProvider, upgradeOAuthXaiProvider } from './upgrade.js';
 import { isValidProviderId } from './validate.js';
 
 const DIR_MODE = 0o700;
@@ -118,14 +118,14 @@ export function loadRegistry(path = getProvidersPath()): ProviderRegistry {
   try {
     const raw = JSON.parse(readFileSync(path, 'utf8'));
     const registry = parseRegistry(raw);
-    let migrated = migrateLegacyCloudProviders(registry);
-    if (migrateOAuthOpenAiProvider(registry)) migrated = true;
-    if (migrateOAuthXaiProvider(registry)) migrated = true;
-    if (migrated) {
+    let upgraded = upgradeLegacyCloudProviders(registry);
+    if (upgradeOAuthOpenAiProvider(registry)) upgraded = true;
+    if (upgradeOAuthXaiProvider(registry)) upgraded = true;
+    if (upgraded) {
       try {
         saveRegistry(registry, path);
       } catch {
-        // Parsed data remains usable even when migration persistence fails.
+        // Parsed data remains usable even when upgradeion persistence fails.
       }
     }
     return registry;

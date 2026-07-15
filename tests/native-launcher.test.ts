@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   fallbackPathsForApp,
-  getRelayLaunchCommand,
+  getGatewayLaunchCommand,
   getTerminalLaunchCommand,
   getSupportedApps,
 } from '../src/agents/shared/native-launcher.js';
@@ -68,12 +68,12 @@ describe('native-launcher', () => {
       expect(app).toHaveProperty('name');
       expect(app).toHaveProperty('installed');
       expect(app).toHaveProperty('type');
-      expect(app).toHaveProperty('relayCommand');
+      expect(app).toHaveProperty('gatewayCommand');
     }
   });
 
-  it('constructs Relay launch commands with provider-qualified models', () => {
-    const cmd = getRelayLaunchCommand('codex', {
+  it('constructs Gateway launch commands with provider-qualified models', () => {
+    const cmd = getGatewayLaunchCommand('codex', {
       providerId: 'deepseek',
       modelId: 'deepseek-v4-flash',
     });
@@ -94,8 +94,8 @@ describe('native-launcher', () => {
     }
   });
 
-  it('adds relay trace flag to UI-launched tools when requested', () => {
-    const cmd = getRelayLaunchCommand('codex', {
+  it('adds gateway trace flag to UI-launched tools when requested', () => {
+    const cmd = getGatewayLaunchCommand('codex', {
       providerId: 'deepseek',
       modelId: 'deepseek-v4-flash',
       trace: true,
@@ -111,8 +111,8 @@ describe('native-launcher', () => {
     }
   });
 
-  it('rejects ambiguous Relay model launches', () => {
-    expect(() => getRelayLaunchCommand('codex', { modelId: 'deepseek-v4-flash' }))
+  it('rejects ambiguous Gateway model launches', () => {
+    expect(() => getGatewayLaunchCommand('codex', { modelId: 'deepseek-v4-flash' }))
       .toThrow('Both providerId and modelId are required');
   });
 
@@ -150,7 +150,7 @@ describe('native-launcher', () => {
   });
 
   it('runs launches from the requested working directory', () => {
-    const cmd = getRelayLaunchCommand('claude', {
+    const cmd = getGatewayLaunchCommand('claude', {
       providerId: 'google',
       modelId: 'gemini-3.1-pro-low',
       cwd: '/Users/jbendavi/dev_projects/example',

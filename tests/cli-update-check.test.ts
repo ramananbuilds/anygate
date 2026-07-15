@@ -7,12 +7,12 @@ import { VERSION } from './../src/core/constants.js';
 
 describe('CLI update notifications', () => {
   let tempHome: string;
-  let previousRelayHome: string | undefined;
+  let previousGatewayHome: string | undefined;
   let originalIsTTY: PropertyDescriptor | undefined;
 
   beforeEach(() => {
     tempHome = mkdtempSync(join(tmpdir(), 'anygate-cli-update-'));
-    previousRelayHome = process.env['ANYGATE_HOME'];
+    previousGatewayHome = process.env['ANYGATE_HOME'];
     process.env['ANYGATE_HOME'] = tempHome;
     originalIsTTY = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
     mkdirSync(tempHome, { recursive: true });
@@ -25,8 +25,8 @@ describe('CLI update notifications', () => {
   afterEach(() => {
     if (originalIsTTY) Object.defineProperty(process.stdout, 'isTTY', originalIsTTY);
     else delete (process.stdout as NodeJS.WriteStream & { isTTY?: boolean }).isTTY;
-    if (previousRelayHome === undefined) delete process.env['ANYGATE_HOME'];
-    else process.env['ANYGATE_HOME'] = previousRelayHome;
+    if (previousGatewayHome === undefined) delete process.env['ANYGATE_HOME'];
+    else process.env['ANYGATE_HOME'] = previousGatewayHome;
     rmSync(tempHome, { recursive: true, force: true });
     vi.restoreAllMocks();
   });

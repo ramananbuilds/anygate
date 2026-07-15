@@ -5,7 +5,7 @@ const LEGACY_CLOUD_PROVIDER_IDS = [
   { legacyId: 'opencode-go', id: 'go', name: 'OpenCode Go' },
 ] as const;
 
-export function migrateLegacyCloudProviders(registry: ProviderRegistry): boolean {
+export function upgradeLegacyCloudProviders(registry: ProviderRegistry): boolean {
   let changed = false;
 
   for (const { legacyId, id, name } of LEGACY_CLOUD_PROVIDER_IDS) {
@@ -32,7 +32,7 @@ export function migrateLegacyCloudProviders(registry: ProviderRegistry): boolean
 // Rename {id:'openai', authType:'oauth'} → {id:'openai-oauth'} so it can coexist
 // with the API-key 'openai' provider. Preserves the original authRef so the
 // keyring credential isn't orphaned.
-export function migrateOAuthOpenAiProvider(registry: ProviderRegistry): boolean {
+export function upgradeOAuthOpenAiProvider(registry: ProviderRegistry): boolean {
   if (registry.providers.some(p => p.id === 'openai-oauth')) return false;
 
   const idx = registry.providers.findIndex(
@@ -51,7 +51,7 @@ export function migrateOAuthOpenAiProvider(registry: ProviderRegistry): boolean 
 }
 
 // Rename {id:'xai', authType:'oauth'} → {id:'xai-oauth'}
-export function migrateOAuthXaiProvider(registry: ProviderRegistry): boolean {
+export function upgradeOAuthXaiProvider(registry: ProviderRegistry): boolean {
   if (registry.providers.some(p => p.id === 'xai-oauth')) return false;
 
   const idx = registry.providers.findIndex(

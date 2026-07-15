@@ -25,7 +25,7 @@ Claude Code
   → POST http://127.0.0.1:<port>/v1/messages   (ANTHROPIC_BASE_URL = proxy)
   → [gateway/anthropic-proxy.ts] receives Anthropic-shaped body
        ├─ modelFormat === 'anthropic'
-       │     → relayAnthropicMessages() → upstream {baseUrl}/v1/messages  (passthrough)
+       │     → gatewayAnthropicMessages() → upstream {baseUrl}/v1/messages  (passthrough)
        └─ else (openai / sdk)
               → [gateway/sdk-adapter.ts] translateRequest()
                    • fold inline role:'system' into system prompt
@@ -87,7 +87,7 @@ ProxyRoute {
   model discovery accepts them.
 
 **Resolve step:** given an incoming `model` header, pick the route whose `id` matches;
-if `modelFormat==='anthropic'` relay raw, else send to the SDK adapter selected by `npm`.
+if `modelFormat==='anthropic'` gateway raw, else send to the SDK adapter selected by `npm`.
 
 ---
 

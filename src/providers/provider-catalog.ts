@@ -9,7 +9,7 @@ import { claudeCodeClientModelId } from '../agents/shared/context-model-id.js';
 import { resolveContextWindow, loadOpencodeCache } from '../agents/shared/context-window.js';
 import { shouldHideModel } from '../agents/shared/model-compatibility.js';
 import { ANTIGRAVITY_BASE_URLS } from '../oauth/antigravity-oauth.js';
-import { isSdkMigratedNpm } from '../gateway/provider-factory.js';
+import { isSdkUpgradedNpm } from '../gateway/provider-factory.js';
 import { aliasModelId } from '../gateway/anthropic-proxy.js';
 import type { ProxyRoute } from '../gateway/anthropic-proxy.js';
 import type { FavoriteModel, BackendConfig } from '../core/types.js';
@@ -118,7 +118,7 @@ export function localProvidersToServerModels(localProviders: LocalProvider[]): S
 
 export function localModelToRoute(lp: LocalProvider, model: LocalProviderModel): ProxyRoute | null {
   if (model.modelFormat === 'anthropic' && !model.baseUrl) return null;
-  if (model.modelFormat === 'openai' && !isSdkMigratedNpm(model.npm) && !model.completionsUrl) return null;
+  if (model.modelFormat === 'openai' && !isSdkUpgradedNpm(model.npm) && !model.completionsUrl) return null;
   const upstreamUrl = model.modelFormat === 'cloud-code'
     ? (model.baseUrl ?? ANTIGRAVITY_BASE_URLS[0])
     : (model.modelFormat === 'anthropic' ? model.baseUrl : model.completionsUrl);
@@ -186,7 +186,7 @@ export function buildCatalogRoutes(
   return { routes, droppedFavorites };
 }
 
-// ── Raw provider / OpenCode serve helpers (migrated from deleted src/providers.ts) ──
+// ── Raw provider / OpenCode serve helpers (upgraded from deleted src/providers.ts) ──
 
 interface RawModel {
   id: string;

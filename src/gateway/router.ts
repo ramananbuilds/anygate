@@ -18,7 +18,7 @@ import {
   type OpenAiRequest,
 } from './openai-adapter.js';
 import { sendJson, readBody } from '../core/http-utils.js';
-import { relayAnthropicMessages } from '../upstream-forward.js';
+import { forwardAnthropicMessages } from '../upstream-forward.js';
 import { resolveProviderCredential } from '../core/env.js';
 import { oauthAuthRef } from '../registry/import-build.js';
 import {
@@ -29,7 +29,7 @@ import {
 import { writeSecureLogLine, resetTraceLog } from '../agents/shared/trace-log.js';
 import { redactTraceLine } from '../core/redact.js';
 import type { LanguageModel } from 'ai';
-import { createLanguageModel, isSdkMigratedNpm, maxToolsForNpm } from './provider-factory.js';
+import { createLanguageModel, isSdkUpgradedNpm, maxToolsForNpm } from './provider-factory.js';
 import { formatUpstreamError, upstreamHttpStatus } from '../core/errors.js';
 import {
   translateRequest as sdkTranslateRequest,
@@ -210,7 +210,7 @@ async function handleAnthropicMessages(
       : undefined;
 
     plog(() => `anthropic-passthrough → ${messagesUrl} oauth=${isOAuth} stream=${clientWantsStream}`);
-    await relayAnthropicMessages(
+    await forwardAnthropicMessages(
       res, messagesUrl, forwardBody, apiKey, clientWantsStream, effectiveBeta,
       isOAuth ? 'oauth' : 'api',
       message => plog(message),
@@ -223,7 +223,7 @@ async function handleAnthropicMessages(
   }
 
   if (model.modelFormat === 'openai') {
-    if (!isSdkMigratedNpm(model.npm)) {
+    if (!isSdkUpgradedNpm(model.npm)) {
       sendJson(res, 400, { error: { message: `No SDK provider for model: ${model.id}` } });
       return;
     }
@@ -307,7 +307,7 @@ async function handleOpenAIChatCompletions(
       ? model.completionsUrl
       : `${backendFor(options, model).baseUrl}/v1/chat/completions`;
     const apiKey = model.apiKey ?? options.apiKey;
-    await relayAnthropicMessages(res, completionsUrl, body, apiKey, Boolean(body.stream));
+    await forwardAnthropicMessages(res, completionsUrl, body, apiKey, Boolean(body.stream));
     return;
   }
 

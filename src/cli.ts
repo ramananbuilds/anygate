@@ -1,6 +1,6 @@
 // src/cli.ts
 import pc from 'picocolors';
-import { relayIntro, relayOutro, providerSelectOption, fmtModel, fmtEnabledStar, formatModelLabel } from './agents/shared/ui.js';
+import { gateIntro, gateOutro, providerSelectOption, fmtModel, fmtEnabledStar, formatModelLabel, printAsciiBanner } from './agents/shared/ui.js';
 import * as p from '@clack/prompts';
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
@@ -53,9 +53,9 @@ import {
 } from './agents/shared/launch-target.js';
 import { generateAiDoc, installAiDoc, printAiInstallResult } from './agents/shared/ai-doc.js';
 const STARTER_CLAUDE_FLAGS = new Set(['--dry-run', '--setup', '--trace', '--help', '-h', '--version', '-v']);
-const RELAY_LAUNCH_FLAGS = new Set(['--provider', '--model']);
+const GATEWAY_LAUNCH_FLAGS = new Set(['--provider', '--model']);
 
-function parseRelayLaunchFlag(
+function parseGatewayLaunchFlag(
   arg: string,
   rest: string[],
   index: number,
@@ -82,16 +82,16 @@ function parseRelayLaunchFlag(
   return index;
 }
 
-function tryConsumeRelayLaunchFlag(
+function tryConsumeGatewayLaunchFlag(
   arg: string,
   rest: string[],
   index: number,
   parsed: ParsedArgs,
 ): { next: number } | { error: true } | null {
-  if (!RELAY_LAUNCH_FLAGS.has(arg) && !arg.startsWith('--provider=') && !arg.startsWith('--model=')) {
+  if (!GATEWAY_LAUNCH_FLAGS.has(arg) && !arg.startsWith('--provider=') && !arg.startsWith('--model=')) {
     return null;
   }
-  const next = parseRelayLaunchFlag(arg, rest, index, parsed);
+  const next = parseGatewayLaunchFlag(arg, rest, index, parsed);
   if (next === 'error') return { error: true };
   return { next };
 }
@@ -252,7 +252,7 @@ export function parseArgs(args: string[]): ParsedArgs {
       if (arg === '--help' || arg === '-h') { parsed.showHelp = true; continue; }
       if (arg === '--version' || arg === '-v') { parsed.showVersion = true; continue; }
       if (arg === '--vertex') { parsed.vertex = true; continue; }
-      const consumed = tryConsumeRelayLaunchFlag(arg, rest, i, parsed);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
       if (consumed !== null) {
         if ('error' in consumed) return parsed;
         i = consumed.next;
@@ -269,7 +269,7 @@ export function parseArgs(args: string[]): ParsedArgs {
       const arg = rest[i]!;
       if (arg === '--help' || arg === '-h') { parsed.showHelp = true; continue; }
       if (arg === '--version' || arg === '-v') { parsed.showVersion = true; continue; }
-      const consumed = tryConsumeRelayLaunchFlag(arg, rest, i, parsed);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
       if (consumed !== null) {
         if ('error' in consumed) return parsed;
         i = consumed.next;
@@ -300,7 +300,7 @@ export function parseArgs(args: string[]): ParsedArgs {
         parsed.showVersion = true;
         continue;
       }
-      const consumed = tryConsumeRelayLaunchFlag(arg, rest, i, parsed);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
       if (consumed !== null) {
         if ('error' in consumed) return parsed;
         i = consumed.next;
@@ -327,7 +327,7 @@ export function parseArgs(args: string[]): ParsedArgs {
         parsed.showVersion = true;
         continue;
       }
-      const consumed = tryConsumeRelayLaunchFlag(arg, rest, i, parsed);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
       if (consumed !== null) {
         if ('error' in consumed) return parsed;
         i = consumed.next;
@@ -358,7 +358,7 @@ export function parseArgs(args: string[]): ParsedArgs {
         parsed.showVersion = true;
         continue;
       }
-      const consumed = tryConsumeRelayLaunchFlag(arg, rest, i, parsed);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
       if (consumed !== null) {
         if ('error' in consumed) return parsed;
         i = consumed.next;
@@ -389,7 +389,7 @@ export function parseArgs(args: string[]): ParsedArgs {
         parsed.showVersion = true;
         continue;
       }
-      const consumed = tryConsumeRelayLaunchFlag(arg, rest, i, parsed);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
       if (consumed !== null) {
         if ('error' in consumed) return parsed;
         i = consumed.next;
@@ -415,7 +415,7 @@ export function parseArgs(args: string[]): ParsedArgs {
       break;
     }
 
-    const consumed = tryConsumeRelayLaunchFlag(arg, rest, i, parsed);
+    const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
     if (consumed !== null) {
       if ('error' in consumed) return parsed;
       i = consumed.next;
@@ -489,7 +489,7 @@ ${pc.bold('Antigravity favorites:')}
   agy, antigravity, and antigravity-ide share up to six Antigravity favorites
   from anygate favorites --agy, plus the selected launch model.
 
-${pc.bold('Migration:')}
+${pc.bold('Upgradeion:')}
   Bare anygate prints this help instead of launching Claude Code.
   Use anygate claude for the wizard and launcher.
 
@@ -642,7 +642,7 @@ ${pc.bold('Usage:')}
   anygate agy --help
   anygate agy --version
 
-${pc.bold('Relay options:')}
+${pc.bold('Options:')}
   --provider <id>    Use a specific provider (skip picker)
   --model <id>       Use a specific model (skip picker)
   --trace            Write debug log to /tmp/anygate-debug.log
@@ -652,7 +652,7 @@ ${pc.bold('Relay options:')}
 ${pc.bold('How it works:')}
   Starts a local Cloud Code gateway, points agy at it via CLOUD_CODE_URL,
   and injects anygate models into Antigravity's native model picker.
-  All Cloud Code traffic routes through Relay — no Google Cloud Code upstream.
+  All Cloud Code traffic routes through anygate — no Google Cloud Code upstream.
 
 ${pc.bold('Examples:')}
   anygate agy
@@ -669,7 +669,7 @@ ${pc.bold('Usage:')}
   anygate antigravity-ide --help
   anygate antigravity-ide --version
 
-${pc.bold('Relay options:')}
+${pc.bold('Options:')}
   --provider <id>    Use a specific provider (skip picker)
   --model <id>       Use a specific model (skip picker)
   --trace            Write debug log to /tmp/anygate-debug.log
@@ -677,7 +677,7 @@ ${pc.bold('Relay options:')}
   -v, --version      Show version
 
 ${pc.bold('How it works:')}
-  Creates an isolated Relay-managed IDE profile, starts a local Cloud Code
+  Creates an isolated anygate-managed IDE profile, starts a local Cloud Code
   gateway, and injects anygate models into Antigravity's native picker.
   The normal IDE profile is never modified.
 
@@ -698,7 +698,7 @@ ${pc.bold('Usage:')}
   anygate antigravity --help
   anygate antigravity --version
 
-${pc.bold('Relay options:')}
+${pc.bold('Options:')}
   --provider <id>    Use a specific provider (skip picker)
   --model <id>       Use a specific model (skip picker)
   --trace            Write debug log to /tmp/anygate-debug.log
@@ -706,7 +706,7 @@ ${pc.bold('Relay options:')}
   -v, --version      Show version
 
 ${pc.bold('How it works:')}
-  Creates an isolated Relay-managed Antigravity profile, starts a local Cloud
+  Creates an isolated anygate-managed Antigravity profile, starts a local Cloud
   Code gateway, and injects anygate models into Antigravity's native picker.
   The normal Antigravity profile is never modified.
 
@@ -831,7 +831,7 @@ export async function runModelsCommand(opts: FavoritesCommandOptions = {}): Prom
   const maxFavorites = scope === 'agy' ? AGY_CLI_FAVORITES_CAP : MAX_MODEL_CATALOG;
   const scopeName = scope === 'agy' ? 'Antigravity CLI Favorites' : 'Favorite Models';
   const configKey = scope === 'agy' ? 'antigravityCliFavoriteModels' : 'favoriteModels';
-  relayIntro(scopeName);
+  gateIntro(scopeName);
 
   const spinner = p.spinner();
   spinner.start('Loading providers...');
@@ -850,7 +850,7 @@ export async function runModelsCommand(opts: FavoritesCommandOptions = {}): Prom
   if (favoriteProviders.length === 0) {
     p.log.warn('No providers found.');
     p.log.info(`${pc.dim('OpenCode Zen/Go is always available. Add providers with ')}${pc.cyan('anygate providers')}${pc.dim('.')}`);
-    relayOutro('Done');
+    gateOutro('Done');
     return 0;
   }
 
@@ -1052,7 +1052,7 @@ export async function runModelsCommand(opts: FavoritesCommandOptions = {}): Prom
   }
 
   const favLabel = scope === 'agy' ? 'Antigravity CLI ' : '';
-  relayOutro(
+  gateOutro(
     favorites.length === 0
       ? `No ${favLabel}favorites saved`
       : `${favorites.length} ${favLabel}favorite${favorites.length !== 1 ? 's' : ''} saved`,
@@ -1094,7 +1094,7 @@ export async function runClaudeCommand(parsed: ParsedArgs): Promise<number> {
   }
   const switchMenuActive = favorites.length > 0 && !launchPlan.skip;
 
-  if (!agentStdout) relayIntro('Claude Code');
+  if (!agentStdout) gateIntro('Claude Code');
 
   if (setup && !dryRun && !agentStdout) {
     p.log.info('Provider setup now lives in anygate providers — opening that next is recommended.');
@@ -1432,6 +1432,7 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
   const parsed = parseArgs(args);
 
   if (process.stdout.isTTY) {
+    printAsciiBanner();
     const update = await checkForUpdates();
     if (update.updateAvailable && update.latestVersion) {
       console.log(`\n${formatUpdateNotification(update.currentVersion, update.latestVersion)}\n`);

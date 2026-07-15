@@ -21,7 +21,7 @@ if (!data || typeof data !== 'object') {
 
 const providerCount = Object.keys(data).filter(k => !k.startsWith('_')).length;
 const out = {
-  _relay_meta: {
+  _gateway_meta: {
     schema_version: '1',
     fetched_at: new Date().toISOString(),
     source: API_URL,

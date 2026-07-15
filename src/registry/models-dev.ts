@@ -48,7 +48,7 @@ export interface ModelsDevCacheMeta {
   provider_count?: number;
 }
 
-const META_KEY = '_relay_meta';
+const META_KEY = '_gateway_meta';
 
 let memoryCache: ModelsDevCacheFile | null = null;
 let memoryCachePath: string | null = null;

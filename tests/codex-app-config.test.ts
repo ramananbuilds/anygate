@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -17,7 +17,7 @@ describe('app-config', () => {
   let prevHome: string | undefined;
 
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'relay-codex-app-'));
+    home = mkdtempSync(join(tmpdir(), 'gateway-codex-app-'));
     prevHome = process.env.HOME;
     process.env.HOME = home;
     process.env.USERPROFILE = home;
@@ -59,7 +59,7 @@ describe('app-config', () => {
     expect(text).toContain('model_reasoning_effort = "high"');
   });
 
-  it('uses an early auto-compact threshold for relay models', () => {
+  it('uses an early auto-compact threshold for gateway models', () => {
     const configPath = join(home, '.codex', 'config.toml');
     mkdirSync(join(home, '.codex'), { recursive: true });
     const spec = proxySpec(join(home, '.anygate', 'codex', 'app-models-anthropic.json'));

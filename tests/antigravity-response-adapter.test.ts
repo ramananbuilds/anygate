@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { formatCloudCodeChunk, mapFinishReason, normalizeFunctionCallArgs, type CloudCodeChunkOptions } from '../src/gateway/antigravity/response-adapter.js';
 
 describe('antigravity response-adapter', () => {
@@ -15,7 +15,7 @@ describe('antigravity response-adapter', () => {
     expect(chunk.response.candidates[0].content.role).toBe('model');
     expect(chunk.response.modelVersion).toBe('anygate__zen__deepseek');
     expect(chunk.response.responseId).toBe('test-response-123');
-    expect(chunk.traceId).toBe('relay-trace');
+    expect(chunk.traceId).toBe('gateway-trace');
   });
 
   it('formats a thought chunk separately from visible text', () => {

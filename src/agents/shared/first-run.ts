@@ -4,7 +4,7 @@ import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import { printWelcomePanel } from '../../../src/agents/shared/ui.js';
 import {
-  migrateGlobalOpencodeCredential,
+  upgradeGlobalOpencodeCredential,
   readGlobalOpencodeCredential,
 } from '../../../src/core/env.js';
 import { findOpencodeBinary } from '../../../src/providers/opencode-serve.js';
@@ -69,7 +69,7 @@ export async function runFirstRunWizard(trace = false): Promise<FirstRunResult> 
   if (choice === 'zen') {
     const apiKey = await resolveOrCollectApiKey(false, trace);
     if (!apiKey) return 'cancel';
-    await migrateGlobalOpencodeCredential();
+    await upgradeGlobalOpencodeCredential();
     ensureZenRegistryStub();
     p.log.success('OpenCode Zen ready — picking a model next.');
     return 'continue';

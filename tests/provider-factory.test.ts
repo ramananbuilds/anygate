@@ -4,7 +4,7 @@ import {
   deepMergeProviderOptions,
   effortProviderOptions,
   getReasoningCapabilities,
-  isSdkMigratedNpm,
+  isSdkUpgradedNpm,
   maxToolsForNpm,
   modelPrefersResponsesApi,
   shouldUseOpenAiResponsesEndpoint,
@@ -12,20 +12,20 @@ import {
 } from '../src/gateway/provider-factory.js';
 import { VERTEX_ANTHROPIC_NPM } from './../src/core/constants.js';
 
-describe('isSdkMigratedNpm', () => {
+describe('isSdkUpgradedNpm', () => {
   it('returns true for any OpenCode-assigned npm except anthropic', () => {
-    expect(isSdkMigratedNpm('@ai-sdk/openai')).toBe(true);
-    expect(isSdkMigratedNpm('@ai-sdk/cerebras')).toBe(true);
-    expect(isSdkMigratedNpm('@ai-sdk/perplexity')).toBe(true);
-    expect(isSdkMigratedNpm('@openrouter/ai-sdk-provider')).toBe(true);
-    expect(isSdkMigratedNpm('gitlab-ai-provider')).toBe(true);
-    expect(isSdkMigratedNpm(VERTEX_ANTHROPIC_NPM)).toBe(true);
+    expect(isSdkUpgradedNpm('@ai-sdk/openai')).toBe(true);
+    expect(isSdkUpgradedNpm('@ai-sdk/cerebras')).toBe(true);
+    expect(isSdkUpgradedNpm('@ai-sdk/perplexity')).toBe(true);
+    expect(isSdkUpgradedNpm('@openrouter/ai-sdk-provider')).toBe(true);
+    expect(isSdkUpgradedNpm('gitlab-ai-provider')).toBe(true);
+    expect(isSdkUpgradedNpm(VERTEX_ANTHROPIC_NPM)).toBe(true);
   });
 
   it('returns false for anthropic passthrough and missing npm', () => {
-    expect(isSdkMigratedNpm('@ai-sdk/anthropic')).toBe(false);
-    expect(isSdkMigratedNpm(undefined)).toBe(false);
-    expect(isSdkMigratedNpm('')).toBe(false);
+    expect(isSdkUpgradedNpm('@ai-sdk/anthropic')).toBe(false);
+    expect(isSdkUpgradedNpm(undefined)).toBe(false);
+    expect(isSdkUpgradedNpm('')).toBe(false);
   });
 });
 

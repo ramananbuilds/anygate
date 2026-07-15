@@ -30,7 +30,7 @@ export function writeIdeSettings(settingsPath: string, settings: Record<string, 
 }
 
 /**
- * Prepare an isolated, Relay-owned profile directory for the Antigravity IDE.
+ * Prepare an isolated, Gateway-owned profile directory for the Antigravity IDE.
  *
  * It creates the `User` directory, reads any existing `settings.json`, updates/sets
  * `jetski.cloudCodeUrl` to our randomized gateway URL, and writes it back atomically.

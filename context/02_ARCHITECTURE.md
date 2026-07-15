@@ -3,7 +3,7 @@
 System-level map of the **anygate** codebase for agents and contributors.
 Companion to [01_PROJECT_GOAL.md](./01_PROJECT_GOAL.md) and [09_GLOSSARY.md](./09_GLOSSARY.md).
 
-- **Version:** `0.4.4`  **Runtime:** Node 18+ (ESM)  **Language:** TypeScript strict, ES2022
+- **Version:** `0.1.0`  **Runtime:** Node 18+ (ESM)  **Language:** TypeScript strict, ES2022
 - **Bundle:** single `dist/cli.js` via `tsup`  **Core translation:** Vercel AI SDK (`ai` + `@ai-sdk/*`)
 
 **Every module is a focused unit with no side effects at import time. `src/cli.ts` is the only orchestrator.**
@@ -188,8 +188,8 @@ them). **Use a throwaway Google account** (see [docs/ANTIGRAVITY.md](../docs/ANT
 ## 12. Known limitations & housekeeping backlog
 
 > [!WARNING]
-> **Stale "Relay" string:** `package.json` `description` still reads *"Relay any model into
-> any coding agent…"* and `keywords` still include `"relay"`. The user-facing README uses
+> **Stale "Gateway" string:** `package.json` `description` still reads *"Gateway any model into
+> any coding agent…"* and `keywords` still include `"gateway"`. The user-facing README uses
 > "Route any model". Normalize for full consistency (backlog item).
 
 Other known limitations (by design):

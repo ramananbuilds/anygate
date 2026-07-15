@@ -15,7 +15,7 @@ const state = vi.hoisted(() => ({
     models: Array<{ id: string; name: string; isFree?: boolean }>;
   }>,
   updateAvailable: false,
-  updateInfo: { current: '0.4.4', latest: '0.4.4', updateAvailable: false } as any,
+  updateInfo: { current: '0.1.0', latest: '0.4.4', updateAvailable: false } as any,
 }));
 
 vi.mock('../../src/providers/provider-catalog.js', async () => {
@@ -38,7 +38,7 @@ vi.mock('../../src/agents/shared/native-launcher.js', () => ({
   getSupportedApps: () => [],
   getSupportedApp: () => undefined,
   detectApp: () => ({ installed: false, path: null }),
-  getRelayLaunchCommand: () => 'anygate',
+  getGatewayLaunchCommand: () => 'anygate',
 }));
 
 async function call(method: string, url: string, body?: unknown) {
@@ -66,7 +66,7 @@ describe('ui/api.ts frozen contract', () => {
         models: [{ id: 'opus', name: 'Opus', isFree: false }],
       },
     ];
-    state.updateInfo = { current: '0.4.4', latest: '0.4.4', updateAvailable: false };
+    state.updateInfo = { current: '0.1.0', latest: '0.4.4', updateAvailable: false };
   });
 
   afterEach(() => {

@@ -286,9 +286,9 @@ ROOT
   anygate --version         Version string
 
 CLAUDE CODE
-  anygate claude [relay-options] [claude-flags]
+  anygate claude [options] [claude-flags]
 
-  Relay options:
+  Options:
     --provider <id>    Boot provider (skip wizard with --model)
     --model <id>       Boot model id or provider__model slug
     --dry-run          Preview launch, do not start Claude
@@ -307,9 +307,9 @@ CLAUDE CODE
     anygate claude --dry-run --provider groq --model llama-3.3-70b-versatile
 
 GOOGLE GEMINI CLI
-  anygate gemini [relay-options] [gemini-flags]
+  anygate gemini [options] [gemini-flags]
 
-  Relay options:
+  Options:
     --provider <id>    Boot provider (skip wizard with --model)
     --model <id>       Boot model id or provider__model slug
     --trace            Debug logs in ~/.anygate/logs/
@@ -319,9 +319,9 @@ GOOGLE GEMINI CLI
     anygate gemini --provider google --model gemini-2.5-flash -p "What is the capital of France?"
 
 OPENAI CODEX CLI
-  anygate codex [relay-options] [codex-flags]
+  anygate codex [options] [codex-flags]
 
-  Relay options:
+  Options:
     --provider <id>
     --model <id>
     --trace

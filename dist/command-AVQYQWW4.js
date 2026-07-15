@@ -65,14 +65,14 @@ import {
   summarizeServerProviders,
   validateCustomEndpointUrl,
   writeSecureLogLine
-} from "./chunk-TLFZPC6W.js";
+} from "./chunk-WBXBMBJN.js";
 import {
   getTemplateById,
   listAddableTemplates,
   listVisibleOAuthTemplates
 } from "./chunk-VKROC37K.js";
 
-// src/agents/claude/ui-command.ts
+// src/ui/command.ts
 import { createServer } from "http";
 import { readFileSync, readdirSync, writeFileSync as writeFileSync2, unlinkSync, existsSync as existsSync3, mkdirSync } from "fs";
 import { join as join2 } from "path";
@@ -89,37 +89,37 @@ import { join } from "path";
 var isWindows = process.platform === "win32";
 var isMac = process.platform === "darwin";
 var SUPPORTED_APPS = [
-  { id: "claude", name: "Claude Code CLI", type: "cli", detectId: "claude", relayCommand: "claude" },
-  { id: "codex", name: "Codex CLI", type: "cli", detectId: "codex", relayCommand: "codex" },
-  { id: "gemini", name: "Gemini CLI", type: "cli", detectId: "gemini", relayCommand: "gemini" },
-  { id: "agy", name: "Antigravity CLI", type: "cli", detectId: "agy", relayCommand: "agy" },
+  { id: "claude", name: "Claude Code CLI", type: "cli", detectId: "claude", gatewayCommand: "claude" },
+  { id: "codex", name: "Codex CLI", type: "cli", detectId: "codex", gatewayCommand: "codex" },
+  { id: "gemini", name: "Gemini CLI", type: "cli", detectId: "gemini", gatewayCommand: "gemini" },
+  { id: "agy", name: "Antigravity CLI", type: "cli", detectId: "agy", gatewayCommand: "agy" },
   {
     id: "antigravity",
     name: "Antigravity (App)",
     type: "app",
     detectId: "antigravity",
-    relayCommand: "antigravity"
+    gatewayCommand: "antigravity"
   },
   {
     id: "antigravity-ide",
     name: "Antigravity IDE (App)",
     type: "app",
     detectId: "antigravity-ide",
-    relayCommand: "antigravity-ide"
+    gatewayCommand: "antigravity-ide"
   },
   {
     id: "claude-app",
     name: "Claude Code Desktop",
     type: "app",
     detectId: "claude-app",
-    relayCommand: "claude-app"
+    gatewayCommand: "claude-app"
   },
   {
     id: "codex-app",
     name: "ChatGPT Desktop (Codex)",
     type: "app",
     detectId: "codex-app",
-    relayCommand: "codex-app"
+    gatewayCommand: "codex-app"
   }
 ];
 function fallbackPathsForApp(id, platform = process.platform) {
@@ -301,22 +301,22 @@ function quoteShellArg(value) {
   if (/^[a-zA-Z0-9\-_./]+$/.test(value)) return value;
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
-function relayCliPath() {
+function gatewayCliPath() {
   return "anygate";
 }
-function getRelayLaunchCommand(appId, options = {}) {
+function getGatewayLaunchCommand(appId, options = {}) {
   const app = getSupportedApp(appId);
   if (!app) throw new Error(`Unsupported app: ${appId}`);
-  const args = [app.relayCommand];
+  const args = [app.gatewayCommand];
   if (options.trace) {
     args.push("--trace");
   }
   if (options.providerId && options.modelId) {
     args.push("--provider", options.providerId, "--model", options.modelId);
   } else if (options.providerId || options.modelId) {
-    throw new Error("Both providerId and modelId are required for an explicit Relay launch.");
+    throw new Error("Both providerId and modelId are required for an explicit anygate launch.");
   }
-  return getTerminalLaunchCommand(relayCliPath(), args, {
+  return getTerminalLaunchCommand(gatewayCliPath(), args, {
     cwd: options.cwd,
     displayCommand: ["anygate", ...args].join(" ")
   });
@@ -331,8 +331,8 @@ function getSupportedApps() {
       installed,
       path,
       pathSource,
-      relayCommand: app.relayCommand,
-      launchCommand: installed ? getRelayLaunchCommand(app.id) : null
+      gatewayCommand: app.gatewayCommand,
+      launchCommand: installed ? getGatewayLaunchCommand(app.id) : null
     };
   });
 }
@@ -1080,7 +1080,7 @@ async function handleLaunchApp(req, res, opts) {
       return;
     }
     if (!favorites && (providerId || modelId) && (!providerId || !modelId)) {
-      sendJson(res, 400, { error: "Both providerId and modelId are required to launch a specific Relay model." });
+      sendJson(res, 400, { error: "Both providerId and modelId are required to launch a specific anygate model." });
       return;
     }
     if (favorites && !providerId && !modelId) {
@@ -1104,7 +1104,7 @@ async function handleLaunchApp(req, res, opts) {
       }
       recordLaunchFolder(launchFolder);
     }
-    const launchCmd = getRelayLaunchCommand(appId, {
+    const launchCmd = getGatewayLaunchCommand(appId, {
       providerId,
       modelId,
       cwd: launchFolder,
@@ -1282,7 +1282,7 @@ async function handleBrowseFolder(res) {
   }
 }
 
-// src/agents/claude/ui-command.ts
+// src/ui/command.ts
 var __dirname = dirname(fileURLToPath(import.meta.url));
 var PUBLIC_DIR = join2(__dirname, "ui", "public");
 var LOCK_FILE = join2(getAppHome(), "ui.lock");
@@ -1449,4 +1449,4 @@ export {
   resolveUiShutdownDecision,
   runUiCommand
 };
-//# sourceMappingURL=ui-command-KK4BCLRX.js.map
+//# sourceMappingURL=command-AVQYQWW4.js.map

@@ -109,7 +109,7 @@ describe('dotfolder config', () => {
     ]);
   });
 
-  it('migrates legacy lastProvider opencode to zen on read', () => {
+  it('upgrades legacy lastProvider opencode to zen on read', () => {
     const configPath = getConfigPath();
     mkdirSync(dirname(configPath), { recursive: true });
     writeFileSync(configPath, JSON.stringify({ lastProvider: 'opencode' }), 'utf8');

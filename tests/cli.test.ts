@@ -115,7 +115,7 @@ describe('parseArgs', () => {
     });
   });
 
-  it('consumes relay launch flags for claude and codex', () => {
+  it('consumes gateway launch flags for claude and codex', () => {
     expect(parseArgs(['claude', '--provider', 'groq', '--model', 'llama-3.3-70b', '-p', 'hi'])).toMatchObject({
       command: 'claude',
       launchProvider: 'groq',
@@ -438,7 +438,7 @@ describe('parseArgs — antigravity commands', () => {
     });
   });
 
-  it('consumes relay launch flags for antigravity app', () => {
+  it('consumes gateway launch flags for antigravity app', () => {
     expect(parseArgs(['antigravity', '--provider=zen', '--model=deepseek-v4-flash-free', '--wait'])).toMatchObject({
       command: 'antigravity',
       launchProvider: 'zen',
@@ -485,7 +485,7 @@ describe('parseArgs — antigravity commands', () => {
     expect(parseArgs(['agy', '--trace']).claudeArgs).toEqual([]);
   });
 
-  it('consumes relay launch flags for agy', () => {
+  it('consumes gateway launch flags for agy', () => {
     expect(parseArgs(['agy', '--provider=zen', '--model=deepseek-v4-flash-free', '-p', 'fix'])).toMatchObject({
       command: 'agy',
       launchProvider: 'zen',

@@ -61,6 +61,8 @@ import {
   formatRegistryAuthLabel,
   formatUpdateNotification,
   formatUpstreamError,
+  gateIntro,
+  gateOutro,
   getAppHome,
   getAppPathOverride,
   getClaudeDebugLogPath,
@@ -94,8 +96,6 @@ import {
   makeRouteResolver,
   makeTraceLogger,
   maxToolsForNpm,
-  migrateGlobalOpencodeCredential,
-  migrateLegacyCloudProviders,
   modelSelectOption,
   navOption,
   oauthAuthRef,
@@ -105,6 +105,7 @@ import {
   parseToolArguments,
   prepareClaudeTraceLog,
   printApiKeyPanel,
+  printAsciiBanner,
   printCloudProviderPanel,
   printDryRunPanel,
   printEnvConflictPanel,
@@ -127,8 +128,6 @@ import {
   refreshAllProviderModels,
   refreshModelsDevCacheAsync,
   refreshProviderModels,
-  relayIntro,
-  relayOutro,
   removeProviderFromRegistry,
   resolveApiKey,
   resolveContextWindow,
@@ -160,11 +159,13 @@ import {
   thinkingProviderOptions,
   toggleProviderEnabled,
   translateRequest,
+  upgradeGlobalOpencodeCredential,
+  upgradeLegacyCloudProviders,
   upstreamHttpStatus,
   validateCustomEndpointUrl,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-TLFZPC6W.js";
+} from "./chunk-WBXBMBJN.js";
 import {
   filterTemplates,
   getTemplateById,
@@ -291,7 +292,7 @@ async function importFromOpencode(options = {}) {
   const authEntries = authFile?.entries ?? {};
   const { providers: fetched, oauth } = buildImportProviderList(raw, authEntries);
   const registry = loadRegistry();
-  migrateLegacyCloudProviders(registry);
+  upgradeLegacyCloudProviders(registry);
   const imported = [];
   const skipped = [];
   const keysSkipped = [];
@@ -606,7 +607,7 @@ async function runFirstRunWizard(trace = false) {
   if (choice === "zen") {
     const apiKey = await resolveOrCollectApiKey(false, trace);
     if (!apiKey) return "cancel";
-    await migrateGlobalOpencodeCredential();
+    await upgradeGlobalOpencodeCredential();
     ensureZenRegistryStub();
     p2.log.success("OpenCode Zen ready \u2014 picking a model next.");
     return "continue";
@@ -942,7 +943,7 @@ async function pickLocalModel(provider, conflicts, prefs) {
     p3.cancel("Cancelled.");
     return null;
   }
-  relayOutro("Launching", fmtModel(modelLabel, selectedModel.id));
+  gateOutro("Launching", fmtModel(modelLabel, selectedModel.id));
   return selectedModel;
 }
 
@@ -1389,7 +1390,7 @@ async function runTemplateAddFlow() {
       }
       apiKey2 = collected;
     }
-    await migrateGlobalOpencodeCredential();
+    await upgradeGlobalOpencodeCredential();
     const spinner10 = p5.spinner();
     spinner10.start(`Adding ${template.name}...`);
     const zenStub = addZenRegistryStub();
@@ -1807,7 +1808,7 @@ async function runProvidersCommand(args) {
     }
     return runProvidersAuth(parsed.removeId, parsed.authMethod);
   }
-  relayIntro("Your AI providers");
+  gateIntro("Your AI providers");
   return runProvidersHub();
 }
 
@@ -2969,7 +2970,7 @@ async function startCodexProxy(routes, options = {}) {
               });
             } catch (err) {
               const msg = formatUpstreamError(err);
-              const status = upstreamHttpStatus(err, msg);
+              const status = upstreamHttpStatus(err);
               if (debug) log14(`sdk error: ${route.modelId}: ${msg}`);
               if (status === 429) {
                 writeResponsesRateLimitStream(modelId, msg, write);
@@ -2984,7 +2985,7 @@ async function startCodexProxy(routes, options = {}) {
               sendJson(res, 200, response);
             } catch (err) {
               const msg = formatUpstreamError(err);
-              const status = upstreamHttpStatus(err, msg);
+              const status = upstreamHttpStatus(err);
               if (debug) log14(`sdk error: ${route.modelId}: ${msg}`);
               if (status === 429) {
                 sendJson(res, 200, responsesRateLimitBody(modelId, msg));
@@ -3187,7 +3188,7 @@ data: ${JSON.stringify({ error: { message: `Unknown model: ${modelId}` } })}
             });
           } catch (err) {
             const msg = formatUpstreamError(err);
-            const status = upstreamHttpStatus(err, msg);
+            const status = upstreamHttpStatus(err);
             if (debug) log14(`WS sdk error: ${route.modelId}: ${msg}`);
             if (status === 429) {
               writeResponsesRateLimitStream(modelId, msg, sendWsEvent);
@@ -3713,10 +3714,10 @@ function rejectManagedFlags(codexArgs) {
 // src/agents/codex/ui.ts
 import pc6 from "picocolors";
 function codexAppIntro() {
-  relayIntro("Codex App");
+  gateIntro("Codex App");
 }
 function codexCliIntro() {
-  relayIntro("Codex");
+  gateIntro("Codex");
 }
 function printCodexAppSessionPanel(opts) {
   printPanel(pc6.cyan("Foreground session"), [
@@ -3738,10 +3739,10 @@ function printCodexCliCleanupPanel(restoreCommand) {
   ]);
 }
 function codexAppOutro(modelLabel) {
-  relayOutro("Codex App", fmtModel(modelLabel));
+  gateOutro("Codex App", fmtModel(modelLabel));
 }
 function codexCliOutro(providerName, modelLabel, modelId) {
-  relayOutro(
+  gateOutro(
     "Launching Codex",
     `${fmtProvider(providerName)} ${pc6.dim("/")} ${fmtModel(modelLabel, modelId)}`
   );
@@ -5999,7 +6000,7 @@ function formatCloudCodeChunk(opts) {
   }
   return {
     response,
-    traceId: "relay-trace",
+    traceId: "gateway-trace",
     metadata: {}
   };
 }
@@ -6249,14 +6250,14 @@ function evaluateAgySwitchCompatibility(opts) {
 }
 
 // src/gateway/antigravity/catalog.ts
-var RELAY_CASCADE_PLAN_MODEL = "MODEL_PLACEHOLDER_M132";
-var RELAY_AGENT_PLACEHOLDER = "MODEL_PLACEHOLDER_M20";
-var RELAY_CASCADE_CHECKPOINT_MODEL = "MODEL_PLACEHOLDER_M50";
-var RELAY_CASCADE_INTENT_MODEL = "MODEL_GOOGLE_GEMINI_2_5_FLASH";
-var RELAY_CASCADE_ANCHOR_ID = "gemini-3.5-flash-low";
-var RELAY_CASCADE_PLAN_ANCHOR_ID = "gemini-3-flash-agent";
-var RELAY_CASCADE_FALLBACK_ID = "gemini-2.5-flash-lite";
-var RELAY_CASCADE_INTENT_MODEL_ID = "gemini-2.5-flash";
+var GATEWAY_CASCADE_PLAN_MODEL = "MODEL_PLACEHOLDER_M132";
+var GATEWAY_AGENT_PLACEHOLDER = "MODEL_PLACEHOLDER_M20";
+var GATEWAY_CASCADE_CHECKPOINT_MODEL = "MODEL_PLACEHOLDER_M50";
+var GATEWAY_CASCADE_INTENT_MODEL = "MODEL_GOOGLE_GEMINI_2_5_FLASH";
+var GATEWAY_CASCADE_ANCHOR_ID = "gemini-3.5-flash-low";
+var GATEWAY_CASCADE_PLAN_ANCHOR_ID = "gemini-3-flash-agent";
+var GATEWAY_CASCADE_FALLBACK_ID = "gemini-2.5-flash-lite";
+var GATEWAY_CASCADE_INTENT_MODEL_ID = "gemini-2.5-flash";
 function withCascadeCheckpointer(entry, maxTokenLimit = 128e3) {
   const tokenThreshold = Math.min(5e4, Math.floor(maxTokenLimit * 0.75));
   const existingModelExperiments = entry.modelExperiments;
@@ -6273,7 +6274,7 @@ function withCascadeCheckpointer(entry, maxTokenLimit = 128e3) {
           moving_window_size: "1",
           enabled: true,
           max_output_tokens: "16384",
-          checkpoint_model: RELAY_CASCADE_CHECKPOINT_MODEL,
+          checkpoint_model: GATEWAY_CASCADE_CHECKPOINT_MODEL,
           use_last_planner_model: true,
           is_sync: true,
           max_user_requests: 10,
@@ -6305,7 +6306,7 @@ function applyRouteContextBounds(entry, route) {
   entry.maxOutputTokens = maxOutputTokens;
   return withCascadeCheckpointer(entry, checkpointTokenLimit);
 }
-var RELAY_CASCADE_FALLBACK_ENTRY = withCascadeCheckpointer({
+var GATEWAY_CASCADE_FALLBACK_ENTRY = withCascadeCheckpointer({
   displayName: "Gemini 3.1 Flash Lite",
   model: "MODEL_GOOGLE_GEMINI_2_5_FLASH_LITE",
   apiProvider: "API_PROVIDER_GOOGLE_GEMINI",
@@ -6315,11 +6316,11 @@ var RELAY_CASCADE_FALLBACK_ENTRY = withCascadeCheckpointer({
   maxOutputTokens: 65535,
   quotaInfo: { remainingFraction: 1 }
 });
-var RELAY_CASCADE_INTENT_MODEL_ENTRY = withCascadeCheckpointer({
-  ...RELAY_CASCADE_FALLBACK_ENTRY,
-  model: RELAY_CASCADE_INTENT_MODEL
+var GATEWAY_CASCADE_INTENT_MODEL_ENTRY = withCascadeCheckpointer({
+  ...GATEWAY_CASCADE_FALLBACK_ENTRY,
+  model: GATEWAY_CASCADE_INTENT_MODEL
 });
-function planRelayCatalogSlots(catalog, routes, templateKey) {
+function planGateCatalogSlots(catalog, routes, templateKey) {
   const validation = validateAgySlotRegistry(catalog);
   const switchSlots = getValidatedAgySwitchSlots(catalog);
   const templateSlot = switchSlots.find((slot) => slot.slotId === templateKey);
@@ -6340,20 +6341,20 @@ function planRelayCatalogSlots(catalog, routes, templateKey) {
     validation
   };
 }
-function resolveRelayCatalogSlots(catalog, routes, templateKey) {
-  return planRelayCatalogSlots(catalog, routes, templateKey).slots;
+function resolveGateCatalogSlots(catalog, routes, templateKey) {
+  return planGateCatalogSlots(catalog, routes, templateKey).slots;
 }
-function buildRelayCatalogEntry(route, template) {
+function buildGateCatalogEntry(route, template) {
   const entry = structuredClone(template);
   entry.displayName = route.displayName;
-  entry.model = template.model ?? RELAY_AGENT_PLACEHOLDER;
+  entry.model = template.model ?? GATEWAY_AGENT_PLACEHOLDER;
   entry.requestedModelId = route.catalogId;
   entry.modelVersion = route.catalogId;
   entry.modelVersionId = route.catalogId;
   entry.quotaInfo = { remainingFraction: 1, resetTime: "2026-06-23T02:00:57Z" };
   return applyRouteContextBounds(entry, route);
 }
-function buildRelayCatalogSlotEntry(route, template) {
+function buildGateCatalogSlotEntry(route, template) {
   const entry = structuredClone(template);
   entry.displayName = route.displayName;
   entry.quotaInfo = { remainingFraction: 1, resetTime: "2026-06-23T02:00:57Z" };
@@ -6363,7 +6364,7 @@ function buildRelayCatalogSlotEntry(route, template) {
   delete entry.isInternal;
   return applyRouteContextBounds(entry, route);
 }
-function injectRelayModels(fixture, routes, templateKey) {
+function injectGatewayModels(fixture, routes, templateKey) {
   const result = structuredClone(fixture);
   const template = fixture.models[templateKey];
   if (!template) {
@@ -6380,24 +6381,24 @@ function injectRelayModels(fixture, routes, templateKey) {
     seen.add(route.catalogId);
   }
   if (routes.length > 0) {
-    result.models[RELAY_CASCADE_ANCHOR_ID] ??= structuredClone(template);
-    result.models[RELAY_CASCADE_FALLBACK_ID] ??= structuredClone(RELAY_CASCADE_FALLBACK_ENTRY);
-    result.models[RELAY_CASCADE_INTENT_MODEL_ID] ??= structuredClone(RELAY_CASCADE_INTENT_MODEL_ENTRY);
-    if (!result.models[RELAY_CASCADE_PLAN_ANCHOR_ID]) {
+    result.models[GATEWAY_CASCADE_ANCHOR_ID] ??= structuredClone(template);
+    result.models[GATEWAY_CASCADE_FALLBACK_ID] ??= structuredClone(GATEWAY_CASCADE_FALLBACK_ENTRY);
+    result.models[GATEWAY_CASCADE_INTENT_MODEL_ID] ??= structuredClone(GATEWAY_CASCADE_INTENT_MODEL_ENTRY);
+    if (!result.models[GATEWAY_CASCADE_PLAN_ANCHOR_ID]) {
       const planAnchor = withCascadeCheckpointer(structuredClone(template));
-      planAnchor.model = RELAY_CASCADE_PLAN_MODEL;
-      result.models[RELAY_CASCADE_PLAN_ANCHOR_ID] = planAnchor;
+      planAnchor.model = GATEWAY_CASCADE_PLAN_MODEL;
+      result.models[GATEWAY_CASCADE_PLAN_ANCHOR_ID] = planAnchor;
     }
-    const slotPlan = planRelayCatalogSlots(result, routes, templateKey);
+    const slotPlan = planGateCatalogSlots(result, routes, templateKey);
     const slots = slotPlan.slots;
     for (const { slotId, route } of slots) {
       const slotTemplate = result.models[slotId] ?? template;
       if (result.models[slotId]) {
-        result.models[slotId] = buildRelayCatalogSlotEntry(route, slotTemplate);
+        result.models[slotId] = buildGateCatalogSlotEntry(route, slotTemplate);
       }
-      result.models[route.catalogId] = buildRelayCatalogEntry(route, slotTemplate);
+      result.models[route.catalogId] = buildGateCatalogEntry(route, slotTemplate);
     }
-    result.defaultAgentModelId = slots[0]?.slotId ?? RELAY_CASCADE_ANCHOR_ID;
+    result.defaultAgentModelId = slots[0]?.slotId ?? GATEWAY_CASCADE_ANCHOR_ID;
     result.agentModelSorts = [
       {
         displayName: "Recommended",
@@ -6439,7 +6440,7 @@ function buildAntigravityRoutes(resolvedFavorites, maxRoutes = MAX_MODEL_CATALOG
       providerName: fav.providerName,
       modelId,
       upstreamModelId,
-      displayName: `${favModel.name} (Relay)`,
+      displayName: `${favModel.name} (anygate)`,
       ...modelFormat ? { modelFormat } : {},
       npm,
       apiKey: fav.apiKey,
@@ -6453,8 +6454,8 @@ function buildAntigravityRoutes(resolvedFavorites, maxRoutes = MAX_MODEL_CATALOG
   return applyUniqueAntigravityRouteLabels(routes);
 }
 function routeBaseModelName(route) {
-  const relayMatch = route.displayName.match(/^(.*) \(Relay(?: - .*)?\)$/);
-  return relayMatch?.[1] ?? route.displayName;
+  const gatewayMatch = route.displayName.match(/^(.*) \(anygate(?: - .*)?\)$/);
+  return gatewayMatch?.[1] ?? route.displayName;
 }
 function authKindLabel(route) {
   if (route.authType === "oauth") return "OAuth";
@@ -6485,13 +6486,13 @@ function applyUniqueAntigravityRouteLabels(routes) {
     const baseName = baseNames[index];
     const needsSuffix = (baseNameCounts.get(baseName) ?? 0) > 1 || (upstreamCounts.get(route.upstreamModelId) ?? 0) > 1;
     if (!needsSuffix) {
-      return { ...route, displayName: `${baseName} (Relay)` };
+      return { ...route, displayName: `${baseName} (anygate)` };
     }
     const providerName = route.providerName || route.providerId;
     const providerSuffix = (providerNameCounts.get(providerName) ?? 0) > 1 ? `${providerName} ${authKindLabel(route)}` : providerName;
     return {
       ...route,
-      displayName: `${baseName} (Relay - ${providerSuffix})`
+      displayName: `${baseName} (anygate - ${providerSuffix})`
     };
   });
   const firstPassCounts = duplicateCounts(labeled.map((route) => route.displayName));
@@ -6513,12 +6514,12 @@ function routeLabels(routes) {
   }
   return labels;
 }
-function buildClientModelConfigData(routes, catalog, templateKey = RELAY_CASCADE_ANCHOR_ID, precomputedSlots) {
+function buildClientModelConfigData(routes, catalog, templateKey = GATEWAY_CASCADE_ANCHOR_ID, precomputedSlots) {
   const catalogRoutes = routes.slice(0, MAX_MODEL_CATALOG);
-  const slots = precomputedSlots ?? (catalog ? resolveRelayCatalogSlots(catalog, catalogRoutes, templateKey) : catalogRoutes.map((route) => ({ slotId: route.catalogId, route })));
+  const slots = precomputedSlots ?? (catalog ? resolveGateCatalogSlots(catalog, catalogRoutes, templateKey) : catalogRoutes.map((route) => ({ slotId: route.catalogId, route })));
   const labels = routeLabels(catalogRoutes);
   const clientModelConfigs = slots.map(({ slotId, route }) => {
-    const entry = catalog?.models[slotId] ?? catalog?.models[route.catalogId] ?? catalog?.models[RELAY_CASCADE_ANCHOR_ID];
+    const entry = catalog?.models[slotId] ?? catalog?.models[route.catalogId] ?? catalog?.models[GATEWAY_CASCADE_ANCHOR_ID];
     const label = labels.get(route.catalogId) ?? route.displayName;
     return {
       label,
@@ -6550,13 +6551,13 @@ function buildClientModelConfigData(routes, catalog, templateKey = RELAY_CASCADE
     defaultOverrideModelConfig: clientModelConfigs[0] ?? {}
   };
 }
-function buildListModelConfigsResponse(routes, catalog, templateKey = RELAY_CASCADE_ANCHOR_ID) {
+function buildListModelConfigsResponse(routes, catalog, templateKey = GATEWAY_CASCADE_ANCHOR_ID) {
   const catalogRoutes = routes.slice(0, MAX_MODEL_CATALOG);
-  const slots = catalog ? resolveRelayCatalogSlots(catalog, catalogRoutes, templateKey) : catalogRoutes.map((route) => ({ slotId: route.catalogId, route }));
+  const slots = catalog ? resolveGateCatalogSlots(catalog, catalogRoutes, templateKey) : catalogRoutes.map((route) => ({ slotId: route.catalogId, route }));
   const config = slots.map(({ slotId }) => ({
     requestedModelId: slotId,
-    planModel: RELAY_CASCADE_PLAN_MODEL,
-    requestedModel: catalog?.models[slotId]?.model ?? RELAY_AGENT_PLACEHOLDER
+    planModel: GATEWAY_CASCADE_PLAN_MODEL,
+    requestedModel: catalog?.models[slotId]?.model ?? GATEWAY_AGENT_PLACEHOLDER
   }));
   return {
     ...buildClientModelConfigData(routes, catalog, templateKey, slots),
@@ -6653,7 +6654,7 @@ function buildListExperimentsResponse() {
   };
 }
 
-// src/gateway/antigravity/fixtures/fixtures/loadCodeAssist.json
+// src/gateway/antigravity/fixtures/loadCodeAssist.json
 var loadCodeAssist_default = {
   currentTier: {
     id: "free-tier",
@@ -6699,7 +6700,7 @@ var loadCodeAssist_default = {
   }
 };
 
-// src/gateway/antigravity/fixtures/fixtures/fetchAvailableModels.json
+// src/gateway/antigravity/fixtures/fetchAvailableModels.json
 var fetchAvailableModels_default = {
   models: {
     "gpt-oss-120b-medium": {
@@ -7632,8 +7633,8 @@ async function startCloudCodeGateway(routes, opts = {}) {
   const log14 = opts.logFn ?? (() => {
   });
   const catalogFixture = fetchAvailableModels_default;
-  const injectedCatalog = injectRelayModels(catalogFixture, routes, templateKey);
-  const selectedSlotRoutes = resolveRelayCatalogSlots(injectedCatalog, routes, templateKey);
+  const injectedCatalog = injectGatewayModels(catalogFixture, routes, templateKey);
+  const selectedSlotRoutes = resolveGateCatalogSlots(injectedCatalog, routes, templateKey);
   const selectedSlotIds = /* @__PURE__ */ new Set();
   const routeMap = /* @__PURE__ */ new Map();
   const reasoningEchoesByConversation = /* @__PURE__ */ new Map();
@@ -7773,7 +7774,7 @@ async function startCloudCodeGateway(routes, opts = {}) {
         respondJson(res, 403, {
           error: {
             code: 403,
-            message: `Non-Relay model "${model ?? "unknown"}" rejected in privacy mode`
+            message: `Non-anygate model "${model ?? "unknown"}" rejected in privacy mode`
           }
         });
         return;
@@ -7783,7 +7784,7 @@ async function startCloudCodeGateway(routes, opts = {}) {
         return;
       }
       if (lowerUrl.includes("userquota")) {
-        respondJson(res, 200, { quotaSummary: { remainingQueries: 9999, totalQueries: 9999, quotaType: "RELAY_UNLIMITED" } });
+        respondJson(res, 200, { quotaSummary: { remainingQueries: 9999, totalQueries: 9999, quotaType: "GATEWAY_UNLIMITED" } });
         return;
       }
       if (lowerUrl.includes("userinfo")) {
@@ -7849,7 +7850,7 @@ async function startCloudCodeGateway(routes, opts = {}) {
         respondJson(res, 200, { projects: [] });
         return;
       }
-      if (lowerUrl.includes("migrate")) {
+      if (lowerUrl.includes("upgrade")) {
         respondJson(res, 200, {});
         return;
       }
@@ -8106,7 +8107,7 @@ async function handleStreamingRequest(res, route, providerOptions, parsed, log14
     oauthAccountId: route.oauthAccountId,
     providerData: route.providerData
   });
-  const responseId = `relay-${Date.now()}`;
+  const responseId = `gateway-${Date.now()}`;
   const { fullStream } = streamText3({
     model: langModel,
     system: sdkParams.system,
@@ -8233,7 +8234,7 @@ async function handleUnaryRequest(res, route, providerOptions, parsed, _log, opt
     oauthAccountId: route.oauthAccountId,
     providerData: route.providerData
   });
-  const responseId = `relay-${Date.now()}`;
+  const responseId = `gateway-${Date.now()}`;
   const result = await generateText3({
     model: langModel,
     system: sdkParams.system,
@@ -8276,7 +8277,7 @@ async function handleUnaryRequest(res, route, providerOptions, parsed, _log, opt
     modelVersion: route.catalogId,
     responseId
   };
-  respondJson(res, 200, { response, traceId: "relay-trace", metadata: {} });
+  respondJson(res, 200, { response, traceId: "gateway-trace", metadata: {} });
 }
 
 // src/gateway/antigravity/launch-routes.ts
@@ -8635,10 +8636,10 @@ function launchAntigravityIde(env, profileDir, gatewayUrl, extraArgs) {
       return;
     }
     prepareIdeProfile(profileDir, gatewayUrl);
-    const relayExtensionsDir = join6(homedir6(), ".anygate", "antigravity", "extensions");
+    const gatewayExtensionsDir = join6(homedir6(), ".anygate", "antigravity", "extensions");
     const args = [
       `--user-data-dir=${profileDir}`,
-      `--extensions-dir=${relayExtensionsDir}`,
+      `--extensions-dir=${gatewayExtensionsDir}`,
       ...extraArgs
     ];
     const child = spawn4(binaryPath, args, {
@@ -8659,7 +8660,7 @@ function launchAntigravityIde(env, profileDir, gatewayUrl, extraArgs) {
 import { homedir as homedir7 } from "os";
 import { join as join7 } from "path";
 var SHUTDOWN_DRAIN_MS = 500;
-var AGY_FAVORITES_PROVIDER_ID = "__relay_agy_favorites__";
+var AGY_FAVORITES_PROVIDER_ID = "__gateway_agy_favorites__";
 var AGY_FAVORITES_PROVIDER_LABEL = "\u2605 Antigravity CLI Favorites";
 function agyArgsIncludeModelFlag(args) {
   return args.some((arg) => arg === "--model" || arg.startsWith("--model="));
@@ -8685,7 +8686,7 @@ function resolveFavoriteModel(favorite, allProviders) {
   return provider && model ? { provider, model } : null;
 }
 function normalizeAgyModelSelector(value) {
-  return value.trim().replace(/\s*\(Relay(?: - .*)?\)\s*$/i, "").toLowerCase();
+  return value.trim().replace(/\s*\(anygate(?: - .*)?\)\s*$/i, "").toLowerCase();
 }
 function resolveAntigravityBootModel(provider, modelSelector) {
   const selector = normalizeAgyModelSelector(modelSelector);
@@ -8868,7 +8869,7 @@ function waitForShutdown() {
 }
 async function runAntigravityCommand(intro, tracePrefix, trace, boot, launch, opts = {}) {
   const prefs = loadPreferences();
-  relayIntro(intro);
+  gateIntro(intro);
   if (tracePrefix === "agy" && (prefs.favoriteModels?.length ?? 0) > 0 && (prefs.antigravityCliFavoriteModels?.length ?? 0) === 0 && !prefs.antigravityCliFavoritesHintShown) {
     p11.log.info("Tip: AGY uses its own favorites list. Run `anygate favorites --agy` to set up switching.");
     savePreferences({ antigravityCliFavoritesHintShown: true });
@@ -8915,7 +8916,7 @@ async function runAntigravityCommand(intro, tracePrefix, trace, boot, launch, op
   p11.log.info(`Cloud Code gateway on ${pc9.cyan(`127.0.0.1:${gatewayHandle.port}`)}`);
   p11.log.success(`Active model: ${formatCodexModelLabel(model)} ${pc9.dim("via")} ${provider.name}`);
   if (trace) p11.log.info(`Gateway trace \u2192 ${pc9.dim(traceLogPath)}`);
-  relayOutro("Launching", `${formatCodexModelLabel(model)} (${provider.name})`);
+  gateOutro("Launching", `${formatCodexModelLabel(model)} (${provider.name})`);
   try {
     const cleanEnv = buildAntigravityChildEnv(gatewayHandle.url);
     return await launch(cleanEnv, routeResult.routes, gatewayHandle);
@@ -8943,7 +8944,7 @@ async function runAntigravityAppCommand(childArgs, trace = false, boot) {
       const profileDir = join7(homedir7(), ".anygate", "antigravity", "app-profile");
       if (isAntigravityAppRunning(profileDir)) {
         const restart = await p11.confirm({
-          message: "Restart Antigravity to apply this Relay gateway?",
+          message: "Restart Antigravity to apply this Gateway gateway?",
           initialValue: true
         });
         if (p11.isCancel(restart) || !restart) {
@@ -8958,7 +8959,7 @@ async function runAntigravityAppCommand(childArgs, trace = false, boot) {
       }
       const launchCode = await launchAntigravityApp(env, profileDir, gatewayHandle.url, childArgs);
       if (launchCode !== 0) return launchCode;
-      p11.log.info("Antigravity is using the Relay Cloud Code gateway.");
+      p11.log.info("Antigravity is using the Gateway Cloud Code gateway.");
       p11.log.info(pc9.cyan("Press Ctrl+C to stop the gateway."));
       await waitForShutdown();
       await new Promise((r) => setTimeout(r, SHUTDOWN_DRAIN_MS));
@@ -8991,7 +8992,7 @@ async function runAntigravityIdeCommand(childArgs, trace = false, boot) {
       const profileDir = join7(homedir7(), ".anygate", "antigravity", "profile");
       if (isAntigravityIdeRunning(profileDir)) {
         const restart = await p11.confirm({
-          message: "Restart Antigravity IDE to apply this Relay gateway?",
+          message: "Restart Antigravity IDE to apply this Gateway gateway?",
           initialValue: true
         });
         if (p11.isCancel(restart) || !restart) {
@@ -9006,7 +9007,7 @@ async function runAntigravityIdeCommand(childArgs, trace = false, boot) {
       }
       const launchCode = await launchAntigravityIde(env, profileDir, gatewayHandle.url, childArgs);
       if (launchCode !== 0) return launchCode;
-      p11.log.info("Antigravity IDE is using the Relay Cloud Code gateway.");
+      p11.log.info("Antigravity IDE is using the Gateway Cloud Code gateway.");
       p11.log.info(pc9.cyan("Press Ctrl+C to stop the gateway."));
       await waitForShutdown();
       await new Promise((r) => setTimeout(r, SHUTDOWN_DRAIN_MS));
@@ -10772,9 +10773,9 @@ ROOT
   anygate --version         Version string
 
 CLAUDE CODE
-  anygate claude [relay-options] [claude-flags]
+  anygate claude [options] [claude-flags]
 
-  Relay options:
+  Options:
     --provider <id>    Boot provider (skip wizard with --model)
     --model <id>       Boot model id or provider__model slug
     --dry-run          Preview launch, do not start Claude
@@ -10793,9 +10794,9 @@ CLAUDE CODE
     anygate claude --dry-run --provider groq --model llama-3.3-70b-versatile
 
 GOOGLE GEMINI CLI
-  anygate gemini [relay-options] [gemini-flags]
+  anygate gemini [options] [gemini-flags]
 
-  Relay options:
+  Options:
     --provider <id>    Boot provider (skip wizard with --model)
     --model <id>       Boot model id or provider__model slug
     --trace            Debug logs in ~/.anygate/logs/
@@ -10805,9 +10806,9 @@ GOOGLE GEMINI CLI
     anygate gemini --provider google --model gemini-2.5-flash -p "What is the capital of France?"
 
 OPENAI CODEX CLI
-  anygate codex [relay-options] [codex-flags]
+  anygate codex [options] [codex-flags]
 
-  Relay options:
+  Options:
     --provider <id>
     --model <id>
     --trace
@@ -11076,8 +11077,8 @@ function printAiInstallResult(result) {
 
 // src/cli.ts
 var STARTER_CLAUDE_FLAGS = /* @__PURE__ */ new Set(["--dry-run", "--setup", "--trace", "--help", "-h", "--version", "-v"]);
-var RELAY_LAUNCH_FLAGS = /* @__PURE__ */ new Set(["--provider", "--model"]);
-function parseRelayLaunchFlag(arg, rest, index, parsed) {
+var GATEWAY_LAUNCH_FLAGS = /* @__PURE__ */ new Set(["--provider", "--model"]);
+function parseGatewayLaunchFlag(arg, rest, index, parsed) {
   if (arg === "--provider" || arg === "--model") {
     const value = rest[index + 1];
     if (!value || value.startsWith("-")) {
@@ -11098,11 +11099,11 @@ function parseRelayLaunchFlag(arg, rest, index, parsed) {
   }
   return index;
 }
-function tryConsumeRelayLaunchFlag(arg, rest, index, parsed) {
-  if (!RELAY_LAUNCH_FLAGS.has(arg) && !arg.startsWith("--provider=") && !arg.startsWith("--model=")) {
+function tryConsumeGatewayLaunchFlag(arg, rest, index, parsed) {
+  if (!GATEWAY_LAUNCH_FLAGS.has(arg) && !arg.startsWith("--provider=") && !arg.startsWith("--model=")) {
     return null;
   }
-  const next = parseRelayLaunchFlag(arg, rest, index, parsed);
+  const next = parseGatewayLaunchFlag(arg, rest, index, parsed);
   if (next === "error") return { error: true };
   return { next };
 }
@@ -11250,7 +11251,7 @@ function parseArgs(args) {
         parsed2.vertex = true;
         continue;
       }
-      const consumed = tryConsumeRelayLaunchFlag(arg, rest, i, parsed2);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed2);
       if (consumed !== null) {
         if ("error" in consumed) return parsed2;
         i = consumed.next;
@@ -11272,7 +11273,7 @@ function parseArgs(args) {
         parsed2.showVersion = true;
         continue;
       }
-      const consumed = tryConsumeRelayLaunchFlag(arg, rest, i, parsed2);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed2);
       if (consumed !== null) {
         if ("error" in consumed) return parsed2;
         i = consumed.next;
@@ -11302,7 +11303,7 @@ function parseArgs(args) {
         parsed2.showVersion = true;
         continue;
       }
-      const consumed = tryConsumeRelayLaunchFlag(arg, rest, i, parsed2);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed2);
       if (consumed !== null) {
         if ("error" in consumed) return parsed2;
         i = consumed.next;
@@ -11328,7 +11329,7 @@ function parseArgs(args) {
         parsed2.showVersion = true;
         continue;
       }
-      const consumed = tryConsumeRelayLaunchFlag(arg, rest, i, parsed2);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed2);
       if (consumed !== null) {
         if ("error" in consumed) return parsed2;
         i = consumed.next;
@@ -11358,7 +11359,7 @@ function parseArgs(args) {
         parsed2.showVersion = true;
         continue;
       }
-      const consumed = tryConsumeRelayLaunchFlag(arg, rest, i, parsed2);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed2);
       if (consumed !== null) {
         if ("error" in consumed) return parsed2;
         i = consumed.next;
@@ -11388,7 +11389,7 @@ function parseArgs(args) {
         parsed2.showVersion = true;
         continue;
       }
-      const consumed = tryConsumeRelayLaunchFlag(arg, rest, i, parsed2);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed2);
       if (consumed !== null) {
         if ("error" in consumed) return parsed2;
         i = consumed.next;
@@ -11411,7 +11412,7 @@ function parseArgs(args) {
       parsed.claudeArgs.push(...rest.slice(i + 1));
       break;
     }
-    const consumed = tryConsumeRelayLaunchFlag(arg, rest, i, parsed);
+    const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
     if (consumed !== null) {
       if ("error" in consumed) return parsed;
       i = consumed.next;
@@ -11481,7 +11482,7 @@ ${pc12.bold("Antigravity favorites:")}
   agy, antigravity, and antigravity-ide share up to six Antigravity favorites
   from anygate favorites --agy, plus the selected launch model.
 
-${pc12.bold("Migration:")}
+${pc12.bold("Upgradeion:")}
   Bare anygate prints this help instead of launching Claude Code.
   Use anygate claude for the wizard and launcher.
 
@@ -11629,7 +11630,7 @@ ${pc12.bold("Usage:")}
   anygate agy --help
   anygate agy --version
 
-${pc12.bold("Relay options:")}
+${pc12.bold("Options:")}
   --provider <id>    Use a specific provider (skip picker)
   --model <id>       Use a specific model (skip picker)
   --trace            Write debug log to /tmp/anygate-debug.log
@@ -11639,7 +11640,7 @@ ${pc12.bold("Relay options:")}
 ${pc12.bold("How it works:")}
   Starts a local Cloud Code gateway, points agy at it via CLOUD_CODE_URL,
   and injects anygate models into Antigravity's native model picker.
-  All Cloud Code traffic routes through Relay \u2014 no Google Cloud Code upstream.
+  All Cloud Code traffic routes through anygate \u2014 no Google Cloud Code upstream.
 
 ${pc12.bold("Examples:")}
   anygate agy
@@ -11655,7 +11656,7 @@ ${pc12.bold("Usage:")}
   anygate antigravity-ide --help
   anygate antigravity-ide --version
 
-${pc12.bold("Relay options:")}
+${pc12.bold("Options:")}
   --provider <id>    Use a specific provider (skip picker)
   --model <id>       Use a specific model (skip picker)
   --trace            Write debug log to /tmp/anygate-debug.log
@@ -11663,7 +11664,7 @@ ${pc12.bold("Relay options:")}
   -v, --version      Show version
 
 ${pc12.bold("How it works:")}
-  Creates an isolated Relay-managed IDE profile, starts a local Cloud Code
+  Creates an isolated anygate-managed IDE profile, starts a local Cloud Code
   gateway, and injects anygate models into Antigravity's native picker.
   The normal IDE profile is never modified.
 
@@ -11683,7 +11684,7 @@ ${pc12.bold("Usage:")}
   anygate antigravity --help
   anygate antigravity --version
 
-${pc12.bold("Relay options:")}
+${pc12.bold("Options:")}
   --provider <id>    Use a specific provider (skip picker)
   --model <id>       Use a specific model (skip picker)
   --trace            Write debug log to /tmp/anygate-debug.log
@@ -11691,7 +11692,7 @@ ${pc12.bold("Relay options:")}
   -v, --version      Show version
 
 ${pc12.bold("How it works:")}
-  Creates an isolated Relay-managed Antigravity profile, starts a local Cloud
+  Creates an isolated anygate-managed Antigravity profile, starts a local Cloud
   Code gateway, and injects anygate models into Antigravity's native picker.
   The normal Antigravity profile is never modified.
 
@@ -11748,7 +11749,7 @@ async function runModelsCommand(opts = {}) {
   const maxFavorites = scope === "agy" ? AGY_CLI_FAVORITES_CAP : MAX_MODEL_CATALOG;
   const scopeName = scope === "agy" ? "Antigravity CLI Favorites" : "Favorite Models";
   const configKey = scope === "agy" ? "antigravityCliFavoriteModels" : "favoriteModels";
-  relayIntro(scopeName);
+  gateIntro(scopeName);
   const spinner9 = p14.spinner();
   spinner9.start("Loading providers...");
   const catalog = await fetchProviderCatalog();
@@ -11761,7 +11762,7 @@ async function runModelsCommand(opts = {}) {
   if (favoriteProviders.length === 0) {
     p14.log.warn("No providers found.");
     p14.log.info(`${pc12.dim("OpenCode Zen/Go is always available. Add providers with ")}${pc12.cyan("anygate providers")}${pc12.dim(".")}`);
-    relayOutro("Done");
+    gateOutro("Done");
     return 0;
   }
   const modelLookup = /* @__PURE__ */ new Map();
@@ -11927,7 +11928,7 @@ async function runModelsCommand(opts = {}) {
     savePreferences({ [configKey]: favorites });
   }
   const favLabel = scope === "agy" ? "Antigravity CLI " : "";
-  relayOutro(
+  gateOutro(
     favorites.length === 0 ? `No ${favLabel}favorites saved` : `${favorites.length} ${favLabel}favorite${favorites.length !== 1 ? "s" : ""} saved`,
     favorites.length === 0 ? pc12.dim("Launch uses single-model mode") : pc12.cyan("/model menu ready on next launch")
   );
@@ -11961,7 +11962,7 @@ Error: ${launchPlan.error}
     return 1;
   }
   const switchMenuActive = favorites.length > 0 && !launchPlan.skip;
-  if (!agentStdout) relayIntro("Claude Code");
+  if (!agentStdout) gateIntro("Claude Code");
   if (setup && !dryRun && !agentStdout) {
     p14.log.info("Provider setup now lives in anygate providers \u2014 opening that next is recommended.");
   }
@@ -12263,6 +12264,7 @@ Error: ${launchPlan.error}
 async function main(args = process.argv.slice(2)) {
   const parsed = parseArgs(args);
   if (process.stdout.isTTY) {
+    printAsciiBanner();
     const update = await checkForUpdates();
     if (update.updateAvailable && update.latestVersion) {
       console.log(`
@@ -12324,7 +12326,7 @@ Error: ${parsed.error}
       console.log("Usage: anygate ui [--trace]\n\nOpen the settings UI in your browser.");
       return 0;
     }
-    const { runUiCommand } = await import("./ui-command-KK4BCLRX.js");
+    const { runUiCommand } = await import("./command-AVQYQWW4.js");
     return runUiCommand({ trace: parsed.trace });
   }
   if (parsed.command === "models") {

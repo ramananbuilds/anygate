@@ -246,14 +246,14 @@ describe('antigravity launch routes', () => {
     expect(result!.routes).toMatchObject([
       {
         catalogId: 'anygate__xai-oauth__grok-4.3',
-        displayName: 'Grok 4.3 (Relay - xAI SuperGrok)',
+        displayName: 'Grok 4.3 (anygate - xAI SuperGrok)',
         apiKey: 'oauth-token',
         authType: 'oauth',
         oauthAccountId: 'acct-123',
       },
       {
         catalogId: 'anygate__xai__grok-4.3',
-        displayName: 'Grok 4.3 (Relay - xAI API)',
+        displayName: 'Grok 4.3 (anygate - xAI API)',
         apiKey: 'api-key',
         authType: 'api',
       },

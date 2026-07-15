@@ -1,7 +1,7 @@
-ï»¿// src/ui/api-types.ts â€” frozen JSON contract for the anygate web UI API.
+// src/ui/api-types.ts — frozen JSON contract for the anygate web UI API.
 //
 // This module is the single typed description of every request/response shape
-// that `ui/api.ts` emits. It contains NO runtime logic â€” only types â€” so both
+// that `ui/api.ts` emits. It contains NO runtime logic — only types — so both
 // the current vanilla UI (`ui/public/`) and any future advanced UI can share
 // one schema without importing `ui/api.ts`'s implementation. Treat these shapes
 // as a public contract: changing them is a breaking change for the UI.
@@ -73,7 +73,7 @@ export interface UiApp {
   type: string;
   installed: boolean;
   path?: string;
-  relayCommand?: string;
+  gatewayCommand?: string;
   launchCommand?: string;
 }
 
@@ -96,7 +96,7 @@ export interface UiOAuthStartResponse {
   authUrl?: string;
 }
 
-/** `GET /api/server/status` â€” re-exported from server-control. */
+/** `GET /api/server/status` — re-exported from server-control. */
 export type { ServerStatusPayload as UiServerStatus };
 
 /** `GET /api/server/providers` */
@@ -104,7 +104,7 @@ export interface UiServerProvidersResponse {
   providers: unknown[];
 }
 
-/** Body for `POST /api/server/start` â€” re-exported from server-control. */
+/** Body for `POST /api/server/start` — re-exported from server-control. */
 export type { ServerStartRequest as UiServerStartRequest };
 
 /** Generic success wrapper used by several routes. */

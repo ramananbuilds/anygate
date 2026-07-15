@@ -8,34 +8,34 @@ import {
 } from './slot-registry.js';
 
 /** Current Antigravity IDE flash-agent enum from fetchAvailableModels. */
-export const RELAY_CASCADE_PLAN_MODEL = 'MODEL_PLACEHOLDER_M132';
+export const GATEWAY_CASCADE_PLAN_MODEL = 'MODEL_PLACEHOLDER_M132';
 
 /** Current Antigravity IDE default agent enum from fetchAvailableModels. */
-export const RELAY_AGENT_PLACEHOLDER = 'MODEL_PLACEHOLDER_M20';
+export const GATEWAY_AGENT_PLACEHOLDER = 'MODEL_PLACEHOLDER_M20';
 
 /** Current checkpointer model enum from captured modelExperiments. */
-const RELAY_CASCADE_CHECKPOINT_MODEL = 'MODEL_PLACEHOLDER_M50';
+const GATEWAY_CASCADE_CHECKPOINT_MODEL = 'MODEL_PLACEHOLDER_M50';
 
 /** Current 2.5 Flash intent-model enum from fetchAvailableModels. */
-const RELAY_CASCADE_INTENT_MODEL = 'MODEL_GOOGLE_GEMINI_2_5_FLASH';
+const GATEWAY_CASCADE_INTENT_MODEL = 'MODEL_GOOGLE_GEMINI_2_5_FLASH';
 
 /** Fixture key for the hidden default agent anchor. */
-export const RELAY_CASCADE_ANCHOR_ID = 'gemini-3.5-flash-low';
+export const GATEWAY_CASCADE_ANCHOR_ID = 'gemini-3.5-flash-low';
 
 /** Fixture key for the hidden flash-agent anchor. */
-export const RELAY_CASCADE_PLAN_ANCHOR_ID = 'gemini-3-flash-agent';
-export const RELAY_CASCADE_FALLBACK_ID = 'gemini-2.5-flash-lite';
-export const RELAY_CASCADE_INTENT_MODEL_ID = 'gemini-2.5-flash';
+export const GATEWAY_CASCADE_PLAN_ANCHOR_ID = 'gemini-3-flash-agent';
+export const GATEWAY_CASCADE_FALLBACK_ID = 'gemini-2.5-flash-lite';
+export const GATEWAY_CASCADE_INTENT_MODEL_ID = 'gemini-2.5-flash';
 
-export interface RelayCatalogSlot {
+export interface GateCatalogSlot {
   /** The model ID Antigravity sees and sends back to the gateway. */
   slotId: string;
-  /** The Relay route that slot should execute against. */
+  /** The Gateway route that slot should execute against. */
   route: AntigravityRoute;
 }
 
-export interface RelayCatalogSlotPlan {
-  slots: RelayCatalogSlot[];
+export interface GateCatalogSlotPlan {
+  slots: GateCatalogSlot[];
   switchableRoutes: AntigravityRoute[];
   skippedRoutes: AntigravityRoute[];
   validation: AgySlotValidationResult;
@@ -63,7 +63,7 @@ function withCascadeCheckpointer(
           moving_window_size: '1',
           enabled: true,
           max_output_tokens: '16384',
-          checkpoint_model: RELAY_CASCADE_CHECKPOINT_MODEL,
+          checkpoint_model: GATEWAY_CASCADE_CHECKPOINT_MODEL,
           use_last_planner_model: true,
           is_sync: true,
           max_user_requests: 10,
@@ -101,7 +101,7 @@ function applyRouteContextBounds(
   return withCascadeCheckpointer(entry, checkpointTokenLimit);
 }
 
-const RELAY_CASCADE_FALLBACK_ENTRY: CatalogModelEntry = withCascadeCheckpointer({
+const GATEWAY_CASCADE_FALLBACK_ENTRY: CatalogModelEntry = withCascadeCheckpointer({
   displayName: 'Gemini 3.1 Flash Lite',
   model: 'MODEL_GOOGLE_GEMINI_2_5_FLASH_LITE',
   apiProvider: 'API_PROVIDER_GOOGLE_GEMINI',
@@ -112,16 +112,16 @@ const RELAY_CASCADE_FALLBACK_ENTRY: CatalogModelEntry = withCascadeCheckpointer(
   quotaInfo: { remainingFraction: 1 },
 });
 
-const RELAY_CASCADE_INTENT_MODEL_ENTRY: CatalogModelEntry = withCascadeCheckpointer({
-  ...RELAY_CASCADE_FALLBACK_ENTRY,
-  model: RELAY_CASCADE_INTENT_MODEL,
+const GATEWAY_CASCADE_INTENT_MODEL_ENTRY: CatalogModelEntry = withCascadeCheckpointer({
+  ...GATEWAY_CASCADE_FALLBACK_ENTRY,
+  model: GATEWAY_CASCADE_INTENT_MODEL,
 });
 
-export function planRelayCatalogSlots(
+export function planGateCatalogSlots(
   catalog: CatalogFixture,
   routes: AntigravityRoute[],
   templateKey: string,
-): RelayCatalogSlotPlan {
+): GateCatalogSlotPlan {
   const validation = validateAgySlotRegistry(catalog);
   const switchSlots = getValidatedAgySwitchSlots(catalog);
   const templateSlot = switchSlots.find(slot => slot.slotId === templateKey);
@@ -148,25 +148,25 @@ export function planRelayCatalogSlots(
   };
 }
 
-export function resolveRelayCatalogSlots(
+export function resolveGateCatalogSlots(
   catalog: CatalogFixture,
   routes: AntigravityRoute[],
   templateKey: string,
-): RelayCatalogSlot[] {
-  return planRelayCatalogSlots(catalog, routes, templateKey).slots;
+): GateCatalogSlot[] {
+  return planGateCatalogSlots(catalog, routes, templateKey).slots;
 }
 
 /**
- * Build a relay catalog entry by cloning a real model template.
+ * Build a gateway catalog entry by cloning a real model template.
  */
-export function buildRelayCatalogEntry(
+export function buildGateCatalogEntry(
   route: AntigravityRoute,
   template: CatalogModelEntry,
 ): CatalogModelEntry {
   const entry: CatalogModelEntry = structuredClone(template);
 
   entry.displayName = route.displayName;
-  entry.model = template.model ?? RELAY_AGENT_PLACEHOLDER;
+  entry.model = template.model ?? GATEWAY_AGENT_PLACEHOLDER;
   entry.requestedModelId = route.catalogId;
   entry.modelVersion = route.catalogId;
   entry.modelVersionId = route.catalogId;
@@ -174,7 +174,7 @@ export function buildRelayCatalogEntry(
   return applyRouteContextBounds(entry, route);
 }
 
-function buildRelayCatalogSlotEntry(
+function buildGateCatalogSlotEntry(
   route: AntigravityRoute,
   template: CatalogModelEntry,
 ): CatalogModelEntry {
@@ -192,7 +192,7 @@ function buildRelayCatalogSlotEntry(
 /**
  * Inject anygate routes into a captured Cloud Code catalog fixture.
  */
-export function injectRelayModels(
+export function injectGatewayModels(
   fixture: CatalogFixture,
   routes: AntigravityRoute[],
   templateKey: string,
@@ -216,28 +216,28 @@ export function injectRelayModels(
   }
 
   if (routes.length > 0) {
-    // Relay picker catalog + hidden cascade anchors. Visible picker entries use
-    // native Antigravity IDs; the gateway maps those slots back to Relay routes.
-    result.models[RELAY_CASCADE_ANCHOR_ID] ??= structuredClone(template);
-    result.models[RELAY_CASCADE_FALLBACK_ID] ??= structuredClone(RELAY_CASCADE_FALLBACK_ENTRY);
-    result.models[RELAY_CASCADE_INTENT_MODEL_ID] ??= structuredClone(RELAY_CASCADE_INTENT_MODEL_ENTRY);
-    if (!result.models[RELAY_CASCADE_PLAN_ANCHOR_ID]) {
+    // Gateway picker catalog + hidden cascade anchors. Visible picker entries use
+    // native Antigravity IDs; the gateway maps those slots back to Gateway routes.
+    result.models[GATEWAY_CASCADE_ANCHOR_ID] ??= structuredClone(template);
+    result.models[GATEWAY_CASCADE_FALLBACK_ID] ??= structuredClone(GATEWAY_CASCADE_FALLBACK_ENTRY);
+    result.models[GATEWAY_CASCADE_INTENT_MODEL_ID] ??= structuredClone(GATEWAY_CASCADE_INTENT_MODEL_ENTRY);
+    if (!result.models[GATEWAY_CASCADE_PLAN_ANCHOR_ID]) {
       const planAnchor = withCascadeCheckpointer(structuredClone(template));
-      planAnchor.model = RELAY_CASCADE_PLAN_MODEL;
-      result.models[RELAY_CASCADE_PLAN_ANCHOR_ID] = planAnchor;
+      planAnchor.model = GATEWAY_CASCADE_PLAN_MODEL;
+      result.models[GATEWAY_CASCADE_PLAN_ANCHOR_ID] = planAnchor;
     }
 
-    const slotPlan = planRelayCatalogSlots(result, routes, templateKey);
+    const slotPlan = planGateCatalogSlots(result, routes, templateKey);
     const slots = slotPlan.slots;
     for (const { slotId, route } of slots) {
       const slotTemplate = result.models[slotId] ?? template;
       if (result.models[slotId]) {
-        result.models[slotId] = buildRelayCatalogSlotEntry(route, slotTemplate);
+        result.models[slotId] = buildGateCatalogSlotEntry(route, slotTemplate);
       }
-      result.models[route.catalogId] = buildRelayCatalogEntry(route, slotTemplate);
+      result.models[route.catalogId] = buildGateCatalogEntry(route, slotTemplate);
     }
 
-    result.defaultAgentModelId = slots[0]?.slotId ?? RELAY_CASCADE_ANCHOR_ID;
+    result.defaultAgentModelId = slots[0]?.slotId ?? GATEWAY_CASCADE_ANCHOR_ID;
     result.agentModelSorts = [
       {
         displayName: 'Recommended',
@@ -298,7 +298,7 @@ export function buildAntigravityRoutes(
       providerName: fav.providerName,
       modelId,
       upstreamModelId,
-      displayName: `${favModel.name} (Relay)`,
+      displayName: `${favModel.name} (anygate)`,
       ...(modelFormat ? { modelFormat } : {}),
       npm,
       apiKey: fav.apiKey,
@@ -314,8 +314,8 @@ export function buildAntigravityRoutes(
 }
 
 function routeBaseModelName(route: AntigravityRoute): string {
-  const relayMatch = route.displayName.match(/^(.*) \(Relay(?: - .*)?\)$/);
-  return relayMatch?.[1] ?? route.displayName;
+  const gatewayMatch = route.displayName.match(/^(.*) \(anygate(?: - .*)?\)$/);
+  return gatewayMatch?.[1] ?? route.displayName;
 }
 
 function authKindLabel(route: AntigravityRoute): string {
@@ -354,7 +354,7 @@ export function applyUniqueAntigravityRouteLabels(routes: AntigravityRoute[]): A
       || (upstreamCounts.get(route.upstreamModelId) ?? 0) > 1;
 
     if (!needsSuffix) {
-      return { ...route, displayName: `${baseName} (Relay)` };
+      return { ...route, displayName: `${baseName} (anygate)` };
     }
 
     const providerName = route.providerName || route.providerId;
@@ -363,7 +363,7 @@ export function applyUniqueAntigravityRouteLabels(routes: AntigravityRoute[]): A
       : providerName;
     return {
       ...route,
-      displayName: `${baseName} (Relay - ${providerSuffix})`,
+      displayName: `${baseName} (anygate - ${providerSuffix})`,
     };
   });
 
@@ -393,16 +393,16 @@ function routeLabels(routes: AntigravityRoute[]): Map<string, string> {
 function buildClientModelConfigData(
   routes: AntigravityRoute[],
   catalog?: CatalogFixture,
-  templateKey = RELAY_CASCADE_ANCHOR_ID,
+  templateKey = GATEWAY_CASCADE_ANCHOR_ID,
   precomputedSlots?: { slotId: string; route: AntigravityRoute }[],
 ): Record<string, unknown> {
   const catalogRoutes = routes.slice(0, MAX_MODEL_CATALOG);
   const slots = precomputedSlots ?? (catalog
-    ? resolveRelayCatalogSlots(catalog, catalogRoutes, templateKey)
+    ? resolveGateCatalogSlots(catalog, catalogRoutes, templateKey)
     : catalogRoutes.map(route => ({ slotId: route.catalogId, route })));
   const labels = routeLabels(catalogRoutes);
   const clientModelConfigs = slots.map(({ slotId, route }) => {
-    const entry = catalog?.models[slotId] ?? catalog?.models[route.catalogId] ?? catalog?.models[RELAY_CASCADE_ANCHOR_ID];
+    const entry = catalog?.models[slotId] ?? catalog?.models[route.catalogId] ?? catalog?.models[GATEWAY_CASCADE_ANCHOR_ID];
     const label = labels.get(route.catalogId) ?? route.displayName;
     return {
       label,
@@ -443,16 +443,16 @@ function buildClientModelConfigData(
 export function buildListModelConfigsResponse(
   routes: AntigravityRoute[],
   catalog?: CatalogFixture,
-  templateKey = RELAY_CASCADE_ANCHOR_ID,
+  templateKey = GATEWAY_CASCADE_ANCHOR_ID,
 ): Record<string, unknown> {
   const catalogRoutes = routes.slice(0, MAX_MODEL_CATALOG);
   const slots = catalog
-    ? resolveRelayCatalogSlots(catalog, catalogRoutes, templateKey)
+    ? resolveGateCatalogSlots(catalog, catalogRoutes, templateKey)
     : catalogRoutes.map(route => ({ slotId: route.catalogId, route }));
   const config = slots.map(({ slotId }) => ({
     requestedModelId: slotId,
-    planModel: RELAY_CASCADE_PLAN_MODEL,
-    requestedModel: catalog?.models[slotId]?.model ?? RELAY_AGENT_PLACEHOLDER,
+    planModel: GATEWAY_CASCADE_PLAN_MODEL,
+    requestedModel: catalog?.models[slotId]?.model ?? GATEWAY_AGENT_PLACEHOLDER,
   }));
 
   return {

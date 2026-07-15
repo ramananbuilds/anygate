@@ -14,7 +14,7 @@ import-safe unit. System-level picture lives in [02_ARCHITECTURE.md](./02_ARCHIT
 | [agents/shared/launch-target.ts](../src/agents/shared/launch-target.ts) | Normalize launch args per agent; plan the wizard. |
 | [core/env.ts](../src/core/env.ts) | `buildChildEnv()` — 17-var isolation; sets `ANTHROPIC_*`. |
 | [agents/shared/key-setup.ts](../src/agents/shared/key-setup.ts) | API-key collection + OS keychain storage. |
-| [core/config.ts](../src/core/config.ts) | `~/.anygate/config.json` load/save + migration. |
+| [core/config.ts](../src/core/config.ts) | `~/.anygate/config.json` load/save + import. |
 | [core/constants.ts](../src/core/constants.ts) | `BACKENDS`, `MAX_MODEL_CATALOG=20`, `classifyModelFormat`. |
 | [core/types.ts](../src/core/types.ts) | Shared types: `ParsedArgs`, `ModelInfo`, `LocalProvider`, `UserPreferences`. |
 | [agents/shared/first-run.ts](../src/agents/shared/first-run.ts) | First-run wizard (API key, subscription tier). |
@@ -61,11 +61,11 @@ import-safe unit. System-level picture lives in [02_ARCHITECTURE.md](./02_ARCHIT
 | `builtins.ts` | Registered built-in provider list. |
 | `add-template.ts` | `providers add <template>` flow. |
 | `custom-endpoint.ts` | Custom OpenAI/Anthropic-compatible endpoint. |
-| `import-opencode.ts` | One-time OpenCode migration. |
+| `import-opencode.ts` | One-time OpenCode import. |
 | `import-build.ts` | Build provider objects from imported data. |
 | `convert.ts` | Convert between registry and internal shapes. |
 | `materialize.ts` | Materialize a provider into runtime models/credentials. |
-| `migrate.ts` | Config migration between versions. |
+| `migrate.ts` | Config import between versions. |
 | `load.ts` | Load + validate the registry. |
 | `types.ts` | Registry-specific types. |
 | `pricing.ts` | Model pricing table + lookup. |

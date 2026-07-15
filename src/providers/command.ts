@@ -2,7 +2,7 @@
 
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { migrateGlobalOpencodeCredential, readGlobalOpencodeCredential, resolveProviderCredential } from '../core/env.js';
+import { upgradeGlobalOpencodeCredential, readGlobalOpencodeCredential, resolveProviderCredential } from '../core/env.js';
 import {
   formatRegistryAuthLabel,
   resolveProvidersForDisplay,
@@ -46,7 +46,7 @@ import {
   printImportConflictPanel,
   printPanel,
   printProviderDetailPanel,
-  relayIntro,
+  gateIntro,
 } from '../agents/shared/ui.js';
 
 export type ProvidersSubcommand = 'hub' | 'add' | 'import' | 'list' | 'remove' | 'refresh-models' | 'auth' | 'help';
@@ -417,7 +417,7 @@ async function runTemplateAddFlow(): Promise<number> {
       }
       apiKey = collected;
     }
-    await migrateGlobalOpencodeCredential();
+    await upgradeGlobalOpencodeCredential();
 
     const spinner = p.spinner();
     spinner.start(`Adding ${template.name}...`);
@@ -893,6 +893,6 @@ export async function runProvidersCommand(args: string[]): Promise<number> {
     return runProvidersAuth(parsed.removeId, parsed.authMethod);
   }
 
-  relayIntro('Your AI providers');
+  gateIntro('Your AI providers');
   return runProvidersHub();
 }

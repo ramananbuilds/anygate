@@ -251,7 +251,7 @@ export function launchAntigravityApp(
 }
 
 /**
- * Launch the Antigravity IDE under an isolated Relay-managed profile.
+ * Launch the Antigravity IDE under an isolated Gateway-managed profile.
  *
  * It prepares the isolated user data directory, configures the local Cloud Code gateway URL
  * both in env and profile settings, and spawns the IDE with correct args.
@@ -280,11 +280,11 @@ export function launchAntigravityIde(
     prepareIdeProfile(profileDir, gatewayUrl);
 
     // 2. Build VS Code arguments
-    // Keep Relay's Antigravity profile fully isolated from the normal IDE profile.
-    const relayExtensionsDir = join(homedir(), '.anygate', 'antigravity', 'extensions');
+    // Keep Gateway's Antigravity profile fully isolated from the normal IDE profile.
+    const gatewayExtensionsDir = join(homedir(), '.anygate', 'antigravity', 'extensions');
     const args = [
       `--user-data-dir=${profileDir}`,
-      `--extensions-dir=${relayExtensionsDir}`,
+      `--extensions-dir=${gatewayExtensionsDir}`,
       ...extraArgs,
     ];
 

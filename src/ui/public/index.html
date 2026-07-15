@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>anygate settings</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%231a1b2e'/><text x='50%25' y='22' font-family='system-ui' font-size='18' font-weight='700' fill='%236366f1' text-anchor='middle'>R</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%232a2724'/><text x='50%25' y='23' font-family='system-ui' font-size='20' font-weight='800' fill='%23e0a44a' text-anchor='middle'>A</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,31 +16,10 @@
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-brand">
-        <div class="brand-logo">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
-            <defs>
-              <linearGradient id="neonPink" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#ff007f" />
-                <stop offset="100%" stop-color="#7928ca" />
-              </linearGradient>
-            </defs>
-            <rect width="400" height="400" fill="#111111" />
-            <path d="M100 200 H50 M350 200 H300 M200 100 V50 M200 350 V300" stroke="#333333" stroke-width="6" />
-            <path d="M130 130 L90 90 M270 270 L310 310 M270 130 L310 90 M130 270 L90 310" stroke="#333333" stroke-width="6" />
-            <path d="M100 200 H80 M320 200 H300" stroke="#ff007f" stroke-width="4" stroke-linecap="round" />
-            <rect x="120" y="120" width="160" height="160" fill="#1a1a1a" stroke="#ff007f" stroke-width="4" rx="20" />
-            <rect x="140" y="140" width="120" height="120" fill="url(#neonPink)" rx="10" opacity="0.8" />
-            <path d="M175 170 L205 200 L175 230" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
-            <path d="M215 230 H235" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" />
-            <circle cx="140" cy="140" r="4" fill="#ffffff" />
-            <circle cx="260" cy="140" r="4" fill="#ffffff" />
-            <circle cx="140" cy="260" r="4" fill="#ffffff" />
-            <circle cx="260" cy="260" r="4" fill="#ffffff" />
-          </svg>
-        </div>
+        <div class="brand-logo"><span class="brand-monogram">a</span></div>
         <div class="brand-meta">
           <div class="brand-name">anygate</div>
-          <div class="brand-byline">by ramanan-techlover</div>
+          <div class="brand-byline">ramanan-techlover</div>
         </div>
       </div>
 
@@ -110,14 +89,18 @@
     <!-- Main content -->
     <main class="content" id="content">
 
+      <!-- Brand hero -->
+      <div class="app-hero" id="app-hero">
+        <div class="app-hero-wordmark">
+          <span class="hero-text">anygate</span>
+        </div>
+        <p class="app-hero-sub">Unified gateway for Claude, Codex &amp; Gemini.</p>
+      </div>
+
       <!-- Providers section -->
       <section id="providers" class="section">
-        <div class="section-hero">
-          <div class="section-eyebrow">Configuration</div>
-          <h1 class="section-heading">Providers <span class="heading-accent">&amp; Keys</span></h1>
-          <p class="section-sub">Manage API keys for your configured AI providers. Keys are stored securely in your OS keychain.</p>
-          <div class="provider-stats" id="provider-stats"></div>
-        </div>
+        <h2 class="section-heading">Providers <span class="heading-accent">&amp; Keys</span></h2>
+        <div class="provider-stats" id="provider-stats"></div>
         <div class="search-row">
           <div class="search-field">
             <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -140,65 +123,58 @@
         </div>
       </section>
 
-      <!-- Favorites section -->
+      <!-- Favorites group (merged) -->
       <section id="favorites" class="section">
-        <div class="section-hero">
-          <div class="section-eyebrow">Model Routing</div>
-          <h1 class="section-heading">General <span class="heading-accent">Favorites</span></h1>
-          <p class="section-sub">Models shown in the switch menu for Claude, Codex, and Gemini. Drag to reorder, Alt+↑↓ to move with keyboard.</p>
-        </div>
-        <div class="agy-slot-bar">
-          <div class="agy-slot-label">Slots used</div>
-          <div class="agy-slot-pips" id="gen-pips"></div>
-          <div class="agy-slot-count" id="gen-counter">0<span class="agy-slot-max">/20</span></div>
-        </div>
-        <div class="search-row">
-          <div class="search-field">
-            <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="search" id="model-search" class="search-input" placeholder="Search models to add…" aria-label="Search models">
-          </div>
-          <label class="free-only-toggle">
-            <input type="checkbox" id="model-free-only">
-            <span>Free models only</span>
-          </label>
-        </div>
-        <div id="model-results" class="model-results" hidden></div>
-        <div id="favorites-list" class="fav-list" role="list" aria-label="General favorites" data-list="general"></div>
-      </section>
+        <h2 class="section-heading">Favorites</h2>
 
-      <!-- Antigravity section -->
-      <section id="antigravity" class="section">
-        <div class="section-hero">
-          <div class="section-eyebrow">Antigravity CLI</div>
-          <h1 class="section-heading">Antigravity <span class="heading-accent">Favorites</span></h1>
-          <p class="section-sub">Models available in the Antigravity switch menu. Limited to <strong>6 slots</strong> — slot 7 is always the model you pick at launch.</p>
-        </div>
-        <div class="agy-slot-bar">
-          <div class="agy-slot-label">Slots used</div>
-          <div class="agy-slot-pips" id="agy-pips"></div>
-          <div class="agy-slot-count" id="agy-counter">0<span class="agy-slot-max">/6</span></div>
-        </div>
-        <div class="search-row">
-          <div class="search-field">
-            <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="search" id="agy-search" class="search-input" placeholder="Search models to add…" aria-label="Search Antigravity models">
+        <!-- General favorites sub-panel -->
+        <div class="fav-subpanel" id="general-fav-subpanel">
+          <h3 class="subpanel-heading">General Favorites</h3>
+          <div class="agy-slot-bar">
+            <div class="agy-slot-label">Slots used</div>
+            <div class="agy-slot-pips" id="gen-pips"></div>
+            <div class="agy-slot-count" id="gen-counter">0<span class="agy-slot-max">/20</span></div>
           </div>
-          <label class="free-only-toggle">
-            <input type="checkbox" id="agy-free-only">
-            <span>Free models only</span>
-          </label>
+          <div class="search-row">
+            <div class="search-field">
+              <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input type="search" id="model-search" class="search-input" placeholder="Search models to add…" aria-label="Search models">
+            </div>
+            <label class="free-only-toggle">
+              <input type="checkbox" id="model-free-only">
+              <span>Free models only</span>
+            </label>
+          </div>
+          <div id="model-results" class="model-results" hidden></div>
+          <div id="favorites-list" class="fav-list" role="list" aria-label="General favorites" data-list="general"></div>
         </div>
-        <div id="agy-results" class="model-results" hidden></div>
-        <div id="agy-list" class="fav-list" role="list" aria-label="Antigravity favorites" data-list="agy"></div>
+
+        <!-- Antigravity favorites sub-panel -->
+        <div class="fav-subpanel" id="antigravity-fav-subpanel">
+          <h3 class="subpanel-heading">Antigravity Favorites</h3>
+          <div class="agy-slot-bar">
+            <div class="agy-slot-label">Slots used</div>
+            <div class="agy-slot-pips" id="agy-pips"></div>
+            <div class="agy-slot-count" id="agy-counter">0<span class="agy-slot-max">/6</span></div>
+          </div>
+          <div class="search-row">
+            <div class="search-field">
+              <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input type="search" id="agy-search" class="search-input" placeholder="Search models to add…" aria-label="Search Antigravity models">
+            </div>
+            <label class="free-only-toggle">
+              <input type="checkbox" id="agy-free-only">
+              <span>Free models only</span>
+            </label>
+          </div>
+          <div id="agy-results" class="model-results" hidden></div>
+          <div id="agy-list" class="fav-list" role="list" aria-label="Antigravity favorites" data-list="agy"></div>
+        </div>
       </section>
 
       <!-- Apps section -->
       <section id="apps" class="section">
-        <div class="section-hero">
-          <div class="section-eyebrow">Control Center</div>
-          <h1 class="section-heading">Applications <span class="heading-accent">&amp; Launch</span></h1>
-          <p class="section-sub">Manage and launch your configured terminal interfaces or GUI desktop clients directly from the web panel.</p>
-        </div>
+        <h2 class="section-heading">Applications &amp; Launch</h2>
         <div class="search-row">
           <div class="search-field">
             <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -228,11 +204,7 @@
 
       <!-- Server section -->
       <section id="server" class="section">
-        <div class="section-hero">
-          <div class="section-eyebrow">Gateway</div>
-          <h1 class="section-heading">Server <span class="heading-accent">Gateway</span></h1>
-          <p class="section-sub">Runs the same Anthropic/OpenAI-compatible gateway as <code>anygate server</code> in the terminal — configure it here and see the URLs and models the moment it starts.</p>
-        </div>
+        <h2 class="section-heading">Server Gateway</h2>
         <div id="server-panel"></div>
       </section>
 

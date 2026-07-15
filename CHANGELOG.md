@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.4] - 2026-07-13
+## [0.1.0] - 2026-07-13
 
 ### Added
 
@@ -96,13 +96,13 @@
 
 - **Codex App: context trimming no longer over-trims by 3x** — the proxy's internal character limit now matches the caller's token-to-character estimate, preventing oversized sessions from being reduced to a single message before compaction.
 
-- **Codex App: relay-model sessions compact earlier** — the app now sets `model_auto_compact_token_limit` to 55% of the selected model's context window, giving compaction more headroom across providers with different practical limits.
+- **Codex App: gateway-model sessions compact earlier** — the app now sets `model_auto_compact_token_limit` to 55% of the selected model's context window, giving compaction more headroom across providers with different practical limits.
 
-- **Codex App: compaction payloads are protected before upstream** — compaction-sized requests now get oversized text/tool-output blobs clipped and are trimmed to a conservative budget before they reach Anthropic, Gemini, xAI, OpenRouter, OpenCode, or other relay providers.
+- **Codex App: compaction payloads are protected before upstream** — compaction-sized requests now get oversized text/tool-output blobs clipped and are trimmed to a conservative budget before they reach Anthropic, Gemini, xAI, OpenRouter, OpenCode, or other gateway providers.
 
 - **Codex App: empty translated input no longer creates invalid Anthropic requests** — empty input now becomes a non-empty placeholder message instead of `messages.0` with empty content.
 
-- **UI → terminal model selection is now end-to-end** — selecting a provider and model in `anygate ui` and clicking Launch previously showed the full interactive provider/model picker in the terminal anyway. Two bugs combined to cause this: (1) `claude-app` and `codex-app` arg parsers used a bare `for...of` loop that dumped every arg — including `--provider` and `--model` — into `claudeArgs` without calling `tryConsumeRelayLaunchFlag`, so `parsed.launchProvider`/`parsed.launchModel` were always `undefined`; (2) neither command had a boot path that checked those values. Both are now fixed.
+- **UI → terminal model selection is now end-to-end** — selecting a provider and model in `anygate ui` and clicking Launch previously showed the full interactive provider/model picker in the terminal anyway. Two bugs combined to cause this: (1) `claude-app` and `codex-app` arg parsers used a bare `for...of` loop that dumped every arg — including `--provider` and `--model` — into `claudeArgs` without calling `tryConsumeGatewayLaunchFlag`, so `parsed.launchProvider`/`parsed.launchModel` were always `undefined`; (2) neither command had a boot path that checked those values. Both are now fixed.
 
 - **`claude-app` with Groq: requests with more than 128 tools no longer fail** — Groq's API enforces a hard limit of 128 tools per request. Claude Desktop sends its full tool set on every request — built-in file/bash tools plus every configured MCP tool and injected skill — which easily exceeds 128. The proxy now automatically truncates to 128 when routing via `@ai-sdk/groq`, logging `tools truncated: N → 128 (provider limit)` to the trace log when trimming fires.
 
@@ -138,7 +138,7 @@
 
 ### Known limitations
 
-- **Very large pre-existing Codex App sessions may still fail relay-model compaction** — sessions that already grew under native GPT-5.5 can exceed a 1 M-token relay model's practical compaction budget when switched to Claude or another relay model. anygate now clips oversized text/tool-output blobs and trims as a last resort, but this is best-effort recovery, not a guarantee. The reliable recovery path is to continue or compact once with a native Codex/GPT model when quota is available, or start a fresh relay-model session.
+- **Very large pre-existing Codex App sessions may still fail gateway-model compaction** — sessions that already grew under native GPT-5.5 can exceed a 1 M-token gateway model's practical compaction budget when switched to Claude or another gateway model. anygate now clips oversized text/tool-output blobs and trims as a last resort, but this is best-effort recovery, not a guarantee. The reliable recovery path is to continue or compact once with a native Codex/GPT model when quota is available, or start a fresh gateway-model session.
 
 ## [0.3.5] - 2026-06-26
 
@@ -209,7 +209,7 @@
 - **Browser auto-open during OAuth sign-in** — the device-code URL opens automatically in the default browser on all platforms (macOS, Windows, Linux desktop) so you don't have to copy-paste the link.
 - **3-tier model refresh for OpenAI OAuth** — on `providers refresh-models`, anygate first queries the ChatGPT Codex-specific endpoint for models guaranteed to work, falls back to the filtered general ChatGPT list, and uses a static seed only when both network tiers are unreachable.
 - **Static xAI OAuth seed** — `buildXaiOAuthModels()` provides a fallback Grok model list (Grok 3 and 4 families) when the live `api.x.ai/v1/models` endpoint rejects the SuperGrok JWT.
-- **Registry migration** — existing `{id: 'openai', authType: 'oauth'}` and `{id: 'xai', authType: 'oauth'}` entries are automatically renamed to `openai-oauth` and `xai-oauth` respectively on next load, preserving credentials and the original keyring slot.
+- **Registry upgrade** — existing `{id: 'openai', authType: 'oauth'}` and `{id: 'xai', authType: 'oauth'}` entries are automatically renamed to `openai-oauth` and `xai-oauth` respectively on next load, preserving credentials and the original keyring slot.
 - **Richer SDK error logging in proxy** — SDK errors now include the full response body alongside the message, making Codex inference failures easier to diagnose.
 - **Fuzzy multi-token model search** — model search now supports multi-token AND matching and punctuation normalization. Queries like `"QWEN 3.7"` or `"qwen 2.5 32"` now successfully match models like `qwen3-7b` and `qwen2.5-coder-32b`.
 - **Multi-model selection in favorites manager** — allow users to select and add multiple favorite models from a single provider in one step using `p.multiselect` with a dimmed visual cue `(Space to select, Enter to confirm)`.

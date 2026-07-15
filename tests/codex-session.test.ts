@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -24,12 +24,12 @@ import {
 
 let tempHome: string;
 let previousHome: string | undefined;
-let previousRelayHome: string | undefined;
+let previousGatewayHome: string | undefined;
 
 beforeEach(() => {
-  tempHome = mkdtempSync(join(tmpdir(), 'relay-codex-'));
+  tempHome = mkdtempSync(join(tmpdir(), 'gateway-codex-'));
   previousHome = process.env['HOME'];
-  previousRelayHome = process.env['ANYGATE_HOME'];
+  previousGatewayHome = process.env['ANYGATE_HOME'];
   process.env['HOME'] = tempHome;
   process.env['ANYGATE_HOME'] = join(tempHome, 'anygate');
 });
@@ -38,8 +38,8 @@ afterEach(() => {
   rmSync(tempHome, { recursive: true, force: true });
   if (previousHome === undefined) delete process.env['HOME'];
   else process.env['HOME'] = previousHome;
-  if (previousRelayHome === undefined) delete process.env['ANYGATE_HOME'];
-  else process.env['ANYGATE_HOME'] = previousRelayHome;
+  if (previousGatewayHome === undefined) delete process.env['ANYGATE_HOME'];
+  else process.env['ANYGATE_HOME'] = previousGatewayHome;
 });
 
 describe('codex session', () => {
