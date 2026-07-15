@@ -477,7 +477,7 @@ export async function startCodexProxy(
               });
             } catch (err) {
               const msg = formatUpstreamError(err);
-              const status = upstreamHttpStatus(err, msg);
+              const status = upstreamHttpStatus(err);
               if (debug) log(`sdk error: ${route.modelId}: ${msg}`);
               if (status === 429) {
                 writeResponsesRateLimitStream(modelId, msg, write);
@@ -492,7 +492,7 @@ export async function startCodexProxy(
               sendJson(res, 200, response);
             } catch (err) {
               const msg = formatUpstreamError(err);
-              const status = upstreamHttpStatus(err, msg);
+              const status = upstreamHttpStatus(err);
               if (debug) log(`sdk error: ${route.modelId}: ${msg}`);
               if (status === 429) {
                 sendJson(res, 200, responsesRateLimitBody(modelId, msg));
@@ -716,7 +716,7 @@ export async function startCodexProxy(
             });
           } catch (err) {
             const msg = formatUpstreamError(err);
-            const status = upstreamHttpStatus(err, msg);
+            const status = upstreamHttpStatus(err);
             if (debug) log(`WS sdk error: ${route.modelId}: ${msg}`);
             if (status === 429) {
               writeResponsesRateLimitStream(modelId, msg, sendWsEvent);

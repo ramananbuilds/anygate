@@ -11,6 +11,7 @@ import {
 import { join } from 'node:path';
 import pc from 'picocolors';
 import { getLogsPath } from '../../core/paths.js';
+import { redactTraceLine, redactTraceLog } from '../../core/redact.js';
 
 const DIR_MODE = 0o700;
 const FILE_MODE = 0o600;
@@ -87,30 +88,6 @@ export function resetTraceLog(path: string): void {
   }
 }
 
-const REDACTION_PATTERNS: Array<(line: string) => string> = [
-  // Bearer / Authorization headers
-  line => line.replace(/Bearer\s+[A-Za-z0-9._\-+/=]+/gi, 'Bearer [REDACTED]'),
-  line => line.replace(/("authorization"\s*:\s*")[^"]+/gi, '$1[REDACTED]'),
-  line => line.replace(/(x-api-key"\s*:\s*")[^"]+/gi, '$1[REDACTED]'),
-  // Common API key prefixes
-  line => line.replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, 'sk-[REDACTED]'),
-  line => line.replace(/\bsk-ant-[A-Za-z0-9_-]{8,}\b/g, 'sk-ant-[REDACTED]'),
-  line => line.replace(/\bAIza[A-Za-z0-9_-]{20,}\b/g, 'AIza[REDACTED]'),
-  line => line.replace(/\bgsk_[A-Za-z0-9]{20,}\b/g, 'gsk_[REDACTED]'),
-];
-
-export function redactTraceLine(line: string): string {
-  let out = line;
-  for (const apply of REDACTION_PATTERNS) {
-    out = apply(out);
-  }
-  return out;
-}
-
-export function redactTraceLog(content: string): string {
-  return content.split('\n').map(redactTraceLine).join('\n');
-}
-
 export function writeSecureLogLine(path: string, line: string): void {
   ensureLogsDir();
   const redacted = redactTraceLine(line);
@@ -121,6 +98,10 @@ export function writeSecureLogLine(path: string, line: string): void {
     // ignore
   }
 }
+
+// Re-exported from core/redact so callers that historically imported redaction
+// from trace-log continue to work; new code should import from core/redact.
+export { redactTraceLine, redactTraceLog };
 
 export function printTraceLog(debugLogPath: string): void {
   if (!existsSync(debugLogPath)) return;

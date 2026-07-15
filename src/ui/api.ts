@@ -29,9 +29,10 @@ import {
   buildAntigravityAuthUrl,
   completeAntigravityExchange,
 } from '../oauth/antigravity-oauth.js';
-import { writeSecureLogLine } from '../agents/shared/trace-log.ts';
+
 import { providerOptionsFromCatalog } from '../gateway/server.ts';
 import { getServerStatus, startGatewayServer, stopGatewayServer, type ServerStartRequest } from './server-control.js';
+import { writeSecureLogLine } from '../agents/shared/trace-log.js';
 import { freeStatusLabel } from '../agents/shared/free-models.ts';
 import { checkForUpdates } from '../agents/shared/update-check.ts';
 

@@ -6,7 +6,8 @@ import { appendFileSync, openSync, writeSync, closeSync } from 'node:fs';
 import { readBody, extractApiKey, sendJson } from '../core/http-utils.js';
 import { formatAnthropicModelEntry, formatAnthropicModelList } from './models.js';
 import { claudeCodeClientModelId, routeLookupIds, stripOneMContextSuffix } from '../agents/shared/context-model-id.js';
-import { getProxyDebugLogPath, redactTraceLine, resetTraceLog } from '../agents/shared/trace-log.js';
+import { getProxyDebugLogPath, resetTraceLog } from '../agents/shared/trace-log.js';
+import { redactTraceLine } from '../core/redact.js';
 import { fetchWithOAuthRetry, relayAnthropicMessages } from '../upstream-forward.js';
 import { UpstreamUnreachableError } from '../core/errors.js';
 import {
@@ -327,10 +328,10 @@ export function startProxyCatalog(
             : undefined;
           plog(() => `sdk error: ${message}${body ? ` — body: ${body}` : ''}`);
           if (!res.headersSent) {
-            const status = upstreamHttpStatus(err, message);
+            const status = upstreamHttpStatus(err);
             anthropicError(res, status === 500 ? 502 : status, message);
           } else {
-            const errorType = anthropicErrorType(upstreamHttpStatus(err, message));
+            const errorType = anthropicErrorType(upstreamHttpStatus(err));
             res.write(`event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: errorType, message } })}\n\n`);
             res.end();
           }

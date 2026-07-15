@@ -27,6 +27,7 @@ import {
   selectBetaFlags,
 } from '../oauth/claude-identity.js';
 import { writeSecureLogLine, resetTraceLog } from '../agents/shared/trace-log.js';
+import { redactTraceLine } from '../core/redact.js';
 import type { LanguageModel } from 'ai';
 import { createLanguageModel, isSdkMigratedNpm, maxToolsForNpm } from './provider-factory.js';
 import { formatUpstreamError, upstreamHttpStatus } from '../core/errors.js';
@@ -271,7 +272,7 @@ async function handleAnthropicMessages(
       const message = formatUpstreamError(err);
       plog(`sdk error npm=${model.npm} upstream=${upstreamModelId(model)}: ${message}`);
       if (!res.headersSent) {
-        const status = upstreamHttpStatus(err, message);
+        const status = upstreamHttpStatus(err);
         sendJson(res, status === 500 ? 502 : status, { error: { message } });
       } else res.end();
     }
@@ -343,7 +344,7 @@ async function handleOpenAIChatCompletions(
     const message = formatUpstreamError(err);
     plog(`sdk error npm=${model.npm} upstream=${upstreamModelId(model)}: ${message}`);
     if (!res.headersSent) {
-      const status = upstreamHttpStatus(err, message);
+      const status = upstreamHttpStatus(err);
       sendJson(res, status === 500 ? 502 : status, { error: { message } });
     } else res.end();
   }

@@ -1,4 +1,4 @@
-// src/registry/fetch-template-models.ts — test connection and list models for template providers
+﻿// src/registry/fetch-template-models.ts â€” test connection and list models for template providers
 
 import { deriveBrand } from '../agents/shared/model-compatibility.js';
 import { resolveContextWindow } from '../agents/shared/context-window.js';
@@ -40,7 +40,7 @@ function modelsUrl(baseUrl: string, template: ProviderTemplate): string {
   }
   
   // Note: the 'openai' token matches path segments like /v1/openai (DeepInfra
-  // pattern) and custom proxies like /proxy/openai — both get /models appended
+  // pattern) and custom proxies like /proxy/openai â€” both get /models appended
   // directly, not /v1/models. This is the intended heuristic.
   if (/\/(v\d+[a-z]*|openai|beta)$/.test(trimmed)) {
     return `${trimmed}/models`;
@@ -207,7 +207,7 @@ export async function fetchTemplateModels(
         models: [],
         baseUrl,
         error: 'Provider redirected the connection test.',
-        hint: 'Check the base URL — redirects are blocked for security.',
+        hint: 'Check the base URL â€” redirects are blocked for security.',
       };
     }
 

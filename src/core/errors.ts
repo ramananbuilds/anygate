@@ -104,13 +104,11 @@ export function formatUpstreamError(err: unknown): string {
   }
 
   if (rec.responseBody) {
-    try {
-      const parsed = JSON.parse(rec.responseBody) as { error?: { message?: string } };
-      if (parsed.error?.message) {
-        const short = sanitizeMessage(parsed.error.message);
-        return rec.statusCode ? `${short} (HTTP ${rec.statusCode})` : short;
-      }
-    } catch { /* ignore */ }
+    const parsed = safeJsonParse<{ error?: { message?: string } }>(rec.responseBody);
+    if (parsed?.error?.message) {
+      const short = sanitizeMessage(parsed.error.message);
+      return rec.statusCode ? `${short} (HTTP ${rec.statusCode})` : short;
+    }
   }
 
   const last = rec.lastError;
@@ -141,14 +139,14 @@ export function formatUpstreamError(err: unknown): string {
  * formatted message only as a last resort. Prefer reading `err.httpStatus`
  * on anygate-typed errors over this helper.
  */
-export function upstreamHttpStatus(err: unknown, message: string): number {
+export function upstreamHttpStatus(err: unknown): number {
   if (err instanceof AnygateError) return err.httpStatus;
   if (err && typeof err === 'object' && 'statusCode' in err) {
     const code = (err as { statusCode?: number }).statusCode;
-    if (code === 400 || code === 401 || code === 403 || code === 404 || code === 429) return code;
+    if (typeof code === 'number' && (code === 400 || code === 401 || code === 403 || code === 404 || code === 429)) {
+      return code;
+    }
   }
-  if (message.includes('HTTP 429') || message.includes('429')) return 429;
-  if (message.includes('HTTP 400')) return 400;
   return 500;
 }
 

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { formatUpstreamError, upstreamHttpStatus, anthropicErrorType } from '../src/core/errors.js';
+﻿import { describe, it, expect } from 'vitest';
+import { formatUpstreamError, upstreamHttpStatus, anthropicErrorType, CredentialUnavailableError, ModelNotFoundError } from '../src/core/errors.js';
 
 describe('formatUpstreamError', () => {
   it('uses lastError message and status without stack', () => {
@@ -35,18 +35,13 @@ describe('formatUpstreamError', () => {
 
 describe('upstreamHttpStatus', () => {
   it('reads a known status code off the error object', () => {
-    expect(upstreamHttpStatus({ statusCode: 401 }, '')).toBe(401);
-    expect(upstreamHttpStatus({ statusCode: 403 }, '')).toBe(403);
-  });
-
-  it('falls back to sniffing the formatted message', () => {
-    expect(upstreamHttpStatus({}, 'Provider returned HTTP 429.')).toBe(429);
-    expect(upstreamHttpStatus(undefined, 'Provider returned HTTP 400.')).toBe(400);
+    expect(upstreamHttpStatus({ statusCode: 401 })).toBe(401);
+    expect(upstreamHttpStatus({ statusCode: 403 })).toBe(403);
   });
 
   it('defaults to 500 for unrecognized errors', () => {
-    expect(upstreamHttpStatus({ statusCode: 418 }, 'teapot')).toBe(500);
-    expect(upstreamHttpStatus(null, 'boom')).toBe(500);
+    expect(upstreamHttpStatus({ statusCode: 418 })).toBe(500);
+    expect(upstreamHttpStatus(null)).toBe(500);
   });
 });
 
@@ -64,3 +59,4 @@ describe('anthropicErrorType', () => {
     expect(anthropicErrorType(502)).toBe('api_error');
   });
 });
+

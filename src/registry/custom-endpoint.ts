@@ -1,4 +1,4 @@
-// src/registry/custom-endpoint.ts — add custom OpenAI/Anthropic-compatible providers
+﻿// src/registry/custom-endpoint.ts â€” add custom OpenAI/Anthropic-compatible providers
 
 import { saveProviderCredential } from '../core/env.js';
 import { deriveBrand } from '../agents/shared/model-compatibility.js';

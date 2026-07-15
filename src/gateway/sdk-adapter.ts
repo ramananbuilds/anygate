@@ -406,7 +406,7 @@ export async function writeAnthropicStream(
       case 'error': {
         const e = part.error as { data?: unknown; message?: string } | undefined;
         const errMsg = e?.message || (typeof part.error === 'string' ? part.error : JSON.stringify(e?.data ?? part.error));
-        const errorType = anthropicErrorType(upstreamHttpStatus(part.error, errMsg));
+        const errorType = anthropicErrorType(upstreamHttpStatus(part.error));
         log?.(() => `sdk stream error (${errorType}): ${errMsg}`);
         closeOpen();
         emit('error', { type: 'error', error: { type: errorType, message: errMsg } });
