@@ -8,28 +8,28 @@ companion to [02_ARCHITECTURE.md](./02_ARCHITECTURE.md) and [04_DATA_FLOW.md](./
 ## 1. First run (`anygate claude`)
 
 1. `cli.ts` parses args; no command → help, but `claude` dispatches the inline wizard.
-2. `findClaudeBinary()` ([launch.ts](../src/launch.ts)) locates the Claude Code binary.
-3. `resolveOrCollectApiKey()` ([key-setup.ts](../src/key-setup.ts)) silently checks the
+2. `findClaudeBinary()` ([agents/shared/launch.ts](../src/agents/shared/launch.ts)) locates the Claude Code binary.
+3. `resolveOrCollectApiKey()` ([agents/shared/key-setup.ts](../src/agents/shared/key-setup.ts)) silently checks the
    OS keychain — if a key is found the prompt is skipped entirely.
-4. `fetchProviderCatalog()` ([provider-catalog.ts](../src/provider-catalog.ts)) resolves the
+4. `fetchProviderCatalog()` ([providers/provider-catalog.ts](../src/providers/provider-catalog.ts)) resolves the
    **registry-first** provider list (no OpenCode binary required).
-5. If no providers/config exist, `runFirstRunWizard()` ([first-run.ts](../src/first-run.ts))
+5. If no providers/config exist, `runFirstRunWizard()` ([agents/shared/first-run.ts](../src/agents/shared/first-run.ts))
    collects an OpenCode API key (optional) and a subscription tier.
-6. The model picker ([prompts.ts](../src/prompts.ts)) shows recent models per provider,
+6. The model picker ([agents/shared/prompts.ts](../src/agents/shared/prompts.ts)) shows recent models per provider,
    search for lists > 25, and paginated browse (15/page).
-7. `buildChildEnv()` ([env.ts](../src/env.ts)) strips 17 conflicting env vars and sets the
+7. `buildChildEnv()` ([core/env.ts](../src/core/env.ts)) strips 17 conflicting env vars and sets the
    `ANTHROPIC_*` trio + `--model`.
-8. A local proxy ([proxy.ts](../src/proxy.ts)) is started if the model needs SDK translation.
+8. A local proxy ([gateway/anthropic-proxy.ts](../src/gateway/anthropic-proxy.ts)) is started if the model needs SDK translation.
 9. `launchClaude()` spawns the agent with `stdio:inherit`. The proxy closes on exit.
 
 ---
 
 ## 2. Favorites mode (`anygate models`)
 
-- `anygate models` opens an interactive favorites manager ([favorites.ts](../src/favorites.ts))
+- `anygate models` opens an interactive favorites manager ([agents/claude/favorites.ts](../src/agents/claude/favorites.ts))
   reading/writing `favoriteModels` in config. Saves once on Done.
 - On launch, if `favoriteModels.length > 0`, anygate enters favorites mode and builds a
-  multi-route catalog ([catalog.ts](../src/catalog.ts)) — starting model + favorites, max 20.
+  multi-route catalog ([agents/codex/catalog.ts](../src/agents/codex/catalog.ts)) — starting model + favorites, max 20.
 - A single multi-route proxy (`startProxyCatalog`) serves `GET /v1/models` so the agent's
   status bar shows accurate remaining context and `/model` switches live.
 - Stale favorites (unavailable models) are silently skipped.
@@ -58,10 +58,10 @@ anygate providers list              # show configured providers
 
 ## 4. Server / gateway mode (`anygate server`)
 
-1. `runServerCommand()` ([server/index.ts](../src/server/index.ts)) starts a foreground
+1. `runServerCommand()` ([gateway/server.ts](../src/gateway/server.ts)) starts a foreground
    gateway on port **17645**.
 2. `loadServerModels()` converts registry providers to `ServerModelInfo[]`.
-3. The router ([server/router.ts](../src/server/router.ts)) forwards Anthropic-format to
+3. The router ([gateway/router.ts](../src/gateway/router.ts)) forwards Anthropic-format to
    `{baseUrl}/v1/messages` and SDK-adapts OpenAI-format.
 4. The server wizard filters exposed providers, masks discovery ids, and toggles
    favorites-only / local-vs-network listen.
@@ -75,7 +75,7 @@ The **same gateway** runs in-process in `anygate ui`'s Server tab
 
 ## 5. Visual launcher (`anygate ui`)
 
-1. `ui-command.ts` boots a small Node HTTP server ([ui.ts](../src/ui.ts)) serving
+1. `ui-command.ts` boots a small Node HTTP server ([src/ui/command.ts](../src/ui/command.ts)) serving
    [ui/public](../src/ui/public) (index.html, app.js, style.css) + a JSON API
    ([ui/api.ts](../src/ui/api.ts)).
 2. App launcher cards (one per tool) let you pick a provider + model before launching.
@@ -98,7 +98,7 @@ The **same gateway** runs in-process in `anygate ui`'s Server tab
 ## 7. Antigravity gateway flow
 
 1. `anygate agy` / `antigravity` / `antigravity-ide` starts a local fake Cloud Code API
-   ([antigravity/cloud-code-gateway.ts](../src/antigravity/cloud-code-gateway.ts)).
+   ([gateway/antigravity/cloud-code-gateway.ts](../src/gateway/antigravity/cloud-code-gateway.ts)).
 2. Antigravity routes through anygate instead of Google's real backend.
 3. `request-adapter.ts` converts Cloud Code `generateContent` → SDK params; `response-adapter.ts`
    converts the SDK stream → Cloud Code SSE.

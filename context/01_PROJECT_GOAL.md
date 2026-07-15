@@ -61,8 +61,8 @@ provider you actually want to use.
 ## Origin note
 
 The project was forked/renamed from a predecessor product. User-facing copy (README,
-UI) says "Route any model". A few legacy code identifiers still carry the old name
-(e.g. `relayIntro`/`relayOutro` in [src/ui.ts](../src/ui.ts),
-`RELAY_LAUNCH_FLAGS`/`parseRelayLaunchFlag` in [src/cli.ts](../src/cli.ts)). These
-are **internal only** and not surfaced to users. `package.json` `description` still
-contains the word "Relay" and is backlog to clean (see [06_CONVENTIONS.md](./06_CONVENTIONS.md)).
+UI) says "Route any model". The legacy `relay*` identifiers were removed during the
+domain-split restructure; launch messaging now lives in
+[src/gateway/server.ts](../src/gateway/server.ts) and provider launch flags in
+[src/providers/command.ts](../src/providers/command.ts). `package.json` `description`
+still contains the word "Relay" and is backlog to clean (see [06_CONVENTIONS.md](./06_CONVENTIONS.md)).

@@ -27,7 +27,7 @@ Boot flags: `--provider`, `--model`, `--dry-run`, `--setup`, `--trace`, `--verte
 
 ---
 
-## Key types ([src/types.ts](../src/types.ts))
+## Key types ([src/core/types.ts](../src/core/types.ts))
 
 | Type | Meaning |
 |------|---------|
@@ -43,7 +43,7 @@ Boot flags: `--provider`, `--model`, `--dry-run`, `--setup`, `--trace`, `--verte
 
 ---
 
-## Critical constants ([src/constants.ts](../src/constants.ts))
+## Critical constants ([src/core/constants.ts](../src/core/constants.ts))
 
 | Constant | Value / meaning |
 |----------|-------------------|
@@ -77,15 +77,15 @@ Boot flags: `--provider`, `--model`, `--dry-run`, `--setup`, `--trace`, `--verte
 | Path | Role |
 |------|------|
 | `src/cli.ts` | Arg parsing + dispatch (only orchestrator). |
-| `src/env.ts` | Child env isolation. |
-| `src/sdk-adapter.ts` | Anthropic ↔ Vercel AI SDK translation. |
-| `src/provider-factory.ts` | Dynamic `import(npm)` → SDK `LanguageModel`. |
-| `src/proxy.ts` | Local Anthropic-format proxy. |
+| `src/core/env.ts` | Child env isolation. |
+| `src/gateway/sdk-adapter.ts` | Anthropic ↔ Vercel AI SDK translation. |
+| `src/gateway/provider-factory.ts` | Dynamic `import(npm)` → SDK `LanguageModel`. |
+| `src/gateway/anthropic-proxy.ts` | Local Anthropic-format proxy. |
 | `src/registry/` | Native provider registry (CRUD, import, auth, pricing, refresh). |
 | `src/oauth/` | Device-code OAuth flows. |
-| `src/server/` | `anygate server` gateway. |
+| `src/gateway/` | `anygate server` gateway. |
 | `src/ui/` | `anygate ui` visual launcher. |
-| `src/antigravity/` | Cloud Code gateway for Antigravity. |
+| `src/gateway/antigravity/` | Cloud Code gateway for Antigravity. |
 | `~/.anygate/providers.json` | Provider registry (no secrets). |
 | `~/.anygate/config.json` | User preferences. |
 | OS keychain (`keyring:provider:<id>`, `anygate` service) | Per-provider keys + OpenCode key. |

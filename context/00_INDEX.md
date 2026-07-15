@@ -44,11 +44,12 @@ needing to read every source file first.
 > `https://opencode.ai/zen/v1` would hit `/zen/v1/v1/messages` → 404.
 
 > [!IMPORTANT]
-> Provider credential resolution is **not centralized**. The canonical helper is
-> `provider-catalog.ts::resolveLocalProviderApiKey()`. Divergent copies live in
-> `codex.ts`, `codex-app.ts`, `claude-app.ts`, and `favorites-resolver.ts`.
-> Fix credential bugs in **all** of them — this is how the Kilo Code "No credential"
-> bug shipped.
+> Provider credential resolution **is centralized** in
+> `core/credentials.ts::resolveLocalProviderApiKey()`. Every launcher (`cli.ts`,
+> `agents/codex/cli.ts`, `agents/codex/app.ts`, `agents/gemini/cli.ts`,
+> `agents/claude/desktop.ts`, `agents/shared/favorites-resolver.ts`,
+> `gateway/antigravity/launch-routes.ts`) imports that single helper — no divergent
+> copies. This fixed the Kilo Code "No credential" bug.
 
 > [!WARNING]
 > `package.json` `description`/`keywords` still carry the legacy "Relay" word. Normalize
@@ -57,16 +58,18 @@ needing to read every source file first.
 ## Where to look for things
 
 - CLI dispatch / arg parsing → [src/cli.ts](../src/cli.ts)
-- Launch + spawn child binaries → [src/launch.ts](../src/launch.ts)
-- Env isolation → [src/env.ts](../src/env.ts)
-- Translation (Anthropic ↔ SDK) → [src/sdk-adapter.ts](../src/sdk-adapter.ts)
-- SDK provider factory → [src/provider-factory.ts](../src/provider-factory.ts)
-- Local proxy → [src/proxy.ts](../src/proxy.ts)
-- Registry / providers → [src/registry/](../src/registry), [src/providers-command.ts](../src/providers-command.ts)
+- Launch + spawn child binaries → [src/agents/shared/launch.ts](../src/agents/shared/launch.ts)
+- Env isolation → [src/core/env.ts](../src/core/env.ts)
+- Typed errors → [src/core/errors.ts](../src/core/errors.ts)
+- Credential resolution → [src/core/credentials.ts](../src/core/credentials.ts)
+- Translation (Anthropic ↔ SDK) → [src/gateway/sdk-adapter.ts](../src/gateway/sdk-adapter.ts)
+- SDK provider factory → [src/gateway/provider-factory.ts](../src/gateway/provider-factory.ts)
+- Local proxy → [src/gateway/anthropic-proxy.ts](../src/gateway/anthropic-proxy.ts)
+- Server gateway → [src/gateway/server.ts](../src/gateway/server.ts)
+- Registry / providers → [src/registry/](../src/registry), [src/providers/command.ts](../src/providers/command.ts)
 - OAuth → [src/oauth/](../src/oauth)
-- Server gateway → [src/server/](../src/server)
 - Visual launcher → [src/ui/](../src/ui)
-- Antigravity gateway → [src/antigravity/](../src/antigravity)
+- Antigravity gateway → [src/gateway/antigravity/](../src/gateway/antigravity)
 
 ## Disclaimer
 

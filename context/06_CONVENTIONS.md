@@ -47,10 +47,11 @@ Read before touching core modules. Companion to [02_ARCHITECTURE.md](./02_ARCHIT
 > `https://opencode.ai/zen/v1` would hit `/zen/v1/v1/messages` → 404.
 
 > [!IMPORTANT]
-> **Provider credential resolution is not centralized.** The canonical helper is
-> `provider-catalog.ts::resolveLocalProviderApiKey()`. Similar-but-divergent copies live in
-> `codex.ts`, `codex-app.ts`, `claude-app.ts`, and `favorites-resolver.ts`. Fix credential
-> bugs in **all** of them — this is how the Kilo Code "No credential" bug shipped.
+> **Provider credential resolution is centralized** in
+> [src/core/credentials.ts](../src/core/credentials.ts)`::resolveLocalProviderApiKey()`. Every agent target
+> (`agents/codex/cli.ts`, `agents/codex/app.ts`, `agents/claude/desktop.ts`, `agents/shared/favorites-resolver.ts`,
+> `agents/gemini/cli.ts`) imports this single helper — there are no divergent copies. Fix credential
+> bugs in the one function.
 
 > [!WARNING]
 > **Stale "Relay" string:** `package.json` `description` and `keywords` still contain the old
@@ -62,31 +63,31 @@ Read before touching core modules. Companion to [02_ARCHITECTURE.md](./02_ARCHIT
 ## 4. Naming & structure
 
 - Command handlers are named `run<X>Command` (e.g. `runCodexCommand`, `runGeminiCommand`).
-- Sub-launchers live in per-agent folders (`codex/`, `gemini/`, `claude-desktop/`).
+- Sub-launchers live in per-agent folders (`codex/`, `gemini/`, `claude-desktop/`) — now under
+  `src/agents/` (`agents/codex/`, `agents/gemini/`, `agents/claude/`).
 - Pure, testable functions are preferred; they are what vitest covers.
 - Legacy identifiers from the rename (`relayIntro`, `relayOutro`, `RELAY_LAUNCH_FLAGS`,
-  `parseRelayLaunchFlag`) are **internal only** — keep them or rename deliberately, but
-  never surface them to users.
+  `parseRelayLaunchFlag`) were **removed** during the restructure — do not reintroduce them.
 
 ---
 
 ## 5. Subscription tiers
 
-Tiers control which models show and whether a backend selector appears
-([prompts.ts](../src/prompts.ts), [cli.ts](../src/cli.ts)):
+- Tiers control which models show and whether a backend selector appears
+  ([agents/shared/prompts.ts](../src/agents/shared/prompts.ts), [cli.ts](../src/cli.ts)):
 
 - `free` / `zen` — always Zen backend, no backend selector.
 - `go` — Go backend, but also fetches Zen for free models (combined list).
 - `both` — shows backend selector.
 
-When adding a backend: update `BACKENDS` ([constants.ts](../src/constants.ts)), the
-`BackendConfig` id union in [types.ts](../src/types.ts), and the tier logic.
+When adding a backend: update `BACKENDS` ([core/constants.ts](../src/core/constants.ts)), the
+`BackendConfig` id union in [core/types.ts](../src/core/types.ts), and the tier logic.
 
 ---
 
 ## 6. Free / stale models
 
-- `STALE_FREE_MODELS` ([constants.ts](../src/constants.ts)) lists models whose free
+- `STALE_FREE_MODELS` ([core/constants.ts](../src/core/constants.ts)) lists models whose free
   promotion ended but the API still returns them (currently `qwen3.6-plus-free`).
   These are filtered out in `mergeModels()`.
 - `free-models.ts` + `reasoning-capabilities.ts` carry per-model metadata used by pickers.

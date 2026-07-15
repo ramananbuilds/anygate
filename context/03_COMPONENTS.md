@@ -10,18 +10,18 @@ import-safe unit. System-level picture lives in [02_ARCHITECTURE.md](./02_ARCHIT
 | Module | Responsibility |
 |--------|----------------|
 | [cli.ts](../src/cli.ts) | Arg parsing + dispatch. The only orchestrator with side effects. |
-| [launch.ts](../src/launch.ts) | Locate + spawn target binaries (`stdio:inherit`). |
-| [launch-target.ts](../src/launch-target.ts) | Normalize launch args per agent; plan the wizard. |
-| [env.ts](../src/env.ts) | `buildChildEnv()` — 17-var isolation; sets `ANTHROPIC_*`. |
-| [key-setup.ts](../src/key-setup.ts) | API-key collection + OS keychain storage. |
-| [config.ts](../src/config.ts) | `~/.anygate/config.json` load/save + migration. |
-| [constants.ts](../src/constants.ts) | `BACKENDS`, `MAX_MODEL_CATALOG=20`, `classifyModelFormat`. |
-| [types.ts](../src/types.ts) | Shared types: `ParsedArgs`, `ModelInfo`, `LocalProvider`, `UserPreferences`. |
-| [first-run.ts](../src/first-run.ts) | First-run wizard (API key, subscription tier). |
-| [prompts.ts](../src/prompts.ts) | Smart pickers: recent, search (>25), paginated (15/page). |
-| [trace-log.ts](../src/trace-log.ts) | `--trace` debug logging. |
-| [update-check.ts](../src/update-check.ts) | Cached npm release check. |
-| [agent-io.ts](../src/agent-io.ts) | Clean NDJSON/JSONL stdout for agent mode. |
+| [agents/shared/launch.ts](../src/agents/shared/launch.ts) | Locate + spawn target binaries (`stdio:inherit`). |
+| [agents/shared/launch-target.ts](../src/agents/shared/launch-target.ts) | Normalize launch args per agent; plan the wizard. |
+| [core/env.ts](../src/core/env.ts) | `buildChildEnv()` — 17-var isolation; sets `ANTHROPIC_*`. |
+| [agents/shared/key-setup.ts](../src/agents/shared/key-setup.ts) | API-key collection + OS keychain storage. |
+| [core/config.ts](../src/core/config.ts) | `~/.anygate/config.json` load/save + migration. |
+| [core/constants.ts](../src/core/constants.ts) | `BACKENDS`, `MAX_MODEL_CATALOG=20`, `classifyModelFormat`. |
+| [core/types.ts](../src/core/types.ts) | Shared types: `ParsedArgs`, `ModelInfo`, `LocalProvider`, `UserPreferences`. |
+| [agents/shared/first-run.ts](../src/agents/shared/first-run.ts) | First-run wizard (API key, subscription tier). |
+| [agents/shared/prompts.ts](../src/agents/shared/prompts.ts) | Smart pickers: recent, search (>25), paginated (15/page). |
+| [agents/shared/trace-log.ts](../src/agents/shared/trace-log.ts) | `--trace` debug logging. |
+| [agents/shared/update-check.ts](../src/agents/shared/update-check.ts) | Cached npm release check. |
+| [core/agent-io.ts](../src/core/agent-io.ts) | Clean NDJSON/JSONL stdout for agent mode. |
 
 ---
 
@@ -29,14 +29,14 @@ import-safe unit. System-level picture lives in [02_ARCHITECTURE.md](./02_ARCHIT
 
 | Module | Responsibility |
 |--------|----------------|
-| [proxy.ts](../src/proxy.ts) | Local Anthropic-format proxy (single + catalog routes). |
-| [proxy-shared.ts](../src/proxy-shared.ts) | Shared helpers: `aliasModelId`, route resolution. |
-| [proxy-types.ts](../src/proxy-types.ts) | `ProxyRoute`, `ProxyHandle` types. |
-| [sdk-adapter.ts](../src/sdk-adapter.ts) | Anthropic ↔ Vercel AI SDK translation (the heart). |
-| [provider-factory.ts](../src/provider-factory.ts) | `createLanguageModel` via dynamic `import(npm)`. |
-| [catalog.ts](../src/catalog.ts) | Build multi-route favorites catalog. |
-| [models.ts](../src/models.ts) | Model listing, caching, format classification. |
-| [upstream-forward.ts](../src/upstream-forward.ts) | Shared upstream forwarding helpers. |
+| [gateway/anthropic-proxy.ts](../src/gateway/anthropic-proxy.ts) | Local Anthropic-format proxy (single + catalog routes). |
+| [gateway/proxy-shared.ts](../src/gateway/proxy-shared.ts) | Shared helpers: `aliasModelId`, route resolution. |
+| [gateway/proxy-types.ts](../src/gateway/proxy-types.ts) | `ProxyRoute`, `ProxyHandle` types. |
+| [gateway/sdk-adapter.ts](../src/gateway/sdk-adapter.ts) | Anthropic ↔ Vercel AI SDK translation (the heart). |
+| [gateway/provider-factory.ts](../src/gateway/provider-factory.ts) | `createLanguageModel` via dynamic `import(npm)`. |
+| [agents/codex/catalog.ts](../src/agents/codex/catalog.ts) | Build multi-route favorites catalog. |
+| [gateway/models.ts](../src/gateway/models.ts) | Model listing, caching, format classification. |
+| [gateway/upstream-forward.ts](../src/gateway/upstream-forward.ts) | Shared upstream forwarding helpers. |
 
 ---
 
@@ -44,10 +44,10 @@ import-safe unit. System-level picture lives in [02_ARCHITECTURE.md](./02_ARCHIT
 
 | Module | Responsibility |
 |--------|----------------|
-| [providers.ts](../src/providers.ts) | OpenCode local-provider discovery. |
-| [providers-command.ts](../src/providers-command.ts) | `anygate providers` CLI. |
-| [provider-catalog.ts](../src/provider-catalog.ts) | Registry-first catalog resolution (canonical credential helper). |
-| [provider-templates.ts](../src/provider-templates.ts) | Built-in provider templates. |
+| [providers/opencode-serve.ts](../src/providers/opencode-serve.ts) | OpenCode local-provider discovery. |
+| [providers/command.ts](../src/providers/command.ts) | `anygate providers` CLI. |
+| [providers/provider-catalog.ts](../src/providers/provider-catalog.ts) | Registry-first catalog resolution (canonical credential helper). |
+| [providers/templates.ts](../src/providers/templates.ts) | Built-in provider templates. |
 | [registry/](../src/registry) | CRUD, import, auth broker, pricing, model refresh. |
 | [oauth/](../src/oauth) | Device-code OAuth for copilot/openai/xai/antigravity. |
 
@@ -89,15 +89,15 @@ import-safe unit. System-level picture lives in [02_ARCHITECTURE.md](./02_ARCHIT
 
 | Module | Responsibility |
 |--------|----------------|
-| [claude-app.ts](../src/claude-app.ts) | Claude Desktop (Cowork + Code). |
-| [codex.ts](../src/codex.ts) | OpenAI Codex CLI. |
-| [codex-app.ts](../src/codex-app.ts) | ChatGPT desktop (Codex mode); alias `chatgpt`. |
-| [codex-proxy.ts](../src/codex-proxy.ts) | Codex OpenAI-format proxy. |
-| [codex-responses-adapter.ts](../src/codex-responses-adapter.ts) | Codex Responses API adapter. |
-| [gemini.ts](../src/gemini.ts) + [gemini-proxy.ts](../src/gemini-proxy.ts) + [gemini-parts.ts](../src/gemini-parts.ts) | Gemini CLI. |
-| [antigravity.ts](../src/antigravity.ts) + [antigravity/](../src/antigravity) | Antigravity CLI/app/IDE + Cloud Code gateway. |
+| [agents/claude/desktop.ts](../src/agents/claude/desktop.ts) | Claude Desktop (Cowork + Code). |
+| [agents/codex/cli.ts](../src/agents/codex/cli.ts) | OpenAI Codex CLI. |
+| [agents/codex/app.ts](../src/agents/codex/app.ts) | ChatGPT desktop (Codex mode); alias `chatgpt`. |
+| [agents/codex/proxy.ts](../src/agents/codex/proxy.ts) | Codex OpenAI-format proxy. |
+| [agents/codex/responses-adapter.ts](../src/agents/codex/responses-adapter.ts) | Codex Responses API adapter. |
+| [agents/gemini/cli.ts](../src/agents/gemini/cli.ts) + [agents/gemini/proxy.ts](../src/agents/gemini/proxy.ts) + [agents/gemini/parts.ts](../src/agents/gemini/parts.ts) | Gemini CLI. |
+| [agents/gemini/antigravity.ts](../src/agents/gemini/antigravity.ts) + [gateway/antigravity/](../src/gateway/antigravity) | Antigravity CLI/app/IDE + Cloud Code gateway. |
 
-### `src/codex/`, `src/gemini/`, `src/claude-desktop/`
+### `src/agents/codex/`, `src/agents/gemini/`, `src/agents/claude/`
 
 | Folder | Key files |
 |-------|----------|
@@ -111,13 +111,13 @@ import-safe unit. System-level picture lives in [02_ARCHITECTURE.md](./02_ARCHIT
 
 | Module | Responsibility |
 |--------|----------------|
-| [server/index.ts](../src/server/index.ts) | Foreground gateway on port 17645. |
-| [server/router.ts](../src/server/router.ts) | Anthropic/OpenAI format routing. |
-| [server/catalog-filter.ts](../src/server/catalog-filter.ts) | Provider/favorites filtering. |
-| [server/vertex-config.ts](../src/server/vertex-config.ts) | Vertex AI gateway config. |
-| [server/models.ts](../src/server/models.ts) | Server model catalog build. |
-| [server/prompts.ts](../src/server/prompts.ts), [provider-select.ts](../src/server/provider-select.ts), [auth.ts](../src/server/auth.ts), [vendor-mask.ts](../src/server/vendor-mask.ts) | Server wizard + auth + masking. |
-| [ui.ts](../src/ui.ts) | Visual launcher HTTP server. |
+| [gateway/server.ts](../src/gateway/server.ts) | Foreground gateway on port 17645. |
+| [gateway/router.ts](../src/gateway/router.ts) | Anthropic/OpenAI format routing. |
+| [gateway/catalog-filter.ts](../src/gateway/catalog-filter.ts) | Provider/favorites filtering. |
+| [gateway/vertex.ts](../src/gateway/vertex.ts) | Vertex AI gateway config. |
+| [gateway/models.ts](../src/gateway/models.ts) | Server model catalog build. |
+| [gateway/prompts.ts](../src/gateway/prompts.ts), [gateway/provider-select.ts](../src/gateway/provider-select.ts), [gateway/auth.ts](../src/gateway/auth.ts), [gateway/vendor-mask.ts](../src/gateway/vendor-mask.ts) | Server wizard + auth + masking. |
+| [ui/command.ts](../src/ui/command.ts) | Visual launcher HTTP server. |
 | [ui/api.ts](../src/ui/api.ts) | Launcher JSON API. |
 | [ui/server-control.ts](../src/ui/server-control.ts) | In-process gateway lifecycle. |
 | [ui/public/](../src/ui/public) | Browser dashboard assets (index.html, app.js, style.css). |
@@ -128,12 +128,12 @@ import-safe unit. System-level picture lives in [02_ARCHITECTURE.md](./02_ARCHIT
 
 | Module | Responsibility |
 |--------|----------------|
-| [favorites.ts](../src/favorites.ts) | Favorites manager entry. |
-| [favorites-picker.ts](../src/favorites-picker.ts) | Global favorites picker. |
-| [favorites-resolver.ts](../src/favorites-resolver.ts) | Resolve favorites → `{provider, model, apiKey}`. |
-| [favorite-provider-display.ts](../src/favorite-provider-display.ts) | Display names. |
-| [model-search.ts](../src/model-search.ts), [model-compatibility.ts](../src/model-compatibility.ts), [tool-search.ts](../src/tool-search.ts) | Search & compatibility helpers. |
-| [free-models.ts](../src/free-models.ts), [reasoning-capabilities.ts](../src/reasoning-capabilities.ts), [context-window.ts](../src/context-window.ts), [context-model-id.ts](../src/context-model-id.ts) | Model metadata helpers. |
+| [agents/claude/favorites.ts](../src/agents/claude/favorites.ts) | Favorites manager entry. |
+| [agents/claude/favorites-picker.ts](../src/agents/claude/favorites-picker.ts) | Global favorites picker. |
+| [agents/shared/favorites-resolver.ts](../src/agents/shared/favorites-resolver.ts) | Resolve favorites → `{provider, model, apiKey}`. |
+| [agents/claude/favorite-provider-display.ts](../src/agents/claude/favorite-provider-display.ts) | Display names. |
+| [agents/shared/model-search.ts](../src/agents/shared/model-search.ts), [agents/shared/model-compatibility.ts](../src/agents/shared/model-compatibility.ts), [agents/shared/tool-search.ts](../src/agents/shared/tool-search.ts) | Search & compatibility helpers. |
+| [agents/shared/free-models.ts](../src/agents/shared/free-models.ts), [agents/shared/reasoning-capabilities.ts](../src/agents/shared/reasoning-capabilities.ts), [agents/shared/context-window.ts](../src/agents/shared/context-window.ts), [agents/shared/context-model-id.ts](../src/agents/shared/context-model-id.ts) | Model metadata helpers. |
 
 ---
 

@@ -23,13 +23,13 @@ The **Antigravity** path is a third, faked Cloud Code surface (see §5).
 ```
 Claude Code
   → POST http://127.0.0.1:<port>/v1/messages   (ANTHROPIC_BASE_URL = proxy)
-  → [proxy.ts] receives Anthropic-shaped body
+  → [gateway/anthropic-proxy.ts] receives Anthropic-shaped body
        ├─ modelFormat === 'anthropic'
        │     → relayAnthropicMessages() → upstream {baseUrl}/v1/messages  (passthrough)
        └─ else (openai / sdk)
-             → [sdk-adapter.ts] translateRequest()
+              → [gateway/sdk-adapter.ts] translateRequest()
                    • fold inline role:'system' into system prompt
-                   • [provider-factory.ts] createLanguageModel({npm, modelId, apiKey, baseURL})
+                    • [gateway/provider-factory.ts] createLanguageModel({npm, modelId, apiKey, baseURL})
                    • streamAnthropicResponse() maps SDK fullStream → Anthropic SSE
              ← Anthropic SSE back to Claude Code
   → GET /v1/models  → synthetic catalog (aliasModelId, context_window)
@@ -48,7 +48,7 @@ the `tool_use.id` (`{id}::ts::{signature}`) and is decoded back into
 ```
 Codex CLI / ChatGPT app
   → POST {baseUrl}/v1/responses (or /v1/chat/completions)
-  → [codex-proxy.ts] or [codex-responses-adapter.ts]
+  → [agents/codex/proxy.ts] or [agents/codex/responses-adapter.ts]
        ├─ modelPrefersResponsesApi(id) === true
        │     → provider.responses(id)  (OpenAI/xAI Responses API)
        ├─ useResponsesLite / preferWebSockets
@@ -58,7 +58,7 @@ Codex CLI / ChatGPT app
        └─ else chat/completions → SDK or direct
 ```
 
-> `modelPrefersResponsesApi` (in [provider-factory.ts](../src/provider-factory.ts)):
+> `modelPrefersResponsesApi` (in [gateway/provider-factory.ts](../src/gateway/provider-factory.ts)):
 > true for `gpt-5-codex`, `gpt-5-pro`, `o3`/`o4`*, any `gpt-5.N` with N≥4, any
 > `gpt-*-codex`, and `grok-*-multi-agent`. OpenAI's Responses API is treated as a
 > strict superset of chat-completions for every current model, so route through it by default.
@@ -95,7 +95,7 @@ if `modelFormat==='anthropic'` relay raw, else send to the SDK adapter selected 
 
 ```
 Antigravity CLI / app / IDE
-  → faked Cloud Code API  [antigravity/cloud-code-gateway.ts]
+  → faked Cloud Code API  [gateway/antigravity/cloud-code-gateway.ts]
   → [request-adapter.ts] Cloud Code generateContent → SDK params
   → SDK model (same provider-factory as everything else)
   → [response-adapter.ts] SDK stream → Cloud Code SSE
@@ -112,7 +112,7 @@ Use a **throwaway Google account** — third-party models stringify MCP `Argumen
 ## 6. Env isolation (child only)
 
 `buildChildEnv(baseUrl, model, apiKey, proxyPort?, contextWindow?, enableGatewayDiscovery?)`
-([env.ts](../src/env.ts)):
+([core/env.ts](../src/core/env.ts)):
 
 1. `env = { ...process.env }`
 2. delete all 17 `CONFLICTING_ENV_VARS` (Vertex, Bedrock, AWS, Foundry, stale Anthropic)

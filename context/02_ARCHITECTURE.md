@@ -16,37 +16,18 @@ Companion to [01_PROJECT_GOAL.md](./01_PROJECT_GOAL.md) and [09_GLOSSARY.md](./0
 anygate/
 ├── src/                  # TypeScript source (entry: cli.ts)
 │   ├── cli.ts            # Command parsing + dispatch (root orchestrator)
-│   ├── launch.ts         # Locate + spawn target binaries (stdio:inherit)
-│   ├── launch-target.ts  # Normalize launch args per agent, plan wizard
-│   ├── env.ts            # Environment isolation (17 conflicting vars stripped)
-│   ├── key-setup.ts      # API-key collection + secure storage
-│   ├── config.ts         # Preferences (~/.anygate/config.json) load/save
-│   ├── constants.ts      # BACKENDS, MAX_MODEL_CATALOG=20, classifyModelFormat, etc.
-│   ├── types.ts          # Shared types (ParsedArgs, ModelInfo, ...)
-│   ├── proxy.ts          # Local Anthropic-format proxy (single + catalog)
-│   ├── proxy-shared.ts   # Shared proxy helpers (route types, aliasing)
-│   ├── proxy-types.ts    # Proxy route / handle types
-│   ├── sdk-adapter.ts    # Anthropic <-> Vercel AI SDK translation
-│   ├── provider-factory.ts # Dynamic import(npm) -> SDK LanguageModel
-│   ├── catalog.ts        # Build multi-route catalog for favorites
-│   ├── models.ts         # Model listing, caching, format classification
-│   ├── providers.ts      # OpenCode local-provider discovery
-│   ├── providers-command.ts # `anygate providers` command
-│   ├── provider-catalog.ts  # Registry-first catalog resolution
-│   ├── provider-templates.ts # Built-in provider templates
-│   ├── registry/         # Native provider registry (CRUD, import, auth, refresh)
-│   ├── oauth/            # Device-code OAuth (github-copilot, openai, xai, antigravity)
-│   ├── server/           # `anygate server` gateway (router, catalog-filter, vertex)
-│   ├── ui/               # `anygate ui` visual launcher (api.ts, server-control.ts, public/)
-│   ├── antigravity/      # Cloud Code (Gemini-internal) gateway for Antigravity
-│   ├── codex/            # Codex CLI sub-launch, app catalog, routing
-│   ├── gemini/           # Gemini CLI backend routes + prompts
-│   ├── claude-desktop/   # Claude Desktop (Cowork + Code) app config + launch
-│   ├── claude-app.ts     # `anygate claude-app` (Claude Desktop)
-│   ├── codex.ts / codex-app.ts / codex-proxy.ts / codex-responses-adapter.ts
-│   ├── gemini.ts / gemini-proxy.ts / gemini-parts.ts
-│   ├── ai-doc.ts         # `anygate --ai` agent reference generator
-│   └── ... (favorites, prompts, first-run, trace-log, update-check, ...)
+│   ├── core/             # Cross-cutting, no domain bias (errors, credentials, config,
+│   │                    #   constants, types, env, agent-io, redact, http-utils, paths)
+│   ├── gateway/          # Unified local API gateway (server, router, models,
+│   │                    #   catalog-filter, vendor-mask, auth, vertex,
+│   │                    #   anthropic-proxy, sdk-adapter, provider-factory, openai-adapter)
+│   ├── agents/           # Per-target launchers (claude/, codex/, gemini/, shared/)
+│   ├── providers/        # Provider CLI + catalog (command, catalog, templates, opencode-serve)
+│   ├── registry/         # Native provider registry (CRUD, import, auth, refresh, pricing)
+│   ├── oauth/            # Device-code OAuth (github, openai, xai, antigravity, ...)
+│   ├── ui/               # `anygate ui` visual launcher (command, api, api-types,
+│   │                    #   server-control, public/)
+│   └── data/             # Static model / provider datasets
 ├── tests/                # vitest specs (pure functions + cli help)
 ├── docs/                 # Guides (PROVIDERS, CODEX, CLAUDE_DESKTOP, GEMINI, ...)
 ├── assets/               # logo.svg, banner.svg (custom SVG branding)
@@ -66,16 +47,16 @@ anygate/
 | *(none)* / `--help` | help |
 | `--version` | version |
 | `claude` | inline wizard + launch (root orchestrator) |
-| `server [--vertex]` | [src/server/index.ts](../src/server/index.ts) |
-| `models` / `favorites` | [src/favorites.ts](../src/favorites.ts) + [favorites-picker.ts](../src/favorites-picker.ts) |
-| `providers` | [src/providers-command.ts](../src/providers-command.ts) |
-| `claude-app` | [src/claude-app.ts](../src/claude-app.ts) |
-| `codex` | [src/codex.ts](../src/codex.ts) |
-| `codex-app` / `chatgpt` | [src/codex-app.ts](../src/codex-app.ts) |
-| `gemini` | [src/gemini.ts](../src/gemini.ts) |
-| `agy` / `antigravity` / `antigravity-ide` | [src/antigravity.ts](../src/antigravity.ts) |
-| `ui` | [src/ui-command.ts](../src/ui-command.ts) |
-| `--ai [--install]` | [src/ai-doc.ts](../src/ai-doc.ts) |
+| `server [--vertex]` | [src/gateway/server.ts](../src/gateway/server.ts) |
+| `models` / `favorites` | [src/agents/claude/favorites.ts](../src/agents/claude/favorites.ts) + [favorites-picker.ts](../src/agents/claude/favorites-picker.ts) |
+| `providers` | [src/providers/command.ts](../src/providers/command.ts) |
+| `claude-app` | [src/agents/claude/desktop.ts](../src/agents/claude/desktop.ts) |
+| `codex` | [src/agents/codex/cli.ts](../src/agents/codex/cli.ts) |
+| `codex-app` / `chatgpt` | [src/agents/codex/app.ts](../src/agents/codex/app.ts) |
+| `gemini` | [src/agents/gemini/cli.ts](../src/agents/gemini/cli.ts) |
+| `agy` / `antigravity` / `antigravity-ide` | [src/agents/gemini/antigravity.ts](../src/agents/gemini/antigravity.ts) |
+| `ui` | [src/ui/command.ts](../src/ui/command.ts) |
+| `--ai [--install]` | [src/agents/shared/ai-doc.ts](../src/agents/shared/ai-doc.ts) |
 
 Boot flags (`--provider`, `--model`, `--dry-run`, `--setup`, `--trace`, `--vertex`) apply
 across commands and are absorbed by `cli.ts` so they are never leaked to the child agent.
@@ -86,14 +67,14 @@ across commands and are absorbed by `cli.ts` so they are never leaked to the chi
 
 ```
 cli.ts
-  → findClaudeBinary()                 [launch.ts]
-  → resolveOrCollectApiKey()           [key-setup.ts — env / keychain / prompt]
-  → fetchProviderCatalog()             [provider-catalog.ts — registry-first]
-  → runFirstRunWizard() if empty      [first-run.ts]
-  → pickModel / favorites catalog      [prompts.ts / catalog.ts]
-  → buildChildEnv(baseUrl, ...)        [env.ts — strips 17 vars, sets ANTHROPIC_*, --model]
-  → startProxy() / startProxyCatalog() [proxy.ts]
-  → launchClaude()                     [launch.ts — spawn, stdio:inherit]
+  → findClaudeBinary()                 [agents/shared/launch.ts]
+  → resolveOrCollectApiKey()           [agents/shared/key-setup.ts — env / keychain / prompt]
+  → fetchProviderCatalog()             [providers/provider-catalog.ts — registry-first]
+  → runFirstRunWizard() if empty      [agents/shared/first-run.ts]
+  → pickModel / favorites catalog      [agents/shared/prompts.ts / agents/codex/catalog.ts]
+  → buildChildEnv(baseUrl, ...)        [core/env.ts — strips 17 vars, sets ANTHROPIC_*, --model]
+  → startProxy() / startProxyCatalog() [gateway/anthropic-proxy.ts]
+  → launchClaude()                     [agents/shared/launch.ts — spawn, stdio:inherit]
   → proxyHandle.close() on exit
 ```
 
@@ -109,25 +90,25 @@ All **non-Anthropic** providers route through the **Vercel AI SDK** (`ai` + `@ai
 the same packages OpenCode loads). This is the *only* translation path — no hand-rolled
 per-provider conversion.
 
-- [src/sdk-adapter.ts](../src/sdk-adapter.ts): Anthropic `/v1/messages` ↔ SDK.
+- [src/gateway/sdk-adapter.ts](../src/gateway/sdk-adapter.ts): Anthropic `/v1/messages` ↔ SDK.
   `translateRequest()` builds SDK call params and folds inline `role:'system'` messages
   into the system prompt (so skills/system-reminders aren't dropped). `streamAnthropicResponse`
   maps the SDK `fullStream` → Anthropic SSE. Round-trips `thought_signature` (Gemini) via
   `tool_use.id` encoding.
-- [src/provider-factory.ts](../src/provider-factory.ts): `createLanguageModel({ npm,
+- [src/gateway/provider-factory.ts](../src/gateway/provider-factory.ts): `createLanguageModel({ npm,
   modelId, apiKey, baseURL })` dynamically `import(npm)` and discovers the `create*` factory.
   Special branches for OpenAI/xAI **Responses API** selection (`modelPrefersResponsesApi`
   → `provider.responses(id)`) and openai-compatible/openrouter base URLs. `isSdkMigratedNpm(npm)`
   is true for any npm except `@ai-sdk/anthropic`.
 - **Model format classification** (`modelFormat`): `anthropic` (direct passthrough) vs
   `openai` (SDK adapter proxy). Driven by `provider.npm` / ID-prefix heuristics in
-  [src/constants.ts](../src/constants.ts) (`classifyModelFormat`).
+  [src/core/constants.ts](../src/core/constants.ts) (`classifyModelFormat`).
 
 ---
 
 ## 5. Local proxy
 
-[src/proxy.ts](../src/proxy.ts): an HTTP server on `127.0.0.1:<random-port>` accepting
+[src/gateway/anthropic-proxy.ts](../src/gateway/anthropic-proxy.ts): an HTTP server on `127.0.0.1:<random-port>` accepting
 Anthropic-format `/v1/messages`. Per-route dispatch:
 
 - `modelFormat === 'anthropic'` → direct passthrough to provider's Anthropic endpoint.
@@ -141,7 +122,7 @@ Favorites mode uses `startProxyCatalog()` (multi-route, max 20).
 
 ## 6. Server mode (`anygate server`)
 
-[src/server/index.ts](../src/server/index.ts) + [router.ts](../src/server/router.ts)
+[src/gateway/server.ts](../src/gateway/server.ts) + [router.ts](../src/gateway/router.ts)
 run a foreground gateway on fixed port **17645**. `loadServerModels()` converts registry
 providers to `ServerModelInfo[]`; the router forwards Anthropic-format to
 `{baseUrl}/v1/messages` and SDK-adapts OpenAI-format. `GET /models` strips `apiKey`. Health:
@@ -152,7 +133,7 @@ providers to `ServerModelInfo[]`; the router forwards Anthropic-format to
 
 ## 7. Visual launcher (`anygate ui`)
 
-[src/ui.ts](../src/ui.ts) + [src/ui/api.ts](../src/ui/api.ts) serve a browser
+[src/ui/command.ts](../src/ui/command.ts) + [src/ui/api.ts](../src/ui/api.ts) serve a browser
 dashboard from [src/ui/public](../src/ui/public). The **Server tab** runs the *same*
 gateway as `anygate server` in-process via [src/ui/server-control.ts](../src/ui/server-control.ts)
 (no child process; stops when the UI exits). Saved settings are shared with the terminal wizard.
@@ -162,7 +143,7 @@ gateway as `anygate server` in-process via [src/ui/server-control.ts](../src/ui/
 ## 8. Registry & providers
 
 - [src/registry/](../src/registry): native provider registry CRUD, templates
-  ([provider-templates.ts](../src/provider-templates.ts)), one-time OpenCode import,
+  ([src/providers/templates.ts](../src/providers/templates.ts)), one-time OpenCode import,
   OAuth auth broker, model refresh, pricing.
 - `fetchProviderCatalog()` is **registry-first**: OpenCode is no longer the source of truth
   for providers (unlike older versions).
@@ -173,7 +154,7 @@ gateway as `anygate server` in-process via [src/ui/server-control.ts](../src/ui/
 
 ## 9. Antigravity gateway
 
-[src/antigravity/](../src/antigravity): `startCloudCodeGateway()` fakes Google's internal
+[src/gateway/antigravity/](../src/gateway/antigravity): `startCloudCodeGateway()` fakes Google's internal
 Cloud Code API so Antigravity routes through anygate. `request-adapter.ts` converts Cloud Code
 `generateContent` → SDK params; `response-adapter.ts` converts SDK stream → Cloud Code SSE.
 `normalizeFunctionCallArgs` un-stringifies MCP tool-call args (third-party models stringify
@@ -183,7 +164,7 @@ them). **Use a throwaway Google account** (see [docs/ANTIGRAVITY.md](../docs/ANT
 
 ## 10. Environment isolation
 
-[src/env.ts](../src/env.ts) `buildChildEnv()`: copies `process.env`, deletes the 17
+[src/core/env.ts](../src/core/env.ts) `buildChildEnv()`: copies `process.env`, deletes the 17
 `CONFLICTING_ENV_VARS` (Vertex AI, Bedrock, AWS, Foundry, stale Anthropic), then sets
 `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` and passes `--model`. The
 **parent shell is never mutated.** (Caveat: the target tool may persist the model to its own
@@ -218,7 +199,14 @@ Other known limitations (by design):
 - In gateway-discovery (switch-menu) mode, the displayed context window reflects the **launch**
   model and does not update on live `/model` switch.
 - Mistral free tier has tight 429 rate limits during tool-heavy sessions.
-- Provider credential resolution is **not fully centralized** — `provider-catalog.ts::
-  resolveLocalProviderApiKey()` is the canonical helper, but `codex.ts`, `codex-app.ts`,
-  `claude-app.ts`, and `favorites-resolver.ts` carry similar-but-divergent copies. Fix
-  credential bugs in all of them (this is how the Kilo Code "No credential" bug shipped).
+- Provider credential resolution **is centralized** in
+  [src/core/credentials.ts](../src/core/credentials.ts)`::resolveLocalProviderApiKey()`. Every
+  agent target (`agents/codex/cli.ts`, `agents/codex/app.ts`, `agents/claude/desktop.ts`,
+  `agents/shared/favorites-resolver.ts`, `agents/gemini/cli.ts`) imports this single helper —
+  there are no divergent copies. Fix credential bugs in the one function.
+
+> [!NOTE]
+> **UI contract is frozen.** `src/ui/api-types.ts` is the public HTTP contract for the `anygate ui`
+> dashboard. The `ui/` domain must **never** be imported by `core/`, `gateway/`, `agents/`, or
+> `providers/` (one-way dependency). `src/ui/api.ts` is the only implementer of that contract; it
+> is covered by `tests/ui-api.test.ts`.

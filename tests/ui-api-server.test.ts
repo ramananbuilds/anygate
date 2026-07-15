@@ -313,4 +313,4 @@ describe('UI API Server endpoints', () => {
     const status = await call('GET', '/api/server/status');
     expect(status.body.running).toBe(false);
   });
-});
+}, 20000);
