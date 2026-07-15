@@ -3,7 +3,7 @@ import {
   formatUiServerLifecycleMessage,
   isUiApiRoute,
   resolveUiShutdownDecision,
-} from '../src/agents/claude/ui-command.js';
+} from '../src/ui/command.js';
 
 describe('ui command routing', () => {
   it('routes API and OAuth callback requests to the API handler', () => {

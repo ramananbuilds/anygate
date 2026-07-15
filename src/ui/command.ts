@@ -5,10 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { getAppHome } from '../../../src/core/paths.js';
-import { handleUiApiRequest, type UiServerLifecycleEvent } from '../../../src/ui/api.js';
-import { getUiDebugLogPath, makeTraceLogger } from '../../../src/agents/shared/trace-log.js';
-import { VERSION } from '../../../src/core/constants.js';
+import { getAppHome } from '../core/paths.js';
+import { handleUiApiRequest, type UiServerLifecycleEvent } from './api.js';
+import { getUiDebugLogPath, makeTraceLogger } from '../agents/shared/trace-log.js';
+import { VERSION } from '../core/constants.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = join(__dirname, 'ui', 'public');

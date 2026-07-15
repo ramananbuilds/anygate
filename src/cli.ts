@@ -1494,7 +1494,7 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
       console.log('Usage: anygate ui [--trace]\n\nOpen the settings UI in your browser.');
       return 0;
     }
-    const { runUiCommand } = await import('./agents/claude/ui-command.js');
+    const { runUiCommand } = await import('./ui/command.js');
     return runUiCommand({ trace: parsed.trace });
   }
 
