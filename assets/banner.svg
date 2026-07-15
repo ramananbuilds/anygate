@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" role="img" aria-label="anygate banner">
   <g font-family="'Cascadia Code','Fira Code','JetBrains Mono','Consolas','Courier New',monospace" font-weight="700" fill="#ffffff" font-size="30" letter-spacing="0">
-    <text x="640" y="70" text-anchor="middle" xml:space="preserve"> █████╗ ███╗   ██╗██╗   ██╗ ██████╗  █████╗ ████████╗███████╗</text>
+    <text x="640" y="70" text-anchor="middle" xml:space="preserve">  █████╗ ███╗   ██╗██╗   ██╗ ██████╗  █████╗ ████████╗███████╗</text>
     <text x="640" y="110" text-anchor="middle" xml:space="preserve">██╔══██╗████╗  ██║╚██╗ ██╔╝██╔════╝ ██╔══██╗╚══██╔══╝██╔════╝</text>
     <text x="640" y="150" text-anchor="middle" xml:space="preserve">███████║██╔██╗ ██║ ╚████╔╝ ██║  ███╗███████║   ██║   █████╗  </text>
     <text x="640" y="190" text-anchor="middle" xml:space="preserve">██╔══██║██║╚██╗██║  ╚██╔╝  ██║   ██║██╔══██║   ██║   ██╔══╝  </text>
@@ -8,4 +8,4 @@
     <text x="640" y="270" text-anchor="middle" xml:space="preserve">╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝</text>
   </g>
   <text x="640" y="320" text-anchor="middle" font-family="Inter,'Segoe UI',Helvetica,Arial,sans-serif" font-size="28" font-weight="500" fill="#9fb0c3" letter-spacing="0.5">Route any model into any coding agent</text>
-</svg>
+</svg>                                                   
