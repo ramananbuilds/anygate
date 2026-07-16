@@ -47,13 +47,15 @@ var package_default = {
     node: ">=18"
   },
   scripts: {
-    build: "tsup && node scripts/copy-ui-assets.mjs",
+    build: "tsup && npm run ui:build && node scripts/copy-ui-assets.mjs",
     dev: "tsup --watch",
     test: "vitest run",
     "test:watch": "vitest",
     typecheck: "tsc --noEmit",
     "refresh:models-dev": "node scripts/refresh-models-dev-cache.mjs",
-    prepublishOnly: `node -e "if (require('./package.json').version !== require('./package-lock.json').version) { console.error('Error: package.json and package-lock.json versions are out of sync! Run npm install to sync.'); process.exit(1); }" && npm run build`
+    prepublishOnly: `node -e "if (require('./package.json').version !== require('./package-lock.json').version) { console.error('Error: package.json and package-lock.json versions are out of sync! Run npm install to sync.'); process.exit(1); }" && npm run build`,
+    "ui:dev": "npm --prefix ui run dev",
+    "ui:build": "npm --prefix ui run build"
   },
   dependencies: {
     "@ai-sdk/alibaba": "^1.0.26",
@@ -3903,7 +3905,7 @@ function printTraceLog(debugLogPath) {
 
 // src/gateway/anthropic-proxy.ts
 import { createServer } from "http";
-import { appendFileSync as appendFileSync2, openSync as openSync2, writeSync as writeSync2, closeSync as closeSync2 } from "fs";
+import { appendFileSync as appendFileSync3, openSync as openSync3, writeSync as writeSync3, closeSync as closeSync3 } from "fs";
 
 // src/core/http-utils.ts
 import * as zlib from "zlib";
@@ -5403,7 +5405,7 @@ async function writeAnthropicStream(fullStream, modelId, write, log7) {
         log7?.(() => `sdk stream error (${errorType}): ${errMsg}`);
         closeOpen();
         emit("error", { type: "error", error: { type: errorType, message: errMsg } });
-        return;
+        return { inputTokens: 0, outputTokens: 0 };
       }
       default:
         break;
@@ -5413,6 +5415,7 @@ async function writeAnthropicStream(fullStream, modelId, write, log7) {
   ensureStart();
   emit("message_delta", { type: "message_delta", delta: { stop_reason: finishReason, stop_sequence: null }, usage });
   emit("message_stop", { type: "message_stop" });
+  return { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens };
 }
 async function streamAnthropicResponse(model, params, modelId, write, log7) {
   const result = streamText({ model, ...params, onError: () => {
@@ -5427,7 +5430,7 @@ async function streamAnthropicResponse(model, params, modelId, write, log7) {
   });
   Promise.resolve(result.usage).catch(() => {
   });
-  await writeAnthropicStream(result.fullStream, modelId, write, log7);
+  return await writeAnthropicStream(result.fullStream, modelId, write, log7);
 }
 async function generateAnthropicResponse(model, params, modelId, options) {
   let text4;
@@ -5459,7 +5462,196 @@ async function generateAnthropicResponse(model, params, modelId, options) {
       }))
     ],
     stop_reason: finishReason === "tool-calls" ? "tool_use" : "end_turn",
-    usage: { input_tokens: usage?.inputTokens ?? 0, output_tokens: usage?.outputTokens ?? 0 }
+    usage: { input_tokens: usage?.inputTokens ?? 0, output_tokens: usage?.outputTokens ?? 0 },
+    // Internal: surfaced to call sites so they can log analytics without re-parsing.
+    _usage: { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0 }
+  };
+}
+
+// src/core/analytics-log.ts
+import { appendFileSync as appendFileSync2, openSync as openSync2, writeSync as writeSync2, closeSync as closeSync2, readFileSync as readFileSync9, existsSync as existsSync9 } from "fs";
+import { join as join9 } from "path";
+var ANALYTICS_FILE = "analytics.jsonl";
+function analyticsPath() {
+  return join9(getAppHome(), ANALYTICS_FILE);
+}
+function appendAtomic(path, line) {
+  try {
+    const fd = openSync2(path, "a", 384);
+    try {
+      writeSync2(fd, line + "\n");
+    } finally {
+      closeSync2(fd);
+    }
+  } catch {
+    try {
+      appendFileSync2(path, line + "\n");
+    } catch {
+    }
+  }
+}
+function recordUsage(event) {
+  if (!event?.ts || typeof event.modelId !== "string" || typeof event.app !== "string") return;
+  const inputTokens = Math.max(0, Math.floor(event.inputTokens || 0));
+  const outputTokens = Math.max(0, Math.floor(event.outputTokens || 0));
+  if (inputTokens === 0 && outputTokens === 0) return;
+  const clean = {
+    ts: event.ts,
+    modelId: event.modelId,
+    app: event.app,
+    inputTokens,
+    outputTokens
+  };
+  if (event.npm) clean.npm = event.npm;
+  if (event.providerId) clean.providerId = event.providerId;
+  appendAtomic(analyticsPath(), JSON.stringify(clean));
+}
+function readAnalyticsLog() {
+  const path = analyticsPath();
+  if (!existsSync9(path)) return [];
+  let raw;
+  try {
+    raw = readFileSync9(path, "utf8");
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const line of raw.split("\n")) {
+    const t = line.trim();
+    if (!t) continue;
+    try {
+      const e = JSON.parse(t);
+      if (e && typeof e.ts === "string" && typeof e.modelId === "string") out.push(e);
+    } catch {
+    }
+  }
+  return out;
+}
+var MODEL_PALETTE = [
+  "oklch(75% 0.16 65)",
+  // amber (accent)
+  "oklch(70% 0.15 200)",
+  // sky blue
+  "oklch(68% 0.16 150)",
+  // teal/green
+  "oklch(72% 0.17 300)",
+  // violet
+  "oklch(70% 0.18 20)",
+  // rose/red
+  "oklch(74% 0.15 95)"
+  // gold/yellow
+];
+function rangeDays(range) {
+  if (range === "7d") return 7;
+  if (range === "30d") return 30;
+  return 365;
+}
+function dayKey(iso) {
+  return iso.slice(0, 10);
+}
+function aggregateAnalytics(range) {
+  const all = readAnalyticsLog();
+  const today = /* @__PURE__ */ new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const cutoff = new Date(today);
+  cutoff.setUTCDate(today.getUTCDate() - (rangeDays(range) - 1));
+  const cutoffIso = cutoff.toISOString();
+  const endIso = new Date(today.getTime() + 864e5).toISOString();
+  const events = all.filter((e) => e.ts >= cutoffIso && e.ts <= endIso);
+  const eventsByDay = /* @__PURE__ */ new Map();
+  const tokensByDay = /* @__PURE__ */ new Map();
+  const hourCounts = new Array(24).fill(0);
+  const activeDaySet = /* @__PURE__ */ new Set();
+  const modelMap = /* @__PURE__ */ new Map();
+  let totalTokens = 0;
+  let messages = 0;
+  for (const e of events) {
+    const day = dayKey(e.ts);
+    const tok = e.inputTokens + e.outputTokens;
+    totalTokens += tok;
+    messages += 1;
+    eventsByDay.set(day, (eventsByDay.get(day) ?? 0) + 1);
+    tokensByDay.set(day, (tokensByDay.get(day) ?? 0) + tok);
+    activeDaySet.add(day);
+    const hour = Number(e.ts.slice(11, 13));
+    if (Number.isFinite(hour) && hour >= 0 && hour < 24) hourCounts[hour] += 1;
+    const provider = e.providerId ?? e.npm?.replace(/^@/, "").replace(/\//g, "-") ?? "unknown";
+    const key = `${provider}|${e.modelId}`;
+    const m = modelMap.get(key) ?? { provider, model: e.modelId, app: e.app, inputTokens: 0, outputTokens: 0 };
+    m.inputTokens += e.inputTokens;
+    m.outputTokens += e.outputTokens;
+    modelMap.set(key, m);
+  }
+  const busiestDay = Math.max(1, ...[...eventsByDay.values()]);
+  const heatmap = [];
+  for (let i = rangeDays(range) - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setUTCDate(today.getUTCDate() - i);
+    const date = d.toISOString().slice(0, 10);
+    const count = eventsByDay.get(date) ?? 0;
+    const intensity = Math.min(4, Math.round(count / busiestDay * 4)) || 0;
+    heatmap.push({ date, count, intensity });
+  }
+  const dailyTokens = [];
+  for (let i = rangeDays(range) - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setUTCDate(today.getUTCDate() - i);
+    const date = d.toISOString().slice(0, 10);
+    dailyTokens.push({ date, tokens: tokensByDay.get(date) ?? 0 });
+  }
+  let currentStreak = 0;
+  for (let i = 0; i < rangeDays(range); i++) {
+    const d = new Date(today);
+    d.setUTCDate(today.getUTCDate() - i);
+    const date = d.toISOString().slice(0, 10);
+    if (eventsByDay.has(date)) currentStreak++;
+    else break;
+  }
+  let longestStreak = 0;
+  let run3 = 0;
+  for (const day of heatmap) {
+    if (day.count > 0) {
+      run3++;
+      longestStreak = Math.max(longestStreak, run3);
+    } else run3 = 0;
+  }
+  let peakHour = 0;
+  let peakCount = -1;
+  for (let h = 0; h < 24; h++) {
+    if (hourCounts[h] > peakCount) {
+      peakCount = hourCounts[h];
+      peakHour = h;
+    }
+  }
+  const models = [...modelMap.entries()].map(([, m], idx) => {
+    const share = totalTokens > 0 ? (m.inputTokens + m.outputTokens) / totalTokens : 0;
+    return {
+      provider: m.provider,
+      model: m.model,
+      tier: "",
+      // source tier isn't tracked in the log; UI shows it from catalog elsewhere
+      app: m.app,
+      inputTokens: m.inputTokens,
+      outputTokens: m.outputTokens,
+      share,
+      color: MODEL_PALETTE[idx % MODEL_PALETTE.length]
+    };
+  });
+  models.sort((a, b) => b.share - a.share);
+  const favoriteModel = models.length > 0 ? `${models[0].provider}: ${models[0].model}` : "";
+  return {
+    range,
+    sessions: activeDaySet.size,
+    messages,
+    totalTokens,
+    activeDays: activeDaySet.size,
+    currentStreakDays: currentStreak,
+    longestStreakDays: longestStreak,
+    peakHour,
+    favoriteModel,
+    heatmap,
+    dailyTokens,
+    models
   };
 }
 
@@ -5467,16 +5659,16 @@ async function generateAnthropicResponse(model, params, modelId, options) {
 function appendSecureLog(logPath, line) {
   const redacted = redactTraceLine(line);
   try {
-    const fd = openSync2(logPath, "a", 384);
+    const fd = openSync3(logPath, "a", 384);
     try {
-      writeSync2(fd, `${(/* @__PURE__ */ new Date()).toISOString()} ${redacted}
+      writeSync3(fd, `${(/* @__PURE__ */ new Date()).toISOString()} ${redacted}
 `);
     } finally {
-      closeSync2(fd);
+      closeSync3(fd);
     }
   } catch {
     try {
-      appendFileSync2(logPath, `${(/* @__PURE__ */ new Date()).toISOString()} ${redacted}
+      appendFileSync3(logPath, `${(/* @__PURE__ */ new Date()).toISOString()} ${redacted}
 `);
     } catch {
     }
@@ -5665,7 +5857,16 @@ function startProxyCatalog(routes, defaultAliasId, debug = false) {
               "Cache-Control": "no-cache",
               "Connection": "keep-alive"
             });
-            await streamAnthropicResponse(model, params, originalModel, (c) => res.write(c), plog);
+            const usage = await streamAnthropicResponse(model, params, originalModel, (c) => res.write(c), plog);
+            recordUsage({
+              ts: (/* @__PURE__ */ new Date()).toISOString(),
+              modelId: route.realModelId,
+              npm: route.npm,
+              providerId: route.providerId,
+              app: route.app ?? "gateway",
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens
+            });
             res.end();
           } else {
             const anthropicResponse = await generateAnthropicResponse(
@@ -5674,12 +5875,22 @@ function startProxyCatalog(routes, defaultAliasId, debug = false) {
               originalModel,
               { forceStream: openAiOAuth }
             );
+            const u = anthropicResponse._usage;
+            recordUsage({
+              ts: (/* @__PURE__ */ new Date()).toISOString(),
+              modelId: route.realModelId,
+              npm: route.npm,
+              providerId: route.providerId,
+              app: route.app ?? "gateway",
+              inputTokens: u?.inputTokens ?? 0,
+              outputTokens: u?.outputTokens ?? 0
+            });
             sendJson(res, 200, anthropicResponse);
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           const body = err && typeof err === "object" && "responseBody" in err ? err.responseBody : void 0;
-          plog(() => `sdk error: ${message}${body ? ` \u2014 body: ${body}` : ""}`);
+          plog(() => `sdk error: ${message}${body ? ` \u0393\xC7\xF6 body: ${body}` : ""}`);
           if (!res.headersSent) {
             const status = upstreamHttpStatus(err);
             anthropicError(res, status === 500 ? 502 : status, message);
@@ -5697,7 +5908,7 @@ data: ${JSON.stringify({ type: "error", error: { type: errorType, message } })}
       if (route.modelFormat === "cloud-code") {
         const projectId = route.providerData?.projectId ?? "";
         if (!projectId) {
-          anthropicError(res, 500, "Antigravity provider missing projectId \u2014 re-authenticate with anygate providers auth antigravity");
+          anthropicError(res, 500, "Antigravity provider missing projectId \u0393\xC7\xF6 re-authenticate with anygate providers auth antigravity");
           return;
         }
         const envelope = anthropicToCloudCode(anthropicBody, route.realModelId, projectId);
@@ -5708,7 +5919,7 @@ data: ${JSON.stringify({ type: "error", error: { type: errorType, message } })}
         const cloudMaxOutput = envelope.request.generationConfig?.maxOutputTokens;
         const baseUrl = upstreamUrl.replace(/\/+$/, "");
         const cloudCodeUrl = `${baseUrl}/v1internal:streamGenerateContent?alt=sse`;
-        plog(() => `cloud-code: model=${route.realModelId}, project=${projectId.slice(0, 8)}\u2026 msgs=${cloudContents.length} toolCalls=${cloudToolCalls} toolResults=${cloudToolResults} tools=${cloudTools} maxOutput=${cloudMaxOutput ?? "unset"} stream=${clientWantsStream}`);
+        plog(() => `cloud-code: model=${route.realModelId}, project=${projectId.slice(0, 8)}\u0393\xC7\xAA msgs=${cloudContents.length} toolCalls=${cloudToolCalls} toolResults=${cloudToolResults} tools=${cloudTools} maxOutput=${cloudMaxOutput ?? "unset"} stream=${clientWantsStream}`);
         const fetchCloudCode = (token) => fetch(cloudCodeUrl, {
           method: "POST",
           headers: {
@@ -5789,7 +6000,8 @@ function startProxy(completionsUrl, modelId, debug = false, contextWindow, sdk, 
     reasoning: sdk?.reasoning,
     interleavedReasoningField: sdk?.interleavedReasoningField,
     useResponsesLite: sdk?.useResponsesLite,
-    preferWebSockets: sdk?.preferWebSockets
+    preferWebSockets: sdk?.preferWebSockets,
+    app: sdk?.app
   }], clientModelId, debug);
 }
 
@@ -6959,17 +7171,24 @@ async function generateOpenAiResponse(model, params, responseModelId) {
       function: { name: tc.toolName, arguments: JSON.stringify(tc.args) }
     }));
   }
+  const usage = {
+    inputTokens: result.usage?.promptTokens ?? 0,
+    outputTokens: result.usage?.completionTokens ?? 0
+  };
   return {
-    id: `chatcmpl-${Date.now()}`,
-    object: "chat.completion",
-    created: Math.floor(Date.now() / 1e3),
-    model: responseModelId,
-    choices: [{ index: 0, message, finish_reason: result.finishReason || "stop" }],
-    usage: {
-      prompt_tokens: result.usage?.promptTokens ?? 0,
-      completion_tokens: result.usage?.completionTokens ?? 0,
-      total_tokens: result.usage?.totalTokens ?? 0
-    }
+    response: {
+      id: `chatcmpl-${Date.now()}`,
+      object: "chat.completion",
+      created: Math.floor(Date.now() / 1e3),
+      model: responseModelId,
+      choices: [{ index: 0, message, finish_reason: result.finishReason || "stop" }],
+      usage: {
+        prompt_tokens: usage.inputTokens,
+        completion_tokens: usage.outputTokens,
+        total_tokens: usage.inputTokens + usage.outputTokens
+      }
+    },
+    usage
   };
 }
 async function streamOpenAiResponse(model, params, responseModelId, onChunk) {
@@ -6980,6 +7199,7 @@ async function streamOpenAiResponse(model, params, responseModelId, onChunk) {
     created: Math.floor(Date.now() / 1e3),
     model: responseModelId
   };
+  let usage = { inputTokens: 0, outputTokens: 0 };
   const send = (delta, finish_reason = null) => onChunk(`data: ${JSON.stringify({ ...baseData, choices: [{ index: 0, delta, finish_reason }] })}
 
 `);
@@ -6998,11 +7218,15 @@ async function streamOpenAiResponse(model, params, responseModelId, onChunk) {
         send({ tool_calls: [{ index: 0, function: { arguments: p8.delta ?? p8.text ?? p8.argsTextDelta ?? "" } }] });
         break;
       case "finish":
+        if (p8.usage) {
+          usage = { inputTokens: p8.usage.promptTokens ?? 0, outputTokens: p8.usage.completionTokens ?? 0 };
+        }
         send({}, p8.finishReason || "stop");
         break;
     }
   }
   onChunk("data: [DONE]\n\n");
+  return usage;
 }
 
 // src/registry/refresh-credentials.ts
@@ -7305,10 +7529,28 @@ async function handleAnthropicMessages(req, res, options, modelCache, plog) {
           "Cache-Control": "no-cache",
           "Connection": "keep-alive"
         });
-        await streamAnthropicResponse(languageModel, params, responseModelId, (chunk) => res.write(chunk));
+        const usage = await streamAnthropicResponse(languageModel, params, responseModelId, (chunk) => res.write(chunk));
+        recordUsage({
+          ts: (/* @__PURE__ */ new Date()).toISOString(),
+          modelId: responseModelId,
+          npm: model.npm,
+          providerId: model.providerId,
+          app: "gateway",
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens
+        });
         res.end();
       } else {
         const anthropicResponse = await generateAnthropicResponse(languageModel, params, responseModelId);
+        recordUsage({
+          ts: (/* @__PURE__ */ new Date()).toISOString(),
+          modelId: responseModelId,
+          npm: model.npm,
+          providerId: model.providerId,
+          app: "gateway",
+          inputTokens: anthropicResponse._usage?.inputTokens ?? 0,
+          outputTokens: anthropicResponse._usage?.outputTokens ?? 0
+        });
         sendJson(res, 200, anthropicResponse);
       }
     } catch (err) {
@@ -7360,10 +7602,28 @@ async function handleOpenAIChatCompletions(req, res, options, modelCache, plog) 
         "Cache-Control": "no-cache",
         "Connection": "keep-alive"
       });
-      await streamOpenAiResponse(languageModel, params, responseModelId, (chunk) => res.write(chunk));
+      const usage = await streamOpenAiResponse(languageModel, params, responseModelId, (chunk) => res.write(chunk));
+      recordUsage({
+        ts: (/* @__PURE__ */ new Date()).toISOString(),
+        modelId: responseModelId,
+        npm: model.npm ?? (model.modelFormat === "anthropic" ? "@ai-sdk/anthropic" : void 0),
+        providerId: model.providerId,
+        app: "gateway",
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens
+      });
       res.end();
     } else {
-      const response = await generateOpenAiResponse(languageModel, params, responseModelId);
+      const { response, usage } = await generateOpenAiResponse(languageModel, params, responseModelId);
+      recordUsage({
+        ts: (/* @__PURE__ */ new Date()).toISOString(),
+        modelId: responseModelId,
+        npm: model.npm ?? (model.modelFormat === "anthropic" ? "@ai-sdk/anthropic" : void 0),
+        providerId: model.providerId,
+        app: "gateway",
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens
+      });
       sendJson(res, 200, response);
     }
   } catch (err) {
@@ -7558,9 +7818,9 @@ async function selectServerProviders(available, initial) {
 }
 
 // src/gateway/vertex.ts
-import { existsSync as existsSync9, readFileSync as readFileSync9 } from "fs";
+import { existsSync as existsSync10, readFileSync as readFileSync10 } from "fs";
 import { homedir as homedir6 } from "os";
-import { join as join9 } from "path";
+import { join as join10 } from "path";
 var DEFAULT_VERTEX_MODELS = [
   { id: "claude-sonnet-4-6", display_name: "Claude Sonnet 4.6" },
   { id: "claude-opus-4-6", display_name: "Claude Opus 4.6" },
@@ -7584,18 +7844,18 @@ function resolveVertexLocation(env = process.env) {
   return location.trim() || "global";
 }
 function defaultAdcCredentialsPath(home = homedir6()) {
-  return join9(home, ".config", "gcloud", "application_default_credentials.json");
+  return join10(home, ".config", "gcloud", "application_default_credentials.json");
 }
 function hasApplicationDefaultCredentials(home = homedir6(), adcPath = defaultAdcCredentialsPath(home), env = process.env) {
   const explicitPath = env["GOOGLE_APPLICATION_CREDENTIALS"]?.trim();
-  if (explicitPath && existsSync9(explicitPath)) return true;
-  return existsSync9(adcPath);
+  if (explicitPath && existsSync10(explicitPath)) return true;
+  return existsSync10(adcPath);
 }
 function loadVertexModelEntries(env = process.env) {
   const configPath = getVertexModelsPath(env);
-  if (!existsSync9(configPath)) return DEFAULT_VERTEX_MODELS;
+  if (!existsSync10(configPath)) return DEFAULT_VERTEX_MODELS;
   try {
-    const parsed = JSON.parse(readFileSync9(configPath, "utf8"));
+    const parsed = JSON.parse(readFileSync10(configPath, "utf8"));
     if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_VERTEX_MODELS;
     const models = parsed.filter(
       (entry) => !!entry && typeof entry === "object" && typeof entry.id === "string" && entry.id.length > 0 && typeof entry.display_name === "string" && entry.display_name.length > 0
@@ -8108,12 +8368,12 @@ async function runServerCommand(options = {}) {
 import {
   chmodSync as chmodSync5,
   mkdirSync as mkdirSync6,
-  readFileSync as readFileSync10,
+  readFileSync as readFileSync11,
   renameSync as renameSync2,
   unlinkSync as unlinkSync2,
   writeFileSync as writeFileSync5
 } from "fs";
-import { join as join10 } from "path";
+import { join as join11 } from "path";
 var UPDATE_CHECK_TTL_MS = 24 * 60 * 60 * 1e3;
 var UPDATE_CHECK_TIMEOUT_MS = 2e3;
 var UPDATE_COMMAND = "npm install -g anygate@latest";
@@ -8159,11 +8419,11 @@ function isNewerVersion(currentVersion, latestVersion) {
   return comparePrerelease(current.prerelease, latest.prerelease) > 0;
 }
 function cachePath() {
-  return join10(getAppHome(), "update-check.json");
+  return join11(getAppHome(), "update-check.json");
 }
 function readFreshCache(now) {
   try {
-    const parsed = JSON.parse(readFileSync10(cachePath(), "utf8"));
+    const parsed = JSON.parse(readFileSync11(cachePath(), "utf8"));
     if (typeof parsed.latestVersion !== "string" || !parseVersion(parsed.latestVersion)) return null;
     if (typeof parsed.checkedAt !== "number" || !Number.isFinite(parsed.checkedAt)) return null;
     const age = now - parsed.checkedAt;
@@ -8244,18 +8504,18 @@ function favoriteProviderDisplayName(provider) {
 
 // src/providers/opencode-serve.ts
 import { execSync as execSync2, spawn as spawn2 } from "child_process";
-import { existsSync as existsSync10 } from "fs";
+import { existsSync as existsSync11 } from "fs";
 import { homedir as homedir7 } from "os";
-import { join as join11 } from "path";
+import { join as join12 } from "path";
 var isWindows2 = process.platform === "win32";
 var OPENCODE_FALLBACK_PATHS = isWindows2 ? [
-  join11(process.env["APPDATA"] ?? homedir7(), "npm", "opencode.cmd"),
-  join11(process.env["APPDATA"] ?? homedir7(), "npm", "opencode"),
-  join11(homedir7(), "AppData", "Roaming", "npm", "opencode.cmd")
+  join12(process.env["APPDATA"] ?? homedir7(), "npm", "opencode.cmd"),
+  join12(process.env["APPDATA"] ?? homedir7(), "npm", "opencode"),
+  join12(homedir7(), "AppData", "Roaming", "npm", "opencode.cmd")
 ] : [
-  join11(homedir7(), ".opencode", "bin", "opencode"),
-  join11(homedir7(), ".local", "bin", "opencode"),
-  join11(homedir7(), ".npm", "bin", "opencode"),
+  join12(homedir7(), ".opencode", "bin", "opencode"),
+  join12(homedir7(), ".local", "bin", "opencode"),
+  join12(homedir7(), ".npm", "bin", "opencode"),
   "/usr/local/bin/opencode",
   "/opt/homebrew/bin/opencode"
 ];
@@ -8271,7 +8531,7 @@ function findOpencodeBinary() {
   } catch {
   }
   for (const path of OPENCODE_FALLBACK_PATHS) {
-    if (existsSync10(path)) return path;
+    if (existsSync11(path)) return path;
   }
   return null;
 }
@@ -9929,9 +10189,9 @@ ${pc6.bold("Device code (works on SSH/VPS):")}
 
 // src/agents/codex/app-launch.ts
 import { execSync as execSync3, spawn as spawn4 } from "child_process";
-import { existsSync as existsSync11, readdirSync, statSync as statSync3 } from "fs";
+import { existsSync as existsSync12, readdirSync, statSync as statSync3 } from "fs";
 import { homedir as homedir8 } from "os";
-import { join as join12 } from "path";
+import { join as join13 } from "path";
 import * as p6 from "@clack/prompts";
 var CODEX_BUNDLE_ID = "com.openai.codex";
 var DARWIN_APP_NAMES = ["ChatGPT", "Codex"];
@@ -9950,33 +10210,33 @@ function runPowerShell(script) {
 function darwinAppCandidates() {
   return DARWIN_APP_NAMES.flatMap((name) => [
     `/Applications/${name}.app`,
-    join12(homedir8(), "Applications", `${name}.app`)
+    join13(homedir8(), "Applications", `${name}.app`)
   ]);
 }
 function winLocalAppData() {
-  return process.env.LOCALAPPDATA ?? join12(homedir8(), "AppData", "Local");
+  return process.env.LOCALAPPDATA ?? join13(homedir8(), "AppData", "Local");
 }
 function winCodexExeCandidates() {
   const local = winLocalAppData();
   const bases = WIN_APP_NAMES.flatMap((name) => [
-    join12(local, "Programs", name),
-    join12(local, "Programs", `OpenAI ${name}`),
-    join12(local, name),
-    join12(local, `OpenAI ${name}`),
-    join12(local, "OpenAI", name)
+    join13(local, "Programs", name),
+    join13(local, "Programs", `OpenAI ${name}`),
+    join13(local, name),
+    join13(local, `OpenAI ${name}`),
+    join13(local, "OpenAI", name)
   ]);
-  bases.push(join12(local, "openai-codex-electron"), join12(local, "openai-chatgpt-electron"));
+  bases.push(join13(local, "openai-codex-electron"), join13(local, "openai-chatgpt-electron"));
   const out = [];
   for (const base of bases) {
     for (const name of WIN_APP_NAMES) {
-      out.push(join12(base, `${name}.exe`));
+      out.push(join13(base, `${name}.exe`));
     }
     try {
-      if (existsSync11(base)) {
+      if (existsSync12(base)) {
         for (const dir of readdirSync(base)) {
           if (dir.startsWith("app-")) {
             for (const name of WIN_APP_NAMES) {
-              out.push(join12(base, dir, `${name}.exe`));
+              out.push(join13(base, dir, `${name}.exe`));
             }
           }
         }
@@ -9990,7 +10250,7 @@ function mdfindCodexApp() {
   try {
     const out = run(`mdfind "kMDItemCFBundleIdentifier == '${CODEX_BUNDLE_ID}'"`);
     const first = out.split("\n").map((l) => l.trim()).find(Boolean);
-    return first && existsSync11(first) ? first : null;
+    return first && existsSync12(first) ? first : null;
   } catch {
     return null;
   }
@@ -9998,14 +10258,14 @@ function mdfindCodexApp() {
 function findCodexApp() {
   if (process.platform === "darwin") {
     for (const path of darwinAppCandidates()) {
-      if (existsSync11(path)) return path;
+      if (existsSync12(path)) return path;
     }
     return mdfindCodexApp();
   }
   if (process.platform === "win32") {
     for (const path of winCodexExeCandidates()) {
       try {
-        if (existsSync11(path) && statSync3(path).isFile()) return path;
+        if (existsSync12(path) && statSync3(path).isFile()) return path;
       } catch {
       }
     }
@@ -10151,9 +10411,9 @@ function codexAppInstallHint() {
 
 // src/agents/claude/desktop-launch.ts
 import { execSync as execSync4, spawn as spawn5 } from "child_process";
-import { existsSync as existsSync12, readdirSync as readdirSync2, statSync as statSync4 } from "fs";
+import { existsSync as existsSync13, readdirSync as readdirSync2, statSync as statSync4 } from "fs";
 import { homedir as homedir9 } from "os";
-import { join as join13 } from "path";
+import { join as join14 } from "path";
 import * as p7 from "@clack/prompts";
 var CLAUDE_BUNDLE_ID = "com.anthropic.claudefordesktop";
 function claudeAppSupported() {
@@ -10170,26 +10430,26 @@ function runPowerShell2(script) {
 function darwinAppCandidates2() {
   return [
     "/Applications/Claude.app",
-    join13(homedir9(), "Applications", "Claude.app")
+    join14(homedir9(), "Applications", "Claude.app")
   ];
 }
 function winLocalAppData2() {
-  return process.env.LOCALAPPDATA ?? join13(homedir9(), "AppData", "Local");
+  return process.env.LOCALAPPDATA ?? join14(homedir9(), "AppData", "Local");
 }
 function winClaudeExeCandidates() {
   const local = winLocalAppData2();
   const bases = [
-    join13(local, "Programs", "Claude"),
-    join13(local, "Claude")
+    join14(local, "Programs", "Claude"),
+    join14(local, "Claude")
   ];
   const out = [];
   for (const base of bases) {
-    out.push(join13(base, "Claude.exe"));
+    out.push(join14(base, "Claude.exe"));
     try {
-      if (existsSync12(base)) {
+      if (existsSync13(base)) {
         for (const name of readdirSync2(base)) {
           if (name.startsWith("app-")) {
-            out.push(join13(base, name, "Claude.exe"));
+            out.push(join14(base, name, "Claude.exe"));
           }
         }
       }
@@ -10202,7 +10462,7 @@ function mdfindClaudeApp() {
   try {
     const out = run2(`mdfind "kMDItemCFBundleIdentifier == '${CLAUDE_BUNDLE_ID}'"`);
     const first = out.split("\n").map((l) => l.trim()).find(Boolean);
-    return first && existsSync12(first) ? first : null;
+    return first && existsSync13(first) ? first : null;
   } catch {
     return null;
   }
@@ -10210,14 +10470,14 @@ function mdfindClaudeApp() {
 function findClaudeApp() {
   if (process.platform === "darwin") {
     for (const path of darwinAppCandidates2()) {
-      if (existsSync12(path)) return path;
+      if (existsSync13(path)) return path;
     }
     return mdfindClaudeApp();
   }
   if (process.platform === "win32") {
     for (const path of winClaudeExeCandidates()) {
       try {
-        if (existsSync12(path) && statSync4(path).isFile()) return path;
+        if (existsSync13(path) && statSync4(path).isFile()) return path;
       } catch {
       }
     }
@@ -10489,6 +10749,7 @@ export {
   encodeToolUseId,
   serializeToolResultContent,
   translateRequest,
+  aggregateAnalytics,
   aliasModelId,
   startProxyCatalog,
   startProxy,
@@ -10556,4 +10817,4 @@ export {
   quitClaudeAppGracefully,
   launchOrRestartClaudeApp
 };
-//# sourceMappingURL=chunk-QPXRFBQI.js.map
+//# sourceMappingURL=chunk-XLOT2FJC.js.map

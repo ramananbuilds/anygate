@@ -1372,6 +1372,7 @@ export async function runClaudeCommand(parsed: ParsedArgs): Promise<number> {
           authType: 'oauth',
           providerData: activeProvider.providerData,
           modelFormat: 'cloud-code',
+          app: 'Antigravity',
         },
         launchApiKey,
       );
@@ -1401,6 +1402,7 @@ export async function runClaudeCommand(parsed: ParsedArgs): Promise<number> {
           oauthAccountId: activeProvider.oauthAccountId,
           providerData: activeProvider.providerData,
           modelFormat: 'anthropic',
+          app: 'Claude',
         },
         launchApiKey,
       );
@@ -1443,6 +1445,7 @@ export async function runClaudeCommand(parsed: ParsedArgs): Promise<number> {
           interleavedReasoningField: selectedModel.interleavedReasoningField,
           useResponsesLite: selectedModel.useResponsesLite,
           preferWebSockets: selectedModel.preferWebSockets,
+          app: 'Claude',
         },
         launchApiKey,
       );

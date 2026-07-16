@@ -124,13 +124,18 @@ export function translateOpenAiRequest(body: OpenAiRequest): SdkCallParams {
   };
 }
 
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
 // ── Translation: SDK Response → OpenAI JSON / SSE ───────────────────────────
 
 export async function generateOpenAiResponse(
   model: LanguageModel,
   params: SdkCallParams,
   responseModelId: string,
-) {
+): Promise<{ response: Record<string, any>; usage: TokenUsage }> {
   const result: any = await generateText({ model, ...(params as any) });
   const message: Record<string, any> = { role: 'assistant', content: result.text || null };
 
@@ -142,17 +147,25 @@ export async function generateOpenAiResponse(
     }));
   }
 
+  const usage: TokenUsage = {
+    inputTokens: result.usage?.promptTokens ?? 0,
+    outputTokens: result.usage?.completionTokens ?? 0,
+  };
+
   return {
-    id: `chatcmpl-${Date.now()}`,
-    object: 'chat.completion',
-    created: Math.floor(Date.now() / 1000),
-    model: responseModelId,
-    choices: [{ index: 0, message, finish_reason: result.finishReason || 'stop' }],
-    usage: {
-      prompt_tokens: result.usage?.promptTokens ?? 0,
-      completion_tokens: result.usage?.completionTokens ?? 0,
-      total_tokens: result.usage?.totalTokens ?? 0,
+    response: {
+      id: `chatcmpl-${Date.now()}`,
+      object: 'chat.completion',
+      created: Math.floor(Date.now() / 1000),
+      model: responseModelId,
+      choices: [{ index: 0, message, finish_reason: result.finishReason || 'stop' }],
+      usage: {
+        prompt_tokens: usage.inputTokens,
+        completion_tokens: usage.outputTokens,
+        total_tokens: usage.inputTokens + usage.outputTokens,
+      },
     },
+    usage,
   };
 }
 
@@ -161,7 +174,7 @@ export async function streamOpenAiResponse(
   params: SdkCallParams,
   responseModelId: string,
   onChunk: (chunk: string) => void,
-): Promise<void> {
+): Promise<TokenUsage> {
   const { fullStream } = streamText({ model, ...(params as any) });
   const baseData = {
     id: `chatcmpl-${Date.now()}`,
@@ -170,6 +183,7 @@ export async function streamOpenAiResponse(
     model: responseModelId,
   };
 
+  let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
   const send = (delta: Record<string, any>, finish_reason: string | null = null) =>
     onChunk(`data: ${JSON.stringify({ ...baseData, choices: [{ index: 0, delta, finish_reason }] })}\n\n`);
 
@@ -188,10 +202,14 @@ export async function streamOpenAiResponse(
         send({ tool_calls: [{ index: 0, function: { arguments: p.delta ?? p.text ?? p.argsTextDelta ?? '' } }] });
         break;
       case 'finish':
+        if (p.usage) {
+          usage = { inputTokens: p.usage.promptTokens ?? 0, outputTokens: p.usage.completionTokens ?? 0 };
+        }
         send({}, p.finishReason || 'stop');
         break;
     }
   }
 
   onChunk('data: [DONE]\n\n');
+  return usage;
 }

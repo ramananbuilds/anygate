@@ -1,4 +1,4 @@
-// src/proxy.ts — Local Anthropic-to-OpenAI translation proxy
+// src/proxy.ts ΓÇö Local Anthropic-to-OpenAI translation proxy
 // Adapted from cucoleadan/opencode-cowork-proxy (MIT)
 import { createServer } from 'node:http';
 import type { ServerResponse } from 'node:http';
@@ -27,6 +27,7 @@ import {
   silenceSdkWarnings,
 } from './sdk-adapter.js';
 import { anthropicErrorType, upstreamHttpStatus } from '../core/errors.js';
+import { recordUsage } from '../core/analytics-log.js';
 
 type ProxyLog = (message: string | (() => string)) => void;
 
@@ -56,7 +57,7 @@ function makeProxyLog(debug: boolean, logPath?: string): ProxyLog {
   };
 }
 
-// ── HTTP server ─────────────────────────────────────────────────────
+// ΓöÇΓöÇ HTTP server ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 function anthropicError(res: ServerResponse, status: number, message: string) {
   sendJson(res, status, {
@@ -87,7 +88,7 @@ export interface ProxyRoute {
   apiKey: string;
   modelFormat: 'anthropic' | 'openai' | 'cloud-code';
   contextWindow?: number;
-  npm?: string;      // OpenCode api.npm — when SDK-upgraded, routes via the adapter
+  npm?: string;      // OpenCode api.npm ΓÇö when SDK-upgraded, routes via the adapter
   baseURL?: string;  // base URL for openai-compatible / openrouter SDK providers
   providerId?: string;
   authType?: 'api' | 'oauth' | 'none';
@@ -104,13 +105,15 @@ export interface ProxyRoute {
   preferWebSockets?: boolean;
   /** Static headers sent on every upstream request (e.g. a plan/auth-tracking header a custom endpoint requires). */
   headers?: Record<string, string>;
+  /** App label for analytics (Claude | Codex | Antigravity | gateway). Defaults to 'gateway' when unset. */
+  app?: string;
 }
 
 /**
  * Produce a gateway-discovery-safe alias for a model id.
  * Claude Code's gateway discovery only shows ids starting with 'claude' or 'anthropic'.
  * claude-* ids are returned unchanged; everything else gets an 'anthropic-{providerId}__' prefix.
- * Uses stable provider id (slug), not display name — renaming a provider does not break aliases.
+ * Uses stable provider id (slug), not display name ΓÇö renaming a provider does not break aliases.
  */
 export function aliasModelId(realId: string, providerId: string): string {
   if (realId.startsWith('claude-')) return realId;
@@ -163,14 +166,14 @@ export function startProxyCatalog(
   const server = createServer(async (req, res) => {
     plog(() => `${req.method} ${req.url}`);
 
-    // HEAD / — health check ping from Claude Code
+    // HEAD / ΓÇö health check ping from Claude Code
     if (req.method === 'HEAD') {
       res.writeHead(200);
       res.end();
       return;
     }
 
-    // GET /v1/models — Claude Code validates the model on startup and populates /model picker
+    // GET /v1/models ΓÇö Claude Code validates the model on startup and populates /model picker
     if (req.method === 'GET' && req.url?.startsWith('/v1/models')) {
       const modelPathMatch = req.url.match(/^\/v1\/models\/([^?]+)/);
       if (modelPathMatch) {
@@ -190,7 +193,7 @@ export function startProxyCatalog(
       return;
     }
 
-    // POST /v1/messages — the main translation path (Claude Code appends ?beta=true or similar)
+    // POST /v1/messages ΓÇö the main translation path (Claude Code appends ?beta=true or similar)
     if (req.method === 'POST' && req.url?.startsWith('/v1/messages')) {
       const inboundKey = extractApiKey(req);
       if (inboundKey !== proxyToken) {
@@ -225,9 +228,9 @@ export function startProxyCatalog(
         return;
       }
 
-      // ── Anthropic passthrough ───────────────────────────────────────
+      // ΓöÇΓöÇ Anthropic passthrough ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
       // Forward raw Anthropic body (with real model id) directly to the upstream.
-      // No translation needed — the upstream speaks Anthropic natively.
+      // No translation needed ΓÇö the upstream speaks Anthropic natively.
       if (route.modelFormat === 'anthropic') {
         const betaHeaderRaw = req.headers['anthropic-beta'];
         const inboundBeta = Array.isArray(betaHeaderRaw) ? betaHeaderRaw.join(',') : betaHeaderRaw;
@@ -268,7 +271,7 @@ export function startProxyCatalog(
         return;
       }
 
-      // ── SDK-backed providers (Vercel AI SDK) ────────────────────────
+      // ΓöÇΓöÇ SDK-backed providers (Vercel AI SDK) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
       // OpenCode-assigned npm packages route through the SDK, which owns wire
       // format, endpoint selection, and provider quirks.
       if (usesSdkAdapter) {
@@ -310,7 +313,16 @@ export function startProxyCatalog(
               'Cache-Control': 'no-cache',
               'Connection': 'keep-alive',
             });
-            await streamAnthropicResponse(model, params, originalModel, (c) => res.write(c), plog);
+            const usage = await streamAnthropicResponse(model, params, originalModel, (c) => res.write(c), plog);
+            recordUsage({
+              ts: new Date().toISOString(),
+              modelId: route.realModelId,
+              npm: route.npm,
+              providerId: route.providerId,
+              app: route.app ?? 'gateway',
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens,
+            });
             res.end();
           } else {
             // ChatGPT's Codex backend (OpenAI OAuth) rejects non-streaming requests
@@ -318,7 +330,17 @@ export function startProxyCatalog(
             // for it and collect the result, regardless of what the client asked for.
             const anthropicResponse = await generateAnthropicResponse(
               model, params, originalModel, { forceStream: openAiOAuth },
-            );
+            ) as Record<string, any>;
+            const u = anthropicResponse._usage;
+            recordUsage({
+              ts: new Date().toISOString(),
+              modelId: route.realModelId,
+              npm: route.npm,
+              providerId: route.providerId,
+              app: route.app ?? 'gateway',
+              inputTokens: u?.inputTokens ?? 0,
+              outputTokens: u?.outputTokens ?? 0,
+            });
             sendJson(res, 200, anthropicResponse);
           }
         } catch (err) {
@@ -326,7 +348,7 @@ export function startProxyCatalog(
           const body = err && typeof err === 'object' && 'responseBody' in err
             ? (err as { responseBody?: string }).responseBody
             : undefined;
-          plog(() => `sdk error: ${message}${body ? ` — body: ${body}` : ''}`);
+          plog(() => `sdk error: ${message}${body ? ` ΓÇö body: ${body}` : ''}`);
           if (!res.headersSent) {
             const status = upstreamHttpStatus(err);
             anthropicError(res, status === 500 ? 502 : status, message);
@@ -339,11 +361,11 @@ export function startProxyCatalog(
         return;
       }
 
-      // ── Cloud Code Assist (Antigravity OAuth) ───────────────────────
+      // ΓöÇΓöÇ Cloud Code Assist (Antigravity OAuth) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
       if (route.modelFormat === 'cloud-code') {
         const projectId = (route.providerData?.projectId as string | undefined) ?? '';
         if (!projectId) {
-          anthropicError(res, 500, 'Antigravity provider missing projectId — re-authenticate with anygate providers auth antigravity');
+          anthropicError(res, 500, 'Antigravity provider missing projectId ΓÇö re-authenticate with anygate providers auth antigravity');
           return;
         }
         const envelope = anthropicToCloudCode(anthropicBody, route.realModelId, projectId);
@@ -358,7 +380,7 @@ export function startProxyCatalog(
         const cloudMaxOutput = (envelope.request.generationConfig as Record<string, unknown> | undefined)?.maxOutputTokens;
         const baseUrl = upstreamUrl.replace(/\/+$/, '');
         const cloudCodeUrl = `${baseUrl}/v1internal:streamGenerateContent?alt=sse`;
-        plog(() => `cloud-code: model=${route.realModelId}, project=${projectId.slice(0, 8)}… msgs=${cloudContents.length} toolCalls=${cloudToolCalls} toolResults=${cloudToolResults} tools=${cloudTools} maxOutput=${cloudMaxOutput ?? 'unset'} stream=${clientWantsStream}`);
+        plog(() => `cloud-code: model=${route.realModelId}, project=${projectId.slice(0, 8)}ΓÇª msgs=${cloudContents.length} toolCalls=${cloudToolCalls} toolResults=${cloudToolResults} tools=${cloudTools} maxOutput=${cloudMaxOutput ?? 'unset'} stream=${clientWantsStream}`);
         const fetchCloudCode = (token: string) =>
           fetch(cloudCodeUrl, {
             method: 'POST',
@@ -396,12 +418,12 @@ export function startProxyCatalog(
         return;
       }
 
-      // Non-anthropic route without a registered SDK npm — misconfigured route.
+      // Non-anthropic route without a registered SDK npm ΓÇö misconfigured route.
       anthropicError(res, 500, `No SDK provider configured for model ${originalModel} (npm=${route.npm ?? 'none'})`);
       return;
     }
 
-    // Everything else → 404
+    // Everything else ΓåÆ 404
     anthropicError(res, 404, `Unknown endpoint: ${req.method} ${req.url}`);
   });
 
@@ -427,7 +449,7 @@ export function startProxyCatalog(
   });
 }
 
-/** Single-model proxy — backward-compatible wrapper around startProxyCatalog. */
+/** Single-model proxy ΓÇö backward-compatible wrapper around startProxyCatalog. */
 export function startProxy(
   completionsUrl: string,
   modelId: string,
@@ -447,6 +469,8 @@ export function startProxy(
     interleavedReasoningField?: string;
     useResponsesLite?: boolean;
     preferWebSockets?: boolean;
+    /** App label for analytics (Claude | Codex | Antigravity | gateway). */
+    app?: string;
   },
   apiKey?: string,
 ): Promise<ProxyHandle> {
@@ -471,5 +495,6 @@ export function startProxy(
     interleavedReasoningField: sdk?.interleavedReasoningField,
     useResponsesLite: sdk?.useResponsesLite,
     preferWebSockets: sdk?.preferWebSockets,
+    app: sdk?.app,
   }], clientModelId, debug);
 }

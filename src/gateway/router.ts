@@ -39,6 +39,7 @@ import {
   anthropicEffortFromRequest,
   type AnthropicRequest,
 } from './sdk-adapter.js';
+import { recordUsage } from '../core/analytics-log.js';
 
 export interface ServerBackend {
   baseUrl: string;
@@ -262,10 +263,28 @@ async function handleAnthropicMessages(
           'Cache-Control': 'no-cache',
           'Connection': 'keep-alive',
         });
-        await streamAnthropicResponse(languageModel, params, responseModelId, chunk => res.write(chunk));
+        const usage = await streamAnthropicResponse(languageModel, params, responseModelId, chunk => res.write(chunk));
+        recordUsage({
+          ts: new Date().toISOString(),
+          modelId: responseModelId,
+          npm: model.npm,
+          providerId: model.providerId,
+          app: 'gateway',
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+        });
         res.end();
       } else {
         const anthropicResponse = await generateAnthropicResponse(languageModel, params, responseModelId);
+        recordUsage({
+          ts: new Date().toISOString(),
+          modelId: responseModelId,
+          npm: model.npm,
+          providerId: model.providerId,
+          app: 'gateway',
+          inputTokens: (anthropicResponse as Record<string, any>)._usage?.inputTokens ?? 0,
+          outputTokens: (anthropicResponse as Record<string, any>)._usage?.outputTokens ?? 0,
+        });
         sendJson(res, 200, anthropicResponse);
       }
     } catch (err) {
@@ -334,10 +353,28 @@ async function handleOpenAIChatCompletions(
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
       });
-      await streamOpenAiResponse(languageModel, params, responseModelId, chunk => res.write(chunk));
+      const usage = await streamOpenAiResponse(languageModel, params, responseModelId, chunk => res.write(chunk));
+      recordUsage({
+        ts: new Date().toISOString(),
+        modelId: responseModelId,
+        npm: model.npm ?? (model.modelFormat === 'anthropic' ? '@ai-sdk/anthropic' : undefined),
+        providerId: model.providerId,
+        app: 'gateway',
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+      });
       res.end();
     } else {
-      const response = await generateOpenAiResponse(languageModel, params, responseModelId);
+      const { response, usage } = await generateOpenAiResponse(languageModel, params, responseModelId);
+      recordUsage({
+        ts: new Date().toISOString(),
+        modelId: responseModelId,
+        npm: model.npm ?? (model.modelFormat === 'anthropic' ? '@ai-sdk/anthropic' : undefined),
+        providerId: model.providerId,
+        app: 'gateway',
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+      });
       sendJson(res, 200, response);
     }
   } catch (err) {

@@ -288,7 +288,7 @@ export async function writeAnthropicStream(
   modelId: string,
   write: WriteFn,
   log?: LogFn,
-): Promise<void> {
+): Promise<{ inputTokens: number; outputTokens: number }> {
   const messageId = 'msg_' + Date.now();
   let blockIndex = -1;
   let started = false;
@@ -410,7 +410,7 @@ export async function writeAnthropicStream(
         log?.(() => `sdk stream error (${errorType}): ${errMsg}`);
         closeOpen();
         emit('error', { type: 'error', error: { type: errorType, message: errMsg } });
-        return;
+        return { inputTokens: 0, outputTokens: 0 };
       }
 
       default: break;
@@ -421,6 +421,7 @@ export async function writeAnthropicStream(
   ensureStart();
   emit('message_delta', { type: 'message_delta', delta: { stop_reason: finishReason, stop_sequence: null }, usage });
   emit('message_stop', { type: 'message_stop' });
+  return { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens };
 }
 
 // ── high-level entry points ──────────────────────────────────────────────────
@@ -430,7 +431,7 @@ export async function streamAnthropicResponse(
   modelId: string,
   write: WriteFn,
   log?: LogFn,
-): Promise<void> {
+): Promise<{ inputTokens: number; outputTokens: number }> {
   const result = streamText({ model, ...params, onError: () => {} } as Parameters<typeof streamText>[0]);
   // Prevent unhandled promise rejections on stream properties:
   Promise.resolve(result.text).catch(() => {});
@@ -439,7 +440,7 @@ export async function streamAnthropicResponse(
   Promise.resolve(result.finishReason).catch(() => {});
   Promise.resolve(result.usage).catch(() => {});
 
-  await writeAnthropicStream(result.fullStream as AsyncIterable<FullStreamPart>, modelId, write, log);
+  return await writeAnthropicStream(result.fullStream as AsyncIterable<FullStreamPart>, modelId, write, log);
 }
 
 export async function generateAnthropicResponse(
@@ -478,5 +479,7 @@ export async function generateAnthropicResponse(
     ],
     stop_reason: finishReason === 'tool-calls' ? 'tool_use' : 'end_turn',
     usage: { input_tokens: usage?.inputTokens ?? 0, output_tokens: usage?.outputTokens ?? 0 },
+    // Internal: surfaced to call sites so they can log analytics without re-parsing.
+    _usage: { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0 },
   };
 }

@@ -168,7 +168,7 @@ import {
   validateCustomEndpointUrl,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-QPXRFBQI.js";
+} from "./chunk-XLOT2FJC.js";
 import {
   filterTemplates,
   getTemplateById,
@@ -4131,6 +4131,7 @@ function buildCloudCodeProxyRoute(model, apiKey, providerData) {
     contextWindow: model.contextWindow,
     providerId: "antigravity",
     authType: "oauth",
+    app: "Antigravity",
     providerData,
     refreshToken: () => resolveProviderCredential("antigravity", oauthAuthRef("antigravity"))
   };
@@ -4150,6 +4151,7 @@ function buildOAuthAnthropicProxyRoute(model, apiKey, providerId, providerData) 
     contextWindow: model.contextWindow,
     providerId,
     authType: "oauth",
+    app: "Claude",
     providerData,
     refreshToken: () => resolveProviderCredential(providerId, oauthAuthRef(providerId))
   };
@@ -12624,7 +12626,8 @@ Error: ${launchPlan.error}
           providerId: activeProvider.id,
           authType: "oauth",
           providerData: activeProvider.providerData,
-          modelFormat: "cloud-code"
+          modelFormat: "cloud-code",
+          app: "Antigravity"
         },
         launchApiKey
       );
@@ -12652,7 +12655,8 @@ Error: ${launchPlan.error}
           authType: "oauth",
           oauthAccountId: activeProvider.oauthAccountId,
           providerData: activeProvider.providerData,
-          modelFormat: "anthropic"
+          modelFormat: "anthropic",
+          app: "Claude"
         },
         launchApiKey
       );
@@ -12694,7 +12698,8 @@ Error: ${launchPlan.error}
           reasoning: selectedModel.reasoning,
           interleavedReasoningField: selectedModel.interleavedReasoningField,
           useResponsesLite: selectedModel.useResponsesLite,
-          preferWebSockets: selectedModel.preferWebSockets
+          preferWebSockets: selectedModel.preferWebSockets,
+          app: "Claude"
         },
         launchApiKey
       );
@@ -12797,7 +12802,7 @@ Error: ${parsed.error}
       console.log("Usage: anygate ui [--trace]\n\nOpen the settings UI in your browser.");
       return 0;
     }
-    const { runUiCommand } = await import("./command-M5GMEJCO.js");
+    const { runUiCommand } = await import("./command-4ZY5JMEM.js");
     return runUiCommand({ trace: parsed.trace });
   }
   if (parsed.command === "models") {

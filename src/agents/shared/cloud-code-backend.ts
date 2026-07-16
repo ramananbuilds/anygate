@@ -50,6 +50,7 @@ export function buildCloudCodeProxyRoute(
     contextWindow: model.contextWindow,
     providerId: 'antigravity',
     authType: 'oauth',
+    app: 'Antigravity',
     providerData,
     refreshToken: () => resolveProviderCredential('antigravity', oauthAuthRef('antigravity')),
   };
@@ -80,6 +81,7 @@ export function buildOAuthAnthropicProxyRoute(
     contextWindow: model.contextWindow,
     providerId,
     authType: 'oauth',
+    app: 'Claude',
     providerData,
     refreshToken: () => resolveProviderCredential(providerId, oauthAuthRef(providerId)),
   };

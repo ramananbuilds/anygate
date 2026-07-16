@@ -2,9 +2,9 @@
 import {
   BACKENDS,
   MAX_MODEL_CATALOG,
-  VERSION,
   addCustomEndpointProvider,
   addProviderFromTemplate,
+  aggregateAnalytics,
   buildAntigravityAuthUrl,
   buildDedupedModelRows,
   checkForUpdates,
@@ -65,7 +65,7 @@ import {
   summarizeServerProviders,
   validateCustomEndpointUrl,
   writeSecureLogLine
-} from "./chunk-QPXRFBQI.js";
+} from "./chunk-XLOT2FJC.js";
 import {
   getTemplateById,
   listAddableTemplates,
@@ -608,6 +608,8 @@ function handleUiApiRequest(req, res, opts = {}) {
     handleStartServer(req, res, opts);
   } else if (url === "/api/server/stop" && req.method === "POST") {
     handleStopServer(res, opts);
+  } else if (url.startsWith("/api/analytics") && req.method === "GET") {
+    handleGetAnalytics(res, req);
   } else {
     sendJson(res, 404, { error: "Not found" });
   }
@@ -1210,6 +1212,16 @@ async function handleStopServer(res, opts) {
     sendJson(res, 500, { error: String(err) });
   }
 }
+function handleGetAnalytics(res, req) {
+  try {
+    const sp = new URL(req.url ?? "", "http://localhost").searchParams;
+    const rangeParam = sp.get("range");
+    const range = rangeParam === "7d" || rangeParam === "30d" || rangeParam === "all" ? rangeParam : "all";
+    sendJson(res, 200, aggregateAnalytics(range));
+  } catch (err) {
+    sendJson(res, 500, { error: String(err) });
+  }
+}
 async function handleBrowseFolder(res) {
   try {
     let resultPath = "";
@@ -1284,7 +1296,7 @@ async function handleBrowseFolder(res) {
 
 // src/ui/command.ts
 var __dirname = dirname(fileURLToPath(import.meta.url));
-var PUBLIC_DIR = join2(__dirname, "ui", "public");
+var PUBLIC_DIR = join2(__dirname, "ui", "dist");
 var LOCK_FILE = join2(getAppHome(), "ui.lock");
 var MIME = {
   ".html": "text/html; charset=utf-8",
@@ -1292,7 +1304,9 @@ var MIME = {
   ".css": "text/css; charset=utf-8",
   ".png": "image/png",
   ".webp": "image/webp",
-  ".svg": "image/svg+xml"
+  ".svg": "image/svg+xml",
+  ".json": "application/json; charset=utf-8",
+  ".woff2": "font/woff2"
 };
 function ext(path) {
   const i = path.lastIndexOf(".");
@@ -1301,13 +1315,24 @@ function ext(path) {
 function buildStaticCache() {
   const cache = /* @__PURE__ */ new Map();
   try {
-    for (const name of readdirSync(PUBLIC_DIR)) {
-      const mime = MIME[ext(name)];
-      if (!mime) continue;
-      const raw = readFileSync(join2(PUBLIC_DIR, name));
-      const content = name === "index.html" ? Buffer.from(raw.toString("utf8").replace("{{VERSION}}", VERSION)) : raw;
-      cache.set(`/${name}`, { content, mime });
-    }
+    const walk = (dir, prefix) => {
+      for (const name of readdirSync(dir)) {
+        const full = join2(dir, name);
+        const key = `${prefix}/${name}`;
+        try {
+          readdirSync(full);
+          walk(full, key);
+        } catch {
+          const mime = MIME[ext(name)];
+          if (!mime) continue;
+          const raw = readFileSync(full);
+          cache.set(key, { content: raw, mime });
+        }
+      }
+    };
+    walk(PUBLIC_DIR, "");
+    const index = cache.get("/index.html");
+    if (index) cache.set("/__spa_fallback__", index);
   } catch {
   }
   return cache;
@@ -1385,6 +1410,12 @@ async function runUiCommand(opts = {}) {
       res.end(cached.content);
       return;
     }
+    if (!ext(key) && staticCache.has("/__spa_fallback__")) {
+      const fb = staticCache.get("/__spa_fallback__");
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(fb.content);
+      return;
+    }
     res.writeHead(404);
     res.end("Not found");
   });
@@ -1449,4 +1480,4 @@ export {
   resolveUiShutdownDecision,
   runUiCommand
 };
-//# sourceMappingURL=command-M5GMEJCO.js.map
+//# sourceMappingURL=command-4ZY5JMEM.js.map

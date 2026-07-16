@@ -1,4 +1,4 @@
-import { createServer } from 'node:http';
+﻿import { createServer } from 'node:http';
 import { readFileSync, readdirSync, writeFileSync, unlinkSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,10 +8,11 @@ import * as p from '@clack/prompts';
 import { getAppHome } from '../core/paths.js';
 import { handleUiApiRequest, type UiServerLifecycleEvent } from './api.js';
 import { getUiDebugLogPath, makeTraceLogger } from '../agents/shared/trace-log.js';
-import { VERSION } from '../core/constants.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PUBLIC_DIR = join(__dirname, 'ui', 'public');
+// Served SPA is produced by `vite build` (ui/ → src/ui/dist). Version is injected
+// at build time via the __APP_VERSION__ define, so no runtime substitution needed.
+const PUBLIC_DIR = join(__dirname, 'ui', 'dist');
 const LOCK_FILE = join(getAppHome(), 'ui.lock');
 
 const MIME: Record<string, string> = {
@@ -21,6 +22,8 @@ const MIME: Record<string, string> = {
   '.png': 'image/png',
   '.webp': 'image/webp',
   '.svg': 'image/svg+xml',
+  '.json': 'application/json; charset=utf-8',
+  '.woff2': 'font/woff2',
 };
 
 function ext(path: string): string {
@@ -31,13 +34,24 @@ function ext(path: string): string {
 function buildStaticCache(): Map<string, { content: Buffer; mime: string }> {
   const cache = new Map<string, { content: Buffer; mime: string }>();
   try {
-    for (const name of readdirSync(PUBLIC_DIR)) {
-      const mime = MIME[ext(name)];
-      if (!mime) continue;
-      const raw = readFileSync(join(PUBLIC_DIR, name));
-      const content = name === 'index.html' ? Buffer.from(raw.toString('utf8').replace('{{VERSION}}', VERSION)) : raw;
-      cache.set(`/${name}`, { content, mime });
-    }
+    const walk = (dir: string, prefix: string): void => {
+      for (const name of readdirSync(dir)) {
+        const full = join(dir, name);
+        const key = `${prefix}/${name}`;
+        try {
+          readdirSync(full); // directory — recurse
+          walk(full, key);
+        } catch {
+          const mime = MIME[ext(name)];
+          if (!mime) continue;
+          const raw = readFileSync(full);
+          cache.set(key, { content: raw, mime });
+        }
+      }
+    };
+    walk(PUBLIC_DIR, '');
+    const index = cache.get('/index.html');
+    if (index) cache.set('/__spa_fallback__', index);
   } catch {}
   return cache;
 }
@@ -123,6 +137,13 @@ export async function runUiCommand(opts: { trace?: boolean } = {}): Promise<numb
       return;
     }
 
+        // SPA fallback: serve index.html for any non-asset route (client-side hash routing).
+    if (!ext(key) && staticCache.has('/__spa_fallback__')) {
+      const fb = staticCache.get('/__spa_fallback__')!;
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(fb.content);
+      return;
+    }
     res.writeHead(404);
     res.end('Not found');
   });
@@ -181,3 +202,5 @@ export async function runUiCommand(opts: { trace?: boolean } = {}): Promise<numb
   await new Promise<void>(() => {}); // keep alive until signal
   return 0;
 }
+
+

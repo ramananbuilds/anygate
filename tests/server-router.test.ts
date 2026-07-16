@@ -19,11 +19,12 @@ vi.mock('../src/gateway/sdk-adapter.js', async importOriginal => {
     generateAnthropicResponse: vi.fn(async (_model: unknown, _params: unknown, modelId: string) => ({
       id: 'msg-test',
       type: 'message',
-      role: 'assistant',
+      role: 'assitant',
       model: modelId,
       content: [{ type: 'text', text: 'sdk ok' }],
       stop_reason: 'end_turn',
       usage: { input_tokens: 1, output_tokens: 1 },
+      _usage: { inputTokens: 1, outputTokens: 1 },
     })),
   };
 });
@@ -33,11 +34,14 @@ vi.mock('../src/gateway/openai-adapter.js', async importOriginal => {
   return {
     ...actual,
     generateOpenAiResponse: vi.fn(async (_model: unknown, _params: unknown, modelId: string) => ({
-      id: 'chatcmpl-test',
-      object: 'chat.completion',
-      model: modelId,
-      choices: [{ message: { content: 'openai sdk ok' }, finish_reason: 'stop' }],
-      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      response: {
+        id: 'chatcmpl-test',
+        object: 'chat.completion',
+        model: modelId,
+        choices: [{ message: { content: 'openai sdk ok' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      },
+      usage: { inputTokens: 1, outputTokens: 1 },
     })),
   };
 });

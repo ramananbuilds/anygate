@@ -35,6 +35,7 @@ import { getServerStatus, startGatewayServer, stopGatewayServer, type ServerStar
 import { writeSecureLogLine } from '../agents/shared/trace-log.js';
 import { freeStatusLabel } from '../agents/shared/free-models.ts';
 import { checkForUpdates } from '../agents/shared/update-check.ts';
+import { aggregateAnalytics, type RangeId } from '../core/analytics-log.js';
 
 const MODELS_TIMEOUT_MS = 30_000;
 
@@ -166,6 +167,8 @@ export function handleUiApiRequest(req: IncomingMessage, res: ServerResponse, op
     handleStartServer(req, res, opts);
   } else if (url === '/api/server/stop' && req.method === 'POST') {
     handleStopServer(res, opts);
+  } else if (url.startsWith('/api/analytics') && req.method === 'GET') {
+    handleGetAnalytics(res, req);
   } else {
     sendJson(res, 404, { error: 'Not found' });
   }
@@ -828,6 +831,23 @@ async function handleStopServer(res: ServerResponse, opts: UiApiOptions): Promis
     const result = await stopGatewayServer();
     if (result.stopped) notifyServerLifecycle(opts, { type: 'stopped' });
     sendJson(res, 200, result);
+  } catch (err) {
+    sendJson(res, 500, { error: String(err) });
+  }
+}
+
+/**
+ * GET /api/analytics?range=all|30d|7d
+ * Aggregates the local-only usage log into the DashboardAnalytics shape the UI
+ * already consumes (see ui/src/lib/api/analytics.ts). Defaults to 'all'.
+ */
+function handleGetAnalytics(res: ServerResponse, req: IncomingMessage): void {
+  try {
+    const sp = new URL(req.url ?? '', 'http://localhost').searchParams;
+    const rangeParam = sp.get('range');
+    const range: RangeId =
+      rangeParam === '7d' || rangeParam === '30d' || rangeParam === 'all' ? rangeParam : 'all';
+    sendJson(res, 200, aggregateAnalytics(range));
   } catch (err) {
     sendJson(res, 500, { error: String(err) });
   }
