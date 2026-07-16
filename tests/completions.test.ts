@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { runCompletionsCommand } from '../src/agents/shared/completions.js';
+import { runCompletionsCommand, SUBCOMMANDS } from '../src/agents/shared/completions.js';
 
-const SUBCOMMAND_TOKENS = ['claude', 'codex', 'gemini', 'agy', 'server', 'ui', 'models', 'providers', 'doctor', 'completions', 'update'];
+const SUBCOMMAND_TOKENS = SUBCOMMANDS;
 
 describe('completions command', () => {
   afterEach(() => {
@@ -48,6 +48,13 @@ describe('completions command', () => {
   it('accepts pwsh as an alias for powershell', async () => {
     const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const exit = await runCompletionsCommand('pwsh');
+    expect(exit).toBe(0);
+    expect(write.mock.calls.flat().join('')).toContain('Register-ArgumentCompleter');
+  });
+
+  it('accepts ps as an alias for powershell', async () => {
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const exit = await runCompletionsCommand('ps');
     expect(exit).toBe(0);
     expect(write.mock.calls.flat().join('')).toContain('Register-ArgumentCompleter');
   });

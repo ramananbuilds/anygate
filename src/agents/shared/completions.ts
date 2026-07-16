@@ -1,7 +1,7 @@
 // src/agents/shared/completions.ts
 import pc from 'picocolors';
 
-const SUBCOMMANDS = [
+export const SUBCOMMANDS = [
   'claude',
   'claude-app',
   'codex',

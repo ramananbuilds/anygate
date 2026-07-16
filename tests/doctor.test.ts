@@ -94,4 +94,23 @@ describe('doctor command', () => {
     expect(cap.out()).toContain('ANTHROPIC_API_KEY');
     cap.restore();
   });
+
+  it('warns (exit 0) when the gateway port is already in use', async () => {
+    const { createServer } = await import('node:net');
+    const blocker = createServer();
+    await new Promise<void>((resolve) => blocker.listen(48123, () => resolve()));
+    const cap = captureOutput();
+    const exit = await runDoctorCommand(false);
+    await new Promise<void>((resolve) => blocker.close(() => resolve()));
+    expect(exit).toBe(0);
+    expect(cap.out()).toContain('in use');
+    cap.restore();
+  });
+
+  it('prints the "All checks passed" outro when healthy', async () => {
+    const cap = captureOutput();
+    await runDoctorCommand(false);
+    expect(cap.out()).toContain('All checks passed');
+    cap.restore();
+  });
 });

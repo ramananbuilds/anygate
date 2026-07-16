@@ -87,4 +87,32 @@ describe('update command', () => {
     const out = (log.info as unknown as vi.Mock).mock.calls.flat().join('\n');
     expect(out).toContain('Update skipped');
   });
+
+  it('spawns npm and returns the child exit code when confirmed', async () => {
+    const { checkForUpdates } = await import('../src/agents/shared/update-check.js');
+    (checkForUpdates as unknown as vi.Mock).mockResolvedValueOnce({
+      currentVersion: '0.5.3',
+      latestVersion: '0.6.0',
+      updateAvailable: true,
+    });
+
+    const { confirm } = await import('@clack/prompts');
+    (confirm as unknown as vi.Mock).mockResolvedValueOnce(true);
+
+    // Fake child process: emits 'close' with code 0; ignores 'error'.
+    const fakeChild = {
+      on(event: string, cb: (arg: unknown) => void) {
+        if (event === 'close') queueMicrotask(() => cb(0));
+        return fakeChild;
+      },
+    };
+    hoisted.spawnMock.mockReturnValueOnce(fakeChild as unknown as ReturnType<typeof hoisted.spawnMock>);
+
+    const exit = await runUpdateCommand(false);
+    expect(exit).toBe(0);
+    expect(hoisted.spawnMock).toHaveBeenCalledTimes(1);
+    const [bin, args] = hoisted.spawnMock.mock.calls[0];
+    expect(args).toEqual(['install', '-g', 'anygate@latest']);
+    expect(String(bin)).toMatch(/npm(\.cmd)?$/);
+  });
 });
