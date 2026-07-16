@@ -165,14 +165,14 @@ import {
   validateCustomEndpointUrl,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-WBXBMBJN.js";
+} from "./chunk-FTUYHLCJ.js";
 import {
   filterTemplates,
   getTemplateById,
   listAddableTemplates,
   listSupportedTemplates,
   listVisibleOAuthTemplates
-} from "./chunk-VKROC37K.js";
+} from "./chunk-YYSUTRMV.js";
 
 // src/cli.ts
 import pc12 from "picocolors";
@@ -1931,6 +1931,31 @@ function makeReasoningOutputItem(id, text4) {
     summary: text4.trim() ? [{ type: "summary_text", text: text4 }] : []
   };
 }
+function splitBackFunctionCall(item, namespaceMap, customNames) {
+  const ns = namespaceMap?.get(item.name);
+  if (ns) {
+    return {
+      type: "function_call",
+      namespace: ns.namespace,
+      name: ns.name,
+      call_id: item.call_id,
+      arguments: item.arguments,
+      ...item.id ? { id: item.id } : {},
+      ...item.status ? { status: item.status } : {}
+    };
+  }
+  if (customNames?.has(item.name)) {
+    return {
+      type: "custom_tool_call",
+      call_id: item.call_id,
+      name: item.name,
+      input: item.arguments,
+      ...item.id ? { id: item.id } : {},
+      ...item.status ? { status: item.status } : {}
+    };
+  }
+  return item;
+}
 function translateResponsesInput(input, instructions, npm) {
   if (typeof input === "string") {
     return {
@@ -1942,6 +1967,9 @@ function translateResponsesInput(input, instructions, npm) {
   const toolNames = annotateToolNamesFromCalls(remaining);
   const messages = [];
   let pendingReasoning = "";
+  const namespaceMap = /* @__PURE__ */ new Map();
+  const customToolNames = /* @__PURE__ */ new Set();
+  ingestNamespacesFromSearchOutput(remaining, namespaceMap, customToolNames);
   for (const item of remaining) {
     if (item.type === "reasoning") {
       pendingReasoning += reasoningSummaryText(item);
@@ -1984,8 +2012,69 @@ function translateResponsesInput(input, instructions, npm) {
   }
   return {
     system,
-    messages: ensureUserFirst(mergeConsecutiveMessages(messages))
+    messages: ensureUserFirst(mergeConsecutiveMessages(messages)),
+    namespaceMap,
+    customToolNames
   };
+}
+var TOOL_SEARCH_FLAT = {
+  type: "function",
+  name: "tool_search",
+  description: "Search the available deferred Codex tools, plugin tools, MCP namespaces, and connectors by query. Use this when a needed tool is not already present in the current tool list. Returns matching tool definitions for a follow-up call.",
+  parameters: {
+    type: "object",
+    properties: {
+      query: { type: "string", description: "Search query describing the tool or capability needed." },
+      limit: { type: "number", description: "Maximum number of matching tools to return. Defaults to 8." }
+    },
+    required: ["query"],
+    additionalProperties: false
+  }
+};
+function buildNamespaceMap(tools, options = {}) {
+  const map = /* @__PURE__ */ new Map();
+  const customNames = /* @__PURE__ */ new Set();
+  if (!tools?.length) return { map, customNames };
+  for (const t of tools) {
+    if (t.type === "namespace" && t.name && Array.isArray(t.tools)) {
+      for (const nested of t.tools) {
+        if (nested.type !== "function" || !nested.name) continue;
+        map.set(`${t.name}__${nested.name}`, {
+          namespace: t.name,
+          name: nested.name,
+          parameters: nested.parameters
+        });
+      }
+    } else if (t.type === "custom" && t.name) {
+      customNames.add(t.name);
+    }
+  }
+  return { map, customNames };
+}
+function ingestNamespacesFromSearchOutput(items, map, customNames) {
+  for (const item of items) {
+    if (item.type !== "tool_search_output") continue;
+    const search = item;
+    const tools = search.tools;
+    if (!Array.isArray(tools)) continue;
+    for (const ns of tools) {
+      if (!ns || typeof ns !== "object") continue;
+      if (ns.type === "namespace" && ns.name && Array.isArray(ns.tools)) {
+        for (const sub of ns.tools) {
+          if (sub && sub.name) {
+            map.set(`${ns.name}__${sub.name}`, {
+              namespace: ns.name,
+              name: sub.name,
+              parameters: sub.parameters
+            });
+          }
+        }
+      } else if (ns.type === "function" && ns.name) {
+      } else if (ns.type === "custom" && ns.name) {
+        customNames.add(ns.name);
+      }
+    }
+  }
 }
 function translateResponsesTools(tools, options = {}) {
   if (!tools?.length) return void 0;
@@ -2007,6 +2096,21 @@ function translateResponsesTools(tools, options = {}) {
       }
       continue;
     }
+    if (t.type === "tool_search") {
+      addTool("tool_search", TOOL_SEARCH_FLAT);
+      continue;
+    }
+    if (t.type === "additional_tools") {
+      for (const nested of t.tools ?? []) {
+        if (nested.type !== "function" || !nested.name) continue;
+        addTool(nested.name, nested);
+      }
+      continue;
+    }
+    if (t.type === "custom") {
+      addTool(t.name, { type: "function", name: t.name, description: t.description ?? "", parameters: { type: "object", properties: {} } });
+      continue;
+    }
     if (t.type !== "function" || !t.name) continue;
     addTool(t.name, t);
   }
@@ -2020,13 +2124,25 @@ function translateResponsesRequest(body, npm, metadata, options = {}) {
     effortProviderOptions(npm, effort, metadata?.upstreamModelId ?? body.model, metadata)
   );
   const tools = translateResponsesTools(body.tools, options);
+  const reqMap = buildNamespaceMap(body.tools);
+  const inputResult = translateResponsesInput(body.input, body.instructions, npm);
+  const namespaceMap = new Map([
+    ...reqMap.map.entries(),
+    ...(inputResult.namespaceMap ?? /* @__PURE__ */ new Map()).entries()
+  ]);
+  const customToolNames = /* @__PURE__ */ new Set([
+    ...reqMap.customNames,
+    ...inputResult.customToolNames ?? /* @__PURE__ */ new Set()
+  ]);
   return {
-    system,
-    messages,
+    system: inputResult.system,
+    messages: inputResult.messages,
     tools,
     maxOutputTokens: body.max_output_tokens,
     temperature: body.temperature,
-    providerOptions
+    providerOptions,
+    namespaceMap,
+    customToolNames
   };
 }
 function newResponseId() {
@@ -2083,6 +2199,9 @@ async function writeResponsesStream(fullStream, modelId, write, onDone, onProgre
   let reasoningRepeat = INITIAL_REPEAT_TRACKER;
   let textRepeat = INITIAL_REPEAT_TRACKER;
   let loopDetected;
+  const namespaceMap = options?.namespaceMap;
+  const customToolNames = options?.customToolNames;
+  const isCompaction = options?.isCompaction ?? false;
   const ensureTextItem = () => {
     if (!textItemId) {
       textItemId = newItemId("msg");
@@ -2354,8 +2473,9 @@ async function writeResponsesStream(fullStream, modelId, write, onDone, onProgre
         arguments: args
       });
       const fcItem = { type: "function_call", id: itemId, call_id: callId, name: call.name, arguments: args, status: "completed" };
-      emit("response.output_item.done", { type: "response.output_item.done", output_index: idx, item: fcItem });
-      outputItems.push(fcItem);
+      const fcSplit = splitBackFunctionCall(fcItem, namespaceMap, customToolNames);
+      emit("response.output_item.done", { type: "response.output_item.done", output_index: idx, item: fcSplit });
+      outputItems.push(fcSplit);
     }
   } else if (textItemId) {
     emit("response.output_text.done", {
@@ -2420,6 +2540,11 @@ async function writeResponsesStream(fullStream, modelId, write, onDone, onProgre
   if (outputItems.length === 0) {
     outputItems.push({ id: newItemId("msg"), type: "message", role: "assistant", status: "completed", content: [{ type: "output_text", text: "(conversation context was too large to summarize)" }] });
   }
+  let finalOutput = outputItems;
+  if (isCompaction) {
+    const summaryText = (textFull ?? "").trim() || (reasoningText ?? "").trim() || "(conversation context was too large to summarize)";
+    finalOutput = [{ type: "compaction", summary: summaryText }];
+  }
   onDone?.({
     reasoningChars: reasoningText.length,
     reasoningPreview: reasoningText.slice(0, 200),
@@ -2437,7 +2562,7 @@ async function writeResponsesStream(fullStream, modelId, write, onDone, onProgre
       model: modelId,
       created_at: createdAt,
       status: "completed",
-      output: outputItems,
+      output: finalOutput,
       usage
     }
   });
@@ -2479,16 +2604,50 @@ async function streamResponsesResponse(model, params, modelId, write, onDone, on
     }
   })();
   await writeResponsesStream(watchedStream, modelId, write, onDone, onProgress, {
-    onForceStop: (reason) => abort.abort(new Error(reason))
+    onForceStop: (reason) => abort.abort(new Error(reason)),
+    namespaceMap: params.namespaceMap,
+    customToolNames: params.customToolNames,
+    isCompaction: params.isCompaction
   });
 }
 async function generateResponsesResponse(model, params, modelId) {
+  const output = [];
   const r = await generateText({ model, ...params });
   const createdAt = Math.floor(Date.now() / 1e3);
   const responseId = newResponseId();
-  const output = [];
+  if (params.isCompaction) {
+    const summaryText = (r.text ?? "").trim() || (r.reasoningText ?? "").trim() || "(conversation context was too large to summarize)";
+    return {
+      id: responseId,
+      object: "response",
+      model: modelId,
+      created_at: createdAt,
+      status: "completed",
+      output: [{ type: "compaction", summary: summaryText }],
+      usage: {
+        input_tokens: r.usage?.inputTokens ?? 0,
+        output_tokens: r.usage?.outputTokens ?? 0,
+        total_tokens: (r.usage?.inputTokens ?? 0) + (r.usage?.outputTokens ?? 0)
+      }
+    };
+  }
   if (r.reasoningText?.trim()) {
     output.push(makeReasoningOutputItem(newItemId("rs"), r.reasoningText));
+  }
+  for (const tc of r.toolCalls ?? []) {
+    const callId = tc.toolCallId ?? newItemId("fc");
+    const argsRaw = tc.args;
+    const sig = grabRoundTripSignature(tc);
+    if (sig) encodeToolUseId(callId, sig, false);
+    const fcItem = {
+      type: "function_call",
+      id: callId,
+      call_id: callId,
+      name: tc.toolName,
+      arguments: typeof argsRaw === "string" ? argsRaw : JSON.stringify(argsRaw ?? {}),
+      status: "completed"
+    };
+    output.push(splitBackFunctionCall(fcItem, params.namespaceMap, params.customToolNames));
   }
   if (r.text !== null && r.text !== void 0) {
     output.push({
@@ -2497,17 +2656,6 @@ async function generateResponsesResponse(model, params, modelId) {
       role: "assistant",
       status: "completed",
       content: [{ type: "output_text", text: r.text }]
-    });
-  }
-  for (const tc of r.toolCalls) {
-    const encodedId = encodeToolUseId(tc.toolCallId, grabRoundTripSignature(tc), false);
-    output.push({
-      type: "function_call",
-      id: tc.toolCallId,
-      call_id: encodedId,
-      name: tc.toolName,
-      arguments: JSON.stringify(tc.input ?? {}),
-      status: "completed"
     });
   }
   if (output.length === 0) {
@@ -2942,6 +3090,7 @@ async function startCodexProxy(routes, options = {}) {
             const compaction = isLikelyCodexCompactionRequest(body);
             if (debug) log14(`context check: model=${route.modelId} window=${route.contextWindow} chars=${estimatedChars} compaction=${compaction ? "yes" : "no"} messages=${before}`);
             params = protectCodexCompactionParams(body, params, route.contextWindow);
+            params.isCompaction = compaction;
             if (debug && params.messages.length < before) {
               log14(`context trim: model=${route.modelId} window=${route.contextWindow} kept=${params.messages.length}/${before} messages`);
             }
@@ -3168,6 +3317,7 @@ data: ${JSON.stringify({ error: { message: `Unknown model: ${modelId}` } })}
               const compaction = isLikelyCodexCompactionRequest(body);
               if (debug) log14(`WS context check: model=${route.modelId} window=${route.contextWindow} chars=${estimatedChars} compaction=${compaction ? "yes" : "no"} messages=${before} tools=${params.tools ? Object.keys(params.tools).length : 0}`);
               params = protectCodexCompactionParams(body, params, route.contextWindow);
+              params.isCompaction = compaction;
               if (debug && params.messages.length < before) {
                 log14(`WS context trim: model=${route.modelId} window=${route.contextWindow} kept=${params.messages.length}/${before} messages tools=${params.tools ? Object.keys(params.tools).length : 0}`);
               }
@@ -12326,7 +12476,7 @@ Error: ${parsed.error}
       console.log("Usage: anygate ui [--trace]\n\nOpen the settings UI in your browser.");
       return 0;
     }
-    const { runUiCommand } = await import("./command-AVQYQWW4.js");
+    const { runUiCommand } = await import("./command-QFKSLTQW.js");
     return runUiCommand({ trace: parsed.trace });
   }
   if (parsed.command === "models") {

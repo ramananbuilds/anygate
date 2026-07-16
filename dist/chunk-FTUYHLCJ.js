@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {
   getTemplateById
-} from "./chunk-VKROC37K.js";
+} from "./chunk-YYSUTRMV.js";
 
 // src/core/constants.ts
 import { homedir } from "os";
@@ -10,7 +10,7 @@ import { join } from "path";
 // package.json
 var package_default = {
   name: "anygate",
-  version: "0.1.0",
+  version: "0.5.1",
   publishConfig: {
     access: "public"
   },
@@ -1233,7 +1233,7 @@ function thinkingProviderOptions(npm) {
 // src/agents/codex/app-profile.ts
 var CODEX_APP_PROVIDER_ID = "anygate-launch-codex-app";
 var PREVIEW_PROXY_PORT = 54321;
-var CODEX_APP_AUTO_COMPACT_RATIO = 0.55;
+var CODEX_APP_AUTO_COMPACT_RATIO = 0.9;
 function codexAppModelSlug(rawModelId) {
   return rawModelId.startsWith("models/") ? rawModelId.slice("models/".length) : rawModelId;
 }
@@ -10549,4 +10549,4 @@ export {
   quitClaudeAppGracefully,
   launchOrRestartClaudeApp
 };
-//# sourceMappingURL=chunk-WBXBMBJN.js.map
+//# sourceMappingURL=chunk-FTUYHLCJ.js.map

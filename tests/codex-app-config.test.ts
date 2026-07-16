@@ -9,7 +9,7 @@ import {
   restoreConfigFromState,
   previewAppConfigToml,
 } from '../src/agents/codex/app-config.js';
-import { CODEX_APP_PROVIDER_ID } from '../src/agents/codex/app-profile.js';
+import { CODEX_APP_PROVIDER_ID, CODEX_APP_AUTO_COMPACT_RATIO } from '../src/agents/codex/app-profile.js';
 import type { CodexAppConfigSpec } from '../src/agents/codex/app-profile.js';
 
 describe('app-config', () => {
@@ -69,7 +69,7 @@ describe('app-config', () => {
 
     const text = readFileSync(configPath, 'utf8');
     expect(text).toContain('model_context_window = 200000');
-    expect(text).toContain('model_auto_compact_token_limit = 110000');
+    expect(text).toContain(`model_auto_compact_token_limit = ${Math.floor(200_000 * CODEX_APP_AUTO_COMPACT_RATIO)}`);
   });
 
   it('restore state round-trips model_reasoning_effort', () => {

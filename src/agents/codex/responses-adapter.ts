@@ -40,6 +40,8 @@ export interface ResponsesFunctionCallOutputItem {
 
 export interface ResponsesMessageItem {
   type?: 'message';
+  id?: string;
+  status?: string;
   role: 'user' | 'assistant' | 'developer';
   content: string | Array<{ type: string; text?: string }>;
 }
@@ -50,11 +52,19 @@ export interface ResponsesReasoningItem {
   summary?: Array<{ type: string; text?: string }>;
 }
 
+/** tool_search_output carries deferred MCP/namespace tool definitions. */
+export interface ResponsesToolSearchOutputItem {
+  type: 'tool_search_output';
+  call_id?: string;
+  tools?: Array<{ type?: string; name?: string; tools?: ResponsesFunctionTool[]; parameters?: unknown }>;
+}
+
 export type ResponsesInputItem =
   | ResponsesMessageItem
   | ResponsesFunctionCallItem
   | ResponsesFunctionCallOutputItem
-  | ResponsesReasoningItem;
+  | ResponsesReasoningItem
+  | ResponsesToolSearchOutputItem;
 
 export interface ResponsesFunctionTool {
   type: 'function';
@@ -62,6 +72,49 @@ export interface ResponsesFunctionTool {
   description?: string;
   parameters?: Record<string, unknown>;
 }
+
+/**
+ * Codex App / ChatGPT desktop app also expose a few non-`function` tool shapes that
+ * the real backend unwraps server-side but which custom Responses-API providers
+ * receive as-is:
+ *  - `tool_search`      — lazy/deferred tool loader (returns more tools on demand).
+ *  - `additional_tools` — short-lived, turn-local tool definitions (lifted from an
+ *                         input item into the top-level tools array by the proxy).
+ *  - `custom`           — freeform tool (e.g. `apply_patch`) whose arguments are a
+ *                         raw string/body, not a JSON object.
+ * We translate `tool_search` / `additional_tools` into plain callable `function`
+ * tools (so the model can invoke them) and record `custom` tool names so the
+ * response path can re-wrap them as `custom_tool_call` items.
+ */
+export type ResponsesManagedToolType = 'tool_search' | 'additional_tools' | 'custom';
+
+export interface ResponsesManagedTool {
+  type: ResponsesManagedToolType;
+  name: string;
+  description?: string;
+  parameters?: Record<string, unknown>;
+}
+
+export interface ResponsesCustomTool {
+  type: 'custom';
+  name: string;
+  description?: string;
+}
+
+/**
+ * Split-back knowledge: flat function-call name (as the model sees it) -> the
+ * `{namespace, name}` Codex's own dispatcher expects. Populated from `namespace`
+ * tools in the request and from `tool_search_output` input items (deferred MCP
+ * tools that never appear in the request tools array). Credit to
+ * bharat2808/codex-ollama-proxy for the canonical flatten/split approach.
+ */
+export interface NamespaceInfo {
+  namespace: string;
+  name: string;
+  parameters?: Record<string, unknown>;
+}
+
+export type NamespaceMap = Map<string, NamespaceInfo>;
 
 /**
  * Codex App's proprietary wrapper for MCP server tools. The real ChatGPT backend
@@ -76,7 +129,7 @@ export interface ResponsesNamespaceTool {
   tools: ResponsesFunctionTool[];
 }
 
-export type ResponsesTool = ResponsesFunctionTool | ResponsesNamespaceTool;
+export type ResponsesTool = ResponsesFunctionTool | ResponsesNamespaceTool | ResponsesManagedTool | ResponsesCustomTool;
 
 export interface ResponsesRequest {
   model: string;
@@ -97,6 +150,21 @@ export interface CodexSdkCallParams {
   maxOutputTokens?: number;
   temperature?: number;
   providerOptions?: Record<string, Record<string, unknown>>;
+  /**
+   * Split-back knowledge for Codex App's proprietary `namespace` (MCP) tools: maps
+   * the flat function-call name the model emits to the `{namespace, name}` shape
+   * Codex's dispatcher requires. Built from the request's `namespace` tools and
+   * `tool_search_output` input items; consumed on the response path.
+   */
+  namespaceMap?: NamespaceMap;
+  /**
+   * Names of `type:"custom"` tools (e.g. `apply_patch`) declared in the request,
+   * so the response path can re-wrap their `function_call` output as a native
+   * `custom_tool_call` item Codex will execute.
+   */
+  customToolNames?: Set<string>;
+  /** When true, the response is a compacted-context summary: emit exactly one `compaction` item. */
+  isCompaction?: boolean;
 }
 
 export interface TranslateToolOptions {
@@ -181,11 +249,47 @@ function makeReasoningOutputItem(id: string, text: string): ResponsesReasoningIt
   };
 }
 
+/**
+ * Re-wrap a model-emitted flat `function_call` into the shape Codex's own
+ * dispatcher expects. MCP/namespace tools must split back into `{namespace, name}`;
+ * `custom` tools (e.g. apply_patch) become `custom_tool_call`. Returns the input
+ * item unchanged when no split/wrap applies (plain built-in function tool).
+ */
+function splitBackFunctionCall(
+  item: { type: 'function_call'; id: string; call_id: string; name: string; arguments: string; status?: string },
+  namespaceMap: NamespaceMap | undefined,
+  customNames: Set<string> | undefined,
+): Record<string, unknown> {
+  const ns = namespaceMap?.get(item.name);
+  if (ns) {
+    return {
+      type: 'function_call',
+      namespace: ns.namespace,
+      name: ns.name,
+      call_id: item.call_id,
+      arguments: item.arguments,
+      ...(item.id ? { id: item.id } : {}),
+      ...(item.status ? { status: item.status } : {}),
+    };
+  }
+  if (customNames?.has(item.name)) {
+    return {
+      type: 'custom_tool_call',
+      call_id: item.call_id,
+      name: item.name,
+      input: item.arguments,
+      ...(item.id ? { id: item.id } : {}),
+      ...(item.status ? { status: item.status } : {}),
+    };
+  }
+  return item;
+}
+
 export function translateResponsesInput(
   input: string | ResponsesInputItem[],
   instructions: string | undefined,
   npm: string,
-): { system?: string; messages: ModelMessage[] } {
+): { system?: string; messages: ModelMessage[]; namespaceMap?: NamespaceMap; customToolNames?: Set<string> } {
   if (typeof input === 'string') {
     return {
       system: instructions?.trim() || undefined,
@@ -197,6 +301,12 @@ export function translateResponsesInput(
   const toolNames = annotateToolNamesFromCalls(remaining);
   const messages: ModelMessage[] = [];
   let pendingReasoning = '';
+  // Deferred MCP tools surfaced via tool_search_output carry their real
+  // namespace split, which never appears in the request tools array — learn it
+  // now so the response path can split their flat calls back correctly.
+  const namespaceMap: NamespaceMap = new Map();
+  const customToolNames = new Set<string>();
+  ingestNamespacesFromSearchOutput(remaining, namespaceMap, customToolNames);
 
   for (const item of remaining) {
     if (item.type === 'reasoning') {
@@ -242,7 +352,91 @@ export function translateResponsesInput(
   return {
     system,
     messages: ensureUserFirst(mergeConsecutiveMessages(messages)),
+    namespaceMap,
+    customToolNames,
   };
+}
+
+const TOOL_SEARCH_FLAT = {
+  type: 'function' as const,
+  name: 'tool_search',
+  description: 'Search the available deferred Codex tools, plugin tools, MCP namespaces, and connectors by query. Use this when a needed tool is not already present in the current tool list. Returns matching tool definitions for a follow-up call.',
+  parameters: {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Search query describing the tool or capability needed.' },
+      limit: { type: 'number', description: 'Maximum number of matching tools to return. Defaults to 8.' },
+    },
+    required: ['query'],
+    additionalProperties: false,
+  },
+};
+
+/**
+ * Build the namespace split-back map (flatName -> {namespace, name, parameters})
+ * from a request's `namespace` tools, and flatten `tool_search` / `additional_tools`
+ * / `custom` managed tools into callable `function` tools so the model can invoke
+ * them. `custom` tool names are recorded separately for the response path.
+ */
+export function buildNamespaceMap(
+  tools?: ResponsesTool[],
+  options: TranslateToolOptions = {},
+): { map: NamespaceMap; customNames: Set<string> } {
+  const map: NamespaceMap = new Map();
+  const customNames = new Set<string>();
+  if (!tools?.length) return { map, customNames };
+  for (const t of tools) {
+    if (t.type === 'namespace' && t.name && Array.isArray(t.tools)) {
+      for (const nested of t.tools) {
+        if (nested.type !== 'function' || !nested.name) continue;
+        map.set(`${t.name}__${nested.name}`, {
+          namespace: t.name,
+          name: nested.name,
+          parameters: nested.parameters as Record<string, unknown> | undefined,
+        });
+      }
+    } else if (t.type === 'custom' && t.name) {
+      customNames.add(t.name);
+    }
+  }
+  return { map, customNames };
+}
+
+/**
+ * Deferred MCP tools arrive as `tool_search_output` input items (each containing
+ * `namespace`+`tools` or `function` definitions) rather than in the request's
+ * top-level tools array. Learn their flat-name -> namespace split so the response
+ * path can split the model's flat calls back into the shape Codex expects.
+ */
+export function ingestNamespacesFromSearchOutput(
+  items: ResponsesInputItem[],
+  map: NamespaceMap,
+  customNames: Set<string>,
+): void {
+  for (const item of items) {
+    if (item.type !== 'tool_search_output') continue;
+    const search = item as ResponsesToolSearchOutputItem;
+    const tools = search.tools;
+    if (!Array.isArray(tools)) continue;
+    for (const ns of tools) {
+      if (!ns || typeof ns !== 'object') continue;
+      if (ns.type === 'namespace' && ns.name && Array.isArray(ns.tools)) {
+        for (const sub of ns.tools) {
+          if (sub && sub.name) {
+            map.set(`${ns.name}__${sub.name}`, {
+              namespace: ns.name,
+              name: sub.name,
+              parameters: sub.parameters as Record<string, unknown> | undefined,
+            });
+          }
+        }
+      } else if (ns.type === 'function' && ns.name) {
+        // Already a flat callable name; nothing to split on output.
+      } else if (ns.type === 'custom' && ns.name) {
+        customNames.add(ns.name);
+      }
+    }
+  }
 }
 
 export function translateResponsesTools(
@@ -272,6 +466,28 @@ export function translateResponsesTools(
       }
       continue;
     }
+    if (t.type === 'tool_search') {
+      // `tool_search` is a managed tool; rewrite into a plain callable function tool
+      // so models that can't invoke managed tools natively can still surface it.
+      addTool('tool_search', TOOL_SEARCH_FLAT);
+      continue;
+    }
+    if (t.type === 'additional_tools') {
+      // Deferred turn-local tools — flatten each nested definition the same way as a
+      // top-level `function` tool so the model can call it this turn.
+      for (const nested of (t as ResponsesManagedTool & { tools?: ResponsesFunctionTool[] }).tools ?? []) {
+        if (nested.type !== 'function' || !nested.name) continue;
+        addTool(nested.name, nested);
+      }
+      continue;
+    }
+    if (t.type === 'custom') {
+      // `apply_patch` etc. — exposed as a function tool; the response path re-wraps it
+      // as a native `custom_tool_call` so Codex executes it. Parameters stay loose
+      // (freeform body), so don't bind a strict schema.
+      addTool(t.name, { type: 'function', name: t.name, description: t.description ?? '', parameters: { type: 'object', properties: {} } });
+      continue;
+    }
     if (t.type !== 'function' || !t.name) continue;
     addTool(t.name, t);
   }
@@ -291,13 +507,26 @@ export function translateResponsesRequest(
     effortProviderOptions(npm, effort, metadata?.upstreamModelId ?? body.model, metadata),
   );
   const tools = translateResponsesTools(body.tools, options);
+  const reqMap = buildNamespaceMap(body.tools);
+  const inputResult = translateResponsesInput(body.input, body.instructions, npm);
+  // Merge request-tool namespaces with input-derived (deferred) namespaces.
+  const namespaceMap: NamespaceMap = new Map([
+    ...reqMap.map.entries(),
+    ...(inputResult.namespaceMap ?? new Map()).entries(),
+  ]);
+  const customToolNames = new Set<string>([
+    ...reqMap.customNames,
+    ...(inputResult.customToolNames ?? new Set<string>()),
+  ]);
   return {
-    system,
-    messages,
+    system: inputResult.system,
+    messages: inputResult.messages,
     tools,
     maxOutputTokens: body.max_output_tokens,
     temperature: body.temperature,
     providerOptions,
+    namespaceMap,
+    customToolNames,
   };
 }
 
@@ -387,6 +616,13 @@ export interface WriteResponsesStreamOptions {
    *  fullStream. Breaking alone does not cancel the SDK's upstream request — the SDK
    *  keeps consuming internally to settle its own promises — so the caller must abort. */
   onForceStop?: (reason: string) => void;
+  /** Split-back knowledge for Codex App `namespace` (MCP) tools: flat name -> {namespace, name}. */
+  namespaceMap?: NamespaceMap;
+  /** Names of `type:"custom"` tools (e.g. apply_patch) to re-wrap as `custom_tool_call`. */
+  customToolNames?: Set<string>;
+  /** When true, the final text is emitted as a single `compaction` output item for
+   *  Codex's remote compaction v2 (which requires exactly one compaction item). */
+  isCompaction?: boolean;
 }
 
 export async function writeResponsesStream(
@@ -430,6 +666,12 @@ export async function writeResponsesStream(
   let reasoningRepeat = INITIAL_REPEAT_TRACKER;
   let textRepeat = INITIAL_REPEAT_TRACKER;
   let loopDetected: 'reasoning' | 'text' | undefined;
+
+  // Split-back knowledge (Codex App `namespace`/MCP + `custom` tools) and compaction mode,
+  // threaded through from the proxy via options.
+  const namespaceMap = options?.namespaceMap;
+  const customToolNames = options?.customToolNames;
+  const isCompaction = options?.isCompaction ?? false;
 
   const ensureTextItem = (): string => {
     if (!textItemId) {
@@ -737,8 +979,9 @@ export async function writeResponsesStream(
         arguments: args,
       });
       const fcItem = { type: 'function_call', id: itemId, call_id: callId, name: call.name, arguments: args, status: 'completed' };
-      emit('response.output_item.done', { type: 'response.output_item.done', output_index: idx, item: fcItem });
-      outputItems.push(fcItem);
+      const fcSplit = splitBackFunctionCall(fcItem as never, namespaceMap, customToolNames);
+      emit('response.output_item.done', { type: 'response.output_item.done', output_index: idx, item: fcSplit });
+      outputItems.push(fcSplit);
     }
   } else if (textItemId) {
     emit('response.output_text.done', {
@@ -807,6 +1050,19 @@ export async function writeResponsesStream(
     outputItems.push({ id: newItemId('msg'), type: 'message', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: '(conversation context was too large to summarize)' }] });
   }
 
+  // Codex's remote compaction v2 requires the response to contain EXACTLY ONE output
+  // item of type `compaction` — a plain-text summary it decodes back into readable
+  // context on later turns. Anything else (a normal message/reasoning turn) is rejected
+  // outright as a fatal error. So collapse whatever we streamed into a single compaction
+  // item built from the accumulated text (falling back to reasoning text).
+  let finalOutput: unknown[] = outputItems;
+  if (isCompaction) {
+    const summaryText = (textFull ?? '').trim()
+      || (reasoningText ?? '').trim()
+      || '(conversation context was too large to summarize)';
+    finalOutput = [{ type: 'compaction', summary: summaryText }];
+  }
+
   onDone?.({
     reasoningChars: reasoningText.length,
     reasoningPreview: reasoningText.slice(0, 200),
@@ -825,7 +1081,7 @@ export async function writeResponsesStream(
       model: modelId,
       created_at: createdAt,
       status: 'completed',
-      output: outputItems,
+      output: finalOutput,
       usage,
     },
   });
@@ -888,6 +1144,9 @@ export async function streamResponsesResponse(
 
   await writeResponsesStream(watchedStream, modelId, write, onDone, onProgress, {
     onForceStop: reason => abort.abort(new Error(reason)),
+    namespaceMap: params.namespaceMap,
+    customToolNames: params.customToolNames,
+    isCompaction: params.isCompaction,
   });
 }
 
@@ -896,13 +1155,56 @@ export async function generateResponsesResponse(
   params: CodexSdkCallParams,
   modelId: string,
 ): Promise<Record<string, unknown>> {
+  const output: ResponsesInputItem[] = [];
   const r = await generateText({ model, ...params } as Parameters<typeof generateText>[0]);
   const createdAt = Math.floor(Date.now() / 1000);
   const responseId = newResponseId();
-  const output: unknown[] = [];
+
+  // Codex's remote compaction v2 requires the response to contain EXACTLY ONE
+  // output item of type `compaction` — a plain-text summary it decodes back into
+  // readable context on later turns. Anything else (a normal message/reasoning
+  // turn) is rejected outright as a fatal error. So even if the model streamed
+  // artifacts, wrap its text as the single compaction item and nothing else.
+  if (params.isCompaction) {
+    const summaryText = (r.text ?? '').trim()
+      || (r.reasoningText ?? '').trim()
+      || '(conversation context was too large to summarize)';
+    return {
+      id: responseId,
+      object: 'response',
+      model: modelId,
+      created_at: createdAt,
+      status: 'completed',
+      output: [{ type: 'compaction', summary: summaryText }],
+      usage: {
+        input_tokens: r.usage?.inputTokens ?? 0,
+        output_tokens: r.usage?.outputTokens ?? 0,
+        total_tokens: (r.usage?.inputTokens ?? 0) + (r.usage?.outputTokens ?? 0),
+      },
+    };
+  }
 
   if (r.reasoningText?.trim()) {
     output.push(makeReasoningOutputItem(newItemId('rs'), r.reasoningText));
+  }
+
+  // Re-wrap model-emitted function calls into the shapes Codex's own dispatcher expects:
+  // MCP/namespace tools split back into {namespace, name}; `custom` tools (e.g. apply_patch)
+  // become `custom_tool_call`. Plain built-in function tools pass through unchanged.
+  for (const tc of r.toolCalls ?? []) {
+    const callId = (tc as { toolCallId?: string }).toolCallId ?? newItemId('fc');
+    const argsRaw = (tc as { args?: unknown }).args;
+    const sig = grabRoundTripSignature(tc as unknown as FullStreamPart);
+    if (sig) encodeToolUseId(callId, sig, false);
+    const fcItem = {
+      type: 'function_call' as const,
+      id: callId,
+      call_id: callId,
+      name: tc.toolName,
+      arguments: typeof argsRaw === 'string' ? argsRaw : JSON.stringify(argsRaw ?? {}),
+      status: 'completed' as const,
+    };
+    output.push(splitBackFunctionCall(fcItem, params.namespaceMap, params.customToolNames) as unknown as ResponsesInputItem);
   }
 
   if (r.text !== null && r.text !== undefined) {
@@ -915,17 +1217,7 @@ export async function generateResponsesResponse(
     });
   }
 
-  for (const tc of r.toolCalls) {
-    const encodedId = encodeToolUseId(tc.toolCallId, grabRoundTripSignature(tc as FullStreamPart), false);
-    output.push({
-      type: 'function_call',
-      id: tc.toolCallId,
-      call_id: encodedId,
-      name: tc.toolName,
-      arguments: JSON.stringify(tc.input ?? {}),
-      status: 'completed',
-    });
-  }
+
 
   if (output.length === 0) {
     output.push({ id: newItemId('msg'), type: 'message', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: '(conversation context was too large to summarize)' }] });

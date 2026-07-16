@@ -4,6 +4,8 @@ import {
   translateResponsesRequest,
   translateResponsesTools,
   responsesErrorBody,
+  buildNamespaceMap,
+  generateResponsesResponse,
 } from '../src/agents/codex/responses-adapter.js';
 
 describe('translateResponsesRequest', () => {
@@ -570,6 +572,93 @@ describe('generateResponsesResponse', () => {
     const assistant = params.messages[1] as { role: string; content: Array<{ providerOptions?: unknown }> };
     expect(assistant.content[0]?.providerOptions).toEqual({ google: { thoughtSignature: 'SIG' } });
 
+    vi.doUnmock('ai');
+    vi.resetModules();
+  });
+});
+
+describe('Codex App tool translation (namespace / custom / compaction)', () => {
+  it('flattens namespace (MCP) tools and records custom tool names', () => {
+    const tools = [
+      { type: 'namespace', name: 'mcp__server', tools: [{ type: 'function', name: 'query_docs', description: 'q', parameters: {} }] },
+      { type: 'custom', name: 'apply_patch', description: 'patch' },
+    ] as unknown as Parameters<typeof buildNamespaceMap>[0];
+    const { map, customNames } = buildNamespaceMap(tools);
+    // Flattened name the model sees round-trips back to {namespace, name}.
+    const flat = 'mcp__server__query_docs';
+    expect(map.get(flat)).toEqual({ namespace: 'mcp__server', name: 'query_docs', parameters: {} });
+    expect(customNames.has('apply_patch')).toBe(true);
+  });
+
+  it('translates tool_search into a callable function tool', () => {
+    const out = translateResponsesTools([{ type: 'tool_search', name: 'tool_search' }] as never);
+    expect(out).toBeDefined();
+    expect(out!['tool_search']).toBeDefined();
+  });
+
+  it('generateResponsesResponse splits a flat MCP name back into {namespace, name}', async () => {
+    vi.resetModules();
+    vi.doMock('ai', () => ({
+      generateText: vi.fn(async () => ({
+        text: '',
+        reasoningText: '',
+        toolCalls: [{ toolCallId: 'call_1', toolName: 'mcp__server__query_docs', args: { q: 'x' } }],
+        usage: { inputTokens: 1, outputTokens: 2 },
+      })),
+      streamText: vi.fn(),
+      tool: vi.fn((spec: unknown) => spec),
+      jsonSchema: vi.fn((schema: unknown) => schema),
+    }));
+    const { generateResponsesResponse } = await import('../src/agents/codex/responses-adapter.js');
+    const namespaceMap = new Map([['mcp__server__query_docs', { namespace: 'mcp__server', name: 'query_docs' }]]);
+    const body = await generateResponsesResponse({} as never, { messages: [], namespaceMap }, 'model');
+    const fc = (body.output as any[]).find(item => item.type === 'function_call');
+    expect(fc?.namespace).toBe('mcp__server');
+    expect(fc?.name).toBe('query_docs');
+    vi.doUnmock('ai');
+    vi.resetModules();
+  });
+
+  it('generateResponsesResponse wraps custom tools as custom_tool_call', async () => {
+    vi.resetModules();
+    vi.doMock('ai', () => ({
+      generateText: vi.fn(async () => ({
+        text: '',
+        reasoningText: '',
+        toolCalls: [{ toolCallId: 'call_1', toolName: 'apply_patch', args: 'some body' }],
+        usage: { inputTokens: 1, outputTokens: 2 },
+      })),
+      streamText: vi.fn(),
+      tool: vi.fn((spec: unknown) => spec),
+      jsonSchema: vi.fn((schema: unknown) => schema),
+    }));
+    const { generateResponsesResponse } = await import('../src/agents/codex/responses-adapter.js');
+    const body = await generateResponsesResponse({} as never, { messages: [], customToolNames: new Set(['apply_patch']) }, 'model');
+    const fc = (body.output as any[]).find(item => item.type === 'custom_tool_call');
+    expect(fc?.name).toBe('apply_patch');
+    expect(fc?.input).toBe('some body');
+    vi.doUnmock('ai');
+    vi.resetModules();
+  });
+
+  it('generateResponsesResponse emits a single compaction item when isCompaction is set', async () => {
+    vi.resetModules();
+    vi.doMock('ai', () => ({
+      generateText: vi.fn(async () => ({
+        text: 'summary of the conversation',
+        reasoningText: '',
+        toolCalls: [],
+        usage: { inputTokens: 1, outputTokens: 2 },
+      })),
+      streamText: vi.fn(),
+      tool: vi.fn((spec: unknown) => spec),
+      jsonSchema: vi.fn((schema: unknown) => schema),
+    }));
+    const { generateResponsesResponse } = await import('../src/agents/codex/responses-adapter.js');
+    const body = await generateResponsesResponse({} as never, { messages: [], isCompaction: true }, 'model');
+    expect(body.output).toHaveLength(1);
+    expect((body.output as any[])[0].type).toBe('compaction');
+    expect((body.output as any[])[0].summary).toBe('summary of the conversation');
     vi.doUnmock('ai');
     vi.resetModules();
   });

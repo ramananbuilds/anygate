@@ -7,6 +7,7 @@ import {
   startCodexProxy,
 } from '../src/agents/codex/proxy.js';
 import type { CodexSdkCallParams } from '../src/agents/codex/responses-adapter.js';
+import { CODEX_APP_AUTO_COMPACT_RATIO } from '../src/agents/codex/app-profile.js';
 
 // The 2 tests below POST to /v1/responses with requireAuth:false, which would
 // otherwise reach the real Anthropic upstream (network + live credentials). Stub
@@ -219,7 +220,7 @@ describe('Codex compaction protection', () => {
 
     const protectedParams = protectCodexCompactionParams(body, params, 100_000);
 
-    expect(estimateCodexRequestChars(protectedParams)).toBeLessThanOrEqual(Math.floor(100_000 * 0.55) * 3);
+    expect(estimateCodexRequestChars(protectedParams)).toBeLessThanOrEqual(Math.floor(100_000 * CODEX_APP_AUTO_COMPACT_RATIO) * 3);
     expect(protectedParams.messages.length).toBeGreaterThanOrEqual(3);
     for (const message of protectedParams.messages) {
       const content = message.content;

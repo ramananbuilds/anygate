@@ -11,7 +11,7 @@ export const CODEX_APP_PROVIDER_ID = 'anygate-launch-codex-app';
  */
 export const CODEX_APP_DISPLAY_MODEL = 'gpt-5.5';
 export const PREVIEW_PROXY_PORT = 54321;
-export const CODEX_APP_AUTO_COMPACT_RATIO = 0.55;
+export const CODEX_APP_AUTO_COMPACT_RATIO = 0.90;
 
 export function codexAppModelSlug(rawModelId: string): string {
   return rawModelId.startsWith('models/') ? rawModelId.slice('models/'.length) : rawModelId;

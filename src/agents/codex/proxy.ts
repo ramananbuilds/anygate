@@ -448,6 +448,7 @@ export async function startCodexProxy(
             const compaction = isLikelyCodexCompactionRequest(body);
             if (debug) log(`context check: model=${route.modelId} window=${route.contextWindow} chars=${estimatedChars} compaction=${compaction ? 'yes' : 'no'} messages=${before}`);
             params = protectCodexCompactionParams(body, params, route.contextWindow);
+            params.isCompaction = compaction;
             if (debug && params.messages.length < before) {
               log(`context trim: model=${route.modelId} window=${route.contextWindow} kept=${params.messages.length}/${before} messages`);
             }
@@ -696,6 +697,7 @@ export async function startCodexProxy(
               const compaction = isLikelyCodexCompactionRequest(body);
               if (debug) log(`WS context check: model=${route.modelId} window=${route.contextWindow} chars=${estimatedChars} compaction=${compaction ? 'yes' : 'no'} messages=${before} tools=${params.tools ? Object.keys(params.tools).length : 0}`);
               params = protectCodexCompactionParams(body, params, route.contextWindow);
+              params.isCompaction = compaction;
               if (debug && params.messages.length < before) {
                 log(`WS context trim: model=${route.modelId} window=${route.contextWindow} kept=${params.messages.length}/${before} messages tools=${params.tools ? Object.keys(params.tools).length : 0}`);
               }
