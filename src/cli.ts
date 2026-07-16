@@ -1433,10 +1433,16 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
 
   if (process.stdout.isTTY) {
     printAsciiBanner();
-    const update = await checkForUpdates();
-    if (update.updateAvailable && update.latestVersion) {
-      console.log(`\n${formatUpdateNotification(update.currentVersion, update.latestVersion)}\n`);
-    }
+  }
+
+  // Always surface an update signal for lower-version users, regardless of TTY.
+  // When output is piped/non-interactive we write to stderr so we don't corrupt
+  // any machine-readable stdout the caller may be parsing.
+  const update = await checkForUpdates();
+  if (update.updateAvailable && update.latestVersion) {
+    const notice = `\n${formatUpdateNotification(update.currentVersion, update.latestVersion)}\n`;
+    if (process.stdout.isTTY) console.log(notice);
+    else console.error(notice);
   }
 
   if (parsed.error) {

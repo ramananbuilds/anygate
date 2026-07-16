@@ -12415,12 +12415,14 @@ async function main(args = process.argv.slice(2)) {
   const parsed = parseArgs(args);
   if (process.stdout.isTTY) {
     printAsciiBanner();
-    const update = await checkForUpdates();
-    if (update.updateAvailable && update.latestVersion) {
-      console.log(`
+  }
+  const update = await checkForUpdates();
+  if (update.updateAvailable && update.latestVersion) {
+    const notice = `
 ${formatUpdateNotification(update.currentVersion, update.latestVersion)}
-`);
-    }
+`;
+    if (process.stdout.isTTY) console.log(notice);
+    else console.error(notice);
   }
   if (parsed.error) {
     console.error(pc12.red(`

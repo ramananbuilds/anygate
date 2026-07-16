@@ -34,20 +34,27 @@ describe('CLI update notifications', () => {
   it('prints an update notice for interactive commands', async () => {
     Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: true });
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     await main(['--version']);
 
-    expect(log.mock.calls.flat().join('\n')).toContain(
+    const out = log.mock.calls.flat().join('\n');
+    expect(out).toContain(
       `🔔 Update available: ${VERSION} → 9.0.0. Run npm install -g anygate@latest to update.`,
     );
+    expect(err.mock.calls.flat().join('\n')).not.toContain('Update available');
   });
 
-  it('does not print the notice for non-interactive output', async () => {
+  it('prints the notice to stderr for non-interactive output', async () => {
     Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: false });
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const err = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     await main(['--version']);
 
     expect(log.mock.calls.flat().join('\n')).not.toContain('Update available');
+    expect(err.mock.calls.flat().join('\n')).toContain(
+      `🔔 Update available: ${VERSION} → 9.0.0. Run npm install -g anygate@latest to update.`,
+    );
   });
 });
