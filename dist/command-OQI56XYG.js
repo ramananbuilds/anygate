@@ -65,7 +65,7 @@ import {
   summarizeServerProviders,
   validateCustomEndpointUrl,
   writeSecureLogLine
-} from "./chunk-FTUYHLCJ.js";
+} from "./chunk-6GVUN4JO.js";
 import {
   getTemplateById,
   listAddableTemplates,
@@ -1449,4 +1449,4 @@ export {
   resolveUiShutdownDecision,
   runUiCommand
 };
-//# sourceMappingURL=command-QFKSLTQW.js.map
+//# sourceMappingURL=command-OQI56XYG.js.map
