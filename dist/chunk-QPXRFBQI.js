@@ -10,7 +10,7 @@ import { join } from "path";
 // package.json
 var package_default = {
   name: "anygate",
-  version: "0.5.2",
+  version: "0.5.3",
   publishConfig: {
     access: "public"
   },
@@ -139,6 +139,7 @@ var CONFLICTING_ENV_VARS = [
 ];
 var OPENCODE_CACHE_PATH = join(homedir(), ".cache", "opencode", "models.json");
 var MAX_MODEL_CATALOG = 20;
+var GATEWAY_PORT = 17645;
 var VERTEX_ANTHROPIC_NPM = "@ai-sdk/google-vertex/anthropic";
 function classifyModelFormat(modelId, providerNpm) {
   if (providerNpm === "@ai-sdk/anthropic") return "anthropic";
@@ -10350,7 +10351,9 @@ async function launchOrRestartClaudeApp(prompt = "Restart Claude Desktop to appl
 
 export {
   BACKENDS,
+  CONFLICTING_ENV_VARS,
   MAX_MODEL_CATALOG,
+  GATEWAY_PORT,
   VERTEX_ANTHROPIC_NPM,
   VERSION,
   requestOpenAiDeviceCode,
@@ -10527,6 +10530,7 @@ export {
   loadServerModels,
   resolveServerUpstreamApiKey,
   runServerCommand,
+  UPDATE_COMMAND,
   checkForUpdates,
   formatUpdateNotification,
   favoriteProviderDisplayName,
@@ -10552,4 +10556,4 @@ export {
   quitClaudeAppGracefully,
   launchOrRestartClaudeApp
 };
-//# sourceMappingURL=chunk-56VSWTPG.js.map
+//# sourceMappingURL=chunk-QPXRFBQI.js.map

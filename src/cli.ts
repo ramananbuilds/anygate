@@ -52,6 +52,9 @@ import {
   wantsCleanAgentStdout,
 } from './agents/shared/launch-target.js';
 import { generateAiDoc, installAiDoc, printAiInstallResult } from './agents/shared/ai-doc.js';
+import { runDoctorCommand } from './agents/shared/doctor.js';
+import { runCompletionsCommand } from './agents/shared/completions.js';
+import { runUpdateCommand } from './agents/shared/self-update.js';
 const STARTER_CLAUDE_FLAGS = new Set(['--dry-run', '--setup', '--trace', '--help', '-h', '--version', '-v']);
 const GATEWAY_LAUNCH_FLAGS = new Set(['--provider', '--model']);
 
@@ -400,6 +403,52 @@ export function parseArgs(args: string[]): ParsedArgs {
     return parsed;
   }
 
+  if (first === 'doctor') {
+    const parsed = emptyParsed('doctor');
+    for (const arg of rest) {
+      if (arg === '--help' || arg === '-h') parsed.showHelp = true;
+      else if (arg === '--version' || arg === '-v') parsed.showVersion = true;
+      else if (!parsed.error) parsed.error = `Unknown doctor option: ${arg}`;
+    }
+    return parsed;
+  }
+
+  if (first === 'completions') {
+    const parsed = emptyParsed('completions');
+    for (let i = 0; i < rest.length; i += 1) {
+      const arg = rest[i]!;
+      if (arg === '--help' || arg === '-h') { parsed.showHelp = true; continue; }
+      if (arg === '--version' || arg === '-v') { parsed.showVersion = true; continue; }
+      if (arg.startsWith('--shell=')) {
+        parsed.completionsShell = arg.slice('--shell='.length);
+        continue;
+      }
+      if (arg === '--shell') {
+        const value = rest[i + 1];
+        if (!value || value.startsWith('-')) {
+          parsed.error = 'Missing value for --shell';
+          return parsed;
+        }
+        parsed.completionsShell = value;
+        i += 1;
+        continue;
+      }
+      if (!parsed.error) parsed.error = `Unknown completions option: ${arg}`;
+    }
+    return parsed;
+  }
+
+  if (first === 'update') {
+    const parsed = emptyParsed('update');
+    for (const arg of rest) {
+      if (arg === '--help' || arg === '-h') parsed.showHelp = true;
+      else if (arg === '--version' || arg === '-v') parsed.showVersion = true;
+      else if (arg === '--dry-run') parsed.dryRun = true;
+      else if (!parsed.error) parsed.error = `Unknown update option: ${arg}`;
+    }
+    return parsed;
+  }
+
   if (first !== 'claude') {
     return {
       ...emptyParsed('root'),
@@ -457,6 +506,9 @@ ${pc.bold('Usage:')}
   anygate models
   anygate favorites
   anygate providers
+  anygate doctor
+  anygate completions <bash|zsh|fish|powershell>
+  anygate update
   anygate --help
   anygate --version
   anygate --ai              Full reference for AI agents (run this when unsure)
@@ -484,6 +536,9 @@ ${pc.bold('Commands:')}
   codex-app   Launch ChatGPT desktop app (Codex mode) with registry providers (macOS + Windows)
   chatgpt     Alias for codex-app
   claude-app  Launch Claude Desktop app with registry providers (macOS + Windows)
+  doctor      Run an environment diagnostic (Node, keyring, key, port, env conflicts)
+  completions Print a shell completion script for anygate
+  update      Interactively upgrade anygate to the latest published version
 
 ${pc.bold('Antigravity favorites:')}
   agy, antigravity, and antigravity-ide share up to six Antigravity favorites
@@ -1622,6 +1677,42 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
       launchProvider: parsed.launchProvider,
       launchModel: parsed.launchModel,
     });
+  }
+
+  if (parsed.command === 'doctor') {
+    if (parsed.showVersion) {
+      console.log(VERSION);
+      return 0;
+    }
+    if (parsed.showHelp) {
+      console.log('Usage: anygate doctor [--help] [--version]\n\nRun an environment diagnostic (Node, keyring, API key, port, env conflicts).');
+      return 0;
+    }
+    return runDoctorCommand(parsed.dryRun);
+  }
+
+  if (parsed.command === 'completions') {
+    if (parsed.showVersion) {
+      console.log(VERSION);
+      return 0;
+    }
+    if (parsed.showHelp) {
+      console.log('Usage: anygate completions [bash|zsh|fish|powershell] [--shell <shell>]\n\nPrint a shell completion script for anygate to stdout.');
+      return 0;
+    }
+    return runCompletionsCommand(parsed.completionsShell);
+  }
+
+  if (parsed.command === 'update') {
+    if (parsed.showVersion) {
+      console.log(VERSION);
+      return 0;
+    }
+    if (parsed.showHelp) {
+      console.log('Usage: anygate update [--dry-run] [--help] [--version]\n\nInteractively upgrade anygate to the latest published version.');
+      return 0;
+    }
+    return runUpdateCommand(parsed.dryRun);
   }
 
   if (parsed.showVersion) {

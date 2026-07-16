@@ -4,7 +4,7 @@ import type { FreeStatus } from '../agents/shared/free-models.js';
 
 export type ModelFormat = 'anthropic' | 'openai' | 'unsupported';
 
-export type StarterCommand = 'root' | 'claude' | 'claude-app' | 'codex' | 'codex-app' | 'server' | 'models' | 'providers' | 'gemini' | 'agy' | 'antigravity' | 'antigravity-ide' | 'ui';
+export type StarterCommand = 'root' | 'claude' | 'claude-app' | 'codex' | 'codex-app' | 'server' | 'models' | 'providers' | 'gemini' | 'agy' | 'antigravity' | 'antigravity-ide' | 'ui' | 'doctor' | 'completions' | 'update';
 
 export interface BackendConfig {
   id: 'zen' | 'go';
@@ -148,6 +148,14 @@ export interface ParsedArgs {
   serverMaskGatewayIds?: boolean;
   /** One-run network password for `anygate server`. */
   serverPassword?: string;
+  /** Run the `anygate doctor` environment diagnostic. */
+  doctor?: boolean;
+  /** Emit `anygate completions` shell completion script. */
+  completions?: boolean;
+  /** Target shell for `anygate completions` (bash|zsh|fish|powershell). */
+  completionsShell?: string;
+  /** Run the interactive `anygate update` self-upgrade. */
+  selfUpdate?: boolean;
   error?: string;
 }
 

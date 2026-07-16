@@ -58,6 +58,10 @@ export const OPENCODE_CACHE_PATH = join(homedir(), '.cache', 'opencode', 'models
 /** Max models in favorites list and mid-session /model switch catalog. */
 export const MAX_MODEL_CATALOG = 20;
 
+// Fixed port the `anygate server` gateway binds to. The doctor command probes
+// this same port so users catch clashes before launching the server.
+export const GATEWAY_PORT = 17645;
+
 /** Vercel AI SDK package for Anthropic Claude models on Google Vertex AI (ADC auth). */
 export const VERTEX_ANTHROPIC_NPM = '@ai-sdk/google-vertex/anthropic';
 
