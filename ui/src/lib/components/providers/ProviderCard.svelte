@@ -39,6 +39,9 @@
       <Button size="sm" variant="subtle" onclick={() => onOAuth(provider)}>Sign in</Button>
     {:else if !provider.hasKey && !provider.freeAccess}
       <Button size="sm" variant="primary" onclick={() => onAddKey(provider)}>Add key</Button>
+      {#if provider.signupUrl}
+        <a class="keylink" href={provider.signupUrl} target="_blank" rel="noopener noreferrer">Get key →</a>
+      {/if}
     {:else}
       <Button size="sm" variant="ghost" onclick={() => refreshProviderModels(provider.id)}>Refresh</Button>
     {/if}
@@ -61,4 +64,6 @@
   .chip.more { color: var(--accent); }
   .chip.empty { color: var(--text-3); font-style: italic; }
   .actions { display: flex; align-items: center; gap: 8px; }
+  .keylink { font-size: 12px; font-weight: 600; color: var(--accent); text-decoration: none; white-space: nowrap; }
+  .keylink:hover { text-decoration: underline; }
 </style>

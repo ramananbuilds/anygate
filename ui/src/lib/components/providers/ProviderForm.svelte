@@ -46,17 +46,20 @@
 
 <Modal {open} title="Add provider" {onclose}>
   {#if loading}
-    <p style="color:var(--text-3)">Loading templatesâ€¦</p>
+    <p style="color:var(--text-3)">Loading templates…</p>
   {:else}
     <span class="lbl">Provider</span>
     <select class="sel" bind:value={selected}>
-      <option value={null}>Select a providerâ€¦</option>
-      {#each templates as t (t.id)}<option value={t.id}>{t.name}{t.anonymousFreeModels ? ' (free)' : ''}{t.subscriptionRisk ? ' âš ' : ''}</option>{/each}
+      <option value={null}>Select a provider…</option>
+      {#each templates as t (t.id)}<option value={t.id}>{t.name}{t.anonymousFreeModels ? ' (free)' : ''}{t.subscriptionRisk ? ' ⚠' : ''}</option>{/each}
     </select>
 
     {#if current && current.authType === 'api' && !current.apiKeyOptional && !customOpenai && !customAnthropic}
       <span class="lbl" style="margin-top:14px">API key</span>
       <Input bind:value={apiKey} placeholder={current.apiKeyOptional ? 'optional' : 'Paste your key'} />
+      {#if current.signupUrl}
+        <a class="hint-link" href={current.signupUrl} target="_blank" rel="noopener noreferrer">Get an API key →</a>
+      {/if}
     {/if}
 
     {#if current?.urlPrompt}
@@ -75,7 +78,7 @@
 
     <div class="row" style="margin-top:20px;justify-content:flex-end;gap:8px">
       <Button variant="ghost" onclick={onclose}>Cancel</Button>
-      <Button disabled={!selected || busy} onclick={submit}>{busy ? 'Addingâ€¦' : 'Add provider'}</Button>
+      <Button disabled={!selected || busy} onclick={submit}>{busy ? 'Adding…' : 'Add provider'}</Button>
     </div>
   {/if}
 </Modal>
@@ -84,4 +87,6 @@
   .lbl { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
   .sel { width: 100%; padding: 9px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-1); font-size: 13.5px; }
   .row { display: flex; }
+  .hint-link { display: inline-block; margin-top: 7px; font-size: 12.5px; font-weight: 600; color: var(--accent); text-decoration: none; }
+  .hint-link:hover { text-decoration: underline; }
 </style>

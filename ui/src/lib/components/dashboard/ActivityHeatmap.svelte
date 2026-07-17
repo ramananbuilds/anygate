@@ -54,7 +54,7 @@
   <div class="months">
     {#each weeks as _, ci (ci)}
       {@const mark = monthMarks.find((m) => m.col === ci)}
-      <span class="month" style="width:{100 / weeks.length}%">{mark ? mark.label : ''}</span>
+      <span class="month" class:has={!!mark}>{mark ? mark.label : ''}</span>
     {/each}
   </div>
   <div class="weeks">
@@ -97,8 +97,16 @@
   .month {
     font-size: 10.5px;
     color: var(--text-3);
-    flex: none;
+    flex: 0 0 13px;
+    width: 13px;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: visible;
   }
+  .month:not(.has) {
+    visibility: hidden;
+  }
+
   .weeks {
     display: flex;
     gap: 4px;

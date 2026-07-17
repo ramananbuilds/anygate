@@ -10,7 +10,7 @@ import { join } from "path";
 // package.json
 var package_default = {
   name: "anygate",
-  version: "0.5.3",
+  version: "0.5.4",
   publishConfig: {
     access: "public"
   },
@@ -10817,4 +10817,4 @@ export {
   quitClaudeAppGracefully,
   launchOrRestartClaudeApp
 };
-//# sourceMappingURL=chunk-XLOT2FJC.js.map
+//# sourceMappingURL=chunk-JYZ6CHGU.js.map

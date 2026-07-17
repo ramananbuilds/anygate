@@ -65,7 +65,7 @@ import {
   summarizeServerProviders,
   validateCustomEndpointUrl,
   writeSecureLogLine
-} from "./chunk-XLOT2FJC.js";
+} from "./chunk-JYZ6CHGU.js";
 import {
   getTemplateById,
   listAddableTemplates,
@@ -89,37 +89,41 @@ import { join } from "path";
 var isWindows = process.platform === "win32";
 var isMac = process.platform === "darwin";
 var SUPPORTED_APPS = [
-  { id: "claude", name: "Claude Code CLI", type: "cli", detectId: "claude", gatewayCommand: "claude" },
-  { id: "codex", name: "Codex CLI", type: "cli", detectId: "codex", gatewayCommand: "codex" },
-  { id: "gemini", name: "Gemini CLI", type: "cli", detectId: "gemini", gatewayCommand: "gemini" },
-  { id: "agy", name: "Antigravity CLI", type: "cli", detectId: "agy", gatewayCommand: "agy" },
+  { id: "claude", name: "Claude Code CLI", type: "cli", detectId: "claude", gatewayCommand: "claude", installHint: "npm install -g @anthropic-ai/claude-code" },
+  { id: "codex", name: "Codex CLI", type: "cli", detectId: "codex", gatewayCommand: "codex", installHint: "npm install -g @openai/codex" },
+  { id: "gemini", name: "Gemini CLI", type: "cli", detectId: "gemini", gatewayCommand: "gemini", installHint: "npm install -g @google/gemini-cli" },
+  { id: "agy", name: "Antigravity CLI", type: "cli", detectId: "agy", gatewayCommand: "agy", installHint: "npm install -g @google/antigravity-cli" },
   {
     id: "antigravity",
     name: "Antigravity (App)",
     type: "app",
     detectId: "antigravity",
-    gatewayCommand: "antigravity"
+    gatewayCommand: "antigravity",
+    installUrl: "https://antigravity.dev/download"
   },
   {
     id: "antigravity-ide",
     name: "Antigravity IDE (App)",
     type: "app",
     detectId: "antigravity-ide",
-    gatewayCommand: "antigravity-ide"
+    gatewayCommand: "antigravity-ide",
+    installUrl: "https://antigravity.dev/ide"
   },
   {
     id: "claude-app",
     name: "Claude Code Desktop",
     type: "app",
     detectId: "claude-app",
-    gatewayCommand: "claude-app"
+    gatewayCommand: "claude-app",
+    installUrl: "https://claude.com/download"
   },
   {
     id: "codex-app",
     name: "ChatGPT Desktop (Codex)",
     type: "app",
     detectId: "codex-app",
-    gatewayCommand: "codex-app"
+    gatewayCommand: "codex-app",
+    installUrl: "https://openai.com/chatgpt/desktop"
   }
 ];
 function fallbackPathsForApp(id, platform = process.platform) {
@@ -332,7 +336,9 @@ function getSupportedApps() {
       path,
       pathSource,
       gatewayCommand: app.gatewayCommand,
-      launchCommand: installed ? getGatewayLaunchCommand(app.id) : null
+      launchCommand: installed ? getGatewayLaunchCommand(app.id) : null,
+      installHint: app.installHint,
+      installUrl: app.installUrl
     };
   });
 }
@@ -636,6 +642,16 @@ async function handlePostConfig(req, res) {
     sendJson(res, 400, { error: String(err) });
   }
 }
+function dedupModelsById(models) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const m of models) {
+    if (seen.has(m.id)) continue;
+    seen.add(m.id);
+    out.push(m);
+  }
+  return out;
+}
 async function handleGetModels(res) {
   try {
     const catalog = await fetchModelsWithTimeout();
@@ -652,7 +668,8 @@ async function handleGetModels(res) {
       })(),
       authType: p2.authType ?? "api",
       modelCount: rawCountById.get(p2.id) ?? p2.models.length,
-      models: p2.models.map((m) => ({
+      signupUrl: getTemplateById(p2.id)?.signupUrl ?? null,
+      models: dedupModelsById(p2.models).map((m) => ({
         id: m.id,
         name: m.name,
         isFree: m.isFree ?? false,
@@ -675,6 +692,7 @@ async function handleGetModels(res) {
         freeAccess: false,
         authType: "oauth",
         modelCount: 0,
+        signupUrl: getTemplateById(rp.templateId)?.signupUrl ?? null,
         models: []
       });
     }
@@ -1480,4 +1498,4 @@ export {
   resolveUiShutdownDecision,
   runUiCommand
 };
-//# sourceMappingURL=command-4ZY5JMEM.js.map
+//# sourceMappingURL=command-V5VVI5ME.js.map

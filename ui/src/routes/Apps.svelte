@@ -49,7 +49,7 @@
   </div>
 
   {#if apps.loading}
-    <Spinner label="Detecting installed appsâ€¦" />
+    <Spinner label="Detecting installed apps…" />
   {:else if apps.list.length === 0}
     <EmptyState title="No apps found" icon="M2 3h20v14H2z">anygate couldn't detect supported apps on this system.</EmptyState>
   {:else}
@@ -67,21 +67,23 @@
       <label class="lbl"><input type="checkbox" bind:checked={useFavs} /> Use first favorite</label>
 
       <span class="lbl">Provider</span>
-      <Select bind:value={selProvider} options={[{ value: '', label: 'â€”' }, ...providers.list.map(p => ({ value: p.id, label: p.name }))]} />
+      <Select bind:value={selProvider} options={[{ value: '', label: 'All' }, ...providers.list.map(p => ({ value: p.id, label: p.name }))]} />
 
-      {#if selProvider}
-        <span class="lbl">Model</span>
-        <Select bind:value={selModel} options={[{ value: '', label: 'â€”' }, ...modelOptions]} />
-      {/if}
+      <span class="lbl">Model</span>
+      <Select
+        bind:value={selModel}
+        disabled={!selProvider}
+        options={selProvider ? [{ value: '', label: 'All' }, ...modelOptions] : [{ value: '', label: '— pick a provider first —' }]}
+      />
 
       <span class="lbl">Launch folder</span>
       <div class="folder">
-        <Input bind:value={cwd} placeholder="Path or browseâ€¦" />
+        <Input bind:value={cwd} placeholder="Path or browse…" />
         <Button size="sm" variant="ghost" onclick={pickFolder}>Browse</Button>
       </div>
-      {#if apps.recentFolders.length}
+      {#if apps.recentFolders.filter(f => f !== cwd).length}
         <div class="recents">
-          {#each apps.recentFolders.slice(0, 4) as f}<button class="recent" onclick={() => cwd = f}>{f}</button>{/each}
+          {#each apps.recentFolders.filter(f => f !== cwd).slice(0, 4) as f}<button class="recent" onclick={() => cwd = f}>{f}</button>{/each}
         </div>
       {/if}
     </div>
@@ -93,7 +95,7 @@
 {/if}
 
 {#if pathTarget}
-  <Modal open={!!pathTarget} title={`Set path · ${pathTarget.name}`} onclose={() => pathTarget = null}>
+  <Modal open={!!pathTarget} title={`Set path → ${pathTarget.name}`} onclose={() => pathTarget = null}>
     <span class="lbl">Executable path</span>
     <div class="folder">
       <Input bind:value={pathInput} placeholder="/path/to/executable" />

@@ -7,7 +7,7 @@
 </script>
 
 <div class="item" role="listitem" draggable="true" ondragstart={ondragstart} ondragover={(e) => e.preventDefault()} ondrop={ondrop}>
-  <span class="handle" title="Drag to reorder">â‹®â‹®</span>
+  <span class="handle" title="Drag to reorder">⠿⠿⠿</span>
   <span class="idx">{index + 1}</span>
   <ProviderLogo id={fav.providerId} size={28} />
   <div class="meta">

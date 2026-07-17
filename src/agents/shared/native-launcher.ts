@@ -19,6 +19,10 @@ export interface AppInfo {
   pathSource: 'auto' | 'override' | null;
   gatewayCommand: string;
   launchCommand: string | null;
+  /** Shell command to install this app (CLIs). Absent for desktop apps. */
+  installHint?: string;
+  /** Vendor download page for desktop apps. Absent for CLIs. */
+  installUrl?: string;
 }
 
 export interface GatewayLaunchOptions {
@@ -35,19 +39,24 @@ interface SupportedAppDefinition {
   type: 'cli' | 'app';
   detectId: string;
   gatewayCommand: string;
+  /** Shell command to install this app (CLIs). */
+  installHint?: string;
+  /** Vendor download page for desktop apps. */
+  installUrl?: string;
 }
 
 const SUPPORTED_APPS: SupportedAppDefinition[] = [
-  { id: 'claude', name: 'Claude Code CLI', type: 'cli', detectId: 'claude', gatewayCommand: 'claude' },
-  { id: 'codex', name: 'Codex CLI', type: 'cli', detectId: 'codex', gatewayCommand: 'codex' },
-  { id: 'gemini', name: 'Gemini CLI', type: 'cli', detectId: 'gemini', gatewayCommand: 'gemini' },
-  { id: 'agy', name: 'Antigravity CLI', type: 'cli', detectId: 'agy', gatewayCommand: 'agy' },
+  { id: 'claude', name: 'Claude Code CLI', type: 'cli', detectId: 'claude', gatewayCommand: 'claude', installHint: 'npm install -g @anthropic-ai/claude-code' },
+  { id: 'codex', name: 'Codex CLI', type: 'cli', detectId: 'codex', gatewayCommand: 'codex', installHint: 'npm install -g @openai/codex' },
+  { id: 'gemini', name: 'Gemini CLI', type: 'cli', detectId: 'gemini', gatewayCommand: 'gemini', installHint: 'npm install -g @google/gemini-cli' },
+  { id: 'agy', name: 'Antigravity CLI', type: 'cli', detectId: 'agy', gatewayCommand: 'agy', installHint: 'npm install -g @google/antigravity-cli' },
   {
     id: 'antigravity',
     name: 'Antigravity (App)',
     type: 'app',
     detectId: 'antigravity',
     gatewayCommand: 'antigravity',
+    installUrl: 'https://antigravity.dev/download',
   },
   {
     id: 'antigravity-ide',
@@ -55,6 +64,7 @@ const SUPPORTED_APPS: SupportedAppDefinition[] = [
     type: 'app',
     detectId: 'antigravity-ide',
     gatewayCommand: 'antigravity-ide',
+    installUrl: 'https://antigravity.dev/ide',
   },
   {
     id: 'claude-app',
@@ -62,6 +72,7 @@ const SUPPORTED_APPS: SupportedAppDefinition[] = [
     type: 'app',
     detectId: 'claude-app',
     gatewayCommand: 'claude-app',
+    installUrl: 'https://claude.com/download',
   },
   {
     id: 'codex-app',
@@ -69,6 +80,7 @@ const SUPPORTED_APPS: SupportedAppDefinition[] = [
     type: 'app',
     detectId: 'codex-app',
     gatewayCommand: 'codex-app',
+    installUrl: 'https://openai.com/chatgpt/desktop',
   },
 ];
 
@@ -348,6 +360,8 @@ export function getSupportedApps(): AppInfo[] {
       pathSource,
       gatewayCommand: app.gatewayCommand,
       launchCommand: installed ? getGatewayLaunchCommand(app.id) : null,
+      installHint: app.installHint,
+      installUrl: app.installUrl,
     };
   });
 }

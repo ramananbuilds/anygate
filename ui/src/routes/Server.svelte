@@ -14,7 +14,7 @@
   </div>
 
   {#if server.loading && !server.status}
-    <Spinner label="Reading server statusâ€¦" />
+    <Spinner label="Reading server status…" />
   {:else}
     <ServerPanel onneedsmodels={() => (location.hash = '#/providers')} />
   {/if}

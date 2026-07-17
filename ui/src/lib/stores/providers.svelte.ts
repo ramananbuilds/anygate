@@ -11,7 +11,13 @@ export interface EnrichedProvider extends UiProvider {
 }
 
 function enrich(p: UiProvider): EnrichedProvider {
-  return { ...p, enrichedModels: p.models.map(enrichModel) };
+  const seen = new Set<string>();
+  const models = p.models.filter(m => {
+    if (seen.has(m.id)) return false;
+    seen.add(m.id);
+    return true;
+  });
+  return { ...p, enrichedModels: models.map(enrichModel) };
 }
 
 export const providers = $state<{

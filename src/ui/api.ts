@@ -199,6 +199,20 @@ async function handlePostConfig(req: IncomingMessage, res: ServerResponse): Prom
   }
 }
 
+// Some providers (e.g. Mistral) report the same model id twice in the
+// catalog. Svelte 5 throws `each_key_duplicate` on duplicate #each keys,
+// which blanks the whole Models page — dedupe per provider before sending.
+function dedupModelsById<T extends { id: string }>(models: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const m of models) {
+    if (seen.has(m.id)) continue;
+    seen.add(m.id);
+    out.push(m);
+  }
+  return out;
+}
+
 async function handleGetModels(res: ServerResponse): Promise<void> {
   try {
     const catalog = await fetchModelsWithTimeout();
@@ -215,7 +229,8 @@ async function handleGetModels(res: ServerResponse): Promise<void> {
       })(),
       authType: p.authType ?? 'api',
       modelCount: rawCountById.get(p.id) ?? p.models.length,
-      models: p.models.map(m => ({
+      signupUrl: getTemplateById(p.id)?.signupUrl ?? null,
+      models: dedupModelsById(p.models).map(m => ({
         id: m.id,
         name: m.name,
         isFree: m.isFree ?? false,
@@ -241,6 +256,7 @@ async function handleGetModels(res: ServerResponse): Promise<void> {
         freeAccess: false,
         authType: 'oauth',
         modelCount: 0,
+        signupUrl: getTemplateById(rp.templateId)?.signupUrl ?? null,
         models: [],
       });
     }

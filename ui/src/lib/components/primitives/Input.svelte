@@ -16,7 +16,10 @@
   class="input"
   {placeholder}
   {value}
-  oninput={(e) => oninput?.((e.currentTarget as HTMLInputElement).value)}
+  oninput={(e) => {
+    value = (e.currentTarget as HTMLInputElement).value;
+    oninput?.(value);
+  }}
   onkeydown={onkeydown}
 />
 

@@ -68,7 +68,7 @@
 
   <div class="actions">
     <Button variant={status?.running ? 'danger' : 'primary'} disabled={server.starting} onclick={doStart}>
-      {server.starting ? 'Workingâ€¦' : status?.running ? 'Stop server' : 'Start server'}
+      {server.starting ? 'Working…' : status?.running ? 'Stop server' : 'Start server'}
     </Button>
   </div>
 </div>

@@ -35,7 +35,7 @@
 
 <div class="backdrop" role="presentation" onclick={onclose}>
   <div class="palette glass" role="dialog" aria-modal="true" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
-    <input class="q" placeholder="Search providers, models, appsâ€¦" bind:this={inputEl} bind:value={query} />
+    <input class="q" placeholder="Search providers, models, apps…" bind:this={inputEl} bind:value={query} />
     <div class="list">
       {#each results as item (item.id)}
         <button class="opt" onclick={() => go(item)}>

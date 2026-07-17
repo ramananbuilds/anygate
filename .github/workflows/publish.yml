@@ -23,16 +23,26 @@ jobs:
       # Gate the release on a green test + type-check + build before anything is published.
       - run: npm run typecheck
       - run: npm test
+
+      # Install UI dependencies so vite-plugin-svelte resolves in CI.
+      - name: Install UI dependencies
+        run: npm ci --prefix ui
+
       - run: npm run build
 
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # Create a GitHub Release from the matching CHANGELOG.md section.
+      # Create a GitHub Release from the matching RELEASE_NOTES.md section.
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          NOTES=$(node -e "const fs=require('fs');const cl=fs.readFileSync('CHANGELOG.md','utf8');const m=cl.match(/## \[[\d.]+\][^\n]*\n([\s\S]*?)(?=\n## \[|$)/);console.log(m?m[1].trim():'')")
+          if [ -f RELEASE_NOTES.md ]; then
+            NOTES=$(node -e "const fs=require('fs');const cl=fs.readFileSync('RELEASE_NOTES.md','utf8');const m=cl.match(/# anygate[^\n]*\n([\s\S]*?)(?=\n# anygate|$)/);console.log(m?m[1].trim():cl.trim())")
+          else
+            NOTES=$(git log -1 --pretty=%B)
+          fi
           gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes "$NOTES"
+

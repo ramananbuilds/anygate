@@ -5,11 +5,17 @@
     options: Option[];
     onchange?: (v: string) => void;
     id?: string;
+    disabled?: boolean;
   }
-  let { value = $bindable(''), options, onchange, id = '' }: Props = $props();
+  let { value = $bindable(''), options, onchange, id = '', disabled = false }: Props = $props();
+
+  function handleChange(e: Event) {
+    value = (e.currentTarget as HTMLSelectElement).value;
+    onchange?.(value);
+  }
 </script>
 
-<select class="select" {id} {value} onchange={(e) => onchange?.((e.currentTarget as HTMLSelectElement).value)}>
+<select class="select" {id} {value} {disabled} onchange={handleChange}>
   {#each options as opt (opt.value)}
     <option value={opt.value}>{opt.label}</option>
   {/each}

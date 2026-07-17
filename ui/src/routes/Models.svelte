@@ -74,7 +74,7 @@
     <div class="main-col">
       <ModelFilters providers={providers.list.map(p => ({ id: p.id, name: p.name }))} bind:value={filters} />
       {#if providers.loading}
-        <Spinner label="Loading modelsâ€¦" />
+        <Spinner label="Loading models…" />
       {:else if filtered.length === 0}
         <EmptyState title="No models match" icon="M4 6h16M4 12h16M4 18h16">Adjust filters or connect more providers.</EmptyState>
       {:else}

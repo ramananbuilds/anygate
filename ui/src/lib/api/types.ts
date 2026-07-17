@@ -47,6 +47,7 @@ export interface UiProvider {
   authType: ProviderAuthType;
   modelCount: number;
   models: UiProviderModel[];
+  signupUrl?: string | null;
 }
 
 export interface UiModelsResponse {
@@ -78,6 +79,10 @@ export interface UiApp {
   path?: string;
   gatewayCommand?: string;
   launchCommand?: string;
+  /** Shell command to install this app (CLIs). Absent for desktop apps. */
+  installHint?: string;
+  /** Vendor download page for desktop apps. Absent for CLIs. */
+  installUrl?: string;
 }
 
 export interface UiAppsResponse {
