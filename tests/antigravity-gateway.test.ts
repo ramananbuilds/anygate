@@ -1,8 +1,17 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, vi, beforeAll, afterAll } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { generateText, streamText } from 'ai';
 import { createLanguageModel } from '../src/gateway/provider-factory.js';
 import { startCloudCodeGateway, type CloudCodeGatewayHandle } from '../src/gateway/antigravity/cloud-code-gateway.js';
 import type { AntigravityRoute } from '../src/gateway/antigravity/types.js';
+
+// Isolate analytics writes: the cloud-code gateway calls recordUsage() for real,
+// so point ANYGATE_HOME at a temp dir to avoid polluting ~/.anygate/analytics.jsonl.
+const TMP_HOME = mkdtempSync(join(tmpdir(), 'anygate-gw-test-'));
+beforeAll(() => { process.env.ANYGATE_HOME = TMP_HOME; });
+afterAll(() => { rmSync(TMP_HOME, { recursive: true, force: true }); delete process.env.ANYGATE_HOME; });
 
 vi.mock('ai', () => {
   return {

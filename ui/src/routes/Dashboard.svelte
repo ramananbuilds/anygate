@@ -35,7 +35,8 @@
     <div class="title">
       <div class="title-row">
         <h2>Dashboard</h2>
-        {#if showSampleBadge && analytics.mock}<span class="sample" title="Sample data — connect a backend to see real usage">Sample</span>{/if}
+        {#if analytics.error}<span class="offline" title={analytics.error}>Offline</span>{/if}
+        {#if !analytics.error && !analytics.hasData}<span class="empty" title="No usage recorded yet — use anygate with a provider to populate real stats">No data yet</span>{/if}
       </div>
       <p>Usage analytics for your local gateway · {analytics.range === 'all' ? 'all time' : analytics.range}</p>
     </div>
@@ -46,6 +47,11 @@
 
   {#if analytics.loading && !analytics.report}
     <div class="loading"><Spinner label="Loading analytics…" /></div>
+  {:else if analytics.error}
+    <div class="notice">
+      <p class="notice-title">Can’t load real analytics</p>
+      <p class="notice-body">{analytics.error}</p>
+    </div>
   {:else if analytics.report}
     {#if tab === 'overview'}
       <div class="section">
@@ -123,14 +129,25 @@
     align-items: center;
     gap: 10px;
   }
-  .sample {
+  .offline {
     font-size: 10.5px;
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--accent);
-    background: var(--accent-muted);
-    border: 1px solid var(--border-glow);
+    color: #e5484d;
+    background: color-mix(in srgb, #e5484d 14%, transparent);
+    border: 1px solid color-mix(in srgb, #e5484d 40%, transparent);
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .empty {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    background: color-mix(in srgb, var(--text-3) 14%, transparent);
+    border: 1px solid var(--border);
     padding: 2px 8px;
     border-radius: 999px;
   }
@@ -139,6 +156,26 @@
     font-size: 13px;
     margin-top: 6px;
     text-transform: capitalize;
+  }
+
+  .notice {
+    margin-top: 28px;
+    padding: 16px 20px;
+    border: 1px solid color-mix(in srgb, #e5484d 40%, transparent);
+    background: color-mix(in srgb, #e5484d 8%, transparent);
+    border-radius: 12px;
+  }
+  .notice-title {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 700;
+    color: #e5484d;
+    margin: 0 0 4px;
+  }
+  .notice-body {
+    font-size: 13px;
+    color: var(--text-2);
+    margin: 0;
   }
 
   .section {

@@ -4782,8 +4782,8 @@ function getUsage(chunk) {
   const u = resp?.usageMetadata;
   if (!u) return null;
   return {
-    input: u.promptTokenCount ?? 0,
-    output: u.candidatesTokenCount ?? 0
+    inputTokens: u.promptTokenCount ?? 0,
+    outputTokens: u.candidatesTokenCount ?? 0
   };
 }
 function partThoughtSignature(part) {
@@ -4842,7 +4842,7 @@ async function streamCloudCodeToAnthropic(res, upstreamRes, model, log7) {
     textBlockOpen: false,
     pendingThoughtSignature: void 0,
     toolCalls: [],
-    usage: { input: 0, output: 0 },
+    usage: { inputTokens: 0, outputTokens: 0 },
     emittedTextChars: 0,
     suppressedThoughtChars: 0
   };
@@ -4869,7 +4869,7 @@ async function streamCloudCodeToAnthropic(res, upstreamRes, model, log7) {
     writeEvent(res, "message_delta", { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 0 } });
     writeEvent(res, "message_stop", { type: "message_stop" });
     res.end();
-    return;
+    return state.usage;
   }
   const reader = upstreamRes.body.getReader();
   const decoder = new TextDecoder();
@@ -4919,7 +4919,7 @@ async function streamCloudCodeToAnthropic(res, upstreamRes, model, log7) {
           finalStopReason = mapStopReason(finishReason);
           log7?.(() => {
             const toolNames = state.toolCalls.map((tc) => tc.name).filter(Boolean).join(",");
-            return `cloud-code stream finish=${finishReason} mapped=${finalStopReason} ${summarizeParts(parts)} emittedTextChars=${state.emittedTextChars} suppressedThoughtChars=${state.suppressedThoughtChars} queuedToolCalls=${state.toolCalls.length} queuedToolNames=${toolNames || "-"} outputTokens=${state.usage.output}`;
+            return `cloud-code stream finish=${finishReason} mapped=${finalStopReason} ${summarizeParts(parts)} emittedTextChars=${state.emittedTextChars} suppressedThoughtChars=${state.suppressedThoughtChars} queuedToolCalls=${state.toolCalls.length} queuedToolNames=${toolNames || "-"} outputTokens=${state.usage.outputTokens}`;
           });
           if (state.textBlockOpen) {
             closeBlock(res, state);
@@ -4951,11 +4951,11 @@ async function streamCloudCodeToAnthropic(res, upstreamRes, model, log7) {
           writeEvent(res, "message_delta", {
             type: "message_delta",
             delta: { stop_reason: anthropicStopReason, stop_sequence: null },
-            usage: { output_tokens: state.usage.output }
+            usage: { output_tokens: state.usage.outputTokens }
           });
           writeEvent(res, "message_stop", { type: "message_stop" });
           res.end();
-          return;
+          return state.usage;
         }
       }
     }
@@ -4969,10 +4969,11 @@ async function streamCloudCodeToAnthropic(res, upstreamRes, model, log7) {
   writeEvent(res, "message_delta", {
     type: "message_delta",
     delta: { stop_reason: finalStopReason, stop_sequence: null },
-    usage: { output_tokens: state.usage.output }
+    usage: { output_tokens: state.usage.outputTokens }
   });
   writeEvent(res, "message_stop", { type: "message_stop" });
   res.end();
+  return state.usage;
 }
 async function collectCloudCodeToAnthropic(upstreamRes, model, log7) {
   const text4 = await upstreamRes.text();
@@ -4988,8 +4989,8 @@ async function collectCloudCodeToAnthropic(upstreamRes, model, log7) {
     if (!chunk) continue;
     const usage = getUsage(chunk);
     if (usage) {
-      inputTokens = usage.input;
-      outputTokens = usage.output;
+      inputTokens = usage.inputTokens;
+      outputTokens = usage.outputTokens;
     }
     const candidate = getCandidate(chunk);
     if (!candidate) continue;
@@ -5033,7 +5034,9 @@ async function collectCloudCodeToAnthropic(upstreamRes, model, log7) {
     model,
     stop_reason: stopReason,
     stop_sequence: null,
-    usage: { input_tokens: inputTokens, output_tokens: outputTokens }
+    usage: { input_tokens: inputTokens, output_tokens: outputTokens },
+    inputTokens,
+    outputTokens
   };
 }
 
@@ -5939,12 +5942,22 @@ data: ${JSON.stringify({ type: "error", error: { type: errorType, message } })}
             anthropicError(res, upstream.status >= 500 ? 502 : upstream.status, errBody);
             return;
           }
+          let usage = { inputTokens: 0, outputTokens: 0 };
           if (clientWantsStream) {
-            await streamCloudCodeToAnthropic(res, upstream, route.realModelId, plog);
+            usage = await streamCloudCodeToAnthropic(res, upstream, route.realModelId, plog);
           } else {
             const response = await collectCloudCodeToAnthropic(upstream, route.realModelId, plog);
+            usage = { inputTokens: response.inputTokens ?? 0, outputTokens: response.outputTokens ?? 0 };
             sendJson(res, 200, response);
           }
+          recordUsage({
+            ts: (/* @__PURE__ */ new Date()).toISOString(),
+            modelId: route.realModelId,
+            providerId: route.providerId,
+            app: route.app ?? "Antigravity",
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens
+          });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           plog(() => `cloud-code fetch error: ${message}`);
@@ -10749,6 +10762,7 @@ export {
   encodeToolUseId,
   serializeToolResultContent,
   translateRequest,
+  recordUsage,
   aggregateAnalytics,
   aliasModelId,
   startProxyCatalog,
@@ -10817,4 +10831,4 @@ export {
   quitClaudeAppGracefully,
   launchOrRestartClaudeApp
 };
-//# sourceMappingURL=chunk-JYZ6CHGU.js.map
+//# sourceMappingURL=chunk-NEQPYNKV.js.map

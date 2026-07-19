@@ -15,6 +15,7 @@ import { formatCloudCodeChunk, mapFinishReason, normalizeFunctionCallArgs } from
 import { applyClaudeCodeOAuthIdentity } from '../../oauth/claude-code-identity.js';
 import { ANTIGRAVITY_BASE_URLS } from '../../oauth/antigravity-oauth.js';
 import type { AntigravityRoute, CatalogFixture } from './types.js';
+import { recordUsage } from '../../core/analytics-log.js';
 import {
   injectGatewayModels,
   resolveGateCatalogSlots,
@@ -490,20 +491,69 @@ async function handleCloudCodeForwardRequest(
       res.end();
       return;
     }
+    let inputTokens = 0;
+    let outputTokens = 0;
+    // Scan the SSE for the final usageMetadata object (Gemini reports it on the
+    // last chunk). We tee the bytes through untouched and just read for token counts.
+    const decoder = new TextDecoder();
+    let buf = '';
     for await (const chunk of upstream.body as any) {
+      const text = decoder.decode(chunk as Uint8Array, { stream: true });
+      buf += text;
+      const lines = buf.split('\n');
+      buf = lines.pop() ?? '';
+      for (const line of lines) {
+        const t = line.startsWith('data: ') ? line.slice(6).trim() : line.trim();
+        if (!t || t === '[DONE]') continue;
+        try {
+          const obj = JSON.parse(t) as { response?: { usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } } };
+          const u = obj.response?.usageMetadata;
+          if (u) {
+            inputTokens = u.promptTokenCount ?? inputTokens;
+            outputTokens = u.candidatesTokenCount ?? outputTokens;
+          }
+        } catch { /* not a JSON SSE line — ignore */ }
+      }
       res.write(chunk);
     }
     res.end();
+    recordUsage({
+      ts: new Date().toISOString(),
+      modelId: route.upstreamModelId,
+      providerId: route.providerId,
+      app: 'Antigravity',
+      inputTokens,
+      outputTokens,
+    });
     return;
   }
 
   const body = await upstream.text();
+  // Parse usageMetadata from the unary Cloud Code JSON response.
+  let inputTokens = 0;
+  let outputTokens = 0;
+  try {
+    const obj = JSON.parse(body) as { response?: { usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } } };
+    const u = obj.response?.usageMetadata;
+    if (u) {
+      inputTokens = u.promptTokenCount ?? 0;
+      outputTokens = u.candidatesTokenCount ?? 0;
+    }
+  } catch { /* ignore parse errors */ }
   res.writeHead(200, {
     'content-type': upstream.headers.get('content-type') ?? 'application/json',
     'content-length': String(Buffer.byteLength(body)),
     'grpc-status': '0',
   });
   res.end(body);
+  recordUsage({
+    ts: new Date().toISOString(),
+    modelId: route.upstreamModelId,
+    providerId: route.providerId,
+    app: 'Antigravity',
+    inputTokens,
+    outputTokens,
+  });
 }
 
 interface RequestHandlerOptions {
@@ -724,6 +774,16 @@ async function handleStreamingRequest(
         },
       });
       res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+      // Log Antigravity usage for the dashboard (was previously never recorded).
+      recordUsage({
+        ts: new Date().toISOString(),
+        modelId: route.upstreamModelId,
+        npm: route.npm,
+        providerId: route.providerId,
+        app: 'Antigravity',
+        inputTokens: p.totalUsage?.inputTokens ?? 0,
+        outputTokens: p.totalUsage?.outputTokens ?? 0,
+      });
     } else if (p.type === 'error') {
       const message = formatUpstreamError(p.error);
       log(`[gateway] stream provider error: ${message}`);
@@ -819,4 +879,15 @@ async function handleUnaryRequest(
   };
 
   respondJson(res, 200, { response, traceId: 'gateway-trace', metadata: {} });
+
+  // Log Antigravity usage for the dashboard (was previously never recorded).
+  recordUsage({
+    ts: new Date().toISOString(),
+    modelId: route.upstreamModelId,
+    npm: route.npm,
+    providerId: route.providerId,
+    app: 'Antigravity',
+    inputTokens: result.usage?.inputTokens ?? 0,
+    outputTokens: result.usage?.outputTokens ?? 0,
+  });
 }

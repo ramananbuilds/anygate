@@ -118,6 +118,19 @@ describe('analytics-log', () => {
     for (const m of a.models) expect(['Claude', 'Codex', 'Antigravity', 'gateway']).toContain(m.app);
   });
 
+  it('attributes Antigravity usage separately by app label', () => {
+    recordUsage(ev({ ts: daysAgoIso(0), modelId: 'gemini-flash', providerId: 'antigravity', app: 'Antigravity', inputTokens: 400, outputTokens: 100 }));
+    recordUsage(ev({ ts: daysAgoIso(0), modelId: 'claude-sonnet', providerId: 'anthropic', app: 'Claude', inputTokens: 10, outputTokens: 10 }));
+
+    const a = aggregateAnalytics('all');
+    const agy = a.models.find(m => m.app === 'Antigravity');
+    expect(agy).toBeDefined();
+    expect(agy!.model).toBe('gemini-flash');
+    expect(agy!.provider).toBe('antigravity');
+    expect(agy!.inputTokens).toBe(400);
+    expect(agy!.outputTokens).toBe(100);
+  });
+
   it('daily token series and heatmap cover the full range with zero-fill', () => {
     recordUsage(ev({ ts: daysAgoIso(0), modelId: 'a', app: 'Claude', inputTokens: 10, outputTokens: 10 }));
     const a = aggregateAnalytics('7d');

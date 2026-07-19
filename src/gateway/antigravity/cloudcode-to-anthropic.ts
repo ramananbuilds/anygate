@@ -36,13 +36,13 @@ function getFinishReason(candidate: JsonRecord): string | null {
   return r ?? null;
 }
 
-function getUsage(chunk: JsonRecord): { input: number; output: number } | null {
+function getUsage(chunk: JsonRecord): CloudCodeUsage | null {
   const resp = chunk.response as JsonRecord | undefined;
   const u = resp?.usageMetadata as JsonRecord | undefined;
   if (!u) return null;
   return {
-    input: (u.promptTokenCount as number | undefined) ?? 0,
-    output: (u.candidatesTokenCount as number | undefined) ?? 0,
+    inputTokens: (u.promptTokenCount as number | undefined) ?? 0,
+    outputTokens: (u.candidatesTokenCount as number | undefined) ?? 0,
   };
 }
 
@@ -88,7 +88,7 @@ interface StreamState {
   textBlockOpen: boolean;
   pendingThoughtSignature?: string;
   toolCalls: Array<{ name: string; args: JsonRecord; signature?: string }>;
-  usage: { input: number; output: number };
+  usage: CloudCodeUsage;
   emittedTextChars: number;
   suppressedThoughtChars: number;
 }
@@ -117,12 +117,26 @@ function closeBlock(res: ServerResponse, state: StreamState): void {
  * Cloud Code thought text is intentionally not forwarded to Claude Code because it
  * can otherwise appear as assistant-visible reasoning.
  */
+/** Token usage extracted from a Cloud Code Assist response (for analytics). */
+export interface CloudCodeUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/**
+ * Stream a Cloud Code Assist SSE response to the client as Anthropic SSE.
+ * Handles text and tool calls (tool calls are accumulated and emitted at finish).
+ * Cloud Code thought text is intentionally not forwarded to Claude Code because it
+ * can otherwise appear as assistant-visible reasoning.
+ *
+ * Returns the Gemini `usageMetadata` token counts so callers can record usage.
+ */
 export async function streamCloudCodeToAnthropic(
   res: ServerResponse,
   upstreamRes: Response,
   model: string,
   log?: LogFn,
-): Promise<void> {
+): Promise<CloudCodeUsage> {
   const state: StreamState = {
     messageId: `msg_${randomUUID().replace(/-/g, '').slice(0, 24)}`,
     model,
@@ -130,7 +144,7 @@ export async function streamCloudCodeToAnthropic(
     textBlockOpen: false,
     pendingThoughtSignature: undefined,
     toolCalls: [],
-    usage: { input: 0, output: 0 },
+    usage: { inputTokens: 0, outputTokens: 0 },
     emittedTextChars: 0,
     suppressedThoughtChars: 0,
   };
@@ -160,7 +174,7 @@ export async function streamCloudCodeToAnthropic(
     writeEvent(res, 'message_delta', { type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 0 } });
     writeEvent(res, 'message_stop', { type: 'message_stop' });
     res.end();
-    return;
+    return state.usage;
   }
   const reader = upstreamRes.body.getReader();
   const decoder = new TextDecoder();
@@ -221,7 +235,7 @@ export async function streamCloudCodeToAnthropic(
           finalStopReason = mapStopReason(finishReason);
           log?.(() => {
             const toolNames = state.toolCalls.map(tc => tc.name).filter(Boolean).join(',');
-            return `cloud-code stream finish=${finishReason} mapped=${finalStopReason} ${summarizeParts(parts)} emittedTextChars=${state.emittedTextChars} suppressedThoughtChars=${state.suppressedThoughtChars} queuedToolCalls=${state.toolCalls.length} queuedToolNames=${toolNames || '-'} outputTokens=${state.usage.output}`;
+            return `cloud-code stream finish=${finishReason} mapped=${finalStopReason} ${summarizeParts(parts)} emittedTextChars=${state.emittedTextChars} suppressedThoughtChars=${state.suppressedThoughtChars} queuedToolCalls=${state.toolCalls.length} queuedToolNames=${toolNames || '-'} outputTokens=${state.usage.outputTokens}`;
           });
 
           // Close open text block
@@ -260,11 +274,11 @@ export async function streamCloudCodeToAnthropic(
           writeEvent(res, 'message_delta', {
             type: 'message_delta',
             delta: { stop_reason: anthropicStopReason, stop_sequence: null },
-            usage: { output_tokens: state.usage.output },
+            usage: { output_tokens: state.usage.outputTokens },
           });
           writeEvent(res, 'message_stop', { type: 'message_stop' });
           res.end();
-          return;
+          return state.usage;
         }
       }
     }
@@ -278,10 +292,11 @@ export async function streamCloudCodeToAnthropic(
   writeEvent(res, 'message_delta', {
     type: 'message_delta',
     delta: { stop_reason: finalStopReason, stop_sequence: null },
-    usage: { output_tokens: state.usage.output },
+    usage: { output_tokens: state.usage.outputTokens },
   });
   writeEvent(res, 'message_stop', { type: 'message_stop' });
   res.end();
+  return state.usage;
 }
 
 /**
@@ -292,7 +307,7 @@ export async function collectCloudCodeToAnthropic(
   upstreamRes: Response,
   model: string,
   log?: LogFn,
-): Promise<JsonRecord> {
+): Promise<JsonRecord & CloudCodeUsage> {
   const text = await upstreamRes.text();
   const messageId = `msg_${randomUUID().replace(/-/g, '').slice(0, 24)}`;
 
@@ -308,7 +323,7 @@ export async function collectCloudCodeToAnthropic(
     if (!chunk) continue;
 
     const usage = getUsage(chunk);
-    if (usage) { inputTokens = usage.input; outputTokens = usage.output; }
+    if (usage) { inputTokens = usage.inputTokens; outputTokens = usage.outputTokens; }
 
     const candidate = getCandidate(chunk);
     if (!candidate) continue;
@@ -362,5 +377,7 @@ export async function collectCloudCodeToAnthropic(
     stop_reason: stopReason,
     stop_sequence: null,
     usage: { input_tokens: inputTokens, output_tokens: outputTokens },
+    inputTokens,
+    outputTokens,
   };
 }

@@ -403,12 +403,24 @@ export function startProxyCatalog(
             anthropicError(res, upstream.status >= 500 ? 502 : upstream.status, errBody);
             return;
           }
+          let usage = { inputTokens: 0, outputTokens: 0 };
           if (clientWantsStream) {
-            await streamCloudCodeToAnthropic(res, upstream, route.realModelId, plog);
+            usage = await streamCloudCodeToAnthropic(res, upstream, route.realModelId, plog);
           } else {
-            const response = await collectCloudCodeToAnthropic(upstream, route.realModelId, plog);
+            const response = await collectCloudCodeToAnthropic(upstream, route.realModelId, plog) as Record<string, any>;
+            usage = { inputTokens: response.inputTokens ?? 0, outputTokens: response.outputTokens ?? 0 };
             sendJson(res, 200, response);
           }
+          // Antigravity's direct Gemini usage was previously never logged. Record it
+          // here so the dashboard counts it (attributed to the Antigravity app).
+          recordUsage({
+            ts: new Date().toISOString(),
+            modelId: route.realModelId,
+            providerId: route.providerId,
+            app: route.app ?? 'Antigravity',
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+          });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           plog(() => `cloud-code fetch error: ${message}`);

@@ -128,6 +128,7 @@ import {
   readGlobalOpencodeCredential,
   readOpencodeAuthFile,
   recordLaunchSelection,
+  recordUsage,
   refreshAllProviderModels,
   refreshModelsDevCacheAsync,
   refreshProviderModels,
@@ -168,7 +169,7 @@ import {
   validateCustomEndpointUrl,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-JYZ6CHGU.js";
+} from "./chunk-NEQPYNKV.js";
 import {
   filterTemplates,
   getTemplateById,
@@ -8145,19 +8146,67 @@ async function handleCloudCodeForwardRequest(res, route, parsed, lowerUrl, log15
       res.end();
       return;
     }
+    let inputTokens2 = 0;
+    let outputTokens2 = 0;
+    const decoder = new TextDecoder();
+    let buf = "";
     for await (const chunk of upstream.body) {
+      const text4 = decoder.decode(chunk, { stream: true });
+      buf += text4;
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const line2 of lines) {
+        const t = line2.startsWith("data: ") ? line2.slice(6).trim() : line2.trim();
+        if (!t || t === "[DONE]") continue;
+        try {
+          const obj = JSON.parse(t);
+          const u = obj.response?.usageMetadata;
+          if (u) {
+            inputTokens2 = u.promptTokenCount ?? inputTokens2;
+            outputTokens2 = u.candidatesTokenCount ?? outputTokens2;
+          }
+        } catch {
+        }
+      }
       res.write(chunk);
     }
     res.end();
+    recordUsage({
+      ts: (/* @__PURE__ */ new Date()).toISOString(),
+      modelId: route.upstreamModelId,
+      providerId: route.providerId,
+      app: "Antigravity",
+      inputTokens: inputTokens2,
+      outputTokens: outputTokens2
+    });
     return;
   }
   const body = await upstream.text();
+  let inputTokens = 0;
+  let outputTokens = 0;
+  try {
+    const obj = JSON.parse(body);
+    const u = obj.response?.usageMetadata;
+    if (u) {
+      inputTokens = u.promptTokenCount ?? 0;
+      outputTokens = u.candidatesTokenCount ?? 0;
+    }
+  } catch {
+  }
   res.writeHead(200, {
     "content-type": upstream.headers.get("content-type") ?? "application/json",
     "content-length": String(Buffer.byteLength(body)),
     "grpc-status": "0"
   });
   res.end(body);
+  recordUsage({
+    ts: (/* @__PURE__ */ new Date()).toISOString(),
+    modelId: route.upstreamModelId,
+    providerId: route.providerId,
+    app: "Antigravity",
+    inputTokens,
+    outputTokens
+  });
 }
 function emitThinkingDelta(res, route, responseId, text4, startSse) {
   if (!text4) return;
@@ -8353,6 +8402,15 @@ async function handleStreamingRequest(res, route, providerOptions, parsed, log15
       res.write(`data: ${JSON.stringify(chunk)}
 
 `);
+      recordUsage({
+        ts: (/* @__PURE__ */ new Date()).toISOString(),
+        modelId: route.upstreamModelId,
+        npm: route.npm,
+        providerId: route.providerId,
+        app: "Antigravity",
+        inputTokens: p16.totalUsage?.inputTokens ?? 0,
+        outputTokens: p16.totalUsage?.outputTokens ?? 0
+      });
     } else if (p16.type === "error") {
       const message = formatUpstreamError(p16.error);
       log15(`[gateway] stream provider error: ${message}`);
@@ -8433,6 +8491,15 @@ async function handleUnaryRequest(res, route, providerOptions, parsed, _log, opt
     responseId
   };
   respondJson(res, 200, { response, traceId: "gateway-trace", metadata: {} });
+  recordUsage({
+    ts: (/* @__PURE__ */ new Date()).toISOString(),
+    modelId: route.upstreamModelId,
+    npm: route.npm,
+    providerId: route.providerId,
+    app: "Antigravity",
+    inputTokens: result.usage?.inputTokens ?? 0,
+    outputTokens: result.usage?.outputTokens ?? 0
+  });
 }
 
 // src/gateway/antigravity/launch-routes.ts
@@ -12802,7 +12869,7 @@ Error: ${parsed.error}
       console.log("Usage: anygate ui [--trace]\n\nOpen the settings UI in your browser.");
       return 0;
     }
-    const { runUiCommand } = await import("./command-V5VVI5ME.js");
+    const { runUiCommand } = await import("./command-WLWBB27J.js");
     return runUiCommand({ trace: parsed.trace });
   }
   if (parsed.command === "models") {
