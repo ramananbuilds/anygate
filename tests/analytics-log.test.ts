@@ -137,6 +137,8 @@ describe('analytics-log', () => {
     expect(a.dailyTokens).toHaveLength(7);
     expect(a.heatmap).toHaveLength(7);
     expect(a.dailyTokens[a.dailyTokens.length - 1]!.tokens).toBe(20);
-    expect(a.heatmap[a.heatmap.length - 1]!.count).toBe(1);
+    // heatmap.count now carries the day's token volume (not event count)
+    expect(a.heatmap[a.heatmap.length - 1]!.count).toBe(20);
+    expect(a.heatmap[a.heatmap.length - 1]!.intensity).toBeGreaterThan(0);
   });
 });

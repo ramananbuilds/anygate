@@ -236,7 +236,7 @@ export function aggregateAnalytics(range: RangeId): DashboardAnalytics {
     d.setUTCDate(today.getUTCDate() - i);
     const date = d.toISOString().slice(0, 10);
     const tokens = tokensByDay.get(date) ?? 0;
-    let intensity = 0;
+    let intensity: 0 | 1 | 2 | 3 | 4 = 0;
     if (tokens > 0) {
       // Scale 1–4 by this day's volume relative to the busiest day, but never
       // drop a real-usage day to 0 (that made active days look empty/inactive).

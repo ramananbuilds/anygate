@@ -169,7 +169,7 @@ import {
   validateCustomEndpointUrl,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-J6EY2T3J.js";
+} from "./chunk-CH5IEXJN.js";
 import {
   filterTemplates,
   getTemplateById,
@@ -12869,7 +12869,7 @@ Error: ${parsed.error}
       console.log("Usage: anygate ui [--trace]\n\nOpen the settings UI in your browser.");
       return 0;
     }
-    const { runUiCommand } = await import("./command-CLREIMP5.js");
+    const { runUiCommand } = await import("./command-QEYVYS7O.js");
     return runUiCommand({ trace: parsed.trace });
   }
   if (parsed.command === "models") {
