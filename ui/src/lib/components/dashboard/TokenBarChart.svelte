@@ -40,10 +40,28 @@
     const cur = new Date(data[i].date + 'T00:00:00').getMonth();
     return prev !== cur;
   }
+
+  // Auto-scroll to the most recent (rightmost) day on load/update so the user
+  // sees their real, recent usage immediately instead of the earliest (empty)
+  // history that sits at the far left of a long 'all' range.
+  let scrollEl = $state<HTMLDivElement | null>(null);
+  const needsScroll = $derived(
+    scrollEl ? scrollEl.scrollWidth - scrollEl.clientWidth > 8 : false,
+  );
+  $effect(() => {
+    void data; // re-run when data changes
+    const el = scrollEl;
+    if (el && el.scrollWidth > el.clientWidth) el.scrollLeft = el.scrollWidth;
+  });
 </script>
 
 <div class="chart">
-  <div class="scroll">
+  <div class="yaxis" aria-hidden="true">
+    {#each yTicks as t (t)}
+      <span>{compact(t)}</span>
+    {/each}
+  </div>
+  <div class="scroll" bind:this={scrollEl}>
     <div class="bars">
       <div class="gridlines">
         {#each yTicks as t (t)}
@@ -53,17 +71,15 @@
       {#each data as d, i (d.date)}
         <div class="bar-col" title={`${d.date} · ${compact(d.tokens)} tokens`}>
           <div class="bar-area">
-            <div class="bar" style="height:{(d.tokens / yMax) * 100}%"></div>
+            <div class="bar" class:active={d.tokens > 0} style="height:{(d.tokens / yMax) * 100}%"></div>
           </div>
           <div class="xlabel">{#if isMonthStart(i)}{monthLabel(d.date)}{/if}</div>
         </div>
       {/each}
     </div>
-  </div>
-  <div class="yaxis">
-    {#each yTicks as t (t)}
-      <span>{compact(t)}</span>
-    {/each}
+    {#if needsScroll}
+      <div class="scroll-hint">→ scroll left for older days</div>
+    {/if}
   </div>
 </div>
 
@@ -77,6 +93,7 @@
     flex: 1;
     overflow-x: auto;
     padding-bottom: 2px;
+    position: relative;
   }
   .bars {
     position: relative;
@@ -123,6 +140,23 @@
     opacity: 1;
     transform: scaleY(1.02);
   }
+  .bar.active {
+    opacity: 1;
+    background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  .scroll-hint {
+    position: absolute;
+    top: 4px;
+    left: 8px;
+    font-size: 10.5px;
+    color: var(--text-3);
+    background: color-mix(in srgb, var(--bg-1) 80%, transparent);
+    padding: 2px 8px;
+    border-radius: 999px;
+    pointer-events: none;
+    opacity: 0.85;
+  }
   .xlabel {
     height: 16px;
     flex: none;
@@ -142,5 +176,6 @@
     padding-bottom: 16px;
     text-align: right;
     min-width: 34px;
+    flex: none;
   }
 </style>

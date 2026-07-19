@@ -169,7 +169,7 @@ import {
   validateCustomEndpointUrl,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-NEQPYNKV.js";
+} from "./chunk-J6EY2T3J.js";
 import {
   filterTemplates,
   getTemplateById,
@@ -8173,7 +8173,7 @@ async function handleCloudCodeForwardRequest(res, route, parsed, lowerUrl, log15
     res.end();
     recordUsage({
       ts: (/* @__PURE__ */ new Date()).toISOString(),
-      modelId: route.upstreamModelId,
+      modelId: route.displayName,
       providerId: route.providerId,
       app: "Antigravity",
       inputTokens: inputTokens2,
@@ -8201,7 +8201,7 @@ async function handleCloudCodeForwardRequest(res, route, parsed, lowerUrl, log15
   res.end(body);
   recordUsage({
     ts: (/* @__PURE__ */ new Date()).toISOString(),
-    modelId: route.upstreamModelId,
+    modelId: route.displayName,
     providerId: route.providerId,
     app: "Antigravity",
     inputTokens,
@@ -8404,7 +8404,7 @@ async function handleStreamingRequest(res, route, providerOptions, parsed, log15
 `);
       recordUsage({
         ts: (/* @__PURE__ */ new Date()).toISOString(),
-        modelId: route.upstreamModelId,
+        modelId: route.displayName,
         npm: route.npm,
         providerId: route.providerId,
         app: "Antigravity",
@@ -8493,7 +8493,7 @@ async function handleUnaryRequest(res, route, providerOptions, parsed, _log, opt
   respondJson(res, 200, { response, traceId: "gateway-trace", metadata: {} });
   recordUsage({
     ts: (/* @__PURE__ */ new Date()).toISOString(),
-    modelId: route.upstreamModelId,
+    modelId: route.displayName,
     npm: route.npm,
     providerId: route.providerId,
     app: "Antigravity",
@@ -12869,7 +12869,7 @@ Error: ${parsed.error}
       console.log("Usage: anygate ui [--trace]\n\nOpen the settings UI in your browser.");
       return 0;
     }
-    const { runUiCommand } = await import("./command-WLWBB27J.js");
+    const { runUiCommand } = await import("./command-CLREIMP5.js");
     return runUiCommand({ trace: parsed.trace });
   }
   if (parsed.command === "models") {

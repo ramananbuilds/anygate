@@ -6,7 +6,7 @@ export type RangeId = 'all' | '30d' | '7d';
 
 export interface HeatDay {
   date: string; // YYYY-MM-DD
-  count: number; // messages/sessions that day
+  count: number; // total tokens that day (drives color intensity)
   intensity: 0 | 1 | 2 | 3 | 4; // bucket for coloring
 }
 
@@ -14,7 +14,8 @@ export interface ModelUsage {
   provider: string;
   model: string;
   tier: string; // free | zen | go | both
-  app: string; // Claude | Codex | Antigravity
+  app: string; // primary source app (gateway | Antigravity | ...)
+  apps: string[]; // all distinct source apps that contributed usage
   inputTokens: number;
   outputTokens: number;
   share: number; // 0..1

@@ -519,7 +519,7 @@ async function handleCloudCodeForwardRequest(
     res.end();
     recordUsage({
       ts: new Date().toISOString(),
-      modelId: route.upstreamModelId,
+      modelId: route.displayName,
       providerId: route.providerId,
       app: 'Antigravity',
       inputTokens,
@@ -548,7 +548,7 @@ async function handleCloudCodeForwardRequest(
   res.end(body);
   recordUsage({
     ts: new Date().toISOString(),
-    modelId: route.upstreamModelId,
+    modelId: route.displayName,
     providerId: route.providerId,
     app: 'Antigravity',
     inputTokens,
@@ -777,7 +777,7 @@ async function handleStreamingRequest(
       // Log Antigravity usage for the dashboard (was previously never recorded).
       recordUsage({
         ts: new Date().toISOString(),
-        modelId: route.upstreamModelId,
+        modelId: route.displayName,
         npm: route.npm,
         providerId: route.providerId,
         app: 'Antigravity',
@@ -883,7 +883,7 @@ async function handleUnaryRequest(
   // Log Antigravity usage for the dashboard (was previously never recorded).
   recordUsage({
     ts: new Date().toISOString(),
-    modelId: route.upstreamModelId,
+    modelId: route.displayName,
     npm: route.npm,
     providerId: route.providerId,
     app: 'Antigravity',

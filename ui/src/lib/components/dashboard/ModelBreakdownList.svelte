@@ -38,7 +38,15 @@
       <span class="dot" style="background:{m.color}"></span>
       <div class="id">
         <div class="name" title="{m.provider}: {m.model}">{m.provider}: {m.model}</div>
-        <div class="meta">{m.tier} · {m.app}</div>
+        <div class="meta">
+          {#if m.apps?.length}
+            {#each m.apps as app (app)}
+              <span class="app-badge" class:agy={app.toLowerCase() === 'antigravity'}>{app}</span>
+            {/each}
+          {:else}
+            <span class="app-badge">{m.app}</span>
+          {/if}
+        </div>
       </div>
       <div class="nums">
         <span class="in">↓ {compact(m.inputTokens)}</span>
@@ -85,6 +93,27 @@
     font-size: 11.5px;
     color: var(--text-3);
     text-transform: capitalize;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 3px;
+  }
+  .app-badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: capitalize;
+    color: var(--text-2);
+    background: color-mix(in srgb, var(--text-3) 16%, transparent);
+    border: 1px solid color-mix(in srgb, var(--text-3) 30%, transparent);
+    padding: 1px 7px;
+    border-radius: 999px;
+    line-height: 1.5;
+  }
+  .app-badge.agy {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
   }
   .nums {
     display: flex;

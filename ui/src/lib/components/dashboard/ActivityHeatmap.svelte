@@ -34,16 +34,26 @@
     return marks;
   });
 
+  // Format a token count compactly (e.g. 1.2M) for tooltips.
+  const fmtTokens = (n: number): string => {
+    if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
+    if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+    if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+    return String(n);
+  };
+
+  // 5-stop accent gradient: each level is clearly lighter/darker than its
+  // neighbor so differences in daily token volume read at a glance.
   const levelColor = (lvl: number): string => {
     switch (lvl) {
       case 0:
         return 'var(--surface-2)';
       case 1:
-        return 'oklch(75% 0.16 65 / 0.28)';
+        return 'color-mix(in srgb, var(--accent) 22%, transparent)';
       case 2:
-        return 'oklch(75% 0.16 65 / 0.5)';
+        return 'color-mix(in srgb, var(--accent) 45%, transparent)';
       case 3:
-        return 'oklch(75% 0.16 65 / 0.74)';
+        return 'color-mix(in srgb, var(--accent) 70%, transparent)';
       default:
         return 'var(--accent)';
     }
@@ -65,7 +75,7 @@
             <div
               class="cell"
               style="background:{levelColor(d.intensity)}"
-              title={`${d.date} · ${d.count} activities`}
+              title={`${d.date} · ${fmtTokens(d.count)} tokens`}
             ></div>
           {:else}
             <div class="cell empty"></div>
@@ -121,16 +131,19 @@
     width: 13px;
     height: 13px;
     border-radius: 3px;
-    border: 1px solid var(--border);
     transition: transform var(--dur-xs) var(--ease);
+  }
+  .cell:not(.empty) {
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 25%, transparent);
   }
   .cell:not(.empty):hover {
     transform: scale(1.18);
     border-color: var(--border-bright);
   }
   .cell.empty {
-    border-color: transparent;
     background: transparent;
+    border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
   }
   .legend {
     display: flex;

@@ -25,6 +25,23 @@ export interface UsageEvent {
   outputTokens: number;
 }
 
+/**
+ * Normalize a model id for aggregation so the same physical model logged via
+ * different code paths merges into one dashboard row. The gateway records a
+ * display-style name (e.g. "Tencent: Hy3 (free) (Kilo Code)") while the
+ * Antigravity gateway records its route displayName / raw upstream id
+ * (e.g. "tencent/hy3:free"). We lowercase, unify `/`↔`:` separators, and strip
+ * a trailing provider parenthetical so these converge.
+ */
+export function normalizeModelKey(modelId: string): string {
+  return modelId
+    .toLowerCase()
+    .replace(/\//g, ':')
+    .replace(/\s*\([^)]*\)\s*$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function analyticsPath(): string {
   return join(getAppHome(), ANALYTICS_FILE);
 }
@@ -114,6 +131,7 @@ export interface ModelUsage {
   model: string;
   tier: string; // free | zen | go | both | '' (unknown)
   app: string;
+  apps: string[]; // distinct source apps (gateway, Antigravity, ...) that contributed
   inputTokens: number;
   outputTokens: number;
   share: number; // 0..1
@@ -179,6 +197,7 @@ export function aggregateAnalytics(range: RangeId): DashboardAnalytics {
   // key = providerId|modelId
   const modelMap = new Map<string, {
     provider: string; model: string; app: string;
+    apps: Set<string>;
     inputTokens: number; outputTokens: number;
   }>();
 
@@ -199,23 +218,32 @@ export function aggregateAnalytics(range: RangeId): DashboardAnalytics {
     if (Number.isFinite(hour) && hour >= 0 && hour < 24) hourCounts[hour] += 1;
 
     const provider = e.providerId ?? e.npm?.replace(/^@/, '').replace(/\//g, '-') ?? 'unknown';
-    const key = `${provider}|${e.modelId}`;
-    const m = modelMap.get(key) ?? { provider, model: e.modelId, app: e.app, inputTokens: 0, outputTokens: 0 };
+    const key = `${provider}|${normalizeModelKey(e.modelId)}`;
+    const m = modelMap.get(key) ?? { provider, model: e.modelId, app: e.app, apps: new Set<string>(), inputTokens: 0, outputTokens: 0 };
+    // Prefer a human-readable display name (contains a space) over a raw id like "tencent/hy3:free".
+    if (!/\s/.test(m.model) && /\s/.test(e.modelId)) m.model = e.modelId;
     m.inputTokens += e.inputTokens;
     m.outputTokens += e.outputTokens;
+    m.apps.add(e.app);
     modelMap.set(key, m);
   }
 
-  // ── heatmap (last N days, intensity 0–4 by daily event count) ──
-  const busiestDay = Math.max(1, ...[...eventsByDay.values()]);
+  // ── heatmap (last N days, intensity 0–4 by daily token volume) ──
+  const busiestDay = Math.max(1, ...[...tokensByDay.values()]);
   const heatmap: HeatDay[] = [];
   for (let i = rangeDays(range) - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setUTCDate(today.getUTCDate() - i);
     const date = d.toISOString().slice(0, 10);
-    const count = eventsByDay.get(date) ?? 0;
-    const intensity = (Math.min(4, Math.round((count / busiestDay) * 4)) || 0) as 0 | 1 | 2 | 3 | 4;
-    heatmap.push({ date, count, intensity });
+    const tokens = tokensByDay.get(date) ?? 0;
+    let intensity = 0;
+    if (tokens > 0) {
+      // Scale 1–4 by this day's volume relative to the busiest day, but never
+      // drop a real-usage day to 0 (that made active days look empty/inactive).
+      const pct = tokens / busiestDay; // 0..1
+      intensity = Math.max(1, Math.min(4, Math.round(1 + pct * 3))) as 0 | 1 | 2 | 3 | 4;
+    }
+    heatmap.push({ date, count: tokens, intensity });
   }
 
   // ── daily tokens series ──
@@ -253,11 +281,13 @@ export function aggregateAnalytics(range: RangeId): DashboardAnalytics {
   // ── models ──
   const models: ModelUsage[] = [...modelMap.entries()].map(([, m], idx) => {
     const share = totalTokens > 0 ? (m.inputTokens + m.outputTokens) / totalTokens : 0;
+    const apps = [...m.apps];
     return {
       provider: m.provider,
       model: m.model,
       tier: '', // source tier isn't tracked in the log; UI shows it from catalog elsewhere
-      app: m.app,
+      app: apps[0] ?? m.app,
+      apps,
       inputTokens: m.inputTokens,
       outputTokens: m.outputTokens,
       share,
