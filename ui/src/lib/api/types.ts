@@ -33,6 +33,8 @@ export interface UiProviderModel {
   format?: 'anthropic' | 'openai' | 'unsupported';
   reasoning?: boolean;
   supportedParameters?: string[];
+  /** Resolved input modalities, e.g. ['text'] or ['text','image'] — drives the vision badge. */
+  inputTypes?: string[];
   sourceBackend?: string;
 }
 

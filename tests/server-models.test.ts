@@ -69,6 +69,7 @@ describe('server model catalog', () => {
           created_at: '2025-01-01T00:00:00Z',
           context_window: 200_000,
           max_input_tokens: 200_000,
+          input_types: ['text'],
         },
         {
           id: 'deepseek-test',
@@ -77,6 +78,7 @@ describe('server model catalog', () => {
           created_at: '2025-01-01T00:00:00Z',
           context_window: 64_000,
           max_input_tokens: 64_000,
+          input_types: ['text'],
         },
         {
           id: 'gpt-5',
@@ -85,6 +87,7 @@ describe('server model catalog', () => {
           created_at: '2025-01-01T00:00:00Z',
           context_window: 400_000,
           max_input_tokens: 400_000,
+          input_types: ['text'],
         },
       ],
       has_more: false,

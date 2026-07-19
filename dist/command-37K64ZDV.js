@@ -48,6 +48,7 @@ import {
   requestGithubDeviceCode,
   requestOpenAiDeviceCode,
   requestXaiDeviceCode,
+  resolveInputTypes,
   resolveProviderCredential,
   resolveServerUpstreamApiKey,
   saveNativeOAuthCredential,
@@ -65,7 +66,7 @@ import {
   summarizeServerProviders,
   validateCustomEndpointUrl,
   writeSecureLogLine
-} from "./chunk-NEQPYNKV.js";
+} from "./chunk-PFXCTQPG.js";
 import {
   getTemplateById,
   listAddableTemplates,
@@ -676,7 +677,8 @@ async function handleGetModels(res) {
         freeStatus: m.freeStatus,
         freeLabel: freeStatusLabel(m.freeStatus),
         contextWindow: m.contextWindow,
-        cost: m.cost
+        cost: m.cost,
+        inputTypes: resolveInputTypes(m.family, p2.id, m.id)
       }))
     }));
     const materializedIds = new Set(catalog.map((p2) => p2.id));
@@ -1498,4 +1500,4 @@ export {
   resolveUiShutdownDecision,
   runUiCommand
 };
-//# sourceMappingURL=command-WLWBB27J.js.map
+//# sourceMappingURL=command-37K64ZDV.js.map

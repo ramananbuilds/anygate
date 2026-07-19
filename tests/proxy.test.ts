@@ -46,6 +46,11 @@ describe('aliasModelId', () => {
   it('uses stable provider id slug in alias', () => {
     expect(aliasModelId('deepseek-v4', 'go')).toBe('anthropic-go__deepseek-v4');
   });
+
+  it('sanitizes path-breaking characters in alias id', () => {
+    // NVIDIA Nemotron id contains '/' and ':' which are unsafe in URLs/paths
+    expect(aliasModelId('nvidia/nemotron-70b:free', 'openrouter')).toBe('anthropic-openrouter__nvidia-nemotron-70b-free');
+  });
 });
 
 describe('cloud-code handler 401 retry', () => {

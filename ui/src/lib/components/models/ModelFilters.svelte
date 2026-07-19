@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { EnrichedModel } from '../../stores/providers.svelte';
 
-  interface FilterState { provider: string; format: string; free: string; reasoning: string; query: string; sort: 'ctx' | 'cost' | 'name'; }
+  interface FilterState { provider: string; format: string; free: string; reasoning: string; vision: string; query: string; sort: 'ctx' | 'cost' | 'name'; }
   interface Props { providers: { id: string; name: string }[]; value: FilterState; onchange?: (v: FilterState) => void; }
   let { providers, value = $bindable(), onchange }: Props = $props();
 
@@ -29,6 +29,11 @@
     <option value="">Any reasoning</option>
     <option value="yes">Reasoning</option>
     <option value="no">No reasoning</option>
+  </select>
+  <select class="s" value={value.vision} onchange={(e) => set('vision', (e.currentTarget as HTMLSelectElement).value)}>
+    <option value="">Any vision</option>
+    <option value="yes">Vision</option>
+    <option value="no">No vision</option>
   </select>
   <select class="s" value={value.sort} onchange={(e) => set('sort', (e.currentTarget as HTMLSelectElement).value as FilterState['sort'])}>
     <option value="ctx">Sort: context</option>

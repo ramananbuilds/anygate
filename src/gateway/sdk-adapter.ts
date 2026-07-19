@@ -17,13 +17,14 @@ import {
   type ReasoningMetadata,
 } from './provider-factory.js';
 import { resolveUpstreamTools } from '../agents/shared/tool-search.js';
+import { fitContextWindow, estimateContextTokens } from './context-fit.js';
 import type { AnthropicRequestMessage, AnthropicToolDefinition } from './proxy-types.js';
 import { anthropicErrorType, upstreamHttpStatus } from '../core/errors.js';
 
 export { silenceSdkWarnings };
 
 // ── Anthropic request shapes (only the fields we read) ───────────────────────
-interface AnthropicBlock {
+export interface AnthropicBlock {
   type: string;
   text?: string;
   thinking?: string;
@@ -37,7 +38,7 @@ interface AnthropicBlock {
   // internal: resolved tool name for a tool_result, set by annotateToolNames
   _name?: string;
 }
-interface AnthropicMsg { role: 'user' | 'assistant' | 'system'; content: string | AnthropicBlock[]; }
+export interface AnthropicMsg { role: 'user' | 'assistant' | 'system'; content: string | AnthropicBlock[]; }
 interface AnthropicTool { name: string; description?: string; input_schema: Record<string, unknown>; }
 export interface AnthropicRequest {
   model: string;
@@ -60,6 +61,8 @@ export interface TranslateRequestOptions {
   openAiOAuth?: boolean;
   /** Hard cap on tools sent to the provider (e.g. Groq: 128). Excess tools are silently dropped. */
   maxTools?: number;
+  /** When set, trim the outgoing conversation to fit this many tokens (small-window models). */
+  contextWindow?: number;
 }
 
 /** Read reasoning effort from an Anthropic-format request body. */
@@ -234,7 +237,7 @@ export function translateRequest(
   npm: string,
   options?: TranslateRequestOptions,
 ): SdkCallParams {
-  const messages = body.messages ?? [];
+  let messages = body.messages ?? [];
   annotateToolNames(messages);
 
   // Fold inline role:'system' messages (skills list, system-reminders) into the
@@ -243,6 +246,34 @@ export function translateRequest(
   const inlineParts = inlineSystemText(messages);
   const systemText = [baseSystem, ...inlineParts].filter(s => s && s.trim()).join('\n\n')
     || (options?.openAiOAuth ? 'You are a coding assistant.' : undefined);
+
+  // Trim the conversation to fit the model's context window so small-window
+  // upstreams (e.g. Nemotron 131K) keep working in long sessions instead of
+  // being rejected. Antigravity stays within Gemini's huge window without this;
+  // for claude-app / Codex / Claude Code small-window routes it is required.
+  let trimmedSystem = systemText;
+  let maxOutput = options?.openAiOAuth ? undefined : body.max_tokens;
+  if (options?.contextWindow && options.contextWindow > 0) {
+    // messages already has inline system folded out via systemText; pass systemText so
+    // the system prompt is preserved and never dropped.
+    const { system: fittedSystem, messages: fittedMessages, trimmed } = fitContextWindow(
+      messages, systemText, options.contextWindow, (typeof maxOutput === 'number' ? maxOutput : 0),
+    );
+    if (trimmed) {
+      messages = fittedMessages;
+      annotateToolNames(messages);
+      // Re-fold inline system parts that survived into the fitted message list.
+      const fittedInline = inlineSystemText(messages);
+      trimmedSystem = [fittedSystem, ...fittedInline].filter(s => s && s.trim()).join('\n\n')
+        || (options?.openAiOAuth ? 'You are a coding assistant.' : undefined);
+      // Defensive: clamp max output so input + output stays within the window.
+      if (typeof maxOutput === 'number') {
+        const fittedInputTokens = estimateContextTokens(fittedSystem ?? '', fittedMessages);
+        const headroom = options.contextWindow - fittedInputTokens - 256;
+        if (headroom > 0 && maxOutput > headroom) maxOutput = headroom;
+      }
+    }
+  }
 
   // resolveUpstreamTools uses the shared proxy types; the adapter keeps its own
   // minimal request shapes, so cast at this boundary.
@@ -268,11 +299,11 @@ export function translateRequest(
   }
 
   return {
-    system: options?.openAiOAuth ? undefined : systemText,
+    system: options?.openAiOAuth ? undefined : trimmedSystem,
     messages: translateMessages(messages, npm),
     tools: translateTools(upstreamTools.length ? upstreamTools : undefined),
     toolChoice: translateToolChoice(body.tool_choice),
-    maxOutputTokens: options?.openAiOAuth ? undefined : body.max_tokens,
+    maxOutputTokens: options?.openAiOAuth ? undefined : maxOutput,
     temperature: body.temperature,
     providerOptions,
   };

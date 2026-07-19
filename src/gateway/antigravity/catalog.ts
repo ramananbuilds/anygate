@@ -6,6 +6,7 @@ import {
   validateAgySlotRegistry,
   type AgySlotValidationResult,
 } from './slot-registry.js';
+import { resolveInputTypes } from '../../registry/models-dev.js';
 
 /** Current Antigravity IDE flash-agent enum from fetchAvailableModels. */
 export const GATEWAY_CASCADE_PLAN_MODEL = 'MODEL_PLACEHOLDER_M132';
@@ -98,6 +99,7 @@ function applyRouteContextBounds(
 
   entry.maxTokens = maxTokenLimit;
   entry.maxOutputTokens = maxOutputTokens;
+  entry.supportsImages = route.inputTypes?.includes('image') ?? false;
   return withCascadeCheckpointer(entry, checkpointTokenLimit);
 }
 
@@ -291,6 +293,8 @@ export function buildAntigravityRoutes(
     const baseURL = (favModel as any).apiBaseUrl || (favModel as any).completionsUrl || undefined;
     const contextWindow = (favModel as any).contextWindow;
     const modelFormat = (favModel as any).modelFormat;
+    const family = (favModel as any).family || (favModel as any).brand || '';
+    const inputTypes = resolveInputTypes(family, fav.providerId, modelId);
 
     routes.push({
       catalogId,
@@ -307,6 +311,7 @@ export function buildAntigravityRoutes(
       ...(fav.providerData ? { providerData: fav.providerData } : {}),
       baseURL,
       contextWindow,
+      inputTypes,
     });
   }
 

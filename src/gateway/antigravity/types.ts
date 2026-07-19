@@ -20,6 +20,8 @@ export interface AntigravityRoute {
   /** Provider base URL — never serialized into the catalog. */
   baseURL?: string;
   contextWindow?: number;
+  /** Resolved input types (e.g. ['text'] or ['text','image']) — drives supportsImages in the catalog. */
+  inputTypes?: string[];
 }
 
 /** A minimal model entry from the Cloud Code fetchAvailableModels response. */

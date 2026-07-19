@@ -10,7 +10,7 @@ import { join } from "path";
 // package.json
 var package_default = {
   name: "anygate",
-  version: "0.5.4",
+  version: "0.5.5",
   publishConfig: {
     access: "public"
   },
@@ -3780,6 +3780,41 @@ function findModelsDevModel(providerId, modelId, cache = loadModelsDevCache()) {
   }
   return null;
 }
+var MULTIMODAL_FAMILIES = [
+  /nvidia.*nemotron/i,
+  /^gpt-/i,
+  /^o[0-9]/i,
+  // o1, o3, o4, o-series
+  /gpt-5/i,
+  /gemini/i,
+  /claude/i,
+  /sonnet/i,
+  /opus/i,
+  /haiku/i,
+  /llama.*vision/i,
+  /(vision|multimodal)/i,
+  /qwen.*vl/i,
+  /qwen2?-vl/i,
+  /deepseek.*vl/i,
+  /mistral.*(vision|pixtral)/i,
+  /pixtral/i,
+  /grok.*vision/i,
+  /(command|cohere).*vision/i
+];
+function familyMatchesMultimodal(family, modelId) {
+  const hay = `${family} ${modelId}`;
+  return MULTIMODAL_FAMILIES.some((re) => re.test(hay));
+}
+function resolveInputTypes(family, providerId, modelId, cache = loadModelsDevCache()) {
+  const entry = findModelsDevModel(providerId, modelId, cache);
+  const baseInput = entry?.modalities?.input && entry.modalities.input.length > 0 ? [...entry.modalities.input] : null;
+  if (baseInput && baseInput.every((t) => t === "text") && !familyMatchesMultimodal(family, modelId)) {
+    return ["text"];
+  }
+  const result = new Set(baseInput ?? ["text"]);
+  if (familyMatchesMultimodal(family, modelId)) result.add("image");
+  return [...result];
+}
 function shouldHideByModelsDevCapabilities(entry) {
   const output = entry.modalities?.output;
   if (output && output.length > 0 && !output.includes("text")) return true;
@@ -3981,7 +4016,7 @@ function maskGatewayModelId(aliasId) {
 // src/gateway/models.ts
 var CREATED_AT_ISO = "2025-01-01T00:00:00Z";
 var CREATED_AT_UNIX = 1735689600;
-function formatAnthropicModelEntry(id, displayName, contextWindow) {
+function formatAnthropicModelEntry(id, displayName, contextWindow, inputTypes) {
   const maxInput = resolveContextWindow(id, contextWindow);
   return {
     id,
@@ -3989,12 +4024,13 @@ function formatAnthropicModelEntry(id, displayName, contextWindow) {
     display_name: displayName,
     created_at: CREATED_AT_ISO,
     context_window: maxInput,
-    max_input_tokens: maxInput
+    max_input_tokens: maxInput,
+    input_types: inputTypes ?? ["text"]
   };
 }
 function formatAnthropicModelList(entries) {
   return {
-    data: entries.map((entry) => formatAnthropicModelEntry(entry.id, entry.name, entry.contextWindow)),
+    data: entries.map((entry) => formatAnthropicModelEntry(entry.id, entry.name, entry.contextWindow, entry.inputTypes)),
     has_more: false,
     first_id: entries[0]?.id ?? null,
     last_id: entries.at(-1)?.id ?? null
@@ -4022,7 +4058,8 @@ function formatGatewayAnthropicModels(models, opts) {
     models.map((model) => ({
       id: exposedGatewayAliasId(model, opts),
       name: gatewayDisplayName(model, opts),
-      contextWindow: model.contextWindow
+      contextWindow: model.contextWindow,
+      inputTypes: model.supportedParameters?.includes("image") ? ["text", "image"] : ["text"]
     }))
   );
 }
@@ -5475,6 +5512,9 @@ async function generateAnthropicResponse(model, params, modelId, options) {
 import { appendFileSync as appendFileSync2, openSync as openSync2, writeSync as writeSync2, closeSync as closeSync2, readFileSync as readFileSync9, existsSync as existsSync9 } from "fs";
 import { join as join9 } from "path";
 var ANALYTICS_FILE = "analytics.jsonl";
+function normalizeModelKey(modelId) {
+  return modelId.toLowerCase().replace(/\//g, ":").replace(/\s*\([^)]*\)\s*$/g, "").replace(/\s+/g, " ").trim();
+}
 function analyticsPath() {
   return join9(getAppHome(), ANALYTICS_FILE);
 }
@@ -5579,21 +5619,27 @@ function aggregateAnalytics(range) {
     const hour = Number(e.ts.slice(11, 13));
     if (Number.isFinite(hour) && hour >= 0 && hour < 24) hourCounts[hour] += 1;
     const provider = e.providerId ?? e.npm?.replace(/^@/, "").replace(/\//g, "-") ?? "unknown";
-    const key = `${provider}|${e.modelId}`;
-    const m = modelMap.get(key) ?? { provider, model: e.modelId, app: e.app, inputTokens: 0, outputTokens: 0 };
+    const key = `${provider}|${normalizeModelKey(e.modelId)}`;
+    const m = modelMap.get(key) ?? { provider, model: e.modelId, app: e.app, apps: /* @__PURE__ */ new Set(), inputTokens: 0, outputTokens: 0 };
+    if (!/\s/.test(m.model) && /\s/.test(e.modelId)) m.model = e.modelId;
     m.inputTokens += e.inputTokens;
     m.outputTokens += e.outputTokens;
+    m.apps.add(e.app);
     modelMap.set(key, m);
   }
-  const busiestDay = Math.max(1, ...[...eventsByDay.values()]);
+  const busiestDay = Math.max(1, ...[...tokensByDay.values()]);
   const heatmap = [];
   for (let i = rangeDays(range) - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setUTCDate(today.getUTCDate() - i);
     const date = d.toISOString().slice(0, 10);
-    const count = eventsByDay.get(date) ?? 0;
-    const intensity = Math.min(4, Math.round(count / busiestDay * 4)) || 0;
-    heatmap.push({ date, count, intensity });
+    const tokens = tokensByDay.get(date) ?? 0;
+    let intensity = 0;
+    if (tokens > 0) {
+      const pct = tokens / busiestDay;
+      intensity = Math.max(1, Math.min(4, Math.round(1 + pct * 3)));
+    }
+    heatmap.push({ date, count: tokens, intensity });
   }
   const dailyTokens = [];
   for (let i = rangeDays(range) - 1; i >= 0; i--) {
@@ -5628,12 +5674,14 @@ function aggregateAnalytics(range) {
   }
   const models = [...modelMap.entries()].map(([, m], idx) => {
     const share = totalTokens > 0 ? (m.inputTokens + m.outputTokens) / totalTokens : 0;
+    const apps = [...m.apps];
     return {
       provider: m.provider,
       model: m.model,
       tier: "",
       // source tier isn't tracked in the log; UI shows it from catalog elsewhere
-      app: m.app,
+      app: apps[0] ?? m.app,
+      apps,
       inputTokens: m.inputTokens,
       outputTokens: m.outputTokens,
       share,
@@ -5687,6 +5735,10 @@ function makeProxyLog(debug, logPath) {
     appendSecureLog(path, line);
   };
 }
+var quietErrorLogPath = getProxyDebugLogPath();
+function quietErrorLog(line) {
+  appendSecureLog(quietErrorLogPath, `[quiet-error] ${line}`);
+}
 function anthropicError(res, status, message) {
   sendJson(res, status, {
     type: "error",
@@ -5696,7 +5748,8 @@ function anthropicError(res, status, message) {
 function aliasModelId(realId, providerId) {
   if (realId.startsWith("claude-")) return realId;
   const sanitized = providerId.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return `anthropic-${sanitized}__${realId}`;
+  const safeRealId = realId.replace(/[\/\s:()]+/g, "-");
+  return `anthropic-${sanitized}__${safeRealId}`;
 }
 function lookupRoute(byAlias, id) {
   for (const key of routeLookupIds(id)) {
@@ -5724,7 +5777,7 @@ function startProxyCatalog(routes, defaultAliasId, debug = false) {
   process.on("uncaughtException", onException);
   const modelsPayload = JSON.stringify(
     formatAnthropicModelList(
-      routes.map((r) => ({ id: r.aliasId, name: r.displayName, contextWindow: r.contextWindow }))
+      routes.map((r) => ({ id: r.aliasId, name: r.displayName, contextWindow: r.contextWindow, inputTypes: r.inputTypes }))
     )
   );
   const server = createServer(async (req, res) => {
@@ -5741,8 +5794,9 @@ function startProxyCatalog(routes, defaultAliasId, debug = false) {
         const route = lookupRoute(byAlias, id);
         if (route) {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(formatAnthropicModelEntry(route.aliasId, route.displayName, route.contextWindow)));
+          res.end(JSON.stringify(formatAnthropicModelEntry(route.aliasId, route.displayName, route.contextWindow, route.inputTypes)));
         } else {
+          quietErrorLog(`GET /v1/models/${id} - model not found`);
           res.writeHead(404, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: { type: "not_found_error", message: `Model '${id}' not found` } }));
         }
@@ -5769,6 +5823,9 @@ function startProxyCatalog(routes, defaultAliasId, debug = false) {
       const originalModel = anthropicBody.model;
       const clientWantsStream = Boolean(anthropicBody.stream);
       const route = lookupRoute(byAlias, originalModel) ?? defaultRoute;
+      if (route === defaultRoute && originalModel !== defaultRoute.aliasId) {
+        quietErrorLog(`POST /v1/messages - model alias '${originalModel}' not found, falling back to default route '${defaultRoute.aliasId}'`);
+      }
       const apiKey = route.apiKey;
       const upstreamUrl = route.upstreamUrl;
       plog(
@@ -6854,7 +6911,8 @@ function localModelToRoute(lp, model) {
     reasoning: model.reasoning,
     interleavedReasoningField: model.interleavedReasoningField,
     useResponsesLite: model.useResponsesLite,
-    preferWebSockets: model.preferWebSockets
+    preferWebSockets: model.preferWebSockets,
+    inputTypes: resolveInputTypes(model.family, lp.id, model.id)
   };
 }
 function makeRouteResolver(localProviders) {
@@ -10734,6 +10792,7 @@ export {
   isFreeStatus,
   freeStatusLabel,
   refreshModelsDevCacheAsync,
+  resolveInputTypes,
   shouldHideModel,
   cachedModelToLocal,
   readBody,
@@ -10831,4 +10890,4 @@ export {
   quitClaudeAppGracefully,
   launchOrRestartClaudeApp
 };
-//# sourceMappingURL=chunk-NEQPYNKV.js.map
+//# sourceMappingURL=chunk-AREUBGPH.js.map

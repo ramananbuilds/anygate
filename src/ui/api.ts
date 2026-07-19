@@ -36,6 +36,7 @@ import { writeSecureLogLine } from '../agents/shared/trace-log.js';
 import { freeStatusLabel } from '../agents/shared/free-models.ts';
 import { checkForUpdates } from '../agents/shared/update-check.ts';
 import { aggregateAnalytics, type RangeId } from '../core/analytics-log.js';
+import { resolveInputTypes } from '../registry/models-dev.js';
 
 const MODELS_TIMEOUT_MS = 30_000;
 
@@ -238,6 +239,7 @@ async function handleGetModels(res: ServerResponse): Promise<void> {
         freeLabel: freeStatusLabel(m.freeStatus),
         contextWindow: m.contextWindow,
         cost: m.cost,
+        inputTypes: resolveInputTypes(m.family, p.id, m.id),
       })),
     }));
 

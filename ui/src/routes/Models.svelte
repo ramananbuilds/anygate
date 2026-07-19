@@ -10,8 +10,8 @@
   import { Card, Spinner, EmptyState, Tabs } from '../lib/components/primitives';
   import type { FavoriteModel } from '../lib/api/types';
 
-  type Filters = { provider: string; format: string; free: string; reasoning: string; query: string; sort: 'ctx' | 'cost' | 'name' };
-  let filters = $state<Filters>({ provider: '', format: '', free: '', reasoning: '', query: '', sort: 'ctx' });
+  type Filters = { provider: string; format: string; free: string; reasoning: string; vision: string; query: string; sort: 'ctx' | 'cost' | 'name' };
+  let filters = $state<Filters>({ provider: '', format: '', free: '', reasoning: '', vision: '', query: '', sort: 'ctx' });
   let detail = $state<{ model: EnrichedModel; providerId: string; providerName: string } | null>(null);
   let favTab = $state<'general' | 'agy'>('general');
 
@@ -33,6 +33,7 @@
         (!filters.format || f.model.format === filters.format) &&
         (!filters.free || (filters.free === 'free' ? f.model.isFree : !f.model.isFree)) &&
         (!filters.reasoning || (filters.reasoning === 'yes' ? f.model.reasoning : !f.model.reasoning)) &&
+        (!filters.vision || (filters.vision === 'yes' ? f.model.inputTypes?.includes('image') : !f.model.inputTypes?.includes('image'))) &&
         (!filters.query || (f.model.name ?? f.model.id).toLowerCase().includes(filters.query.toLowerCase()) || f.model.id.toLowerCase().includes(filters.query.toLowerCase()))
       )
       .sort((a, b) => {

@@ -51,6 +51,8 @@ export interface ServerModelInfo {
   providerId?: string;
   /** Static headers sent on every upstream request (e.g. a plan/auth-tracking header a custom endpoint requires). */
   headers?: Record<string, string>;
+  /** Input types supported by the model, e.g. ['text', 'image']. */
+  inputTypes?: string[];
   /** OAuth provider identity data (e.g. Claude Code's cliUserID/accountUUID) needed to fingerprint requests. */
   providerData?: Record<string, unknown>;
 }
@@ -67,6 +69,7 @@ export function formatAnthropicModelEntry(
   id: string,
   displayName: string,
   contextWindow?: number,
+  inputTypes?: string[],
 ) {
   const maxInput = resolveContextWindow(id, contextWindow);
   return {
@@ -76,6 +79,7 @@ export function formatAnthropicModelEntry(
     created_at: CREATED_AT_ISO,
     context_window: maxInput,
     max_input_tokens: maxInput,
+    input_types: inputTypes ?? ['text'],
   };
 }
 
@@ -92,11 +96,12 @@ export interface ModelDisplayEntry {
   id: string;
   name: string;
   contextWindow?: number;
+  inputTypes?: string[];
 }
 
 export function formatAnthropicModelList(entries: ModelDisplayEntry[]) {
   return {
-    data: entries.map(entry => formatAnthropicModelEntry(entry.id, entry.name, entry.contextWindow)),
+    data: entries.map(entry => formatAnthropicModelEntry(entry.id, entry.name, entry.contextWindow, entry.inputTypes)),
     has_more: false,
     first_id: entries[0]?.id ?? null,
     last_id: entries.at(-1)?.id ?? null,
@@ -105,7 +110,7 @@ export function formatAnthropicModelList(entries: ModelDisplayEntry[]) {
 
 export function formatAnthropicModels(models: ServerModelInfo[]) {
   return formatAnthropicModelList(
-    models.map(model => ({ id: model.id, name: model.name, contextWindow: model.contextWindow })),
+    models.map(model => ({ id: model.id, name: model.name, contextWindow: model.contextWindow, inputTypes: model.supportedParameters?.includes('image') ? ['text', 'image'] : ['text'] })),
   );
 }
 
@@ -140,6 +145,7 @@ export function formatGatewayAnthropicModels(models: ServerModelInfo[], opts?: G
       id: exposedGatewayAliasId(model, opts),
       name: gatewayDisplayName(model, opts),
       contextWindow: model.contextWindow,
+      inputTypes: model.supportedParameters?.includes('image') ? ['text', 'image'] : ['text'],
     })),
   );
 }

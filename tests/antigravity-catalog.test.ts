@@ -506,6 +506,7 @@ describe('antigravity route resolution', () => {
       apiKey: 'key-1',
       baseURL: undefined,
       contextWindow: undefined,
+      inputTypes: ['text'],
     });
   });
 

@@ -12,6 +12,7 @@ import { ANTIGRAVITY_BASE_URLS } from '../oauth/antigravity-oauth.js';
 import { isSdkUpgradedNpm } from '../gateway/provider-factory.js';
 import { aliasModelId } from '../gateway/anthropic-proxy.js';
 import type { ProxyRoute } from '../gateway/anthropic-proxy.js';
+import { resolveInputTypes } from '../registry/models-dev.js';
 import type { FavoriteModel, BackendConfig } from '../core/types.js';
 
 
@@ -142,6 +143,7 @@ export function localModelToRoute(lp: LocalProvider, model: LocalProviderModel):
     interleavedReasoningField: model.interleavedReasoningField,
     useResponsesLite: model.useResponsesLite,
     preferWebSockets: model.preferWebSockets,
+    inputTypes: resolveInputTypes(model.family, lp.id, model.id),
   };
 }
 

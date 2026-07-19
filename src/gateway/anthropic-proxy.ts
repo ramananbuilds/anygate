@@ -57,6 +57,13 @@ function makeProxyLog(debug: boolean, logPath?: string): ProxyLog {
   };
 }
 
+// Always-on quiet error logger: writes model-resolution / access failures to the
+// proxy debug log without ever printing to the terminal.
+const quietErrorLogPath = getProxyDebugLogPath();
+function quietErrorLog(line: string): void {
+  appendSecureLog(quietErrorLogPath, `[quiet-error] ${line}`);
+}
+
 // ΓöÇΓöÇ HTTP server ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 function anthropicError(res: ServerResponse, status: number, message: string) {
@@ -103,6 +110,8 @@ export interface ProxyRoute {
   useResponsesLite?: boolean;
   /** Backend capability: model must use the WebSocket Responses transport instead of HTTP. */
   preferWebSockets?: boolean;
+  /** Backend capability: input types supported by the model (e.g. text, image). Advertised to agents for multimodal support. */
+  inputTypes?: string[];
   /** Static headers sent on every upstream request (e.g. a plan/auth-tracking header a custom endpoint requires). */
   headers?: Record<string, string>;
   /** App label for analytics (Claude | Codex | Antigravity | gateway). Defaults to 'gateway' when unset. */
@@ -113,12 +122,13 @@ export interface ProxyRoute {
  * Produce a gateway-discovery-safe alias for a model id.
  * Claude Code's gateway discovery only shows ids starting with 'claude' or 'anthropic'.
  * claude-* ids are returned unchanged; everything else gets an 'anthropic-{providerId}__' prefix.
- * Uses stable provider id (slug), not display name ΓÇö renaming a provider does not break aliases.
+ * Uses stable provider id (slug), not display name — renaming a provider does not break aliases.
  */
 export function aliasModelId(realId: string, providerId: string): string {
   if (realId.startsWith('claude-')) return realId;
   const sanitized = providerId.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  return `anthropic-${sanitized}__${realId}`;
+  const safeRealId = realId.replace(/[\/\s:()]+/g, '-');
+  return `anthropic-${sanitized}__${safeRealId}`;
 }
 
 /** Resolve catalog alias when Claude Code or legacy registry ids differ by prefix/suffix. */
@@ -159,7 +169,7 @@ export function startProxyCatalog(
 
   const modelsPayload = JSON.stringify(
     formatAnthropicModelList(
-      routes.map(r => ({ id: r.aliasId, name: r.displayName, contextWindow: r.contextWindow })),
+      routes.map(r => ({ id: r.aliasId, name: r.displayName, contextWindow: r.contextWindow, inputTypes: r.inputTypes })),
     ),
   );
 
@@ -181,8 +191,9 @@ export function startProxyCatalog(
         const route = lookupRoute(byAlias, id);
         if (route) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(formatAnthropicModelEntry(route.aliasId, route.displayName, route.contextWindow)));
+          res.end(JSON.stringify(formatAnthropicModelEntry(route.aliasId, route.displayName, route.contextWindow, route.inputTypes)));
         } else {
+          quietErrorLog(`GET /v1/models/${id} - model not found`);
           res.writeHead(404, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: { type: 'not_found_error', message: `Model '${id}' not found` } }));
         }
@@ -215,6 +226,9 @@ export function startProxyCatalog(
 
       // Per-request route resolution: look up the alias, fall back to default
       const route = lookupRoute(byAlias, originalModel) ?? defaultRoute;
+      if (route === defaultRoute && originalModel !== defaultRoute.aliasId) {
+        quietErrorLog(`POST /v1/messages - model alias '${originalModel}' not found, falling back to default route '${defaultRoute.aliasId}'`);
+      }
       const apiKey = route.apiKey;
       const upstreamUrl = route.upstreamUrl;
 
@@ -287,6 +301,7 @@ export function startProxyCatalog(
             interleavedReasoningField: route.interleavedReasoningField,
             upstreamModelId: route.realModelId,
           },
+          contextWindow: route.contextWindow,
         });
         plog(() =>
           `sdk: npm=${route.npm} model=${route.realModelId}, stream=${clientWantsStream}, ` +

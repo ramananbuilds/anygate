@@ -266,6 +266,39 @@ describe('translateRequest', () => {
     expect(params.system).toBe('only inline context');
   });
 
+  it('trims messages to fit contextWindow and clamps maxOutputTokens', () => {
+    const big = 'x'.repeat(400) + ' ';
+    const messages = [
+      { role: 'user' as const, content: big + 'old1' },
+      { role: 'assistant' as const, content: big + 'old2' },
+      { role: 'user' as const, content: big + 'mid' },
+      { role: 'assistant' as const, content: big + 'recent' },
+    ];
+    const params = translateRequest({
+      model: 'nemotron-free',
+      system: 'system prompt',
+      messages,
+      max_tokens: 4000,
+    }, '@ai-sdk/google', { contextWindow: 1000 });
+    // Most recent message survives; oldest dropped.
+    expect((params.messages.at(-1) as any).content[0].text).toContain('recent');
+    // maxOutputTokens clamped to fit the (small) window after input.
+    expect(typeof params.maxOutputTokens === 'number').toBe(true);
+    if (typeof params.maxOutputTokens === 'number') {
+      expect(params.maxOutputTokens).toBeLessThanOrEqual(4000);
+    }
+  });
+
+  it('leaves messages untouched when within contextWindow', () => {
+    const params = translateRequest({
+      model: 'm',
+      messages: [{ role: 'user' as const, content: 'hi' }],
+      max_tokens: 256,
+    }, '@ai-sdk/google', { contextWindow: 200_000 });
+    expect(params.messages).toHaveLength(1);
+    expect(params.maxOutputTokens).toBe(256);
+  });
+
   it('omits defer_loading tools until referenced in messages', () => {
     const params = translateRequest({
       model: 'grok-4.3',

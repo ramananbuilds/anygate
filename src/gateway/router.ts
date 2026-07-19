@@ -30,7 +30,7 @@ import { writeSecureLogLine, resetTraceLog } from '../agents/shared/trace-log.js
 import { redactTraceLine } from '../core/redact.js';
 import type { LanguageModel } from 'ai';
 import { createLanguageModel, isSdkUpgradedNpm, maxToolsForNpm } from './provider-factory.js';
-import { formatUpstreamError, upstreamHttpStatus } from '../core/errors.js';
+import { anthropicErrorType, formatUpstreamError, upstreamHttpStatus } from '../core/errors.js';
 import {
   translateRequest as sdkTranslateRequest,
   streamAnthropicResponse,
@@ -40,6 +40,7 @@ import {
   type AnthropicRequest,
 } from './sdk-adapter.js';
 import { recordUsage } from '../core/analytics-log.js';
+import { resolveContextWindow } from '../agents/shared/context-window.js';
 
 export interface ServerBackend {
   baseUrl: string;
@@ -247,6 +248,7 @@ async function handleAnthropicMessages(
         upstreamModelId: upstreamModelId(model),
       },
       maxTools: npmMaxTools,
+      contextWindow: model.contextWindow ?? resolveContextWindow(model.id),
     });
     const clientWantsStream = Boolean(body.stream);
     // Use the display name in the response model field when masking is on — Claude
@@ -293,7 +295,14 @@ async function handleAnthropicMessages(
       if (!res.headersSent) {
         const status = upstreamHttpStatus(err);
         sendJson(res, status === 500 ? 502 : status, { error: { message } });
-      } else res.end();
+      } else {
+        // Stream already started but the upstream failed (e.g. context overflow once
+        // the conversation grows). Emit a proper Anthropic error event instead of an
+        // empty stream, otherwise Claude Desktop shows nothing and appears frozen.
+        const errorType = anthropicErrorType(upstreamHttpStatus(err));
+        res.write(`event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: errorType, message } })}\n\n`);
+        res.end();
+      }
     }
     return;
   }
@@ -383,7 +392,11 @@ async function handleOpenAIChatCompletions(
     if (!res.headersSent) {
       const status = upstreamHttpStatus(err);
       sendJson(res, status === 500 ? 502 : status, { error: { message } });
-    } else res.end();
+    } else {
+      const errorType = anthropicErrorType(upstreamHttpStatus(err));
+      res.write(`event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: errorType, message } })}\n\n`);
+      res.end();
+    }
   }
 }
 

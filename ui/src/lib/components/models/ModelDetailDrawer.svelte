@@ -33,6 +33,7 @@
         <div><div class="h">Free</div><div class="v">{model.isFree ? 'Yes' : (model.freeLabel ?? 'No')}</div></div>
         <div><div class="h">Format</div><div class="v"><ModelBadges {model} /></div></div>
         <div><div class="h">Reasoning</div><div class="v">{model.reasoning ? 'Supported' : 'No'}</div></div>
+        <div><div class="h">Image input</div><div class="v">{model.inputTypes?.includes('image') ? 'Supported' : 'No'}</div></div>
       </div>
       <div>
         <div class="h">Cost</div>

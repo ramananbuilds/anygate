@@ -17,17 +17,21 @@
   }
 </script>
 
-<div class="row" class:clickable={!!onOpen}>
+<div
+  class="row"
+  class:clickable={!!onOpen}
+  role={onOpen ? 'button' : undefined}
+  tabindex={onOpen ? 0 : undefined}
+  onclick={() => onOpen?.()}
+  onkeydown={(e) => { if (onOpen && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpen(); } }}
+>
   <div class="info">
     <div class="name">{model.name ?? model.id}<span class="pid">· {providerId}</span></div>
     <div class="meta">ctx {fmt(model.contextWindow)} · {cost(model.cost)}</div>
   </div>
   <div class="tags"><ModelBadges {model} /></div>
   {#if onToggleFav}
-    <button class="star" class:on={favorited} title={favorited ? 'Remove favorite' : 'Add favorite'} onclick={(e) => { e.stopPropagation(); onToggleFav(); }}>{favorited ? '★' : '☆'}</button>
-  {/if}
-  {#if onOpen}
-    <button class="open" type="button" title="Open details" onclick={(e) => { e.stopPropagation(); onOpen(); }}>Open</button>
+    <button class="star" class:on={favorited} title={favorited ? 'Remove favorite' : 'Add favorite'} aria-label={favorited ? 'Remove favorite' : 'Add favorite'} onclick={(e) => { e.stopPropagation(); onToggleFav(); }}>{favorited ? '★' : '☆'}</button>
   {/if}
 </div>
 
