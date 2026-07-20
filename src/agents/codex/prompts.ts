@@ -16,6 +16,7 @@ export async function pickCodexProvider(
   prefs: UserPreferences,
   hasFavorites = false,
   initialProviderId?: string,
+  agentLabel = 'Codex',
 ): Promise<LocalProvider | '__favorites__' | null> {
   if (providers.length === 0 && !hasFavorites) return null;
 
@@ -43,7 +44,7 @@ export async function pickCodexProvider(
           : options[0]!.value;
 
   const chosen = await p.select<string>({
-    message: 'Which provider for Codex?',
+    message: `Which provider for ${agentLabel}?`,
     options,
     initialValue: initial,
   });

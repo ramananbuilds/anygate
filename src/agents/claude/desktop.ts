@@ -107,6 +107,7 @@ export async function runClaudeAppCommand(args: string[], boot?: { launchProvide
   }
 
   const trace = args.includes('--trace');
+  const useFavoritesCatalog = args.includes('--favorites');
   const debugLogPath = trace ? getProxyDebugLogPath() : undefined;
   if (trace) console.log(`Debug log: ${debugLogPath}`);
 
@@ -173,8 +174,13 @@ export async function runClaudeAppCommand(args: string[], boot?: { launchProvide
     }
     activeProvider = bootSelection.provider;
     selectedModel = bootSelection.model;
+  } else if (useFavoritesCatalog && hasFavorites) {
+    // Non-interactive favorites launch: skip the provider/model picker and go
+    // straight into the multi-route catalog so the app's model switcher shows
+    // every favorite. Triggered by `anygate claude-app --favorites` (e.g. from the UI).
+    useFavorites = true;
   } else {
-    const pickedProvider = await pickCodexProvider(compatible, prefs, hasFavorites);
+    const pickedProvider = await pickCodexProvider(compatible, prefs, hasFavorites, undefined, 'Claude');
     if (!pickedProvider) return 0;
 
     if (pickedProvider === '__favorites__') {

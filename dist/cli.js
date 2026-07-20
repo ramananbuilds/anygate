@@ -3771,7 +3771,7 @@ function launchCodex(modelId, env, extraArgs) {
 // src/agents/codex/prompts.ts
 import pc5 from "picocolors";
 import * as p6 from "@clack/prompts";
-async function pickCodexProvider(providers, prefs, hasFavorites = false, initialProviderId) {
+async function pickCodexProvider(providers, prefs, hasFavorites = false, initialProviderId, agentLabel = "Codex") {
   if (providers.length === 0 && !hasFavorites) return null;
   const options = providers.map((lp) => providerSelectOption(lp));
   if (hasFavorites) {
@@ -3783,7 +3783,7 @@ async function pickCodexProvider(providers, prefs, hasFavorites = false, initial
   }
   const initial = initialProviderId && options.some((o) => o.value === initialProviderId) ? initialProviderId : hasFavorites ? "__favorites__" : prefs.lastCodexProvider && options.some((o) => o.value === prefs.lastCodexProvider) ? prefs.lastCodexProvider : options[0].value;
   const chosen = await p6.select({
-    message: "Which provider for Codex?",
+    message: `Which provider for ${agentLabel}?`,
     options,
     initialValue: initial
   });
@@ -10523,6 +10523,7 @@ async function runClaudeAppCommand(args, boot) {
     return 0;
   }
   const trace = args.includes("--trace");
+  const useFavoritesCatalog = args.includes("--favorites");
   const debugLogPath = trace ? getProxyDebugLogPath() : void 0;
   if (trace) console.log(`Debug log: ${debugLogPath}`);
   try {
@@ -10580,8 +10581,10 @@ async function runClaudeAppCommand(args, boot) {
     }
     activeProvider = bootSelection.provider;
     selectedModel = bootSelection.model;
+  } else if (useFavoritesCatalog && hasFavorites) {
+    useFavorites = true;
   } else {
-    const pickedProvider = await pickCodexProvider(compatible, prefs, hasFavorites);
+    const pickedProvider = await pickCodexProvider(compatible, prefs, hasFavorites, void 0, "Claude");
     if (!pickedProvider) return 0;
     if (pickedProvider === "__favorites__") {
       useFavorites = true;
