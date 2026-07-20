@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.8 (2026-07-20)
+
+### Non-interactive favorites launch (all app launchers)
+- `anygate antigravity --favorites` (and the Antigravity IDE / `agy` CLI variants)
+  now skip the provider picker and the "Launch from Antigravity CLI favorites"
+  prompt, resolving the first available favorite as the boot model and serving the
+  full multi-route catalog. Matches `anygate claude-app --favorites` behavior.
+- `anygate codex-app --favorites` now skips the "Starting model?" picker and the
+  "Confirm launch?" prompt when favorites exist, auto-selecting the first
+  available favorite and going straight into the favorites catalog.
+- Claude Desktop already launched directly on `--favorites`; behavior is now
+  consistent across all three app launchers.
+- The web UI "All favorites" launch mode (emits bare `--favorites`) now produces a
+  true one-click launch for every supported app.
+
 ## 0.5.7 (2026-07-20)
 
 This release makes the **favorites catalog** work end-to-end — in the CLI, in the

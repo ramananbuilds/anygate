@@ -170,7 +170,7 @@ import {
   validateCustomEndpointUrl,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-56TYH55S.js";
+} from "./chunk-DD64B2B5.js";
 import {
   filterTemplates,
   getTemplateById,
@@ -4005,6 +4005,14 @@ async function buildFavoritesList(starting, favorites, ctx, max = 20, options = 
     }
   }
   return { resolved: out, droppedFavorites, capacitySkippedFavorites };
+}
+function resolveFirstAvailableFavorite(favorites, providers) {
+  for (const fav of favorites) {
+    const provider = providers.find((lp) => lp.id === fav.providerId);
+    const model = provider?.models.find((m) => m.id === fav.modelId);
+    if (provider && model) return { provider, model };
+  }
+  return void 0;
 }
 
 // src/agents/codex/favorites-launch.ts
@@ -8899,6 +8907,9 @@ function buildAgyLaunchArgs(modelLabel, childArgs) {
 function agyArgsAreNonInteractive(args) {
   return args.some((arg) => arg === "-p" || arg === "--prompt" || arg.startsWith("--prompt="));
 }
+function agyArgsIncludeFavoritesFlag(args) {
+  return args.includes("--favorites");
+}
 function formatAgyCapacityWarning(validatedSlotCount, skippedFavoriteCount) {
   const slotWord = validatedSlotCount === 1 ? "slot" : "slots";
   const favoritePhrase = skippedFavoriteCount === 1 ? "1 favorite was not exposed" : `${skippedFavoriteCount} favorites were not exposed`;
@@ -9101,8 +9112,34 @@ async function runAntigravityCommand(intro, tracePrefix, trace, boot, launch, op
     p11.log.info("Tip: AGY uses its own favorites list. Run `anygate favorites --agy` to set up switching.");
     savePreferences({ antigravityCliFavoritesHintShown: true });
   }
+  const agyFavorites = prefs.antigravityCliFavoriteModels ?? [];
+  if (opts.useFavoritesCatalog && agyFavorites.length > 0) {
+    const catalogSpinner = p11.spinner();
+    catalogSpinner.start("Loading providers...");
+    let catalog;
+    try {
+      catalog = await fetchProviderCatalog();
+    } catch (err) {
+      catalogSpinner.stop("");
+      p11.log.error(String(err instanceof Error ? err.message : err));
+      return 1;
+    }
+    catalogSpinner.stop("");
+    const allProviders = providersForTarget(providersForPicker(catalog), "antigravity");
+    const firstFavorite = resolveFirstAvailableFavorite(agyFavorites, allProviders);
+    if (!firstFavorite) {
+      p11.log.warn("No Antigravity CLI favorites are currently available.");
+      p11.log.info(pc9.dim("Manage them with `anygate favorites --agy`."));
+      return 1;
+    }
+    const selection2 = { provider: firstFavorite.provider, model: firstFavorite.model, allProviders };
+    return await launchWithSelection(selection2, prefs, opts, trace, tracePrefix, boot, launch);
+  }
   const selection = await resolveAntigravityLaunch(prefs, boot);
   if (!selection) return 1;
+  return await launchWithSelection(selection, prefs, opts, trace, tracePrefix, boot, launch);
+}
+async function launchWithSelection(selection, prefs, opts, trace, tracePrefix, boot, launch) {
   const { provider, model, allProviders } = selection;
   const versionResult = opts.versionGuard ? readAntigravityCliVersion() : { version: "1.0.10" };
   const compatibility = evaluateAgySwitchCompatibility({
@@ -9158,7 +9195,7 @@ async function runAgyCommand(childArgs, trace = false, boot) {
     trace,
     boot,
     (env, routes) => launchAntigravityCli(env, buildAgyLaunchArgs(routes[0].displayName, childArgs)),
-    { childArgs, versionGuard: true, pauseForCapacityWarning: true }
+    { childArgs, versionGuard: true, pauseForCapacityWarning: true, useFavoritesCatalog: agyArgsIncludeFavoritesFlag(childArgs) }
   );
 }
 async function runAntigravityAppCommand(childArgs, trace = false, boot) {
@@ -9206,7 +9243,7 @@ async function runAntigravityAppCommand(childArgs, trace = false, boot) {
       }
       return 0;
     },
-    { childArgs, versionGuard: false, pauseForCapacityWarning: false }
+    { childArgs, versionGuard: false, pauseForCapacityWarning: false, useFavoritesCatalog: agyArgsIncludeFavoritesFlag(childArgs) }
   );
 }
 async function runAntigravityIdeCommand(childArgs, trace = false, boot) {
@@ -9254,7 +9291,7 @@ async function runAntigravityIdeCommand(childArgs, trace = false, boot) {
       }
       return 0;
     },
-    { childArgs, versionGuard: false, pauseForCapacityWarning: false }
+    { childArgs, versionGuard: false, pauseForCapacityWarning: false, useFavoritesCatalog: agyArgsIncludeFavoritesFlag(childArgs) }
   );
 }
 
@@ -10028,6 +10065,7 @@ async function runCodexAppCommand(args, opts = {}) {
   const prefs = loadPreferences();
   const favorites = prefs.favoriteModels ?? [];
   const favoritesActive = favorites.length > 0;
+  const useFavoritesCatalog = args.includes("--favorites");
   if (favoritesActive && !configOnly) {
     p12.log.info(
       `Favorites mode active \u2014 Codex App picker will show ${favorites.length + 1} models (1 starting + ${favorites.length} favorites).`
@@ -10052,32 +10090,45 @@ async function runCodexAppCommand(args, opts = {}) {
     activeProvider = bootSelection.provider;
     selectedModel = bootSelection.model;
   } else if (!configOnly) {
-    let currentInitialProvider = prefs.lastCodexProvider && compatible.some((o) => o.id === prefs.lastCodexProvider) ? prefs.lastCodexProvider : compatible[0].id;
-    while (true) {
-      const pickedProvider = await pickCodexProvider(compatible, prefs, favoritesActive, currentInitialProvider);
-      if (!pickedProvider) return 0;
-      if (pickedProvider === "__favorites__") {
-        const favoritePick = await pickFavoriteStartingModel(
-          compatible,
-          favorites,
-          "codex-app",
-          "Codex App",
-          providerForCodexPicker
-        );
-        if (favoritePick === "cancelled" || favoritePick === "unavailable") return 0;
-        activeProvider = favoritePick.provider;
-        selectedModel = favoritePick.model;
-        break;
-      } else {
-        activeProvider = providerForCodexPicker(pickedProvider);
-        const pickedModelResult = await pickCodexModel(activeProvider, prefs);
-        if (pickedModelResult === "back") {
-          currentInitialProvider = activeProvider.id;
-          continue;
+    if (useFavoritesCatalog && favoritesActive) {
+      const firstFavorite = resolveFirstAvailableFavorite(
+        favorites,
+        compatible.map(providerForCodexPicker)
+      );
+      if (!firstFavorite) {
+        p12.log.warn("No saved favorites are currently available.");
+        return 0;
+      }
+      activeProvider = providerForCodexPicker(firstFavorite.provider);
+      selectedModel = firstFavorite.model;
+    } else {
+      let currentInitialProvider = prefs.lastCodexProvider && compatible.some((o) => o.id === prefs.lastCodexProvider) ? prefs.lastCodexProvider : compatible[0].id;
+      while (true) {
+        const pickedProvider = await pickCodexProvider(compatible, prefs, favoritesActive, currentInitialProvider);
+        if (!pickedProvider) return 0;
+        if (pickedProvider === "__favorites__") {
+          const favoritePick = await pickFavoriteStartingModel(
+            compatible,
+            favorites,
+            "codex-app",
+            "Codex App",
+            providerForCodexPicker
+          );
+          if (favoritePick === "cancelled" || favoritePick === "unavailable") return 0;
+          activeProvider = favoritePick.provider;
+          selectedModel = favoritePick.model;
+          break;
+        } else {
+          activeProvider = providerForCodexPicker(pickedProvider);
+          const pickedModelResult = await pickCodexModel(activeProvider, prefs);
+          if (pickedModelResult === "back") {
+            currentInitialProvider = activeProvider.id;
+            continue;
+          }
+          if (!pickedModelResult) return 0;
+          selectedModel = pickedModelResult;
+          break;
         }
-        if (!pickedModelResult) return 0;
-        selectedModel = pickedModelResult;
-        break;
       }
     }
   }
@@ -10106,7 +10157,7 @@ async function runCodexAppCommand(args, opts = {}) {
   }
   if (!configOnly) {
     const modelLabel = formatCodexModelLabel(selectedModel);
-    const confirmed = await confirmCodexLaunch(
+    const confirmed = useFavoritesCatalog || await confirmCodexLaunch(
       activeProvider.name,
       modelLabel,
       selectedModel.id,
@@ -12887,7 +12938,7 @@ Error: ${parsed.error}
       console.log("Usage: anygate ui [--trace]\n\nOpen the settings UI in your browser.");
       return 0;
     }
-    const { runUiCommand } = await import("./command-FYLJXCOQ.js");
+    const { runUiCommand } = await import("./command-BZCET7VA.js");
     return runUiCommand({ trace: parsed.trace });
   }
   if (parsed.command === "models") {

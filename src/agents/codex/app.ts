@@ -43,6 +43,7 @@ import {
   printCodexAppSessionPanel,
 } from './ui.js';
 import type { ResolvedFavorite } from '../../agents/shared/favorites-resolver.js';
+import { resolveFirstAvailableFavorite } from '../../agents/shared/favorites-resolver.js';
 import { buildFavoritesAppCatalog, codexCliFavoritesSlug } from './favorites-catalog.js';
 import {
   buildVertexRuntimeConfig,
@@ -395,6 +396,10 @@ export async function runCodexAppCommand(args: string[], opts: { vertex?: boolea
   const prefs = loadPreferences();
   const favorites = prefs.favoriteModels ?? [];
   const favoritesActive = favorites.length > 0;
+  // Non-interactive favorites launch: when --favorites is passed (e.g. from the
+  // web UI "All favorites" mode), skip the picker + launch-confirm prompts and
+  // go straight into the favorites catalog.
+  const useFavoritesCatalog = args.includes('--favorites');
 
   if (favoritesActive && !configOnly) {
     p.log.info(
@@ -423,35 +428,50 @@ export async function runCodexAppCommand(args: string[], opts: { vertex?: boolea
     activeProvider = bootSelection.provider;
     selectedModel = bootSelection.model;
   } else if (!configOnly) {
-    let currentInitialProvider = prefs.lastCodexProvider && compatible.some(o => o.id === prefs.lastCodexProvider)
-      ? prefs.lastCodexProvider
-      : compatible[0]!.id;
-    while (true) {
-      const pickedProvider = await pickCodexProvider(compatible, prefs, favoritesActive, currentInitialProvider);
-      if (!pickedProvider) return 0;
-      
-      if (pickedProvider === '__favorites__') {
-        const favoritePick = await pickFavoriteStartingModel(
-          compatible,
-          favorites,
-          'codex-app',
-          'Codex App',
-          providerForCodexPicker,
-        );
-        if (favoritePick === 'cancelled' || favoritePick === 'unavailable') return 0;
-        activeProvider = favoritePick.provider;
-        selectedModel = favoritePick.model;
-        break;
-      } else {
-        activeProvider = providerForCodexPicker(pickedProvider as LocalProvider);
-        const pickedModelResult = await pickCodexModel(activeProvider, prefs);
-        if (pickedModelResult === 'back') {
-          currentInitialProvider = activeProvider.id;
-          continue;
+    if (useFavoritesCatalog && favoritesActive) {
+      // Non-interactive favorites launch: pick the first available favorite as the
+      // starting model instead of prompting.
+      const firstFavorite = resolveFirstAvailableFavorite(
+        favorites,
+        compatible.map(providerForCodexPicker),
+      );
+      if (!firstFavorite) {
+        p.log.warn('No saved favorites are currently available.');
+        return 0;
+      }
+      activeProvider = providerForCodexPicker(firstFavorite.provider);
+      selectedModel = firstFavorite.model;
+    } else {
+      let currentInitialProvider = prefs.lastCodexProvider && compatible.some(o => o.id === prefs.lastCodexProvider)
+        ? prefs.lastCodexProvider
+        : compatible[0]!.id;
+      while (true) {
+        const pickedProvider = await pickCodexProvider(compatible, prefs, favoritesActive, currentInitialProvider);
+        if (!pickedProvider) return 0;
+
+        if (pickedProvider === '__favorites__') {
+          const favoritePick = await pickFavoriteStartingModel(
+            compatible,
+            favorites,
+            'codex-app',
+            'Codex App',
+            providerForCodexPicker,
+          );
+          if (favoritePick === 'cancelled' || favoritePick === 'unavailable') return 0;
+          activeProvider = favoritePick.provider;
+          selectedModel = favoritePick.model;
+          break;
+        } else {
+          activeProvider = providerForCodexPicker(pickedProvider as LocalProvider);
+          const pickedModelResult = await pickCodexModel(activeProvider, prefs);
+          if (pickedModelResult === 'back') {
+            currentInitialProvider = activeProvider.id;
+            continue;
+          }
+          if (!pickedModelResult) return 0;
+          selectedModel = pickedModelResult;
+          break;
         }
-        if (!pickedModelResult) return 0;
-        selectedModel = pickedModelResult;
-        break;
       }
     }
   }
@@ -491,7 +511,7 @@ export async function runCodexAppCommand(args: string[], opts: { vertex?: boolea
 
   if (!configOnly) {
     const modelLabel = formatCodexModelLabel(selectedModel);
-    const confirmed = await confirmCodexLaunch(
+    const confirmed = useFavoritesCatalog || await confirmCodexLaunch(
       activeProvider.name,
       modelLabel,
       selectedModel.id,

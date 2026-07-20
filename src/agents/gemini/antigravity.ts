@@ -26,6 +26,7 @@ import {
   waitForAntigravityIdeQuit,
 } from '../../../src/gateway/antigravity/launch-ide.js';
 import { pickLocalModel } from '../../agents/shared/prompts.js';
+import { resolveFirstAvailableFavorite } from '../../agents/shared/favorites-resolver.js';
 import { providerSelectOption, formatModelLabel, gateIntro, gateOutro } from '../../agents/shared/ui.js';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -48,6 +49,11 @@ export function buildAgyLaunchArgs(modelLabel: string, childArgs: string[]): str
 
 export function agyArgsAreNonInteractive(args: string[]): boolean {
   return args.some(arg => arg === '-p' || arg === '--prompt' || arg.startsWith('--prompt='));
+}
+
+/** True when child args request the full favorites catalog (e.g. from the UI). */
+export function agyArgsIncludeFavoritesFlag(args: string[]): boolean {
+  return args.includes('--favorites');
 }
 
 export function formatAgyCapacityWarning(validatedSlotCount: number, skippedFavoriteCount: number): string {
@@ -325,6 +331,7 @@ async function runAntigravityCommand(
     childArgs?: string[];
     versionGuard?: boolean;
     pauseForCapacityWarning?: boolean;
+    useFavoritesCatalog?: boolean;
   } = {},
 ): Promise<number> {
   const prefs = loadPreferences();
@@ -340,9 +347,51 @@ async function runAntigravityCommand(
     savePreferences({ antigravityCliFavoritesHintShown: true });
   }
 
+  // Non-interactive favorites launch: when --favorites is passed (e.g. from the
+  // web UI "All favorites" mode), skip the provider/model picker and go straight
+  // into the multi-route catalog so the app's model switcher shows every favorite.
+  const agyFavorites = prefs.antigravityCliFavoriteModels ?? [];
+  if (opts.useFavoritesCatalog && agyFavorites.length > 0) {
+    const catalogSpinner = p.spinner();
+    catalogSpinner.start('Loading providers...');
+    let catalog;
+    try {
+      catalog = await fetchProviderCatalog();
+    } catch (err) {
+      catalogSpinner.stop('');
+      p.log.error(String(err instanceof Error ? err.message : err));
+      return 1;
+    }
+    catalogSpinner.stop('');
+    const allProviders = providersForTarget(providersForPicker(catalog), 'antigravity');
+    const firstFavorite = resolveFirstAvailableFavorite(agyFavorites, allProviders);
+    if (!firstFavorite) {
+      p.log.warn('No Antigravity CLI favorites are currently available.');
+      p.log.info(pc.dim('Manage them with `anygate favorites --agy`.'));
+      return 1;
+    }
+    const selection = { provider: firstFavorite.provider, model: firstFavorite.model, allProviders };
+    return await launchWithSelection(selection, prefs, opts, trace, tracePrefix, boot, launch);
+  }
+
   const selection = await resolveAntigravityLaunch(prefs, boot);
   if (!selection) return 1;
+  return await launchWithSelection(selection, prefs, opts, trace, tracePrefix, boot, launch);
+}
 
+async function launchWithSelection(
+  selection: { provider: LocalProvider; model: LocalProviderModel; allProviders: LocalProvider[] },
+  prefs: UserPreferences,
+  opts: {
+    childArgs?: string[];
+    versionGuard?: boolean;
+    pauseForCapacityWarning?: boolean;
+  },
+  trace: boolean,
+  tracePrefix: string,
+  boot: { launchProvider?: string; launchModel?: string } | undefined,
+  launch: (env: NodeJS.ProcessEnv, routes: ReturnType<typeof buildAntigravityRoutes>, gatewayHandle: CloudCodeGatewayHandle) => Promise<number>,
+): Promise<number> {
   const { provider, model, allProviders } = selection;
 
   const versionResult = opts.versionGuard
@@ -406,7 +455,7 @@ export async function runAgyCommand(
   return runAntigravityCommand(
     'anygate agy — Antigravity CLI', 'agy', trace, boot,
     (env, routes) => launchAntigravityCli(env, buildAgyLaunchArgs(routes[0]!.displayName, childArgs)),
-    { childArgs, versionGuard: true, pauseForCapacityWarning: true },
+    { childArgs, versionGuard: true, pauseForCapacityWarning: true, useFavoritesCatalog: agyArgsIncludeFavoritesFlag(childArgs) },
   );
 }
 
@@ -458,7 +507,7 @@ export async function runAntigravityAppCommand(
       }
       return 0;
     },
-    { childArgs, versionGuard: false, pauseForCapacityWarning: false },
+    { childArgs, versionGuard: false, pauseForCapacityWarning: false, useFavoritesCatalog: agyArgsIncludeFavoritesFlag(childArgs) },
   );
 }
 
@@ -510,6 +559,6 @@ export async function runAntigravityIdeCommand(
       }
       return 0;
     },
-    { childArgs, versionGuard: false, pauseForCapacityWarning: false },
+    { childArgs, versionGuard: false, pauseForCapacityWarning: false, useFavoritesCatalog: agyArgsIncludeFavoritesFlag(childArgs) },
   );
 }

@@ -1,3 +1,37 @@
+# anygate 0.5.8
+
+This release fixes the **favorites-catalog launch from the web UI** so it starts
+your agent **immediately** — no more interactive provider/model prompts when you
+launch with favorites. The fix applies uniformly across every app launcher.
+
+## Why this release
+
+When you launched an app from the web UI in "All favorites" mode, `anygate`
+emitted `--favorites` but the app commands still dropped into their interactive
+picker (the "Which provider?" / "Launch from favorites" prompts). That defeated
+the one-click launch. Now `--favorites` is treated as a **non-interactive direct
+launch** for every app launcher.
+
+## What changed
+
+### Non-interactive favorites launch (all app launchers)
+- **Antigravity app / Antigravity IDE / `agy` CLI** — `anygate antigravity
+  --favorites` (and the IDE / CLI variants) now skip the provider picker and the
+  "Launch from Antigravity CLI favorites" prompt, resolving the first available
+  favorite as the boot model and serving the full multi-route catalog so the
+  in-app model switcher shows every favorite. Matches the existing
+  `anygate claude-app --favorites` behavior.
+- **ChatGPT Desktop (Codex)** — `anygate codex-app --favorites` now skips both the
+  "Starting model?" picker and the "Confirm launch?" prompt when favorites exist,
+  auto-selecting the first available favorite and going straight into the
+  favorites catalog.
+- **Claude Desktop** — already launched directly on `--favorites`; no change
+  needed, behavior is now consistent across all three app launchers.
+- The web UI "All favorites" launch mode (which emits bare `--favorites`) now
+  produces a true one-click launch for every supported app.
+
+---
+
 # anygate 0.5.7
 
 This release makes the **favorites catalog** work end-to-end — in the CLI,
