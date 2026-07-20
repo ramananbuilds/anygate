@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.7 (2026-07-20)
+
+### Claude Desktop favorites catalog
+- anygate claude-app favorites mode now exposes **all** saved favorite models
+  in the Claude Desktop model picker (up to the 20-model cap), not just the first.
+- Regular favorites resolve from the claude-app provider catalog (matching the
+  picker) instead of the server agent, so cloud-code (Antigravity) favorites and
+  any provider-id normalization differences no longer silently drop favorites.
+- Added 	ests/claude-app.test.ts asserting the full favorites catalog is served
+  via the masked /anthropic/v1/models discovery payload.
+
 ## 0.5.6 (2026-07-19)
 
 ### Long-session context handling (Claude Desktop / Codex / Claude Code)

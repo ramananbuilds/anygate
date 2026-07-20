@@ -91,8 +91,8 @@ import {
   listCredentialSkippedProviders,
   loadPreferences,
   loadRegistry,
-  loadServerModels,
   localProviderToRegistry,
+  localProvidersToServerModels,
   logActiveModel,
   logConnected,
   logProxy,
@@ -170,7 +170,7 @@ import {
   validateCustomEndpointUrl,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-AH7XS3DY.js";
+} from "./chunk-56TYH55S.js";
 import {
   filterTemplates,
   getTemplateById,
@@ -10641,8 +10641,11 @@ async function runClaudeAppCommand(args, boot) {
         headers: void 0
       }));
     }
-    const allModels = await loadServerModels();
-    const regularServerModels = filterServerModelsByFavorites(allModels, regularFavorites);
+    const regularLocalProviders = providersForTarget(catalog, "claude-app");
+    const regularAllModels = regularLocalProviders.flatMap(
+      (provider) => localProvidersToServerModels([provider])
+    );
+    const regularServerModels = filterServerModelsByFavorites(regularAllModels, regularFavorites);
     serverModels = [...cloudCodeServerModels, ...regularServerModels];
   } else if (selectedModel.modelFormat === "cloud-code") {
     const providerData = activeProvider.providerData ?? {};
@@ -12874,7 +12877,7 @@ Error: ${parsed.error}
       console.log("Usage: anygate ui [--trace]\n\nOpen the settings UI in your browser.");
       return 0;
     }
-    const { runUiCommand } = await import("./command-UCKZ4GSG.js");
+    const { runUiCommand } = await import("./command-SJEKC2AR.js");
     return runUiCommand({ trace: parsed.trace });
   }
   if (parsed.command === "models") {

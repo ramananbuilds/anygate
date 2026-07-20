@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { LocalProvider, LocalProviderModel } from './../src/core/types.js';
+import { loadPreferences } from '../src/core/config.js';
 
 const state = vi.hoisted(() => ({
   providers: [] as LocalProvider[],
@@ -17,6 +18,7 @@ vi.mock('@clack/prompts', () => ({
   },
   confirm: vi.fn(async () => false),
   isCancel: vi.fn(() => false),
+  select: vi.fn(async () => '__favorites__'),
 }));
 vi.mock('../src/agents/claude/desktop-session.js', () => ({
   readSessionLock: vi.fn(),
@@ -66,6 +68,25 @@ vi.mock('../src/gateway/router.js', () => ({
   }),
 }));
 
+vi.mock('../src/agents/shared/cloud-code-backend.js', () => ({
+  buildCloudCodeProxyRoute: vi.fn((model: any) => ({
+    aliasId: `anthropic-antigravity__${model.id}`,
+    realModelId: model.id,
+    displayName: model.name,
+    upstreamUrl: 'https://cloud.test',
+    apiKey: 'cc-token',
+    modelFormat: 'cloud-code',
+    providerId: 'antigravity',
+    authType: 'oauth',
+  })),
+  startCloudCodeCatalogBackend: vi.fn(async (routes: any[]) => ({
+    port: 17777,
+    token: 'cc-token',
+    handle: { close: vi.fn() },
+    routes,
+  })),
+}));
+
 import { recoverSession } from '../src/agents/claude/desktop-session.js';
 import { modelToServerModelInfo, runClaudeAppCommand } from '../src/agents/claude/desktop.js';
 
@@ -92,6 +113,21 @@ const helperProvider: LocalProvider = {
   oauthAccountId: 'account-123',
   headers: { 'x-provider-plan': 'plus' },
   models: [helperModel],
+};
+
+const favoriteModels = [
+  { id: 'gpt-5.5', name: 'GPT-5.5', family: 'gpt-5', brand: 'OpenAI', modelFormat: 'openai', upstreamModelId: 'gpt-5.5', npm: '@ai-sdk/openai', apiBaseUrl: 'https://api.openai.com/v1', contextWindow: 400_000, supportedParameters: ['reasoning_effort'], reasoning: true, interleavedReasoningField: 'reasoning_content' },
+  { id: 'claude-opus-4-7', name: 'Claude Opus 4.7', family: 'claude-opus', brand: 'Anthropic', modelFormat: 'anthropic', upstreamModelId: 'claude-opus-4-7', baseUrl: 'https://api.anthropic.com', contextWindow: 1_000_000, supportedParameters: [], reasoning: false, interleavedReasoningField: undefined },
+];
+
+const favoritesProvider: LocalProvider = {
+  id: 'openai-oauth',
+  name: 'OpenAI (ChatGPT)',
+  apiKey: 'oauth-token',
+  authType: 'oauth',
+  oauthAccountId: 'account-123',
+  headers: { 'x-provider-plan': 'plus' },
+  models: favoriteModels,
 };
 
 describe('modelToServerModelInfo', () => {
@@ -195,5 +231,29 @@ describe('runClaudeAppCommand', () => {
       interleavedReasoningField: 'reasoning_content',
       headers: { 'x-provider-plan': 'plus' },
     });
+  });
+
+  it('exposes ALL favorite models in the gateway catalog (not just the first)', async () => {
+    state.providers = [favoritesProvider];
+    vi.mocked(loadPreferences).mockReturnValue({
+      favoriteModels: [
+        { providerId: 'openai-oauth', modelId: 'gpt-5.5' },
+        { providerId: 'openai-oauth', modelId: 'claude-opus-4-7' },
+      ],
+    } as any);
+
+    const code = await runClaudeAppCommand([], { launchProvider: '__favorites__', launchModel: '' });
+
+    expect(code).toBe(0);
+    const models = state.startServerOptions.catalog.list();
+    // Both favorites must be present in the catalog exposed to Claude Desktop.
+    expect(models.map((m: any) => m.id).sort()).toEqual(['claude-opus-4-7', 'gpt-5.5']);
+    // And the discovery-facing /v1/models payload must list both unique alias ids.
+    const { formatGatewayAnthropicModels } = await import('../src/gateway/models.js');
+    const listed = formatGatewayAnthropicModels(models, { maskGatewayIds: true });
+    expect(listed.data.length).toBe(2);
+    expect(listed.data.map((m: any) => m.id)).toEqual(
+      expect.arrayContaining(['claude-opus-4-7', 'anthropic-htuao-ianepo__5.5-tpg']),
+    );
   });
 });

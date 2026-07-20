@@ -1,3 +1,40 @@
+# anygate 0.5.7
+
+This release fixes the **Claude Desktop favorites catalog** so picking
+"⭐ Favorites Catalog" launches Claude Desktop with *every* saved favorite
+model, not just the first one.
+
+## Why this release
+
+`anygate claude-app` (Claude Desktop 3P gateway mode) resolves its model
+catalog from a local gateway that Claude Desktop discovers via
+`GET /anthropic/v1/models`. The favorites path was pulling regular (non
+cloud-code) favorites from the **server** catalog agent, which hides
+cloud-code models and can normalize provider ids differently from the
+picker the user actually selected favorites from. Favorites that didn't
+survive that mismatch were silently dropped — so the Claude Desktop model
+picker showed only one (or a few) models instead of the full favorites list.
+
+## What changed
+
+### Claude Desktop favorites catalog
+- **Favorites resolve from the same catalog/agent as the picker.** Regular
+  favorites are now loaded from the `claude-app` provider catalog (the exact
+  set the user picked favorites from) instead of the `server` agent, so every
+  saved favorite appears in the Claude Desktop model picker — including
+  cloud-code (Antigravity) favorites, which are still served through their
+  dedicated backend and merged into the same catalog.
+- The catalog keeps all favorite models (up to the 20-model cap), each with a
+  gateway-discovery-safe `anthropic-*` / `claude-*` alias, so Claude Desktop
+  surfaces the full list.
+
+### Tests
+- Added `tests/claude-app.test.ts` coverage asserting the favorites path
+  exposes **all** favorite models in the gateway catalog and the masked
+  discovery payload, not just the first.
+
+---
+
 # anygate 0.5.6
 
 This release makes small-window models keep working in long sessions and adds

@@ -1,6 +1,6 @@
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { fetchProviderCatalog, providersForPicker } from '../../../src/providers/provider-catalog.js';
+import { fetchProviderCatalog, providersForPicker, localProvidersToServerModels } from '../../../src/providers/provider-catalog.js';
 import { resolveLocalProviderApiKey } from '../../../src/core/credentials.js';
 import { loadPreferences, savePreferences } from '../../../src/core/config.js';
 import { resolveApiKey, readFromCredentialStore } from '../../../src/core/env.js';
@@ -11,10 +11,10 @@ import {
   codexCompatibleProviders,
   routableModelsForProvider,
 } from '../codex/routing.js';
+import { providersForTarget } from '../../agents/shared/target-compatibility.js';
 import { startServer, type ServerHandle } from '../../../src/gateway/router.js';
 import { createGatewayModelCatalog, type ServerModelInfo } from '../../../src/gateway/models.js';
 import { BACKENDS } from '../../../src/core/constants.js';
-import { loadServerModels } from '../../../src/gateway/server.js';
 import { filterServerModelsByFavorites } from '../../../src/gateway/catalog-filter.js';
 import { writeAnygateIConfig, getClaudeDesktopHome } from './desktop-app.js';
 import { getProxyDebugLogPath } from '../../agents/shared/trace-log.js';
@@ -247,9 +247,15 @@ export async function runClaudeAppCommand(args: string[], boot?: { launchProvide
       }));
     }
 
-    // Load remaining (non-cloud-code) favorites via the normal path
-    const allModels = await loadServerModels();
-    const regularServerModels = filterServerModelsByFavorites(allModels, regularFavorites);
+    // Load remaining (non-cloud-code) favorites via the same catalog/agent used by
+    // the picker (claude-app), NOT the server agent — the server target drops some
+    // model formats and can normalize provider ids differently, which silently
+    // shrinks the favorites catalog to a single model.
+    const regularLocalProviders = providersForTarget(catalog, 'claude-app');
+    const regularAllModels: ServerModelInfo[] = regularLocalProviders.flatMap(provider =>
+      localProvidersToServerModels([provider]),
+    );
+    const regularServerModels = filterServerModelsByFavorites(regularAllModels, regularFavorites);
     serverModels = [...cloudCodeServerModels, ...regularServerModels];
   } else if (selectedModel.modelFormat === 'cloud-code') {
     const providerData = (activeProvider!.providerData ?? {}) as Record<string, unknown>;
