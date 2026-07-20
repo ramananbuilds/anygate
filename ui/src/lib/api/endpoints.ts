@@ -5,7 +5,7 @@ import type {
   UiConfigResponse, UiModelsResponse, UiTemplatesResponse, UiAppsResponse,
   UiOAuthStartResponse, UiOAuthSessionResponse, UiRefreshAllResponse,
   UiServerProvidersResponse, ServerStatusPayload, ServerStartRequest, UiApp,
-  FavoriteModel, HealthReport, Preset, DryRunPreview, UiProvider,
+  FavoriteModel, HealthReport, Preset, DryRunPreview, UiProvider, UiModelTestResult,
 } from './types';
 import * as mock from './mock';
 
@@ -24,6 +24,10 @@ export function getUpdateStatus(): Promise<unknown> {
 // ── Models / providers ───────────────────────────────────────────────
 export function getModels(): Promise<UiModelsResponse> {
   return getJson<UiModelsResponse>('/api/models');
+}
+
+export function testModel(body: { providerId: string; modelId: string; prompt?: string }): Promise<UiModelTestResult> {
+  return postJson<UiModelTestResult>('/api/models/test', body);
 }
 export function saveKey(providerId: string, key: string): Promise<{ ok: boolean }> {
   return postJson('/api/keys', { providerId, key });

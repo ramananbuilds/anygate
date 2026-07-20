@@ -7,6 +7,7 @@
     { id: 'models', label: 'Models', icon: 'M4 6h16M4 12h16M4 18h16' },
     { id: 'apps', label: 'Apps & Launch', icon: 'M2 3h20v14H2zM8 21h8M12 17v4' },
     { id: 'server', label: 'Server', icon: 'M12 2v6M6 8a8 8 0 1 0 12 0' },
+    { id: 'tester', label: 'Model Tester', icon: 'M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16M12 12l5-3' },
     { id: 'settings', label: 'Settings', icon: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M3 12h2M19 12h2' },
   ];
 

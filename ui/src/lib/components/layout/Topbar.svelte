@@ -10,6 +10,7 @@
     models: 'Models',
     apps: 'Apps & Launch',
     server: 'Server Gateway',
+    tester: 'Model Tester',
     settings: 'Settings',
   };
   const title = $derived(TITLES[router.route] ?? 'anygate');

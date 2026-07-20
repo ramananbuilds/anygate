@@ -66,7 +66,7 @@ import {
   summarizeServerProviders,
   validateCustomEndpointUrl,
   writeSecureLogLine
-} from "./chunk-B3C43YTT.js";
+} from "./chunk-GC44APCW.js";
 import {
   getTemplateById,
   listAddableTemplates,
@@ -581,6 +581,8 @@ function handleUiApiRequest(req, res, opts = {}) {
     handlePostConfig(req, res);
   } else if (url === "/api/models" && req.method === "GET") {
     handleGetModels(res);
+  } else if (url === "/api/models/test" && req.method === "POST") {
+    handleTestModel(req, res);
   } else if (url === "/api/keys" && req.method === "POST") {
     handlePostKeys(req, res);
   } else if (url === "/api/providers/refresh" && req.method === "POST") {
@@ -704,6 +706,294 @@ async function handleGetModels(res) {
   } catch (err) {
     sendCatalogFetchError(res, err, "Model fetch");
   }
+}
+var TEST_TIMEOUT_MS = 3e4;
+var TEST_DEFAULT_PROMPT = "Reply with a single word: pong";
+var TEST_MAX_SAMPLE = 400;
+async function handleTestModel(req, res) {
+  let body;
+  try {
+    body = JSON.parse(await readBody(req));
+  } catch {
+    sendJson(res, 400, { error: "Invalid JSON body" });
+    return;
+  }
+  const { providerId, modelId, prompt } = body;
+  if (!providerId || typeof providerId !== "string") {
+    sendJson(res, 400, { error: "providerId required" });
+    return;
+  }
+  if (!modelId || typeof modelId !== "string") {
+    sendJson(res, 400, { error: "modelId required" });
+    return;
+  }
+  try {
+    const catalog = await fetchModelsWithTimeout();
+    const provider = catalog.find((p2) => p2.id === providerId);
+    if (!provider) {
+      sendJson(res, 200, {
+        ok: false,
+        providerId,
+        modelId,
+        format: "unknown",
+        connectMs: null,
+        ttftMs: null,
+        totalMs: null,
+        tokens: 0,
+        tokensPerSec: null,
+        streamStability: "n/a",
+        sample: "",
+        error: `Provider "${providerId}" not found in catalog`,
+        errorHint: "Connect or enable the provider in Providers & Keys first."
+      });
+      return;
+    }
+    const model = provider.models.find((m) => m.id === modelId);
+    if (!model) {
+      sendJson(res, 200, {
+        ok: false,
+        providerId,
+        modelId,
+        format: "unknown",
+        connectMs: null,
+        ttftMs: null,
+        totalMs: null,
+        tokens: 0,
+        tokensPerSec: null,
+        streamStability: "n/a",
+        sample: "",
+        error: `Model "${modelId}" not found on provider "${providerId}"`,
+        errorHint: "Pick a model that belongs to the selected provider."
+      });
+      return;
+    }
+    const registry = loadRegistry();
+    const registryProvider = registry.providers.find((p2) => p2.id === providerId);
+    let apiKey = provider.apiKey ?? null;
+    if (registryProvider?.authRef) {
+      apiKey = await resolveProviderCredential(providerId, registryProvider.authRef);
+    }
+    const format = model.modelFormat === "anthropic" || model.modelFormat === "openai" ? model.modelFormat : "unsupported";
+    const upstreamModelId = model.upstreamModelId || model.id;
+    const userPrompt = typeof prompt === "string" && prompt.trim() ? prompt : TEST_DEFAULT_PROMPT;
+    let upstreamUrl;
+    const headers = { "Content-Type": "application/json" };
+    let requestBody;
+    if (model.modelFormat === "anthropic") {
+      const base = (model.baseUrl || "").replace(/\/v1\/?$/, "");
+      if (!base) {
+        sendJson(res, 200, failNoEndpoint(providerId, modelId, format));
+        return;
+      }
+      upstreamUrl = `${base.replace(/\/$/, "")}/v1/messages`;
+      headers["x-api-key"] = apiKey ?? "";
+      headers["anthropic-version"] = "2023-06-01";
+      requestBody = {
+        model: upstreamModelId,
+        max_tokens: 256,
+        stream: true,
+        messages: [{ role: "user", content: userPrompt }]
+      };
+    } else if (model.modelFormat === "openai") {
+      const completionsUrl = model.completionsUrl || (model.apiBaseUrl ? `${model.apiBaseUrl.replace(/\/$/, "")}/chat/completions` : "");
+      if (!completionsUrl) {
+        sendJson(res, 200, failNoEndpoint(providerId, modelId, format));
+        return;
+      }
+      upstreamUrl = completionsUrl;
+      headers["Authorization"] = `Bearer ${apiKey ?? ""}`;
+      requestBody = {
+        model: upstreamModelId,
+        stream: true,
+        messages: [{ role: "user", content: userPrompt }]
+      };
+    } else {
+      sendJson(res, 200, {
+        ok: false,
+        providerId,
+        modelId,
+        format: "unsupported",
+        connectMs: null,
+        ttftMs: null,
+        totalMs: null,
+        tokens: 0,
+        tokensPerSec: null,
+        streamStability: "n/a",
+        sample: "",
+        error: `Model format "${model.modelFormat}" is not directly testable from the UI`,
+        errorHint: "This provider routes through anygate's SDK adapter. Use the CLI or Server gateway to exercise it."
+      });
+      return;
+    }
+    for (const [k, v] of Object.entries(provider.headers ?? {})) {
+      if (!(k.toLowerCase() in headers)) headers[k] = v;
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
+    const t0 = performance.now();
+    let connectMs = null;
+    let ttftMs = null;
+    let totalMs = null;
+    let tokens = 0;
+    const gaps = [];
+    let lastChunkT = null;
+    let sample = "";
+    try {
+      const upstream = await fetch(upstreamUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+      connectMs = Math.round(performance.now() - t0);
+      if (!upstream.ok || !upstream.body) {
+        const snippet = upstream.body ? (await upstream.text()).slice(0, 240) : "";
+        clearTimeout(timeout);
+        sendJson(res, 200, {
+          ok: false,
+          providerId,
+          modelId,
+          format,
+          connectMs,
+          ttftMs: null,
+          totalMs: Math.round(performance.now() - t0),
+          tokens: 0,
+          tokensPerSec: null,
+          streamStability: "n/a",
+          sample: snippet,
+          error: `Upstream responded ${upstream.status} ${upstream.statusText}`,
+          errorHint: upstream.status === 401 ? "API key missing or rejected \u2014 add/refresh the key in Providers & Keys." : upstream.status === 404 ? "Endpoint not found \u2014 the provider base URL may be wrong." : "Check the provider key and base URL."
+        });
+        return;
+      }
+      const reader = upstream.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        if (!chunk) continue;
+        const now = performance.now();
+        const delta = now - t0;
+        if (ttftMs === null) ttftMs = Math.round(delta);
+        if (lastChunkT !== null) gaps.push(now - lastChunkT);
+        lastChunkT = now;
+        buffer += chunk;
+        if (model.modelFormat === "anthropic") {
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue;
+            const data = trimmed.slice(5).trim();
+            if (data === "[DONE]") continue;
+            try {
+              const evt = JSON.parse(data);
+              if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
+                tokens++;
+                if (sample.length < TEST_MAX_SAMPLE) sample += evt.delta.text;
+              }
+            } catch {
+            }
+          }
+        } else {
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue;
+            const data = trimmed.slice(5).trim();
+            if (data === "[DONE]") continue;
+            try {
+              const evt = JSON.parse(data);
+              const piece = evt.choices?.[0]?.delta?.content;
+              if (typeof piece === "string" && piece) {
+                tokens++;
+                if (sample.length < TEST_MAX_SAMPLE) sample += piece;
+              }
+            } catch {
+            }
+          }
+        }
+      }
+      totalMs = Math.round(performance.now() - t0);
+      clearTimeout(timeout);
+      const tokensPerSec = tokens > 0 && ttftMs !== null ? Math.round(tokens / (totalMs - ttftMs + 1) * 1e3 * 10) / 10 : null;
+      const streamStability = computeStability(gaps);
+      sendJson(res, 200, {
+        ok: true,
+        providerId,
+        modelId,
+        format,
+        connectMs,
+        ttftMs,
+        totalMs,
+        tokens,
+        tokensPerSec,
+        streamStability,
+        sample: sample.trim()
+      });
+    } catch (fetchErr) {
+      clearTimeout(timeout);
+      const aborted = fetchErr instanceof Error && fetchErr.name === "AbortError";
+      sendJson(res, 200, {
+        ok: false,
+        providerId,
+        modelId,
+        format,
+        connectMs,
+        ttftMs,
+        totalMs: Math.round(performance.now() - t0),
+        tokens,
+        tokensPerSec: null,
+        streamStability: gaps.length ? computeStability(gaps) : "n/a",
+        sample,
+        error: aborted ? `Request timed out after ${TEST_TIMEOUT_MS / 1e3}s` : String(fetchErr),
+        errorHint: aborted ? "The endpoint did not respond in time \u2014 it may be slow, down, or the URL is unreachable." : "Network-level failure reaching the provider endpoint."
+      });
+    }
+  } catch (err) {
+    sendJson(res, 500, {
+      ok: false,
+      providerId,
+      modelId,
+      format: "unknown",
+      connectMs: null,
+      ttftMs: null,
+      totalMs: null,
+      tokens: 0,
+      tokensPerSec: null,
+      streamStability: "n/a",
+      sample: "",
+      error: String(err)
+    });
+  }
+}
+function failNoEndpoint(providerId, modelId, format) {
+  return {
+    ok: false,
+    providerId,
+    modelId,
+    format,
+    connectMs: null,
+    ttftMs: null,
+    totalMs: null,
+    tokens: 0,
+    tokensPerSec: null,
+    streamStability: "n/a",
+    sample: "",
+    error: "No usable upstream endpoint for this model",
+    errorHint: "The provider is missing a base URL / completions URL. Re-add or refresh it in Providers & Keys."
+  };
+}
+function computeStability(gaps) {
+  if (gaps.length < 3) return "steady";
+  const mean = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+  if (mean === 0) return "steady";
+  const variance = gaps.reduce((a, b) => a + (b - mean) ** 2, 0) / gaps.length;
+  const cv = Math.sqrt(variance) / mean;
+  return cv > 1.2 ? "intermittent" : "steady";
 }
 async function handlePostKeys(req, res) {
   try {
@@ -1507,4 +1797,4 @@ export {
   resolveUiShutdownDecision,
   runUiCommand
 };
-//# sourceMappingURL=command-R5SDYM7C.js.map
+//# sourceMappingURL=command-DFTLSEZ3.js.map

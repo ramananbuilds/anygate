@@ -1,7 +1,7 @@
 // Hash-based client router. Route = one of the top-level sections.
-export type RouteId = 'dashboard' | 'providers' | 'models' | 'apps' | 'server' | 'settings';
+export type RouteId = 'dashboard' | 'providers' | 'models' | 'apps' | 'server' | 'tester' | 'settings';
 
-const ROUTES: RouteId[] = ['dashboard', 'providers', 'models', 'apps', 'server', 'settings'];
+const ROUTES: RouteId[] = ['dashboard', 'providers', 'models', 'apps', 'server', 'tester', 'settings'];
 
 function currentFromHash(): RouteId {
   const h = typeof window !== 'undefined' ? window.location.hash.replace(/^#\/?/, '') : '';

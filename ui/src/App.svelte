@@ -19,6 +19,7 @@
   import Models from './routes/Models.svelte';
   import Apps from './routes/Apps.svelte';
   import Server from './routes/Server.svelte';
+  import Tester from './routes/Tester.svelte';
   import Settings from './routes/Settings.svelte';
 
   function onKey(e: KeyboardEvent) {
@@ -47,6 +48,7 @@
       {#if router.route === 'models'}<Models />{/if}
       {#if router.route === 'apps'}<Apps />{/if}
       {#if router.route === 'server'}<Server />{/if}
+      {#if router.route === 'tester'}<Tester />{/if}
       {#if router.route === 'settings'}<Settings />{/if}
     </main>
   </div>

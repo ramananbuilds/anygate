@@ -30,6 +30,57 @@ launch** for every app launcher.
 - The web UI "All favorites" launch mode (which emits bare `--favorites`) now
   produces a true one-click launch for every supported app.
 
+### Gateway-side web search (free, works on non-Anthropic upstreams)
+- **Keyword search now works on every favorite at zero cost.** Claude Desktop sends
+  Anthropic's hosted `web_search_tool_20250305` (`server_tool`); on non-Anthropic
+  favorites (Kilo / Mistral / Nemotron) the SDK adapter path used to **drop** any tool
+  lacking `input_schema`, so the hosted search silently vanished and the model looped on
+  empty results. anygate now **intercepts** that tool, executes the search itself, and
+  feeds real results back to the model.
+- **Free by default.** The default backend is keyless **DuckDuckGo** (HTML scrape,
+  no dependency). Optional free upgrade: **self-hosted SearXNG** (`ANYGATE_SEARXNG_URL`).
+  Paid backends **Brave** / **Tavily** are supported as drop-in upgrades via
+  `ANYGATE_SEARCH_API_KEY`.
+- **Implemented as a local Vercel AI SDK tool.** `makeWebSearchTool(name)` preserves the
+  exact incoming tool name so the model's `tool_call` still matches, and its `execute`
+  runs `searchWeb()`. The SDK's built-in tool loop (`stopWhen: stepCountIs(n)`) performs
+  the search, returns results to the model, and the model produces a final grounded answer.
+- **The intermediate `tool_use`/`tool_result` round-trip is hidden from the client.** The
+  stream writer skips blocks whose `toolName` equals the web-search tool, so Claude Desktop
+  (which can't run a hosted tool itself) just receives the final answer with the search
+  incorporated — no dangling `tool_use`, no confusion. Non-web-search MCP tools behave
+  exactly as before.
+- **Master kill switch + config.** `ANYGATE_WEB_SEARCH` (`on`/`off`),
+  `ANYGATE_WEB_SEARCH_PROVIDER`, `ANYGATE_SEARXNG_URL`, `ANYGATE_SEARCH_API_KEY`,
+  `ANYGATE_WEB_SEARCH_MAX_RESULTS` (default 5). The Anthropic passthrough path is
+  untouched — real Anthropic endpoints still run search natively.
+- **New module** `src/gateway/web-search/` (`types`, `constants`, `index`, `tool`,
+  `duckduckgo`, `searxng`, `brave`, `tavily`) + tests `tests/web-search/*` and
+  `tests/sdk-adapter-websearch.test.ts`.
+- **Known limitations (documented, not blocking):** the DuckDuckGo scrape is unofficial and
+  may break if DDG changes its markup (SearXNG is the reliable-free path); Claude Desktop's
+  native citation "chips" may not render (the answer text incorporates results + source
+  URLs); the `cloud-code` (Antigravity) path is out of scope for now.
+
+### Web UI — Model Tester (latency & benchmark lab)
+- New **Model Tester** page (`/tester`): pick a **provider** then a **model**, fire a live
+  request at its real upstream endpoint, and see whether it responds plus
+  **connect time** (socket + TLS + handshake), **time-to-first-token (TTFT)**, **total
+  round-trip**, derived **tokens/sec**, and **stream stability** (steady vs. intermittent).
+- Runs **server-side** in `src/ui/api.ts` (`POST /api/models/test`) because the browser
+  can't reach provider APIs directly (CORS + secret keys). The handler resolves credentials
+  the same way the launch/refresh flows do, builds the anthropic (`/v1/messages`) or
+  openai (`/chat/completions`) streaming request, and measures each latency phase with a
+  30s abort timeout. Returns a sample of the model's response + a remediation hint on
+  failure (e.g. "add an API key", "wrong endpoint").
+- UI shows stat cards for Connect / TTFT / Total / Tokens-per-sec plus an animated SVG
+  radial **TTFT gauge**, distinct pass (green) / fail (red, with cause + fix) / empty /
+  live states, reusing the existing `tokens.css` design tokens (no new chart dependency).
+
+---
+
+
+
 ---
 
 # anygate 0.5.7

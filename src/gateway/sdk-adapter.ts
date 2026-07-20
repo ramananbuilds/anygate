@@ -1,5 +1,6 @@
 // Anthropic /v1/messages ↔ Vercel AI SDK. One turn per request; Claude Code owns the tool loop.
-import { streamText, generateText, tool, jsonSchema } from 'ai';
+import { streamText, generateText, tool, jsonSchema, stepCountIs } from 'ai';
+import type { Tool } from 'ai';
 import type { LanguageModel, ModelMessage } from 'ai';
 import {
   sseChunk,
@@ -17,6 +18,8 @@ import {
   type ReasoningMetadata,
 } from './provider-factory.js';
 import { resolveUpstreamTools } from '../agents/shared/tool-search.js';
+import { isWebSearchTool, makeWebSearchTool } from './web-search/tool.js';
+import { MAX_WEB_SEARCH_STEPS } from './web-search/constants.js';
 import { fitContextWindow, estimateContextTokens } from './context-fit.js';
 import type { AnthropicRequestMessage, AnthropicToolDefinition } from './proxy-types.js';
 import { anthropicErrorType, upstreamHttpStatus } from '../core/errors.js';
@@ -39,7 +42,7 @@ export interface AnthropicBlock {
   _name?: string;
 }
 export interface AnthropicMsg { role: 'user' | 'assistant' | 'system'; content: string | AnthropicBlock[]; }
-interface AnthropicTool { name: string; description?: string; input_schema: Record<string, unknown>; }
+interface AnthropicTool { name: string; description?: string; input_schema: Record<string, unknown>; type?: string; }
 export interface AnthropicRequest {
   model: string;
   system?: string | Array<string | { text?: string }>;
@@ -75,11 +78,13 @@ export function anthropicEffortFromRequest(body: AnthropicRequest): string | und
 export interface SdkCallParams {
   system?: string;
   messages: ModelMessage[];
-  tools?: Record<string, ReturnType<typeof tool>>;
+  tools?: Record<string, Tool>;
   toolChoice?: 'auto' | 'required' | { type: 'tool'; toolName: string };
   maxOutputTokens?: number;
   temperature?: number;
   providerOptions?: Record<string, Record<string, unknown>>;
+  /** Name of a gateway-executed tool (web search) whose round-trip must be hidden from the client. */
+  webSearchToolName?: string;
 }
 
 // ── system ───────────────────────────────────────────────────────────────────
@@ -214,11 +219,17 @@ function stripNullInputs(input: Record<string, unknown>): Record<string, unknown
   return out;
 }
 
-export function translateTools(anthropicTools?: AnthropicTool[]): Record<string, ReturnType<typeof tool>> | undefined {
+export function translateTools(anthropicTools?: AnthropicTool[]): Record<string, Tool> | undefined {
   if (!anthropicTools?.length) return undefined;
-  const tools: Record<string, ReturnType<typeof tool>> = {};
+  const tools: Record<string, Tool> = {};
   for (const t of anthropicTools) {
-    if (!t.name || !t.input_schema) continue;
+    if (!t.name) continue;
+    // Hosted web_search has no input_schema — fulfill it locally instead of dropping it.
+    if (isWebSearchTool(t)) {
+      tools[t.name] = makeWebSearchTool(t.name);
+      continue;
+    }
+    if (!t.input_schema) continue;
     tools[t.name] = tool({ description: t.description ?? '', inputSchema: jsonSchema(t.input_schema) });
   }
   return Object.keys(tools).length ? tools : undefined;
@@ -284,6 +295,7 @@ export function translateRequest(
   if (options?.maxTools !== undefined && upstreamTools.length > options.maxTools) {
     upstreamTools = upstreamTools.slice(0, options.maxTools);
   }
+  const webSearchTool = upstreamTools.find(t => isWebSearchTool(t));
   const effort = anthropicEffortFromRequest(body) ?? options?.defaultEffort;
   let providerOptions = deepMergeProviderOptions(
     thinkingProviderOptions(npm),
@@ -306,6 +318,7 @@ export function translateRequest(
     maxOutputTokens: options?.openAiOAuth ? undefined : maxOutput,
     temperature: body.temperature,
     providerOptions,
+    webSearchToolName: webSearchTool?.name,
   };
 }
 
@@ -319,6 +332,7 @@ export async function writeAnthropicStream(
   modelId: string,
   write: WriteFn,
   log?: LogFn,
+  hiddenToolName?: string,
 ): Promise<{ inputTokens: number; outputTokens: number }> {
   const messageId = 'msg_' + Date.now();
   let blockIndex = -1;
@@ -326,6 +340,7 @@ export async function writeAnthropicStream(
   let openType: 'text' | 'thinking' | 'tool' | null = null;
   let pendingThinkingSig: string | undefined;
   const idToBlock = new Map<string, number>();
+  const hiddenIds = new Set<string>();
   let finishReason = 'end_turn';
   let usage = { input_tokens: 0, output_tokens: 0 };
 
@@ -391,6 +406,12 @@ export async function writeAnthropicStream(
       case 'text-end': break;
 
       case 'tool-input-start': {
+        // Gateway-executed tools (web search) run inside the SDK; hide the
+        // round-trip so the client never sees a dangling tool_use.
+        if (part.toolName && part.toolName === hiddenToolName) {
+          hiddenIds.add(part.id ?? '');
+          break;
+        }
         const sig = grabRoundTripSignature(part);
         openBlock('tool', {
           type: 'tool_use', id: encodeToolUseId(part.id ?? '', sig), name: part.toolName, input: {},
@@ -399,6 +420,7 @@ export async function writeAnthropicStream(
         break;
       }
       case 'tool-input-delta':
+        if (hiddenIds.has(part.id ?? '')) break;
         emit('content_block_delta', {
           type: 'content_block_delta', index: idToBlock.get(part.id ?? '') ?? blockIndex,
           delta: { type: 'input_json_delta', partial_json: part.delta ?? part.text ?? '' },
@@ -407,6 +429,11 @@ export async function writeAnthropicStream(
       case 'tool-input-end': break;
 
       case 'tool-call': {
+        // Hidden gateway tool (web search): don't surface it or flip finish reason.
+        if ((part.toolName && part.toolName === hiddenToolName) || hiddenIds.has(part.toolCallId ?? '')) {
+          hiddenIds.add(part.toolCallId ?? '');
+          break;
+        }
         finishReason = 'tool_use';
         // Non-streamed tool call (no input-start/delta arrived): emit a full block.
         if (!idToBlock.has(part.toolCallId ?? '') && openType !== 'tool') {
@@ -463,7 +490,12 @@ export async function streamAnthropicResponse(
   write: WriteFn,
   log?: LogFn,
 ): Promise<{ inputTokens: number; outputTokens: number }> {
-  const result = streamText({ model, ...params, onError: () => {} } as Parameters<typeof streamText>[0]);
+  const { webSearchToolName, ...callParams } = params;
+  if (webSearchToolName) {
+    log?.(() => `gateway web_search: executing locally via DuckDuckGo (provider-agnostic)`);
+  }
+  const stopWhen = webSearchToolName ? stepCountIs(MAX_WEB_SEARCH_STEPS) : undefined;
+  const result = streamText({ model, ...callParams, stopWhen, onError: () => {} } as Parameters<typeof streamText>[0]);
   // Prevent unhandled promise rejections on stream properties:
   Promise.resolve(result.text).catch(() => {});
   Promise.resolve(result.toolCalls).catch(() => {});
@@ -471,7 +503,7 @@ export async function streamAnthropicResponse(
   Promise.resolve(result.finishReason).catch(() => {});
   Promise.resolve(result.usage).catch(() => {});
 
-  return await writeAnthropicStream(result.fullStream as AsyncIterable<FullStreamPart>, modelId, write, log);
+  return await writeAnthropicStream(result.fullStream as AsyncIterable<FullStreamPart>, modelId, write, log, webSearchToolName);
 }
 
 export async function generateAnthropicResponse(
@@ -485,15 +517,18 @@ export async function generateAnthropicResponse(
   let finishReason: string;
   let usage: { inputTokens?: number; outputTokens?: number } | undefined;
 
+  const { webSearchToolName, ...callParams } = params;
+  const stopWhen = webSearchToolName ? stepCountIs(MAX_WEB_SEARCH_STEPS) : undefined;
+
   if (options?.forceStream) {
     // Some upstreams (e.g. ChatGPT's Codex backend) reject non-streaming requests
     // outright. Request a real stream from the SDK and collect it into one
     // response instead of forwarding the client's non-streaming request upstream.
-    const r = streamText({ model, ...params, onError: () => {} } as Parameters<typeof streamText>[0]);
+    const r = streamText({ model, ...callParams, stopWhen, onError: () => {} } as Parameters<typeof streamText>[0]);
     Promise.resolve(r.toolResults).catch(() => {});
     [text, toolCalls, finishReason, usage] = await Promise.all([r.text, r.toolCalls, r.finishReason, r.usage]);
   } else {
-    const r = await generateText({ model, ...params } as Parameters<typeof generateText>[0]);
+    const r = await generateText({ model, ...callParams, stopWhen } as Parameters<typeof generateText>[0]);
     ({ text, toolCalls, finishReason, usage } = r);
   }
 
@@ -501,12 +536,14 @@ export async function generateAnthropicResponse(
     id: 'msg_' + Date.now(), type: 'message', role: 'assistant', model: modelId,
     content: [
       ...(text ? [{ type: 'text', text }] : []),
-      ...toolCalls.map(tc => ({
-        type: 'tool_use',
-        id: encodeToolUseId(tc.toolCallId, grabRoundTripSignature(tc as FullStreamPart)),
-        name: tc.toolName,
-        input: stripNullInputs(tc.input as Record<string, unknown>),
-      })),
+      ...toolCalls
+        .filter(tc => tc.toolName !== webSearchToolName)
+        .map(tc => ({
+          type: 'tool_use',
+          id: encodeToolUseId(tc.toolCallId, grabRoundTripSignature(tc as FullStreamPart)),
+          name: tc.toolName,
+          input: stripNullInputs(tc.input as Record<string, unknown>),
+        })),
     ],
     stop_reason: finishReason === 'tool-calls' ? 'tool_use' : 'end_turn',
     usage: { input_tokens: usage?.inputTokens ?? 0, output_tokens: usage?.outputTokens ?? 0 },

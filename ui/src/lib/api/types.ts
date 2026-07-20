@@ -210,3 +210,28 @@ export interface DryRunPreview {
   env: DryRunEnvEntry[];
   command?: string;
 }
+
+// ── Model Tester (live latency / benchmark) ──────────────────────────
+export interface UiModelTestResult {
+  ok: boolean;
+  providerId: string;
+  modelId: string;
+  format: 'anthropic' | 'openai' | 'unsupported' | 'unknown';
+  /** ms from request start to first response headers/byte (socket+TLS+handshake). */
+  connectMs: number | null;
+  /** ms from request start to first streamed token/chunk. */
+  ttftMs: number | null;
+  /** ms from request start to end of stream. */
+  totalMs: number | null;
+  /** Approximate tokens (or chunks) streamed. */
+  tokens: number;
+  /** Derived throughput: tokens/sec (null if no tokens or no ttft). */
+  tokensPerSec: number | null;
+  /** 'steady' == even chunk cadence, 'intermittent' == bursty gaps. */
+  streamStability: 'steady' | 'intermittent' | 'n/a';
+  /** First ~400 chars of the model's response, for a sanity sample. */
+  sample: string;
+  error?: string;
+  /** Remediation hint (e.g. "add an API key", "wrong endpoint"). */
+  errorHint?: string;
+}

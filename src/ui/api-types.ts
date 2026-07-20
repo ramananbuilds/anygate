@@ -1,7 +1,7 @@
-// src/ui/api-types.ts — frozen JSON contract for the anygate web UI API.
+ï»¿// src/ui/api-types.ts ï¿½ frozen JSON contract for the anygate web UI API.
 //
 // This module is the single typed description of every request/response shape
-// that `ui/api.ts` emits. It contains NO runtime logic — only types — so both
+// that `ui/api.ts` emits. It contains NO runtime logic ï¿½ only types ï¿½ so both
 // the current vanilla UI (`ui/public/`) and any future advanced UI can share
 // one schema without importing `ui/api.ts`'s implementation. Treat these shapes
 // as a public contract: changing them is a breaking change for the UI.
@@ -96,7 +96,7 @@ export interface UiOAuthStartResponse {
   authUrl?: string;
 }
 
-/** `GET /api/server/status` — re-exported from server-control. */
+/** `GET /api/server/status` ï¿½ re-exported from server-control. */
 export type { ServerStatusPayload as UiServerStatus };
 
 /** `GET /api/server/providers` */
@@ -104,7 +104,7 @@ export interface UiServerProvidersResponse {
   providers: unknown[];
 }
 
-/** Body for `POST /api/server/start` — re-exported from server-control. */
+/** Body for `POST /api/server/start` ï¿½ re-exported from server-control. */
 export type { ServerStartRequest as UiServerStartRequest };
 
 /** Generic success wrapper used by several routes. */
@@ -128,4 +128,28 @@ export interface UiRefreshAllResponse {
   ok: boolean;
   providers: UiRefreshProviderSummary[];
   total: number;
+}
+/** POST /api/models/test â€” live latency/benchmark result for one provider+model. */
+export interface UiModelTestResult {
+  ok: boolean;
+  providerId: string;
+  modelId: string;
+  format: 'anthropic' | 'openai' | 'unsupported' | 'unknown';
+  /** ms from request start to first response headers/byte (socket+TLS+handshake). */
+  connectMs: number | null;
+  /** ms from request start to first streamed token/chunk. */
+  ttftMs: number | null;
+  /** ms from request start to end of stream. */
+  totalMs: number | null;
+  /** Approximate tokens (or chunks) streamed. */
+  tokens: number;
+  /** Derived throughput: tokens/sec (null if no tokens or no ttft). */
+  tokensPerSec: number | null;
+  /** 'steady' == even chunk cadence, 'intermittent' == bursty gaps. */
+  streamStability: 'steady' | 'intermittent' | 'n/a';
+  /** First ~400 chars of the model's response, for a sanity sample. */
+  sample: string;
+  error?: string;
+  /** Remediation hint (e.g. "add an API key", "wrong endpoint"). */
+  errorHint?: string;
 }

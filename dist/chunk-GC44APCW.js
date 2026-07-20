@@ -5081,13 +5081,13 @@ async function collectCloudCodeToAnthropic(upstreamRes, model, log7) {
 import { randomUUID as randomUUID5 } from "crypto";
 
 // src/gateway/sdk-adapter.ts
-import { streamText, generateText, tool as tool2, jsonSchema as jsonSchema2 } from "ai";
+import { streamText, generateText, tool as tool3, jsonSchema as jsonSchema3, stepCountIs } from "ai";
 
 // src/agents/shared/tool-search.ts
 var TOOL_SEARCH_TYPE_PREFIX = "tool_search_tool";
-function isToolSearchTool(tool4) {
-  if (typeof tool4.type === "string" && tool4.type.startsWith(TOOL_SEARCH_TYPE_PREFIX)) return true;
-  const name = tool4.name ?? "";
+function isToolSearchTool(tool5) {
+  if (typeof tool5.type === "string" && tool5.type.startsWith(TOOL_SEARCH_TYPE_PREFIX)) return true;
+  const name = tool5.name ?? "";
   return name.includes("tool_search") || name === "ToolSearch";
 }
 function extractReferencedToolNames(messages) {
@@ -5126,18 +5126,205 @@ function resolveUpstreamTools(tools, messages) {
   if (!tools?.length) return [];
   const referenced = extractReferencedToolNames(messages);
   const upstream = [];
-  for (const tool4 of tools) {
-    if (isToolSearchTool(tool4)) {
-      upstream.push(tool4);
+  for (const tool5 of tools) {
+    if (isToolSearchTool(tool5)) {
+      upstream.push(tool5);
       continue;
     }
-    if (tool4.defer_loading === true) {
-      if (referenced.has(tool4.name)) upstream.push(tool4);
+    if (tool5.defer_loading === true) {
+      if (referenced.has(tool5.name)) upstream.push(tool5);
       continue;
     }
-    upstream.push(tool4);
+    upstream.push(tool5);
   }
   return upstream;
+}
+
+// src/gateway/web-search/tool.ts
+import { tool as tool2, jsonSchema as jsonSchema2 } from "ai";
+
+// src/gateway/web-search/constants.ts
+var WEB_SEARCH_ENV = {
+  enabled: "ANYGATE_WEB_SEARCH",
+  provider: "ANYGATE_WEB_SEARCH_PROVIDER",
+  searxngUrl: "ANYGATE_SEARXNG_URL",
+  apiKey: "ANYGATE_SEARCH_API_KEY",
+  maxResults: "ANYGATE_WEB_SEARCH_MAX_RESULTS"
+};
+var DEFAULT_MAX_RESULTS = 5;
+var MAX_WEB_SEARCH_STEPS = 5;
+
+// src/gateway/web-search/duckduckgo.ts
+var DDG_HTML_URL = "https://html.duckduckgo.com/html/";
+function decodeDdgUrl(href) {
+  try {
+    const url = new URL(href, DDG_HTML_URL);
+    const uddg = url.searchParams.get("uddg");
+    if (uddg) return decodeURIComponent(uddg);
+    return url.href;
+  } catch {
+    return href;
+  }
+}
+function stripHtml(s) {
+  return s.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
+}
+function parseDdgHtml(html, max) {
+  const results = [];
+  const linkRe = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+  let m;
+  while ((m = linkRe.exec(html)) !== null && results.length < max) {
+    const href = decodeDdgUrl(m[1]);
+    const title = stripHtml(m[2]);
+    const after = html.slice(m.index + m[0].length);
+    const snipMatch = after.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/i);
+    const snippet = snipMatch ? stripHtml(snipMatch[1]) : "";
+    if (title && href) results.push({ title, url: href, snippet });
+  }
+  return results;
+}
+async function searchDuckDuckGo(query, opts) {
+  const max = opts?.maxResults ?? 5;
+  const body = new URLSearchParams({ q: query }).toString();
+  const res = await fetch(DDG_HTML_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+    },
+    body
+  });
+  if (!res.ok) throw new Error(`DuckDuckGo search failed: ${res.status}`);
+  const html = await res.text();
+  return parseDdgHtml(html, max);
+}
+
+// src/gateway/web-search/searxng.ts
+async function searchSearXNG(query, baseUrl, opts) {
+  const max = opts?.maxResults ?? 5;
+  const url = new URL("/search", baseUrl.replace(/\/+$/, ""));
+  url.searchParams.set("format", "json");
+  url.searchParams.set("q", query);
+  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw new Error(`SearXNG search failed: ${res.status}`);
+  const data = await res.json();
+  return (Array.isArray(data) ? data : []).filter((r) => r.url && r.title).slice(0, max).map((r) => ({ title: r.title ?? "", url: r.url ?? "", snippet: r.content ?? "" }));
+}
+
+// src/gateway/web-search/brave.ts
+async function searchBrave(query, apiKey, opts) {
+  const max = opts?.maxResults ?? 5;
+  const url = new URL("https://api.search.brave.com/res/v1/web/search");
+  url.searchParams.set("q", query);
+  url.searchParams.set("count", String(max));
+  if (opts?.allowedDomains?.length) url.searchParams.set("site", opts.allowedDomains.join(","));
+  const res = await fetch(url, {
+    headers: { Accept: "application/json", "X-Subscription-Token": apiKey }
+  });
+  if (!res.ok) throw new Error(`Brave search failed: ${res.status}`);
+  const data = await res.json();
+  return (data.web?.results ?? []).filter((r) => r.url && r.title).slice(0, max).map((r) => ({ title: r.title ?? "", url: r.url ?? "", snippet: r.description ?? "" }));
+}
+
+// src/gateway/web-search/tavily.ts
+async function searchTavily(query, apiKey, opts) {
+  const max = opts?.maxResults ?? 5;
+  const res = await fetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      query,
+      max_results: max,
+      include_domains: opts?.allowedDomains,
+      exclude_domains: opts?.blockedDomains
+    })
+  });
+  if (!res.ok) throw new Error(`Tavily search failed: ${res.status}`);
+  const data = await res.json();
+  return (data.results ?? []).filter((r) => r.url && r.title).slice(0, max).map((r) => ({ title: r.title ?? "", url: r.url ?? "", snippet: r.content ?? "" }));
+}
+
+// src/gateway/web-search/index.ts
+var PROVIDERS = ["duckduckgo", "searxng", "brave", "tavily"];
+function resolveWebSearchConfig(env = process.env) {
+  const enabled = (env[WEB_SEARCH_ENV.enabled] ?? "on").toLowerCase() !== "off";
+  const providerRaw = (env[WEB_SEARCH_ENV.provider] ?? "duckduckgo").toLowerCase();
+  const provider = PROVIDERS.includes(providerRaw) ? providerRaw : "duckduckgo";
+  const maxRaw = parseInt(env[WEB_SEARCH_ENV.maxResults] ?? "", 10);
+  const maxResults = Number.isFinite(maxRaw) && maxRaw > 0 ? maxRaw : DEFAULT_MAX_RESULTS;
+  return {
+    enabled,
+    provider,
+    searxngUrl: env[WEB_SEARCH_ENV.searxngUrl] || void 0,
+    apiKey: env[WEB_SEARCH_ENV.apiKey] || void 0,
+    maxResults
+  };
+}
+async function searchWeb(query, opts, config) {
+  const cfg = config ?? resolveWebSearchConfig();
+  if (!cfg.enabled) return [];
+  const searchOpts = { maxResults: cfg.maxResults, ...opts };
+  switch (cfg.provider) {
+    case "searxng":
+      if (!cfg.searxngUrl) throw new Error("ANYGATE_SEARXNG_URL is required for the searxng web search provider");
+      return searchSearXNG(query, cfg.searxngUrl, searchOpts);
+    case "brave":
+      if (!cfg.apiKey) throw new Error("ANYGATE_SEARCH_API_KEY is required for the brave web search provider");
+      return searchBrave(query, cfg.apiKey, searchOpts);
+    case "tavily":
+      if (!cfg.apiKey) throw new Error("ANYGATE_SEARCH_API_KEY is required for the tavily web search provider");
+      return searchTavily(query, cfg.apiKey, searchOpts);
+    case "duckduckgo":
+    default:
+      return searchDuckDuckGo(query, searchOpts);
+  }
+}
+function formatSearchResults(results) {
+  if (!results.length) return "No web search results were found.";
+  const lines = results.map((r, i) => `${i + 1}. ${r.title}
+   URL: ${r.url}
+   ${r.snippet}`);
+  return `Web search results:
+${lines.join("\n")}`;
+}
+
+// src/gateway/web-search/tool.ts
+var WEB_SEARCH_INPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    query: { type: "string", description: "The search query to use." },
+    allowed_domains: {
+      type: "array",
+      items: { type: "string" },
+      description: "Only include search results from these domains."
+    },
+    blocked_domains: {
+      type: "array",
+      items: { type: "string" },
+      description: "Never include search results from these domains."
+    },
+    max_uses: { type: "integer", description: "Maximum number of searches the model may perform." }
+  },
+  required: ["query"]
+};
+function isWebSearchTool(t) {
+  if (typeof t.name === "string" && /web[_-]?search/i.test(t.name)) return true;
+  if (typeof t.type === "string" && t.type.startsWith("web_search")) return true;
+  return false;
+}
+function makeWebSearchTool(name) {
+  return tool2({
+    description: "Search the web for current information. Use this whenever the user asks about recent events, current facts, news, or anything that may need up-to-date information beyond your training data.",
+    inputSchema: jsonSchema2(WEB_SEARCH_INPUT_SCHEMA),
+    execute: async (input) => {
+      const params = input;
+      const results = await searchWeb(params.query, {
+        allowedDomains: params.allowed_domains,
+        blockedDomains: params.blocked_domains
+      });
+      return formatSearchResults(results);
+    }
+  });
 }
 
 // src/gateway/context-fit.ts
@@ -5352,8 +5539,13 @@ function translateTools3(anthropicTools) {
   if (!anthropicTools?.length) return void 0;
   const tools = {};
   for (const t of anthropicTools) {
-    if (!t.name || !t.input_schema) continue;
-    tools[t.name] = tool2({ description: t.description ?? "", inputSchema: jsonSchema2(t.input_schema) });
+    if (!t.name) continue;
+    if (isWebSearchTool(t)) {
+      tools[t.name] = makeWebSearchTool(t.name);
+      continue;
+    }
+    if (!t.input_schema) continue;
+    tools[t.name] = tool3({ description: t.description ?? "", inputSchema: jsonSchema3(t.input_schema) });
   }
   return Object.keys(tools).length ? tools : void 0;
 }
@@ -5398,6 +5590,7 @@ function translateRequest2(body, npm, options) {
   if (options?.maxTools !== void 0 && upstreamTools.length > options.maxTools) {
     upstreamTools = upstreamTools.slice(0, options.maxTools);
   }
+  const webSearchTool = upstreamTools.find((t) => isWebSearchTool(t));
   const effort = anthropicEffortFromRequest(body) ?? options?.defaultEffort;
   let providerOptions = deepMergeProviderOptions(
     thinkingProviderOptions(npm),
@@ -5415,16 +5608,18 @@ function translateRequest2(body, npm, options) {
     toolChoice: translateToolChoice(body.tool_choice),
     maxOutputTokens: options?.openAiOAuth ? void 0 : maxOutput,
     temperature: body.temperature,
-    providerOptions
+    providerOptions,
+    webSearchToolName: webSearchTool?.name
   };
 }
-async function writeAnthropicStream(fullStream, modelId, write, log7) {
+async function writeAnthropicStream(fullStream, modelId, write, log7, hiddenToolName) {
   const messageId = "msg_" + Date.now();
   let blockIndex = -1;
   let started = false;
   let openType = null;
   let pendingThinkingSig;
   const idToBlock = /* @__PURE__ */ new Map();
+  const hiddenIds = /* @__PURE__ */ new Set();
   let finishReason = "end_turn";
   let usage = { input_tokens: 0, output_tokens: 0 };
   const emit = (event, data) => write(sseChunk(event, data));
@@ -5499,6 +5694,10 @@ async function writeAnthropicStream(fullStream, modelId, write, log7) {
       case "text-end":
         break;
       case "tool-input-start": {
+        if (part.toolName && part.toolName === hiddenToolName) {
+          hiddenIds.add(part.id ?? "");
+          break;
+        }
         const sig = grabRoundTripSignature(part);
         openBlock("tool", {
           type: "tool_use",
@@ -5510,6 +5709,7 @@ async function writeAnthropicStream(fullStream, modelId, write, log7) {
         break;
       }
       case "tool-input-delta":
+        if (hiddenIds.has(part.id ?? "")) break;
         emit("content_block_delta", {
           type: "content_block_delta",
           index: idToBlock.get(part.id ?? "") ?? blockIndex,
@@ -5519,6 +5719,10 @@ async function writeAnthropicStream(fullStream, modelId, write, log7) {
       case "tool-input-end":
         break;
       case "tool-call": {
+        if (part.toolName && part.toolName === hiddenToolName || hiddenIds.has(part.toolCallId ?? "")) {
+          hiddenIds.add(part.toolCallId ?? "");
+          break;
+        }
         finishReason = "tool_use";
         if (!idToBlock.has(part.toolCallId ?? "") && openType !== "tool") {
           const sig = grabRoundTripSignature(part);
@@ -5567,7 +5771,12 @@ async function writeAnthropicStream(fullStream, modelId, write, log7) {
   return { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens };
 }
 async function streamAnthropicResponse(model, params, modelId, write, log7) {
-  const result = streamText({ model, ...params, onError: () => {
+  const { webSearchToolName, ...callParams } = params;
+  if (webSearchToolName) {
+    log7?.(() => `gateway web_search: executing locally via DuckDuckGo (provider-agnostic)`);
+  }
+  const stopWhen = webSearchToolName ? stepCountIs(MAX_WEB_SEARCH_STEPS) : void 0;
+  const result = streamText({ model, ...callParams, stopWhen, onError: () => {
   } });
   Promise.resolve(result.text).catch(() => {
   });
@@ -5579,21 +5788,23 @@ async function streamAnthropicResponse(model, params, modelId, write, log7) {
   });
   Promise.resolve(result.usage).catch(() => {
   });
-  return await writeAnthropicStream(result.fullStream, modelId, write, log7);
+  return await writeAnthropicStream(result.fullStream, modelId, write, log7, webSearchToolName);
 }
 async function generateAnthropicResponse(model, params, modelId, options) {
   let text4;
   let toolCalls;
   let finishReason;
   let usage;
+  const { webSearchToolName, ...callParams } = params;
+  const stopWhen = webSearchToolName ? stepCountIs(MAX_WEB_SEARCH_STEPS) : void 0;
   if (options?.forceStream) {
-    const r = streamText({ model, ...params, onError: () => {
+    const r = streamText({ model, ...callParams, stopWhen, onError: () => {
     } });
     Promise.resolve(r.toolResults).catch(() => {
     });
     [text4, toolCalls, finishReason, usage] = await Promise.all([r.text, r.toolCalls, r.finishReason, r.usage]);
   } else {
-    const r = await generateText({ model, ...params });
+    const r = await generateText({ model, ...callParams, stopWhen });
     ({ text: text4, toolCalls, finishReason, usage } = r);
   }
   return {
@@ -5603,7 +5814,7 @@ async function generateAnthropicResponse(model, params, modelId, options) {
     model: modelId,
     content: [
       ...text4 ? [{ type: "text", text: text4 }] : [],
-      ...toolCalls.map((tc) => ({
+      ...toolCalls.filter((tc) => tc.toolName !== webSearchToolName).map((tc) => ({
         type: "tool_use",
         id: encodeToolUseId(tc.toolCallId, grabRoundTripSignature(tc)),
         name: tc.toolName,
@@ -7264,7 +7475,7 @@ async function askSaveServerPassword() {
 import { createServer as createServer2 } from "http";
 
 // src/gateway/openai-adapter.ts
-import { tool as tool3, jsonSchema as jsonSchema3, streamText as streamText2, generateText as generateText2 } from "ai";
+import { tool as tool4, jsonSchema as jsonSchema4, streamText as streamText2, generateText as generateText2 } from "ai";
 function translateOpenAiRequest(body) {
   const toolNameById = /* @__PURE__ */ new Map();
   for (const msg of body.messages) {
@@ -7329,10 +7540,10 @@ function translateOpenAiRequest(body) {
     tools = {};
     for (const t of body.tools) {
       if (t.type === "function" && t.function.name) {
-        const schema = t.function.parameters ? jsonSchema3(t.function.parameters) : void 0;
-        tools[t.function.name] = tool3({
+        const schema = t.function.parameters ? jsonSchema4(t.function.parameters) : void 0;
+        tools[t.function.name] = tool4({
           description: t.function.description ?? "",
-          inputSchema: schema ?? jsonSchema3({ type: "object", properties: {} })
+          inputSchema: schema ?? jsonSchema4({ type: "object", properties: {} })
         });
       }
     }
@@ -11027,4 +11238,4 @@ export {
   quitClaudeAppGracefully,
   launchOrRestartClaudeApp
 };
-//# sourceMappingURL=chunk-B3C43YTT.js.map
+//# sourceMappingURL=chunk-GC44APCW.js.map
