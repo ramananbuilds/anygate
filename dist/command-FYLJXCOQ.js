@@ -316,7 +316,9 @@ function getGatewayLaunchCommand(appId, options = {}) {
   if (options.trace) {
     args.push("--trace");
   }
-  if (options.providerId && options.modelId) {
+  if (options.favoritesCatalog) {
+    args.push("--favorites");
+  } else if (options.providerId && options.modelId) {
     args.push("--provider", options.providerId, "--model", options.modelId);
   } else if (options.providerId || options.modelId) {
     throw new Error("Both providerId and modelId are required for an explicit anygate launch.");
@@ -1086,7 +1088,7 @@ var AGY_APP_IDS = /* @__PURE__ */ new Set(["antigravity", "agy", "antigravity-id
 async function handleLaunchApp(req, res, opts) {
   try {
     const body = JSON.parse(await readBody(req));
-    const { appId, favorites, cwd } = body;
+    const { appId, favorites, favoritesCatalog, cwd } = body;
     let { providerId, modelId } = body;
     if (!appId) {
       sendJson(res, 400, { error: "Missing appId" });
@@ -1105,7 +1107,11 @@ async function handleLaunchApp(req, res, opts) {
       sendJson(res, 400, { error: "Both providerId and modelId are required to launch a specific anygate model." });
       return;
     }
-    if (favorites && !providerId && !modelId) {
+    const fullCatalog = Boolean(favoritesCatalog);
+    if (fullCatalog) {
+      providerId = void 0;
+      modelId = void 0;
+    } else if (favorites && !providerId && !modelId) {
       const prefs = loadPreferences();
       const favList = AGY_APP_IDS.has(appId) ? prefs.antigravityCliFavoriteModels ?? [] : prefs.favoriteModels ?? [];
       if (favList.length > 0) {
@@ -1129,12 +1135,13 @@ async function handleLaunchApp(req, res, opts) {
     const launchCmd = getGatewayLaunchCommand(appId, {
       providerId,
       modelId,
+      favoritesCatalog: fullCatalog,
       cwd: launchFolder,
       trace: opts.trace
     });
     traceUi(
       opts,
-      `launch app=${appId} provider=${providerId ?? ""} model=${modelId ?? ""} favorites=${Boolean(favorites)} resolved-from-favorites=${Boolean(favorites && providerId)} cwd=${launchFolder ?? ""} command=${launchCmd}`
+      `launch app=${appId} provider=${providerId ?? ""} model=${modelId ?? ""} favorites=${Boolean(favorites)} catalog=${fullCatalog} cwd=${launchFolder ?? ""} command=${launchCmd}`
     );
     exec(launchCmd, (err) => {
       if (err) {
@@ -1500,4 +1507,4 @@ export {
   resolveUiShutdownDecision,
   runUiCommand
 };
-//# sourceMappingURL=command-SJEKC2AR.js.map
+//# sourceMappingURL=command-FYLJXCOQ.js.map

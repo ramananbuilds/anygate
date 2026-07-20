@@ -29,6 +29,8 @@ export interface GatewayLaunchOptions {
   providerId?: string;
   modelId?: string;
   favorites?: boolean;
+  /** Launch the full favorites catalog (emits bare --favorites) instead of resolving to the first favorite. */
+  favoritesCatalog?: boolean;
   cwd?: string;
   trace?: boolean;
 }
@@ -335,7 +337,11 @@ export function getGatewayLaunchCommand(appId: string, options: GatewayLaunchOpt
   if (options.trace) {
     args.push('--trace');
   }
-  if (options.providerId && options.modelId) {
+  if (options.favoritesCatalog) {
+    // Full favorites catalog: emit bare --favorites so the CLI builds the
+    // multi-route proxy and the app's model picker shows every favorite.
+    args.push('--favorites');
+  } else if (options.providerId && options.modelId) {
     args.push('--provider', options.providerId, '--model', options.modelId);
   } else if (options.providerId || options.modelId) {
     throw new Error('Both providerId and modelId are required for an explicit anygate launch.');

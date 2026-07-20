@@ -60,7 +60,7 @@ export function getApps(): Promise<UiAppsResponse> {
 export function setAppPath(appId: string, path: string | null): Promise<{ ok: boolean; apps: UiApp[] }> {
   return postJson('/api/apps/path', { appId, path });
 }
-export function launchApp(body: { appId: string; favorites?: boolean; providerId?: string; modelId?: string; cwd?: string }): Promise<{ ok: boolean; command: string }> {
+export function launchApp(body: { appId: string; favorites?: boolean; providerId?: string; modelId?: string; cwd?: string; favoritesCatalog?: boolean }): Promise<{ ok: boolean; command: string }> {
   return postJson('/api/apps/launch', body);
 }
 export function browseFolder(): Promise<{ ok: boolean; path?: string; canceled?: boolean }> {

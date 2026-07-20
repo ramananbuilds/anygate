@@ -172,4 +172,20 @@ describe('native-launcher', () => {
     const args = ['--model', 'some model with spaces'];
     expect(() => getTerminalLaunchCommand(bin, args)).toThrow('Unsafe launch argument');
   });
+
+  it('emits bare --favorites for the full catalog and no --provider/--model', () => {
+    const cmd = getGatewayLaunchCommand('claude', { favoritesCatalog: true });
+    if (process.platform === 'darwin') {
+      const scriptPath = macCommandScriptPath(cmd);
+      expect(scriptPath).toBeTruthy();
+      const script = readFileSync(scriptPath!, 'utf8');
+      expect(script).toContain('anygate claude --favorites');
+      expect(script).not.toContain('--provider');
+      expect(script).not.toContain('--model');
+    } else {
+      assertLaunchCommandContains(cmd, 'claude', '--favorites');
+      expect(cmd).not.toContain('--provider');
+      expect(cmd).not.toContain('--model');
+    }
+  });
 });

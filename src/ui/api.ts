@@ -689,7 +689,7 @@ const AGY_APP_IDS = new Set(['antigravity', 'agy', 'antigravity-ide']);
 async function handleLaunchApp(req: IncomingMessage, res: ServerResponse, opts: UiApiOptions): Promise<void> {
   try {
     const body = JSON.parse(await readBody(req));
-    const { appId, favorites, cwd } = body;
+    const { appId, favorites, favoritesCatalog, cwd } = body;
     let { providerId, modelId } = body as { providerId?: string; modelId?: string };
     if (!appId) {
       sendJson(res, 400, { error: 'Missing appId' });
@@ -711,10 +711,18 @@ async function handleLaunchApp(req: IncomingMessage, res: ServerResponse, opts: 
       return;
     }
 
-    // Resolve the first favorite so the terminal can skip its interactive picker.
-    // Without this the launch command has no --provider/--model and the terminal
-    // shows the full provider wizard even though the user already chose "Favorites".
-    if (favorites && !providerId && !modelId) {
+    // Favorites launch modes:
+    //  - favoritesCatalog: emit a bare --favorites so the CLI builds the full
+    //    multi-route proxy and the app's model picker shows every favorite.
+    //  - favorites (legacy, default when only the checkbox was ticked): resolve
+    //    to the first favorite so non-catalog agents (or bare --model launches)
+    //    still get a concrete model without an interactive wizard.
+    const fullCatalog = Boolean(favoritesCatalog);
+    if (fullCatalog) {
+      // No --provider/--model needed; the CLI owns the catalog.
+      providerId = undefined;
+      modelId = undefined;
+    } else if (favorites && !providerId && !modelId) {
       const prefs = loadPreferences();
       const favList = AGY_APP_IDS.has(appId)
         ? (prefs.antigravityCliFavoriteModels ?? [])
@@ -742,12 +750,13 @@ async function handleLaunchApp(req: IncomingMessage, res: ServerResponse, opts: 
     const launchCmd = getGatewayLaunchCommand(appId, {
       providerId,
       modelId,
+      favoritesCatalog: fullCatalog,
       cwd: launchFolder,
       trace: opts.trace,
     });
     traceUi(
       opts,
-      `launch app=${appId} provider=${providerId ?? ''} model=${modelId ?? ''} favorites=${Boolean(favorites)} resolved-from-favorites=${Boolean(favorites && providerId)} cwd=${launchFolder ?? ''} command=${launchCmd}`,
+      `launch app=${appId} provider=${providerId ?? ''} model=${modelId ?? ''} favorites=${Boolean(favorites)} catalog=${fullCatalog} cwd=${launchFolder ?? ''} command=${launchCmd}`,
     );
 
     // Execute command asynchronously to open the terminal window detached

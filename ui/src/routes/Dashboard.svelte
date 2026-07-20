@@ -75,15 +75,17 @@
 
   <div class="cols mt">
     <Card padding="20px">
-      <div class="sec-head"><h3>Quick launch</h3></div>
+      <div class="sec-head"><h3>Apps &amp; Launch</h3></div>
       {#if apps.loading}
         <Spinner label="Loading apps…" />
+      {:else if installedApps.length === 0}
+        <p class="muted">No apps detected. Add a provider first.</p>
       {:else}
+        <p class="launch-note">Open your agents with anygate models pre-wired, or send your whole favorites catalog into the app switcher.</p>
         <div class="quick">
           {#each installedApps as app (app.id)}
             <Button variant="subtle" onclick={() => navigate('apps')}>{app.name}</Button>
           {/each}
-          {#if installedApps.length === 0}<p class="muted">No apps detected. Add a provider first.</p>{/if}
         </div>
       {/if}
     </Card>
@@ -212,6 +214,11 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+  }
+  .launch-note {
+    font-size: 13px;
+    color: var(--text-2);
+    margin: 0 0 12px;
   }
   .muted {
     color: var(--text-3);

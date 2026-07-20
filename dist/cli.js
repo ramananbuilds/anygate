@@ -12884,7 +12884,7 @@ Error: ${parsed.error}
       console.log("Usage: anygate ui [--trace]\n\nOpen the settings UI in your browser.");
       return 0;
     }
-    const { runUiCommand } = await import("./command-SJEKC2AR.js");
+    const { runUiCommand } = await import("./command-FYLJXCOQ.js");
     return runUiCommand({ trace: parsed.trace });
   }
   if (parsed.command === "models") {

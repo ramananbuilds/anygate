@@ -32,7 +32,7 @@ export async function setPath(appId: string, path: string | null): Promise<void>
   }
 }
 
-export async function launch(opts: { appId: string; favorites?: boolean; providerId?: string; modelId?: string; cwd?: string }): Promise<void> {
+export async function launch(opts: { appId: string; favorites?: boolean; providerId?: string; modelId?: string; cwd?: string; favoritesCatalog?: boolean }): Promise<void> {
   try {
     const res = await api.launchApp(opts);
     if (opts.cwd) apps.recentFolders = pushRecentFolder(opts.cwd);
