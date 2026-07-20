@@ -257,6 +257,17 @@ export async function runClaudeAppCommand(args: string[], boot?: { launchProvide
     );
     const regularServerModels = filterServerModelsByFavorites(regularAllModels, regularFavorites);
     serverModels = [...cloudCodeServerModels, ...regularServerModels];
+
+    // Drop duplicate (providerId, id) entries — some registries list a model
+    // twice, which would otherwise surface as a repeated discovery id and can
+    // make the client picker collapse to fewer rows than expected.
+    const seen = new Set<string>();
+    serverModels = serverModels.filter(m => {
+      const key = `${m.providerId}:${m.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   } else if (selectedModel.modelFormat === 'cloud-code') {
     const providerData = (activeProvider!.providerData ?? {}) as Record<string, unknown>;
     const cloudRoute = buildCloudCodeProxyRoute(selectedModel, activeProvider!.apiKey, providerData);

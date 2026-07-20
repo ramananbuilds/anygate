@@ -3781,7 +3781,7 @@ async function pickCodexProvider(providers, prefs, hasFavorites = false, initial
       hint: `${prefs.favoriteModels?.length ?? 0} saved favorites`
     });
   }
-  const initial = initialProviderId && options.some((o) => o.value === initialProviderId) ? initialProviderId : prefs.lastCodexProvider && options.some((o) => o.value === prefs.lastCodexProvider) ? prefs.lastCodexProvider : options[0].value;
+  const initial = initialProviderId && options.some((o) => o.value === initialProviderId) ? initialProviderId : hasFavorites ? "__favorites__" : prefs.lastCodexProvider && options.some((o) => o.value === prefs.lastCodexProvider) ? prefs.lastCodexProvider : options[0].value;
   const chosen = await p6.select({
     message: "Which provider for Codex?",
     options,
@@ -10647,6 +10647,13 @@ async function runClaudeAppCommand(args, boot) {
     );
     const regularServerModels = filterServerModelsByFavorites(regularAllModels, regularFavorites);
     serverModels = [...cloudCodeServerModels, ...regularServerModels];
+    const seen = /* @__PURE__ */ new Set();
+    serverModels = serverModels.filter((m) => {
+      const key = `${m.providerId}:${m.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   } else if (selectedModel.modelFormat === "cloud-code") {
     const providerData = activeProvider.providerData ?? {};
     const cloudRoute = buildCloudCodeProxyRoute(selectedModel, activeProvider.apiKey, providerData);

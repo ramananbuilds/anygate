@@ -32,9 +32,15 @@ export async function pickCodexProvider(
   const initial =
     initialProviderId && options.some(o => o.value === initialProviderId)
       ? initialProviderId
-      : prefs.lastCodexProvider && options.some(o => o.value === prefs.lastCodexProvider)
-      ? prefs.lastCodexProvider
-      : options[0]!.value;
+      // When favorites exist, default to the Favorites Catalog so the gateway
+      // exposes ALL saved models to the client picker — not just the last
+      // single-provider selection (remembered via lastCodexProvider), which
+      // would otherwise collapse the catalog to a single model.
+      : hasFavorites
+        ? '__favorites__'
+        : prefs.lastCodexProvider && options.some(o => o.value === prefs.lastCodexProvider)
+          ? prefs.lastCodexProvider
+          : options[0]!.value;
 
   const chosen = await p.select<string>({
     message: 'Which provider for Codex?',

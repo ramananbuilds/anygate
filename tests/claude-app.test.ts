@@ -256,4 +256,26 @@ describe('runClaudeAppCommand', () => {
       expect.arrayContaining(['claude-opus-4-7', 'anthropic-htuao-ianepo__5.5-tpg']),
     );
   });
+  it('dedupes repeated registry models so the picker shows one row per favorite', async () => {
+    // The Mistral registry lists mistral-medium-2604 twice; the favorites
+    // catalog must collapse that to a single discovery id.
+    const dupProvider: LocalProvider = {
+      id: 'mistral',
+      name: 'Mistral',
+      apiKey: 'k',
+      models: [
+        { id: 'mistral-medium-2604', name: 'Mistral Medium', family: 'mistral', brand: 'Mistral', modelFormat: 'openai', npm: '@ai-sdk/mistral', contextWindow: 262144 },
+        { id: 'mistral-medium-2604', name: 'Mistral Medium', family: 'mistral', brand: 'Mistral', modelFormat: 'openai', npm: '@ai-sdk/mistral', contextWindow: 262144 },
+      ],
+    };
+    state.providers = [dupProvider];
+    vi.mocked(loadPreferences).mockReturnValue({
+      favoriteModels: [{ providerId: 'mistral', modelId: 'mistral-medium-2604' }],
+    } as any);
+
+    const code = await runClaudeAppCommand([], { launchProvider: '__favorites__', launchModel: '' });
+    expect(code).toBe(0);
+    const models = state.startServerOptions.catalog.list();
+    expect(models.length).toBe(1);
+  });
 });

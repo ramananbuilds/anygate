@@ -28,6 +28,21 @@ picker showed only one (or a few) models instead of the full favorites list.
   gateway-discovery-safe `anthropic-*` / `claude-*` alias, so Claude Desktop
   surfaces the full list.
 
+### Provider picker now defaults to Favorites Catalog
+- When you have saved favorites, `anygate claude-app` now **defaults the
+  provider picker to "⭐ Favorites Catalog"** instead of remembering the last
+  single-provider selection (via `lastCodexProvider`). Previously, after any
+  single-model launch the next run defaulted back to that one provider, so
+  pressing Enter launched a single model and the picker only showed one — even
+  though favorites existed. Now the full favorites catalog is the default.
+
+### Duplicate registry models are de-duplicated
+- Some registries list the same model twice (e.g. `mistral-medium-2604`).
+  These produced a repeated discovery id, which could make the Claude Desktop
+  picker collapse to fewer rows than expected. The favorites catalog now
+  de-duplicates by `(providerId, modelId)` so each favorite shows exactly one
+  row.
+
 ### Tests
 - Added `tests/claude-app.test.ts` coverage asserting the favorites path
   exposes **all** favorite models in the gateway catalog and the masked
