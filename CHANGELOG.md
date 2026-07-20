@@ -2,14 +2,39 @@
 
 ## 0.5.7 (2026-07-20)
 
-### Claude Desktop favorites catalog
-- anygate claude-app favorites mode now exposes **all** saved favorite models
-  in the Claude Desktop model picker (up to the 20-model cap), not just the first.
-- Regular favorites resolve from the claude-app provider catalog (matching the
-  picker) instead of the server agent, so cloud-code (Antigravity) favorites and
-  any provider-id normalization differences no longer silently drop favorites.
-- Added 	ests/claude-app.test.ts asserting the full favorites catalog is served
-  via the masked /anthropic/v1/models discovery payload.
+This release makes the **favorites catalog** work end-to-end — in the CLI, in the
+Claude Desktop app, **and now from the web UI** — and polishes the Apps & Launch
+experience. Picking "⭐ Favorites Catalog" (or the UI's "All favorites" launch mode)
+opens your agent with *every* saved favorite model routed through one anygate
+gateway, so you can switch live from the in-app model menu.
+
+### Web UI — launch the full favorites catalog
+- The Apps & Launch launch modal now offers a clear **3-mode selector**:
+  - **All favorites** — opens the app with every saved favorite routed through
+    one anygate gateway (the full catalog, not just the first).
+  - **One model** — launch with a single pre-selected provider/model.
+  - **Just open** — launch the app with no model pre-set.
+- The backend (`POST /api/apps/launch`) gains a `favoritesCatalog` flag that emits
+  a bare `anygate <app> --favorites` (full catalog) instead of resolving to the
+  first favorite. The legacy single-favorite path is kept.
+- `AppCard` shows a "favorites ready" badge and a contextual launch CTA.
+- The Dashboard "Apps & Launch" card is relabeled with a clarifying note.
+
+### Claude Desktop favorites catalog (CLI)
+- Favorites resolve from the same catalog/agent as the picker, so every saved
+  favorite appears in the Claude Desktop model picker — including cloud-code
+  (Antigravity) favorites, served through their dedicated backend and merged.
+- `--favorites` now launches the catalog **directly** — no interactive provider
+  picker. When favorites exist, `anygate claude-app --favorites` goes straight
+  into the multi-route catalog launch.
+- The provider prompt is now labeled for the correct agent (e.g. "Which provider
+  for **Claude**?") instead of always saying "Codex".
+- The provider picker now **defaults to "⭐ Favorites Catalog"** when favorites
+  exist, instead of remembering the last single-provider selection.
+- Duplicate registry models (e.g. `mistral-medium-2604`) are de-duplicated so the
+  Claude Desktop picker shows the correct number of rows.
+- Added `tests/claude-app.test.ts` asserting the full favorites catalog is served
+  via the masked `/anthropic/v1/models` discovery payload.
 
 ## 0.5.6 (2026-07-19)
 
