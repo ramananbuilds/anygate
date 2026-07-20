@@ -170,7 +170,7 @@ import {
   validateCustomEndpointUrl,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-DD64B2B5.js";
+} from "./chunk-B3C43YTT.js";
 import {
   filterTemplates,
   getTemplateById,
@@ -5186,7 +5186,7 @@ function mapFinishReason(reason) {
   if (reason === "content-filter") return "SAFETY";
   return "OTHER";
 }
-function lookupGeminiRoute(routes, requestedModel) {
+function lookupGeminiRoute(routes, requestedModel, defaultRoute) {
   const ids = [requestedModel, ...routeLookupIds(requestedModel)];
   const slashIdx = requestedModel.indexOf("/");
   if (slashIdx >= 0) {
@@ -5203,7 +5203,11 @@ function lookupGeminiRoute(routes, requestedModel) {
     const route = routes.find((r) => r.aliasId === id || r.realModelId === id);
     if (route) return route;
   }
-  return void 0;
+  const fallback = defaultRoute ?? routes[0];
+  if (requestedModel !== fallback.aliasId) {
+    console.error(`[gemini-proxy] model '${requestedModel}' not in catalog \u2014 remapping to default route '${fallback.aliasId}' (upstream: ${fallback.realModelId})`);
+  }
+  return fallback;
 }
 function mergeConsecutiveMessages2(messages) {
   const merged = [];
@@ -12938,7 +12942,7 @@ Error: ${parsed.error}
       console.log("Usage: anygate ui [--trace]\n\nOpen the settings UI in your browser.");
       return 0;
     }
-    const { runUiCommand } = await import("./command-BZCET7VA.js");
+    const { runUiCommand } = await import("./command-R5SDYM7C.js");
     return runUiCommand({ trace: parsed.trace });
   }
   if (parsed.command === "models") {

@@ -5860,6 +5860,13 @@ function aliasModelId(realId, providerId) {
   const safeRealId = realId.replace(/[\/\s:()]+/g, "-");
   return `anthropic-${sanitized}__${safeRealId}`;
 }
+function resolveRoute(byAlias, id, defaultRoute, plog) {
+  const direct = lookupRoute(byAlias, id);
+  if (direct) return direct;
+  quietErrorLog(`resolveRoute: model '${id}' not in catalog, remapping to default route '${defaultRoute.aliasId}'`);
+  plog(() => `resolveRoute: model '${id}' not in catalog, remapping to default route '${defaultRoute.aliasId}'`);
+  return defaultRoute;
+}
 function lookupRoute(byAlias, id) {
   for (const key of routeLookupIds(id)) {
     const route = byAlias.get(key);
@@ -5900,15 +5907,12 @@ function startProxyCatalog(routes, defaultAliasId, debug = false) {
       const modelPathMatch = req.url.match(/^\/v1\/models\/([^?]+)/);
       if (modelPathMatch) {
         const id = decodeURIComponent(modelPathMatch[1]);
-        const route = lookupRoute(byAlias, id);
-        if (route) {
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(formatAnthropicModelEntry(route.aliasId, route.displayName, route.contextWindow, route.inputTypes)));
-        } else {
-          quietErrorLog(`GET /v1/models/${id} - model not found`);
-          res.writeHead(404, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: { type: "not_found_error", message: `Model '${id}' not found` } }));
+        const route = resolveRoute(byAlias, id, defaultRoute, plog);
+        if (route === defaultRoute && id !== defaultRoute.aliasId) {
+          quietErrorLog(`GET /v1/models/${id} - model not found, returning default route '${defaultRoute.aliasId}'`);
         }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(formatAnthropicModelEntry(route.aliasId, route.displayName, route.contextWindow, route.inputTypes)));
       } else {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(modelsPayload);
@@ -5931,7 +5935,7 @@ function startProxyCatalog(routes, defaultAliasId, debug = false) {
       }
       const originalModel = anthropicBody.model;
       const clientWantsStream = Boolean(anthropicBody.stream);
-      const route = lookupRoute(byAlias, originalModel) ?? defaultRoute;
+      const route = resolveRoute(byAlias, originalModel, defaultRoute, plog);
       if (route === defaultRoute && originalModel !== defaultRoute.aliasId) {
         quietErrorLog(`POST /v1/messages - model alias '${originalModel}' not found, falling back to default route '${defaultRoute.aliasId}'`);
       }
@@ -7032,10 +7036,10 @@ function makeRouteResolver(localProviders) {
     return provider && model ? localModelToRoute(provider, model) ?? void 0 : void 0;
   };
 }
-function buildCatalogRoutes(startingRoute, favorites, resolveRoute, max = MAX_MODEL_CATALOG) {
+function buildCatalogRoutes(startingRoute, favorites, resolveRoute2, max = MAX_MODEL_CATALOG) {
   const droppedFavorites = [];
   const tail = favorites.map((fav) => {
-    const route = resolveRoute(fav.providerId, fav.modelId);
+    const route = resolveRoute2(fav.providerId, fav.modelId);
     if (!route) droppedFavorites.push(fav);
     return route;
   }).filter((route) => route !== void 0);
@@ -7628,7 +7632,7 @@ async function handleAnthropicMessages(req, res, options, modelCache, plog) {
     sendJson(res, 400, { error: { message: "Invalid JSON body" } });
     return;
   }
-  const model = lookupModel(res, options.catalog, body.model);
+  const model = lookupModel(res, options.catalog, body.model, plog);
   if (!model) {
     plog(`model not found: ${body.model}`);
     return;
@@ -7760,7 +7764,7 @@ async function handleOpenAIChatCompletions(req, res, options, modelCache, plog) 
     sendJson(res, 400, { error: { message: "Invalid JSON body" } });
     return;
   }
-  const model = lookupModel(res, options.catalog, body.model);
+  const model = lookupModel(res, options.catalog, body.model, plog);
   if (!model) return;
   if (supportsDirectOpenAIChatCompletions(model)) {
     if (model.completionsUrl && !/^https?:\/\//i.test(model.completionsUrl)) {
@@ -7831,12 +7835,19 @@ data: ${JSON.stringify({ type: "error", error: { type: errorType, message } })}
     }
   }
 }
-function lookupModel(res, catalog, modelId) {
+function lookupModel(res, catalog, modelId, plog) {
   if (typeof modelId !== "string") {
     sendJson(res, 400, { error: { message: "Request body must include a model string" } });
     return null;
   }
-  const model = catalog.get(modelId);
+  let model = catalog.get(modelId);
+  if (!model) {
+    const defaultModel = catalog.list()[0];
+    if (defaultModel) {
+      plog(`model '${modelId}' unknown \u2014 remapping to default '${defaultModel.id}'`);
+      model = defaultModel;
+    }
+  }
   if (!model) {
     sendJson(res, 400, { error: { message: `Unknown model: ${modelId}` } });
     return null;
@@ -11016,4 +11027,4 @@ export {
   quitClaudeAppGracefully,
   launchOrRestartClaudeApp
 };
-//# sourceMappingURL=chunk-DD64B2B5.js.map
+//# sourceMappingURL=chunk-B3C43YTT.js.map

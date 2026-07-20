@@ -131,6 +131,21 @@ export function aliasModelId(realId: string, providerId: string): string {
   return `anthropic-${sanitized}__${safeRealId}`;
 }
 
+/**
+ * Shared, total route resolver (Option A + Option C).
+ * - Option A: falls back to the default route when nothing matches.
+ * - Option C: fuzzy remap, so unknown subagent models (e.g. claude-opus-4-8) are
+ *   transparently routed to the active favorite and catalog validation never 404s.
+ */
+function resolveRoute(byAlias: Map<string, ProxyRoute>, id: string, defaultRoute: ProxyRoute, plog: ProxyLog): ProxyRoute {
+  const direct = lookupRoute(byAlias, id);
+  if (direct) return direct;
+  // Option C: fuzzy remap — unknown model id (any prefix) remapped to default favorite.
+  quietErrorLog(`resolveRoute: model '${id}' not in catalog, remapping to default route '${defaultRoute.aliasId}'`);
+  plog(() => `resolveRoute: model '${id}' not in catalog, remapping to default route '${defaultRoute.aliasId}'`);
+  return defaultRoute;
+}
+
 /** Resolve catalog alias when Claude Code or legacy registry ids differ by prefix/suffix. */
 function lookupRoute(byAlias: Map<string, ProxyRoute>, id: string): ProxyRoute | undefined {
   for (const key of routeLookupIds(id)) {
@@ -188,15 +203,12 @@ export function startProxyCatalog(
       const modelPathMatch = req.url.match(/^\/v1\/models\/([^?]+)/);
       if (modelPathMatch) {
         const id = decodeURIComponent(modelPathMatch[1]);
-        const route = lookupRoute(byAlias, id);
-        if (route) {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(formatAnthropicModelEntry(route.aliasId, route.displayName, route.contextWindow, route.inputTypes)));
-        } else {
-          quietErrorLog(`GET /v1/models/${id} - model not found`);
-          res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { type: 'not_found_error', message: `Model '${id}' not found` } }));
+        const route = resolveRoute(byAlias, id, defaultRoute, plog);
+        if (route === defaultRoute && id !== defaultRoute.aliasId) {
+          quietErrorLog(`GET /v1/models/${id} - model not found, returning default route '${defaultRoute.aliasId}'`);
         }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(formatAnthropicModelEntry(route.aliasId, route.displayName, route.contextWindow, route.inputTypes)));
       } else {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(modelsPayload);
@@ -224,8 +236,8 @@ export function startProxyCatalog(
       const originalModel = anthropicBody.model;
       const clientWantsStream = Boolean(anthropicBody.stream);
 
-      // Per-request route resolution: look up the alias, fall back to default
-      const route = lookupRoute(byAlias, originalModel) ?? defaultRoute;
+      // Per-request route resolution: look up the alias, fall back to default (Option A + C)
+      const route = resolveRoute(byAlias, originalModel, defaultRoute, plog);
       if (route === defaultRoute && originalModel !== defaultRoute.aliasId) {
         quietErrorLog(`POST /v1/messages - model alias '${originalModel}' not found, falling back to default route '${defaultRoute.aliasId}'`);
       }

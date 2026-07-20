@@ -174,7 +174,7 @@ async function handleAnthropicMessages(
     return;
   }
 
-  const model = lookupModel(res, options.catalog, body.model);
+  const model = lookupModel(res, options.catalog, body.model, plog);
   if (!model) {
     plog(`model not found: ${body.model}`);
     return;
@@ -323,7 +323,7 @@ async function handleOpenAIChatCompletions(
     return;
   }
 
-  const model = lookupModel(res, options.catalog, body.model);
+  const model = lookupModel(res, options.catalog, body.model, plog);
   if (!model) return;
 
   if (supportsDirectOpenAIChatCompletions(model)) {
@@ -400,13 +400,22 @@ async function handleOpenAIChatCompletions(
   }
 }
 
-function lookupModel(res: ServerResponse, catalog: ModelCatalog, modelId: unknown): ServerModelInfo | null {
+function lookupModel(res: ServerResponse, catalog: ModelCatalog, modelId: unknown, plog: PLog): ServerModelInfo | null {
   if (typeof modelId !== 'string') {
     sendJson(res, 400, { error: { message: 'Request body must include a model string' } });
     return null;
   }
 
-  const model = catalog.get(modelId);
+  let model = catalog.get(modelId);
+  if (!model) {
+    // Unknown id (e.g. subagent default). Fall back to the catalog's first/default model.
+    const defaultModel = catalog.list()[0];
+    if (defaultModel) {
+      plog(`model '${modelId}' unknown — remapping to default '${defaultModel.id}'`);
+      model = defaultModel;
+    }
+  }
+
   if (!model) {
     sendJson(res, 400, { error: { message: `Unknown model: ${modelId}` } });
     return null;

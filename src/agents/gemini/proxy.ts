@@ -26,7 +26,7 @@ function mapFinishReason(reason: string): string {
   return 'OTHER';
 }
 
-function lookupGeminiRoute(routes: ProxyRoute[], requestedModel: string): ProxyRoute | undefined {
+function lookupGeminiRoute(routes: ProxyRoute[], requestedModel: string, defaultRoute?: ProxyRoute): ProxyRoute | undefined {
   const ids = [requestedModel, ...routeLookupIds(requestedModel)];
   
   // Also support stripping prefixes/suffixes
@@ -46,8 +46,16 @@ function lookupGeminiRoute(routes: ProxyRoute[], requestedModel: string): ProxyR
     const route = routes.find(r => r.aliasId === id || r.realModelId === id);
     if (route) return route;
   }
-  return undefined;
+  const fallback = defaultRoute ?? routes[0]!;
+  if (requestedModel !== fallback.aliasId) {
+    // Option A + C: unknown model (e.g. a subagent default like claude-opus-4-8)
+    // remaps to the default favorite instead of leaking an "Unknown model" error upstream.
+    console.error(`[gemini-proxy] model '${requestedModel}' not in catalog — remapping to default route '${fallback.aliasId}' (upstream: ${fallback.realModelId})`);
+  }
+  return fallback;
 }
+
+
 
 export interface TranslateGeminiRequestOptions {
   maxTools?: number;
