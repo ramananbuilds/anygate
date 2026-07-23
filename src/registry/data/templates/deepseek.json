@@ -1,0 +1,13 @@
+{
+  "id": "deepseek",
+  "name": "DeepSeek",
+  "description": "DeepSeek AI Platform",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://api.deepseek.com/v1",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://platform.deepseek.com",
+  "modelSource": "api-list",
+  "npm": "@ai-sdk/openai-compatible"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "openrouter",
+  "name": "OpenRouter",
+  "description": "OpenRouter AI Platform",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://openrouter.ai/api/v1",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://openrouter.ai/keys",
+  "modelSource": "api-list",
+  "npm": "@openrouter/ai-sdk-provider"
+}

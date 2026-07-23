@@ -1,0 +1,10 @@
+{
+  "id": "go",
+  "name": "OpenCode Go",
+  "description": "OpenCode Go - Paid tier models",
+  "addable": false,
+  "supported": true,
+  "authType": "oauth",
+  "apiBaseUrl": "https://opencode.ai/zen/go",
+  "modelsEndpoint": "/v1/models"
+}

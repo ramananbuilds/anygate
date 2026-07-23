@@ -1,0 +1,11 @@
+{
+  "id": "azure",
+  "name": "Azure OpenAI",
+  "description": "Azure OpenAI - Requires Azure deployment URLs",
+  "addable": false,
+  "supported": false,
+  "authType": "apiKey",
+  "modelSource": "manual-only",
+  "unsupportedReason": "Requires Azure deployment URLs — use anygate providers import from OpenCode for now.",
+  "npm": "@ai-sdk/azure"
+}

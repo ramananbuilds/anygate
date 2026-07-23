@@ -223,7 +223,7 @@ export function launchAntigravityApp(
       return;
     }
 
-    prepareIdeProfile(profileDir, gatewayUrl);
+    prepareIdeProfile(profileDir, gatewayUrl, false);
 
     const args = [
       `--user-data-dir=${profileDir}`,
@@ -276,8 +276,8 @@ export function launchAntigravityIde(
       return;
     }
 
-    // 1. Prepare the isolated profile and set jetski.cloudCodeUrl
-    prepareIdeProfile(profileDir, gatewayUrl);
+    // 1. Prepare the isolated profile and set jetski.cloudCodeUrl (isIDE=true for IDE)
+    prepareIdeProfile(profileDir, gatewayUrl, true);
 
     // 2. Build VS Code arguments
     // Keep Gateway's Antigravity profile fully isolated from the normal IDE profile.

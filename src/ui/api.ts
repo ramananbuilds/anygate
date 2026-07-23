@@ -13,7 +13,7 @@ import { saveProviderCredential, resolveProviderCredential } from '../core/env.j
 import { readBody, sendJson } from '../core/http-utils.ts';
 import { loadRegistry } from '../registry/io.js';
 import { refreshProviderModels, refreshAllProviderModels } from '../registry/refresh-models.js';
-import { listAddableTemplates, listVisibleOAuthTemplates, PROVIDER_TEMPLATES, getTemplateById } from '../providers/provider-templates.ts';
+import { listAddableTemplates, listSupportedTemplates, listVisibleOAuthTemplates, PROVIDER_TEMPLATES, getTemplateById } from '../providers/provider-templates.ts';
 import { addProviderFromTemplate, type AddTemplateResult } from '../registry/add-template.js';
 import { addCustomEndpointProvider, type CustomEndpointKind } from '../registry/custom-endpoint.js';
 import { validateCustomEndpointUrl } from '../registry/url-security.js';
@@ -574,7 +574,7 @@ function handleGetTemplates(res: ServerResponse): void {
   const registry = loadRegistry();
   const configured = new Set(registry.providers.map(p => p.id));
 
-  const apiTemplates = listAddableTemplates(configured).map(t => ({
+  const apiTemplates = listSupportedTemplates().map(t => ({
     id: t.id,
     name: t.name,
     signupUrl: t.signupUrl ?? null,

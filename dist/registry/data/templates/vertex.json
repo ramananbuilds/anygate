@@ -1,0 +1,11 @@
+{
+  "id": "vertex",
+  "name": "Google Vertex AI",
+  "description": "Google Vertex AI - Uses gcloud ADC",
+  "addable": false,
+  "supported": false,
+  "authType": "none",
+  "modelSource": "manual-only",
+  "unsupportedReason": "Uses gcloud Application Default Credentials — not supported via API key import.",
+  "npm": "@ai-sdk/google-vertex"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "perplexity",
+  "name": "Perplexity",
+  "description": "Perplexity AI Platform",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://api.perplexity.ai",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://www.perplexity.ai/settings/api",
+  "modelSource": "api-list",
+  "npm": "@ai-sdk/perplexity"
+}

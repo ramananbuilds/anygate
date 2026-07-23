@@ -1,0 +1,13 @@
+{
+  "id": "fireworks",
+  "name": "Fireworks AI",
+  "description": "Fireworks AI Platform",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://api.fireworks.ai/inference/v1",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://fireworks.ai/account/api-keys",
+  "modelSource": "api-list",
+  "npm": "@ai-sdk/fireworks"
+}

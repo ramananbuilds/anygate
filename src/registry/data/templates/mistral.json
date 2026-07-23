@@ -1,0 +1,13 @@
+{
+  "id": "mistral",
+  "name": "Mistral",
+  "description": "Mistral AI Platform",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://api.mistral.ai/v1",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://console.mistral.ai",
+  "modelSource": "api-list",
+  "npm": "@ai-sdk/mistral"
+}

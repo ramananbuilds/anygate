@@ -1,0 +1,13 @@
+{
+  "id": "ovh",
+  "name": "OVHcloud AI Endpoints",
+  "description": "OVHcloud AI Endpoints",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://api.endpoints.kepler.ai.cloud.ovh.net/v1",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://endpoints.ai.cloud.ovh.net",
+  "modelSource": "api-list",
+  "npm": "@ai-sdk/openai-compatible"
+}

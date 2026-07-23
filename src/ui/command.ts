@@ -64,12 +64,29 @@ function checkExistingServer(): string | null {
   if (!existsSync(LOCK_FILE)) return null;
   try {
     const { pid, port } = JSON.parse(readFileSync(LOCK_FILE, 'utf8'));
-    process.kill(pid, 0);
-    return `http://127.0.0.1:${port}`;
+    // On Windows, process.kill(pid, 0) doesn't throw for non-existent PIDs.
+    // Use tasklist to reliably check if the process exists.
+    const isWindows = process.platform === 'win32';
+    let processExists = false;
+    if (isWindows) {
+      try {
+        const output = execSync(`tasklist /FI "PID eq ${pid}"`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+        processExists = output.includes(String(pid));
+      } catch {
+        processExists = false;
+      }
+    } else {
+      process.kill(pid, 0);
+      processExists = true;
+    }
+    if (processExists) {
+      return `http://127.0.0.1:${port}`;
+    }
   } catch {
-    removeLock();
-    return null;
+    // Ignore errors
   }
+  removeLock();
+  return null;
 }
 
 export function isUiApiRoute(url: string): boolean {

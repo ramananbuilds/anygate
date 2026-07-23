@@ -1,0 +1,14 @@
+{
+  "id": "lmstudio",
+  "name": "LM Studio",
+  "description": "LM Studio Local AI Platform",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "http://127.0.0.1:1234/v1",
+  "modelsEndpoint": "/models",
+  "urlPrompt": "LM Studio API Base URL:",
+  "apiKeyOptional": true,
+  "modelSource": "api-list",
+  "npm": "@ai-sdk/openai-compatible"
+}

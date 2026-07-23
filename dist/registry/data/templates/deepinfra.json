@@ -1,0 +1,13 @@
+{
+  "id": "deepinfra",
+  "name": "DeepInfra",
+  "description": "DeepInfra AI Platform",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://api.deepinfra.com/v1/openai",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://deepinfra.com/dash/api_keys",
+  "modelSource": "api-list",
+  "npm": "@ai-sdk/deepinfra"
+}

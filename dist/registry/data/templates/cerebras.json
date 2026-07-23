@@ -1,0 +1,13 @@
+{
+  "id": "cerebras",
+  "name": "Cerebras",
+  "description": "Cerebras AI Platform",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://api.cerebras.ai/v1",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://cloud.cerebras.ai",
+  "modelSource": "api-list",
+  "npm": "@ai-sdk/cerebras"
+}

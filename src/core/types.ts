@@ -1,6 +1,7 @@
 // src/types.ts
 
 import type { FreeStatus } from '../agents/shared/free-models.js';
+import type { ProviderTemplate } from '../providers/provider-templates.js';
 
 export type ModelFormat = 'anthropic' | 'openai' | 'unsupported';
 
@@ -75,6 +76,10 @@ export interface LocalProvider {
   /** Static headers sent on every upstream request (e.g. a plan/auth-tracking header a custom endpoint requires). */
   headers?: Record<string, string>;
   models: LocalProviderModel[];
+  /** Whether this provider is in the user's registry (vs an available template). */
+  inRegistry?: boolean;
+  /** The template this provider was created from (if not in registry). */
+  template?: ProviderTemplate;
 }
 
 export interface FavoriteModel {

@@ -1,0 +1,12 @@
+{
+  "id": "sambanova",
+  "name": "SambaNova",
+  "authType": "api",
+  "npm": "@ai-sdk/sambanova",
+  "defaultBaseUrl": "https://api.sambanova.ai/v1",
+  "modelsPath": "/models",
+  "signupUrl": "https://cloud.sambanova.ai",
+  "modelSource": "api-list",
+  "addable": true,
+  "supported": true
+}

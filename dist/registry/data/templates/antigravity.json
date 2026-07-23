@@ -1,0 +1,15 @@
+{
+  "id": "antigravity",
+  "name": "Antigravity (Google Cloud Code Assist)",
+  "description": "Antigravity - Requires Google Cloud Code Assist subscription",
+  "addable": true,
+  "supported": true,
+  "authType": "oauth",
+  "apiBaseUrl": "https://antigravity.google",
+  "modelsEndpoint": "/v1/models",
+  "signupUrl": "https://antigravity.google",
+  "modelSource": "api-list",
+  "hidden": true,
+  "subscriptionRisk": true,
+  "npm": "@ai-sdk/openai-compatible"
+}

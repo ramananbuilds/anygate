@@ -1,0 +1,15 @@
+{
+  "id": "claude-code",
+  "name": "Claude Code (Anthropic subscription)",
+  "description": "Claude Code - Requires Anthropic subscription",
+  "addable": true,
+  "supported": true,
+  "authType": "oauth",
+  "apiBaseUrl": "https://api.anthropic.com",
+  "modelsEndpoint": "/v1/models",
+  "signupUrl": "https://claude.ai",
+  "modelSource": "api-list",
+  "hidden": true,
+  "subscriptionRisk": true,
+  "npm": "@ai-sdk/anthropic"
+}

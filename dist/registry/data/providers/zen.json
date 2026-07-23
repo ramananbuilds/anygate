@@ -1,0 +1,10 @@
+{
+  "id": "zen",
+  "name": "OpenCode Zen",
+  "description": "OpenCode Zen - Free tier models",
+  "addable": false,
+  "supported": true,
+  "authType": "oauth",
+  "apiBaseUrl": "https://opencode.ai/zen",
+  "modelsEndpoint": "/v1/models"
+}

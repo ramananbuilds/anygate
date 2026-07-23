@@ -1,0 +1,13 @@
+{
+  "id": "openai-oauth",
+  "name": "OpenAI (ChatGPT)",
+  "description": "OpenAI - Requires ChatGPT subscription",
+  "addable": true,
+  "supported": true,
+  "authType": "oauth",
+  "apiBaseUrl": "https://api.openai.com/v1",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://chatgpt.com",
+  "modelSource": "api-list",
+  "npm": "@ai-sdk/openai"
+}

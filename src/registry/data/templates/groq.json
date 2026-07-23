@@ -1,0 +1,13 @@
+{
+  "id": "groq",
+  "name": "Groq",
+  "description": "Groq AI Platform",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://api.groq.com/openai/v1",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://console.groq.com/keys",
+  "modelSource": "api-list",
+  "npm": "@ai-sdk/groq"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "venice",
+  "name": "Venice AI",
+  "description": "Venice AI Platform",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://api.venice.ai/api/v1",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://venice.ai/settings/api",
+  "modelSource": "api-list",
+  "npm": "venice-ai-sdk-provider"
+}

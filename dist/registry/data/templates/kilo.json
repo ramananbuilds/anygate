@@ -1,0 +1,15 @@
+{
+  "id": "kilo",
+  "name": "Kilo Code",
+  "description": "Kilo Code AI Platform",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://api.kilo.ai/api/gateway",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://kilocode.ai",
+  "modelSource": "api-list",
+  "apiKeyOptional": true,
+  "anonymousFreeModels": true,
+  "npm": "@ai-sdk/openai-compatible"
+}

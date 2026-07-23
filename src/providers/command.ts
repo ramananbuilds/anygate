@@ -16,6 +16,9 @@ import {
   listVisibleOAuthTemplates,
   type ProviderTemplate,
 } from './provider-templates.js';
+
+export type { ProviderTemplate } from './provider-templates.js';
+export { listAddableTemplates, getTemplateById } from './provider-templates.js';
 import { addProviderFromTemplate } from '../registry/add-template.js';
 import { addCustomEndpointProvider } from '../registry/custom-endpoint.js';
 import { validateCustomEndpointUrl } from '../registry/url-security.js';
@@ -393,14 +396,17 @@ async function pickTemplateFromCatalog(): Promise<ProviderTemplate | null> {
   }
 }
 
-async function runTemplateAddFlow(): Promise<number> {
-  if (listAddableTemplates(loadRegistry().providers.map(p => p.id)).length === 0) {
-    p.log.info('All catalog providers are already configured.');
-    return 0;
+async function runTemplateAddFlow(templateArg?: ProviderTemplate): Promise<number> {
+  let template = templateArg;
+  if (!template) {
+    if (listAddableTemplates(loadRegistry().providers.map(p => p.id)).length === 0) {
+      p.log.info('All catalog providers are already configured.');
+      return 0;
+    }
+    const picked = await pickTemplateFromCatalog();
+    if (!picked) return 0;
+    template = picked;
   }
-
-  const template = await pickTemplateFromCatalog();
-  if (!template) return 0;
 
   if (template.modelSource === 'zen-go-api') {
     const existingKey = await readGlobalOpencodeCredential();
@@ -896,3 +902,5 @@ export async function runProvidersCommand(args: string[]): Promise<number> {
   gateIntro('Your AI providers');
   return runProvidersHub();
 }
+
+export { runTemplateAddFlow };

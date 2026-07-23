@@ -1,0 +1,16 @@
+{
+  "id": "github-copilot",
+  "name": "GitHub Copilot",
+  "description": "GitHub Copilot - Requires Copilot subscription",
+  "addable": true,
+  "supported": true,
+  "authType": "oauth",
+  "apiBaseUrl": "https://api.githubcopilot.com",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://github.com/features/copilot",
+  "modelSource": "api-list",
+  "headers": {
+    "Editor-Version": "vscode/1.85.1"
+  },
+  "npm": "@ai-sdk/openai-compatible"
+}

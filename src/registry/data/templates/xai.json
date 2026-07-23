@@ -1,0 +1,13 @@
+{
+  "id": "xai",
+  "name": "xAI",
+  "description": "xAI Grok Platform",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://api.x.ai/v1",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://console.x.ai",
+  "modelSource": "api-list",
+  "npm": "@ai-sdk/xai"
+}

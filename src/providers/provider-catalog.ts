@@ -14,6 +14,12 @@ import { aliasModelId } from '../gateway/anthropic-proxy.js';
 import type { ProxyRoute } from '../gateway/anthropic-proxy.js';
 import { resolveInputTypes } from '../registry/models-dev.js';
 import type { FavoriteModel, BackendConfig } from '../core/types.js';
+import { providersForTarget } from '../agents/shared/target-compatibility.js';
+import {
+  listSupportedTemplates,
+  listAddableTemplates,
+  type ProviderTemplate,
+} from './provider-templates.js';
 
 
 export async function fetchProviderCatalog(
@@ -32,6 +38,45 @@ export function providersForPicker(providers: LocalProvider[]): LocalProvider[] 
   }
 
   return providers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
+}
+
+/**
+ * Merges configured providers with available templates to show all available providers
+ * in the picker. Configured providers are marked as `inRegistry: true`, unconfigured
+ * templates are marked as `inRegistry: false` and have a special hint.
+ */
+export async function providersForPickerWithTemplates(
+  agent: CompatibilityAgent = 'claude',
+): Promise<Array<LocalProvider & { inRegistry: boolean; template?: ProviderTemplate }>> {
+  // Get configured providers from registry
+  const catalog = await fetchProviderCatalog({ agent });
+  const configuredProviders = providersForTarget(providersForPicker(catalog), agent);
+
+  // Get configured provider IDs
+  const configuredIds = new Set(configuredProviders.map(p => p.id));
+
+  // Get available templates not yet configured
+  const configuredIdsArray = Array.from(configuredIds);
+  const availableTemplates = listAddableTemplates(configuredIdsArray);
+
+  // Create "virtual" LocalProvider entries for unconfigured templates
+  const templateProviders: Array<LocalProvider & { inRegistry: false; template: ProviderTemplate }> = availableTemplates.map(template => ({
+    id: template.id,
+    name: template.name,
+    apiKey: '',
+    authType: template.authType,
+    models: [], // Will be populated if user selects this provider
+    inRegistry: false,
+    template,
+  }));
+
+  // Combine and sort: configured providers first, then templates
+  const allProviders = [
+    ...configuredProviders.map(p => ({ ...p, inRegistry: true })),
+    ...templateProviders,
+  ].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
+
+  return allProviders;
 }
 
 /** Human-readable auth line for `providers list` and provider detail. */

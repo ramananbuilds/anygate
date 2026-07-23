@@ -1,0 +1,11 @@
+{
+  "id": "bedrock",
+  "name": "Amazon Bedrock",
+  "description": "Amazon Bedrock - Requires AWS credentials",
+  "addable": false,
+  "supported": false,
+  "authType": "apiKey",
+  "modelSource": "manual-only",
+  "unsupportedReason": "Requires AWS credentials — use anygate providers import from OpenCode for now.",
+  "npm": "@ai-sdk/amazon-bedrock"
+}

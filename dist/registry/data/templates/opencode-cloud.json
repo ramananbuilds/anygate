@@ -1,0 +1,13 @@
+{
+  "id": "opencode-cloud",
+  "name": "OpenCode Zen / Go",
+  "description": "OpenCode Cloud (Zen and Go combined)",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://opencode.ai/zen",
+  "modelsEndpoint": "/v1/models",
+  "signupUrl": "https://opencode.ai/auth",
+  "modelSource": "zen-go-api",
+  "npm": "@ai-sdk/openai-compatible"
+}

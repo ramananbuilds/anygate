@@ -1,0 +1,14 @@
+{
+  "id": "ollama",
+  "name": "Ollama",
+  "description": "Ollama Local AI Platform",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "http://127.0.0.1:11434/v1",
+  "modelsEndpoint": "/models",
+  "urlPrompt": "Ollama API Base URL:",
+  "apiKeyOptional": true,
+  "modelSource": "api-list",
+  "npm": "@ai-sdk/openai-compatible"
+}

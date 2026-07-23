@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.9 (2026-07-23)
+
+### UI — Full provider catalog in web UI
+- Fixed `GET /api/providers/templates` to return **all supported templates** (via `listSupportedTemplates()`) instead of only templates not yet configured (`listAddableTemplates()`).
+- The web UI "Add Provider" modal now shows **all 19 supported providers** (Anthropic, Cerebras, Cohere, DeepInfra, DeepSeek, Fireworks, Groq, Kilo, LM Studio, Mistral, NVIDIA, Ollama, OpenCode Cloud, OpenRouter, OVH, Perplexity, Scaleway, Together AI, Venice, xAI) plus 3 OAuth providers (GitHub Copilot, OpenAI, xAI) and 2 custom templates — matching the CLI behavior.
+- Previously the endpoint filtered to only "addable" templates (those not yet in the registry), hiding providers already configured.
+
+### Provider catalog — `listSupportedTemplates()` / `listAddableTemplates()` distinction
+- `listSupportedTemplates()` now returns all supported templates (used by UI and `anygate providers add` picker).
+- `listAddableTemplates()` still filters out already-configured providers (used by CLI provider hub).
+- Clear separation of concerns avoids future confusion.
+
+### Provider templates moved to JSON data
+- All provider templates moved from `src/providers/provider-templates.ts` to individual JSON files under `src/registry/data/templates/` (19 files) and `src/registry/data/providers/` (Zen/Go).
+- Added `src/registry/data-loader.ts` for synchronous/async loading with graceful fallback.
+- `src/providers/provider-templates.ts` now loads from JSON at build time with fallback to in-memory array; `src/registry/builtins.ts` loads Zen/Go from JSON.
+- Enables easy addition of new providers without code changes; schema validation possible.
+
 ## 0.5.8 (2026-07-20)
 
 ### Non-interactive favorites launch (all app launchers)

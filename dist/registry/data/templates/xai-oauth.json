@@ -1,0 +1,13 @@
+{
+  "id": "xai-oauth",
+  "name": "xAI Grok (SuperGrok)",
+  "description": "xAI Grok - Requires SuperGrok subscription",
+  "addable": true,
+  "supported": true,
+  "authType": "oauth",
+  "apiBaseUrl": "https://api.x.ai/v1",
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://x.ai",
+  "modelSource": "api-list",
+  "npm": "@ai-sdk/xai"
+}
