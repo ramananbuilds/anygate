@@ -1,4 +1,4 @@
-// src/commands/antigravity.ts — anygate agy / antigravity / antigravity-ide commands
+// src/cli/antigravity.ts — anygate agy / antigravity / antigravity-ide commands
 import type { ParsedArgs } from '../core/types.js';
 import { runAgyCommand, runAntigravityAppCommand, runAntigravityIdeCommand } from '../apps/gemini/antigravity.js';
 

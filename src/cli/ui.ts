@@ -1,4 +1,4 @@
-// src/commands/ui.ts — anygate ui command
+// src/cli/ui.ts — anygate ui command
 import type { ParsedArgs } from '../core/types.js';
 import { VERSION } from '../core/constants.js';
 

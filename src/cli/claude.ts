@@ -1,4 +1,4 @@
-// src/commands/claude.ts — anygate claude command
+// src/cli/claude.ts — anygate claude command
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import { findClaudeBinary, launchClaude } from '../apps/shared/launch.js';

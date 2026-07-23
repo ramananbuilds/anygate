@@ -1,4 +1,4 @@
-// src/commands/completions.ts — anygate completions command
+// src/cli/completions.ts — anygate completions command
 import type { ParsedArgs } from '../core/types.js';
 import { runCompletionsCommand } from '../apps/shared/completions.js';
 

@@ -1,4 +1,4 @@
-// src/commands/models.ts — anygate models command
+// src/cli/models.ts — anygate models command
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import { loadPreferences, savePreferences } from '../core/config.js';

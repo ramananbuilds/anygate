@@ -1,4 +1,4 @@
-// src/commands/doctor.ts — anygate doctor command
+// src/cli/doctor.ts — anygate doctor command
 import type { ParsedArgs } from '../core/types.js';
 import { runDoctorCommand } from '../apps/shared/doctor.js';
 

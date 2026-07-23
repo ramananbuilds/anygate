@@ -1,4 +1,4 @@
-// src/commands/index.ts — Command registry and dispatch
+// src/cli/index.ts — Command registry and dispatch
 
 import type { ParsedArgs } from '../core/types.js';
 

@@ -9,7 +9,7 @@ import { checkForUpdates, formatUpdateNotification } from './apps/shared/update-
 import type { ParsedArgs } from './core/types.js';
 import { refreshModelsDevCacheAsync } from './registry/models-dev.js';
 import { generateAiDoc, installAiDoc, printAiInstallResult } from './apps/shared/ai-doc.js';
-import { dispatchCommand } from './commands/index.js';
+import { dispatchCommand } from './cli/index.js';
 import { VERSION, MAX_MODEL_CATALOG } from './core/constants.js';
 import { codexHelpText } from './apps/codex/cli.js';
 import { geminiHelpText } from './apps/gemini/cli.js';

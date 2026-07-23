@@ -1,4 +1,4 @@
-// src/commands/providers.ts — anygate providers command
+// src/cli/providers.ts — anygate providers command
 import type { ParsedArgs } from '../core/types.js';
 import { runProvidersCommand, providersHelpText } from '../providers/command.js';
 

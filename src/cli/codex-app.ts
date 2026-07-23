@@ -1,4 +1,4 @@
-// src/commands/codex-app.ts — anygate codex-app / chatgpt command
+// src/cli/codex-app.ts — anygate codex-app / chatgpt command
 import type { ParsedArgs } from '../core/types.js';
 import { runCodexAppCommand } from '../apps/codex/app.js';
 

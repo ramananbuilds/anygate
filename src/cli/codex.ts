@@ -1,4 +1,4 @@
-// src/commands/codex.ts — anygate codex command
+// src/cli/codex.ts — anygate codex command
 import type { ParsedArgs } from '../core/types.js';
 import { runCodexCommand, codexHelpText } from '../apps/codex/cli.js';
 

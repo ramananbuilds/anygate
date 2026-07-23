@@ -1,4 +1,4 @@
-// src/commands/claude-app.ts — anygate claude-app command
+// src/cli/claude-app.ts — anygate claude-app command
 import type { ParsedArgs } from '../core/types.js';
 import { runClaudeAppCommand } from '../apps/claude/desktop.js';
 

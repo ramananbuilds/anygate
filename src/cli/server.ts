@@ -1,4 +1,4 @@
-// src/commands/server.ts — anygate server command
+// src/cli/server.ts — anygate server command
 import type { ParsedArgs } from '../core/types.js';
 import { runServerCommand } from '../gateway/server.js';
 import { VERSION } from '../core/constants.js';

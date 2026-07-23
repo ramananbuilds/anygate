@@ -1,4 +1,4 @@
-// src/commands/gemini.ts — anygate gemini command
+// src/cli/gemini.ts — anygate gemini command
 import type { ParsedArgs } from '../core/types.js';
 import { runGeminiCommand, geminiHelpText } from '../apps/gemini/cli.js';
 

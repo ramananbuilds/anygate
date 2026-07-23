@@ -1,4 +1,4 @@
-// src/commands/update.ts — anygate update command
+// src/cli/update.ts — anygate update command
 import type { ParsedArgs } from '../core/types.js';
 import { runUpdateCommand } from '../apps/shared/self-update.js';
 
