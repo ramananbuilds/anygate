@@ -12,7 +12,7 @@ import {
   maxToolsForNpm,
   thinkingProviderOptions,
 } from '../../../src/gateway/provider-factory.js';
-import { applyClaudeCodeOAuthIdentity } from '../../../src/oauth/claude-code-identity.js';
+import { applyClaudeCodeOAuthIdentity } from '../../../src/auth/claude-code-identity.js';
 import { silenceSdkWarnings } from '../../../src/gateway/sdk-adapter.js';
 import { getGeminiProxyDebugLogPath, makeTraceLogger } from '../../apps/shared/trace-log.js';
 import type { ProxyRoute, ProxyHandle } from '../../../src/gateway/anthropic-proxy.js';

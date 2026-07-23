@@ -19,16 +19,16 @@ import { addCustomEndpointProvider, type CustomEndpointKind } from '../registry/
 import { validateCustomEndpointUrl } from '../registry/url-security.js';
 import { saveNativeOAuthCredential } from '../registry/provider-auth.js';
 import { removeProviderFromRegistry } from '../registry/crud.js';
-import { requestXaiDeviceCode, pollXaiDeviceCodeToken } from '../oauth/xai.js';
-import { requestOpenAiDeviceCode, pollOpenAiDeviceCodeToken, openAiDeviceCodeUrl } from '../oauth/openai.js';
-import { requestGithubDeviceCode, pollGithubDeviceCodeToken } from '../oauth/github.js';
+import { requestXaiDeviceCode, pollXaiDeviceCodeToken } from '../auth/xai.js';
+import { requestOpenAiDeviceCode, pollOpenAiDeviceCodeToken, openAiDeviceCodeUrl } from '../auth/openai.js';
+import { requestGithubDeviceCode, pollGithubDeviceCodeToken } from '../auth/github.js';
 import {
   guiCallbackRedirectUri,
-} from '../oauth/claude-code.js';
+} from '../auth/claude-code.js';
 import {
   buildAntigravityAuthUrl,
   completeAntigravityExchange,
-} from '../oauth/antigravity-oauth.js';
+} from '../auth/antigravity-oauth.js';
 
 import { providerOptionsFromCatalog } from '../gateway/server.ts';
 import { getServerStatus, startGatewayServer, stopGatewayServer, type ServerStartRequest } from './server-control.js';
@@ -148,11 +148,11 @@ export function handleUiApiRequest(req: IncomingMessage, res: ServerResponse, op
     handleAddCustomProvider(req, res);
   } else if (url === '/api/providers/delete' && req.method === 'POST') {
     handleDeleteProvider(req, res);
-  } else if (url === '/api/providers/oauth/start' && req.method === 'POST') {
+  } else if (url === '/api/providers/auth/start' && req.method === 'POST') {
     handleOAuthStart(req, res);
-  } else if (url.startsWith('/api/providers/oauth/status') && req.method === 'GET') {
+  } else if (url.startsWith('/api/providers/auth/status') && req.method === 'GET') {
     handleOAuthStatus(req, res);
-  } else if (url.startsWith('/oauth/callback') && req.method === 'GET') {
+  } else if (url.startsWith('/auth/callback') && req.method === 'GET') {
     handleOAuthCallback(req, res);
   } else if (url === '/api/apps' && req.method === 'GET') {
     handleGetApps(res);
@@ -843,7 +843,7 @@ async function handleOAuthStart(req: IncomingMessage, res: ServerResponse): Prom
       codePromise.then(async (code) => {
         let providerData: Record<string, unknown> = {};
         let accountId: string | undefined;
-        let tokens: import('../oauth/types.js').OAuthTokenResponse;
+        let tokens: import('../auth/types.js').OAuthTokenResponse;
 
         if (providerId === 'antigravity') {
           const result = await completeAntigravityExchange(code, codeVerifier, redirectUri);

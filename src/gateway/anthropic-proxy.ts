@@ -15,7 +15,7 @@ import {
   injectClaudeCodeBillingSystemLine,
   injectClaudeIdentity,
   selectBetaFlags,
-} from '../oauth/claude-identity.js';
+} from '../auth/claude-identity.js';
 import { anthropicToCloudCode } from './antigravity/anthropic-to-cloudcode.js';
 import { streamCloudCodeToAnthropic, collectCloudCodeToAnthropic } from './antigravity/cloudcode-to-anthropic.js';
 import { createLanguageModel, isSdkUpgradedNpm, maxToolsForNpm } from './provider-factory.js';

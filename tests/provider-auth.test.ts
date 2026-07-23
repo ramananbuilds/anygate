@@ -26,13 +26,13 @@ vi.mock('../src/apps/shared/ui.js', () => ({
   printOAuthStepsPanel: vi.fn(),
   confirmSubscriptionOAuthRisk: vi.fn(async () => true),
 }));
-vi.mock('../src/oauth/antigravity-oauth.js', () => ({
+vi.mock('../src/auth/antigravity-oauth.js', () => ({
   runAntigravityOAuthFlow: vi.fn(async () => ({
     tokens: { access_token: 'antigravity-access', refresh_token: 'antigravity-refresh' },
     userInfo: { email: 'user@example.com' },
   })),
 }));
-vi.mock('../src/oauth/claude-code.js', () => ({
+vi.mock('../src/auth/claude-code.js', () => ({
   runClaudeCodeOAuthFlow: vi.fn(async () => ({
     tokens: { access_token: 'claude-access', refresh_token: 'claude-refresh' },
     bootstrap: { accountId: 'acct-123' },
@@ -60,8 +60,8 @@ import { saveProviderCredential } from './../src/core/env.js';
 import { saveRegistry } from '../src/registry/io.js';
 import { authenticateProvider } from '../src/registry/provider-auth.js';
 import { runOpencodeAuthBroker } from '../src/registry/auth-broker.js';
-import { runAntigravityOAuthFlow } from '../src/oauth/antigravity-oauth.js';
-import { runClaudeCodeOAuthFlow } from '../src/oauth/claude-code.js';
+import { runAntigravityOAuthFlow } from '../src/auth/antigravity-oauth.js';
+import { runClaudeCodeOAuthFlow } from '../src/auth/claude-code.js';
 import * as prompts from '@clack/prompts';
 
 describe('authenticateProvider', () => {

@@ -8,7 +8,7 @@ import { BACKENDS, MAX_MODEL_CATALOG, classifyModelFormat } from '../core/consta
 import { claudeCodeClientModelId } from '../apps/shared/context-model-id.js';
 import { resolveContextWindow, loadOpencodeCache } from '../apps/shared/context-window.js';
 import { shouldHideModel } from '../apps/shared/model-compatibility.js';
-import { ANTIGRAVITY_BASE_URLS } from '../oauth/antigravity-oauth.js';
+import { ANTIGRAVITY_BASE_URLS } from '../auth/antigravity-oauth.js';
 import { isSdkUpgradedNpm } from '../gateway/provider-factory.js';
 import { aliasModelId } from '../gateway/anthropic-proxy.js';
 import type { ProxyRoute } from '../gateway/anthropic-proxy.js';

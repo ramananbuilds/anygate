@@ -82,7 +82,7 @@ export interface UiAppsResponse {
   recentLaunchFolders: string[];
 }
 
-/** `GET|POST /api/providers/oauth/status` */
+/** `GET|POST /api/providers/auth/status` */
 export interface UiOAuthSessionResponse {
   status: 'pending' | 'done' | 'error';
   error?: string;

@@ -1,4 +1,4 @@
-// src/oauth/antigravity-oauth.ts — Authorization Code + PKCE flow for Antigravity
+// src/auth/antigravity-oauth.ts — Authorization Code + PKCE flow for Antigravity
 // (Google Cloud Code Assist). Client credentials are the public values shipped in
 // the Antigravity CLI binary (PKCE — not secrets per RFC 8252 / Google docs).
 
@@ -328,7 +328,7 @@ export async function runAntigravityOAuthFlow(
   }
 }
 
-/** For the GUI: complete token exchange + bootstrap given code from /oauth/callback. */
+/** For the GUI: complete token exchange + bootstrap given code from /auth/callback. */
 export async function completeAntigravityExchange(
   code: string,
   codeVerifier: string,

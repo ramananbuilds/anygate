@@ -3,9 +3,9 @@ import {
   extractOpenAiAccountId,
   refreshOpenAiAccessToken,
   runOpenAiDeviceCodeFlow,
-} from '../src/oauth/openai.js';
+} from '../src/auth/openai.js';
 
-describe('oauth/openai', () => {
+describe('auth/openai', () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
@@ -57,7 +57,7 @@ describe('oauth/openai', () => {
       const res = await refreshOpenAiAccessToken('refresh_123');
       expect(res.access_token).toBe('new_token');
       expect(global.fetch).toHaveBeenCalledWith(
-        'https://auth.openai.com/oauth/token',
+        'https://auth.openai.com/auth/token',
         expect.objectContaining({ method: 'POST' }),
       );
     });

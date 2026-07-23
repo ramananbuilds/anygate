@@ -1,5 +1,5 @@
-// src/oauth/callback-server.ts — CLI fallback local callback server for PKCE OAuth flows.
-// Primary path: the GUI server handles /oauth/callback when the UI is open.
+// src/auth/callback-server.ts — CLI fallback local callback server for PKCE OAuth flows.
+// Primary path: the GUI server handles /auth/callback when the UI is open.
 // This is only used when running `anygate providers auth <provider>` without the GUI.
 
 import http from 'node:http';
@@ -32,7 +32,7 @@ export function startCallbackServer(): Promise<CallbackServer> {
 
     const server = http.createServer((req, res) => {
       const u = new URL(req.url ?? '/', 'http://localhost');
-      if (u.pathname !== '/callback' && u.pathname !== '/oauth/callback') {
+      if (u.pathname !== '/callback' && u.pathname !== '/auth/callback') {
         res.writeHead(404); res.end(); return;
       }
       const code = u.searchParams.get('code') ?? '';

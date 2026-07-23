@@ -31,7 +31,7 @@ import {
 import { favoriteProviderDisplayName } from '../apps/claude/favorites-provider-display.js';
 import { resolveFirstAvailableFavorite } from '../apps/shared/favorites-resolver.js';
 import { prepareClaudeTraceLog, printTraceLog } from '../apps/shared/trace-log.js';
-import { ANTIGRAVITY_BASE_URLS } from '../oauth/antigravity-oauth.js';
+import { ANTIGRAVITY_BASE_URLS } from '../auth/antigravity-oauth.js';
 import { providersForTarget } from '../apps/shared/target-compatibility.js';
 import { refreshModelsDevCacheAsync } from '../registry/models-dev.js';
 import { setAgentStdoutMode, isAgentStdoutMode } from '../core/agent-io.js';

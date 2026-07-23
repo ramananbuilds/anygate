@@ -1,6 +1,6 @@
 import { startProxyCatalog, aliasModelId, type ProxyHandle, type ProxyRoute } from '../../../src/gateway/anthropic-proxy.js';
 import { claudeCodeClientModelId } from '../../apps/shared/context-model-id.js';
-import { ANTIGRAVITY_BASE_URLS } from '../../../src/oauth/antigravity-oauth.js';
+import { ANTIGRAVITY_BASE_URLS } from '../../../src/auth/antigravity-oauth.js';
 import { resolveProviderCredential } from '../../../src/core/env.js';
 import { oauthAuthRef } from '../../../src/registry/import-build.js';
 import type { LocalProviderModel } from '../../../src/core/types.js';

@@ -81,7 +81,7 @@ export async function pollOpenAiDeviceCodeToken(
 
     if (response.ok) {
       const data = await response.json() as { authorization_code: string; code_verifier: string };
-      const tokenResponse = await fetch(`${ISSUER}/oauth/token`, {
+      const tokenResponse = await fetch(`${ISSUER}/auth/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
@@ -110,7 +110,7 @@ export async function pollOpenAiDeviceCodeToken(
 
 export async function refreshOpenAiAccessToken(refreshToken: string): Promise<OAuthTokenResponse> {
   return postOAuthRefresh(
-    `${ISSUER}/oauth/token`,
+    `${ISSUER}/auth/token`,
     new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,

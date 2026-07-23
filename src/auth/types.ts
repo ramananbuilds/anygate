@@ -1,4 +1,4 @@
-// oauth/types.ts — stored OAuth credential shape (matches OpenCode auth.json)
+// auth/types.ts — stored OAuth credential shape (matches OpenCode auth.json)
 
 import type { OpencodeOAuthCredential } from '../registry/opencode-auth.js';
 

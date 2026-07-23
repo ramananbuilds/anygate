@@ -1,4 +1,4 @@
-// src/oauth/claude-code.ts — Authorization Code + PKCE flow for Claude Code OAuth.
+// src/auth/claude-code.ts — Authorization Code + PKCE flow for Claude Code OAuth.
 // Client ID is the public PKCE credential shipped in the Claude Code CLI binary.
 
 import { randomBytes } from 'node:crypto';
@@ -10,10 +10,10 @@ import { postOAuthRefresh } from './refresh-http.js';
 export const CLAUDE_CODE_CLIENT_ID =
   process.env.CLAUDE_OAUTH_CLIENT_ID ?? '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
 
-const AUTHORIZE_URL = 'https://claude.ai/oauth/authorize';
-const TOKEN_URL = 'https://api.anthropic.com/v1/oauth/token';
+const AUTHORIZE_URL = 'https://claude.ai/auth/authorize';
+const TOKEN_URL = 'https://api.anthropic.com/v1/auth/token';
 const REDIRECT_URI =
-  process.env.CLAUDE_CODE_REDIRECT_URI ?? 'https://platform.claude.com/oauth/code/callback';
+  process.env.CLAUDE_CODE_REDIRECT_URI ?? 'https://platform.claude.com/auth/code/callback';
 const SCOPES =
   'org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers';
 
@@ -199,7 +199,7 @@ export async function fetchClaudeCodeModels(accessToken: string): Promise<Claude
   return entries;
 }
 
-/** For the GUI: complete token exchange given code received via /oauth/callback. */
+/** For the GUI: complete token exchange given code received via /auth/callback. */
 export async function completeClaudeCodeExchange(
   code: string,
   codeVerifier: string,
@@ -213,5 +213,5 @@ export async function completeClaudeCodeExchange(
 
 /** Redirect URI for the GUI callback (port extracted from Host header). */
 export function guiCallbackRedirectUri(host: string): string {
-  return `http://${host}/oauth/callback`;
+  return `http://${host}/auth/callback`;
 }

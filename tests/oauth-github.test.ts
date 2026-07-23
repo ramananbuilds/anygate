@@ -4,10 +4,10 @@ import {
   exchangeForCopilotToken,
   refreshGithubCopilotToken,
   pollGithubDeviceCodeToken,
-} from '../src/oauth/github.js';
-import { oauthCredentialShouldRefresh, refreshStoredOAuthCredential } from '../src/oauth/refresh.js';
-import { positiveSecondsToMs } from '../src/oauth/pkce.js';
-import type { StoredOAuthCredential } from '../src/oauth/types.js';
+} from '../src/auth/github.js';
+import { oauthCredentialShouldRefresh, refreshStoredOAuthCredential } from '../src/auth/refresh.js';
+import { positiveSecondsToMs } from '../src/auth/pkce.js';
+import type { StoredOAuthCredential } from '../src/auth/types.js';
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch as unknown as typeof fetch;

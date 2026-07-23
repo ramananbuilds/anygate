@@ -1,4 +1,4 @@
-// src/oauth/claude-identity.ts — Request identity simulation for Claude Code OAuth.
+// src/auth/claude-identity.ts — Request identity simulation for Claude Code OAuth.
 // Anthropic validates that OAuth requests match the claude-cli fingerprint.
 
 import { createHash, randomUUID } from 'node:crypto';

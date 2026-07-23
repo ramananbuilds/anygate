@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyClaudeCodeOAuthIdentity, isClaudeCodeOAuthRoute } from '../src/oauth/claude-code-identity.js';
+import { applyClaudeCodeOAuthIdentity, isClaudeCodeOAuthRoute } from '../src/auth/claude-code-identity.js';
 
 describe('claude-code OAuth identity', () => {
   it('uses real providerData for Claude Code OAuth user metadata', () => {

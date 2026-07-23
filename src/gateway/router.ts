@@ -25,7 +25,7 @@ import {
   injectClaudeCodeBillingSystemLine,
   injectClaudeIdentity,
   selectBetaFlags,
-} from '../oauth/claude-identity.js';
+} from '../auth/claude-identity.js';
 import { writeSecureLogLine, resetTraceLog } from '../apps/shared/trace-log.js';
 import { redactTraceLine } from '../core/redact.js';
 import type { LanguageModel } from 'ai';

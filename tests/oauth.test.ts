@@ -1,10 +1,10 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { accessTokenIsExpiring, oauthCredentialNeedsRefresh, tokensToStoredCredential } from '../src/oauth/types.js';
-import { pollXaiDeviceCodeToken, requestXaiDeviceCode } from '../src/oauth/xai.js';
-import { extractOpenAiAccountId } from '../src/oauth/openai.js';
-import { completeAntigravityExchange, resolveAntigravityOnboardTierId } from '../src/oauth/antigravity-oauth.js';
-import { postOAuthRefresh } from '../src/oauth/refresh-http.js';
-import { oauthCredentialShouldRefresh, refreshStoredOAuthCredential } from '../src/oauth/refresh.js';
+import { accessTokenIsExpiring, oauthCredentialNeedsRefresh, tokensToStoredCredential } from '../src/auth/types.js';
+import { pollXaiDeviceCodeToken, requestXaiDeviceCode } from '../src/auth/xai.js';
+import { extractOpenAiAccountId } from '../src/auth/openai.js';
+import { completeAntigravityExchange, resolveAntigravityOnboardTierId } from '../src/auth/antigravity-oauth.js';
+import { postOAuthRefresh } from '../src/auth/refresh-http.js';
+import { oauthCredentialShouldRefresh, refreshStoredOAuthCredential } from '../src/auth/refresh.js';
 import { codexCompatibleProviders } from '../src/apps/codex/routing.js';
 import type { LocalProvider } from './../src/core/types.js';
 

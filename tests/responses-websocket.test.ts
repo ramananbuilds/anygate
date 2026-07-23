@@ -19,7 +19,7 @@ class FakeWebSocket extends EventEmitter {
 
 vi.mock('ws', () => ({ WebSocket: FakeWebSocket, default: FakeWebSocket }));
 
-import { createResponsesWebSocketFetch } from '../src/oauth/responses-websocket.js';
+import { createResponsesWebSocketFetch } from '../src/auth/responses-websocket.js';
 
 const WS_URL = 'wss://chatgpt.com/backend-api/codex/responses';
 

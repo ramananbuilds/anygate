@@ -90,7 +90,7 @@ function checkExistingServer(): string | null {
 }
 
 export function isUiApiRoute(url: string): boolean {
-  return url.startsWith('/api/') || url.startsWith('/oauth/callback');
+  return url.startsWith('/api/') || url.startsWith('/auth/callback');
 }
 
 export function formatUiServerLifecycleMessage(event: UiServerLifecycleEvent): string {

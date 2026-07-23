@@ -4,12 +4,12 @@
 import type { LanguageModel } from 'ai';
 import { wrapLanguageModel, extractReasoningMiddleware } from 'ai';
 import { VERTEX_ANTHROPIC_NPM, CODEX_RESPONSES_LITE_VERSION, CODEX_RESPONSES_LITE_WS_URL } from '../core/constants.js';
-import { extractOpenAiAccountId } from '../oauth/openai.js';
-import { createResponsesWebSocketFetch } from '../oauth/responses-websocket.js';
+import { extractOpenAiAccountId } from '../auth/openai.js';
+import { createResponsesWebSocketFetch } from '../auth/responses-websocket.js';
 import {
   CLAUDE_CODE_USER_AGENT,
   injectClaudeIdentity,
-} from '../oauth/claude-identity.js';
+} from '../auth/claude-identity.js';
 
 // Reasoning-capability detection and provider-option mapping.
 // Extracted to provider-reasoning.ts to keep the core SDK factory lean.

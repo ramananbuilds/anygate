@@ -10,7 +10,7 @@ import { VERSION } from '../core/constants.js';
 // Public OAuth App client ID used by VS Code GitHub Copilot extension
 const CLIENT_ID = 'Iv1.b507a08c87ecfe98';
 const DEVICE_CODE_URL = 'https://github.com/login/device/code';
-const TOKEN_URL = 'https://github.com/login/oauth/access_token';
+const TOKEN_URL = 'https://github.com/login/auth/access_token';
 const COPILOT_TOKEN_URL = 'https://api.github.com/copilot_internal/v2/token';
 const SCOPE = 'copilot';
 

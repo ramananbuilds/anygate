@@ -5,20 +5,20 @@ import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import open from 'open';
 import { saveProviderCredential } from '../core/env.js';
-import { runOpenAiDeviceCodeFlow } from '../oauth/openai.js';
+import { runOpenAiDeviceCodeFlow } from '../auth/openai.js';
 import {
   supportsNativeOAuth,
   isBrowserRedirectOAuth,
   tokensToStoredCredential,
   type NativeOAuthProviderId,
-} from '../oauth/types.js';
-import { runXaiDeviceCodeFlow } from '../oauth/xai.js';
-import { runGithubDeviceCodeFlow } from '../oauth/github.js';
+} from '../auth/types.js';
+import { runXaiDeviceCodeFlow } from '../auth/xai.js';
+import { runGithubDeviceCodeFlow } from '../auth/github.js';
 import {
   runClaudeCodeOAuthFlow,
   generateCliUserID,
-} from '../oauth/claude-code.js';
-import { runAntigravityOAuthFlow } from '../oauth/antigravity-oauth.js';
+} from '../auth/claude-code.js';
+import { runAntigravityOAuthFlow } from '../auth/antigravity-oauth.js';
 import { getTemplateById } from '../providers/provider-templates.ts';
 import { fetchRawOpencodeProviders } from '../providers/opencode-serve.ts';
 import { findOpencodeBinary } from '../providers/opencode-serve.ts';
@@ -171,7 +171,7 @@ async function runNativeBrowserOAuth(providerId: NativeOAuthProviderId): Promise
 
 export async function saveNativeOAuthCredential(
   providerId: string,
-  tokens: import('../oauth/types.js').OAuthTokenResponse,
+  tokens: import('../auth/types.js').OAuthTokenResponse,
   accountId?: string,
   providerData?: Record<string, unknown>,
 ): Promise<void> {

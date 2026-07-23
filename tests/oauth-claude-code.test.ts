@@ -4,9 +4,9 @@ import {
   exchangeClaudeCodeToken,
   extractClaudeAuthCode,
   fetchClaudeCodeModels,
-} from '../src/oauth/claude-code.js';
+} from '../src/auth/claude-code.js';
 
-describe('oauth/claude-code', () => {
+describe('auth/claude-code', () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
@@ -22,8 +22,8 @@ describe('oauth/claude-code', () => {
     const { authUrl, redirectUri } = await buildClaudeCodeAuthUrl();
     const url = new URL(authUrl);
 
-    expect(redirectUri).toBe('https://platform.claude.com/oauth/code/callback');
-    expect(url.searchParams.get('redirect_uri')).toBe('https://platform.claude.com/oauth/code/callback');
+    expect(redirectUri).toBe('https://platform.claude.com/auth/code/callback');
+    expect(url.searchParams.get('redirect_uri')).toBe('https://platform.claude.com/auth/code/callback');
   });
 
   it('uses the same hosted callback during token exchange', async () => {
@@ -35,17 +35,17 @@ describe('oauth/claude-code', () => {
     await exchangeClaudeCodeToken(
       'auth-code',
       'verifier',
-      'https://platform.claude.com/oauth/code/callback',
+      'https://platform.claude.com/auth/code/callback',
       'state',
     );
 
     const [, init] = vi.mocked(global.fetch).mock.calls[0]!;
     const body = JSON.parse(String(init?.body));
-    expect(body.redirect_uri).toBe('https://platform.claude.com/oauth/code/callback');
+    expect(body.redirect_uri).toBe('https://platform.claude.com/auth/code/callback');
   });
 
   it('extracts authorization codes from pasted callback URLs', () => {
-    expect(extractClaudeAuthCode('https://platform.claude.com/oauth/code/callback?code=abc123&state=xyz'))
+    expect(extractClaudeAuthCode('https://platform.claude.com/auth/code/callback?code=abc123&state=xyz'))
       .toBe('abc123');
     expect(extractClaudeAuthCode('?code=def456&state=xyz')).toBe('def456');
     expect(extractClaudeAuthCode('raw-code')).toBe('raw-code');

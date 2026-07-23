@@ -1,4 +1,4 @@
-// oauth/refresh.ts — refresh OAuth tokens before inference
+// auth/refresh.ts — refresh OAuth tokens before inference
 
 import { refreshOpenAiAccessToken } from './openai.js';
 import { refreshGithubCopilotToken } from './github.js';

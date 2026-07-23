@@ -6,7 +6,7 @@ import { toggleProviderEnabled } from '../../registry/crud.js';
 import { printCloudProviderPanel, printProviderDetailPanel } from '../../apps/shared/ui.js';
 import { browseAllModels } from '../../apps/shared/prompts.js';
 import { cachedModelToLocal } from '../../registry/materialize.js';
-import { supportsNativeOAuth } from '../../oauth/types.js';
+import { supportsNativeOAuth } from '../../auth/types.js';
 import { formatRegistryAuthLabel } from '../provider-catalog.js';
 import { runProvidersRefreshModels } from '../models/index.js';
 import { runProvidersAuth, runProvidersRemove } from '../registry/index.js';

@@ -12,7 +12,7 @@ import {
   codexAppModelSlug,
 } from './app-profile.js';
 import { createLanguageModel, maxToolsForNpm, type VertexProviderConfig } from '../../../src/gateway/provider-factory.js';
-import { applyClaudeCodeOAuthIdentity } from '../../../src/oauth/claude-code-identity.js';
+import { applyClaudeCodeOAuthIdentity } from '../../../src/auth/claude-code-identity.js';
 import {
   translateResponsesRequest,
   streamResponsesResponse,

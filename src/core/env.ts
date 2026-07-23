@@ -5,8 +5,8 @@ import { resolveContextWindow } from '../apps/shared/context-window.js';
 import { oauthCredentialToKeychainJson } from '../registry/opencode-auth.js';
 import {
   parseStoredOAuthCredential,
-} from '../oauth/types.js';
-import { refreshStoredOAuthCredential, oauthCredentialShouldRefresh } from '../oauth/refresh.js';
+} from '../auth/types.js';
+import { refreshStoredOAuthCredential, oauthCredentialShouldRefresh } from '../auth/refresh.js';
 import type { ConflictInfo } from './types.js';
 
 export function detectConflicts(): ConflictInfo[] {

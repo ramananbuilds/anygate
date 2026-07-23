@@ -7,8 +7,8 @@ import {
 
 describe('ui command routing', () => {
   it('routes API and OAuth callback requests to the API handler', () => {
-    expect(isUiApiRoute('/api/providers/oauth/start')).toBe(true);
-    expect(isUiApiRoute('/oauth/callback?state=abc&code=123')).toBe(true);
+    expect(isUiApiRoute('/api/providers/auth/start')).toBe(true);
+    expect(isUiApiRoute('/auth/callback?state=abc&code=123')).toBe(true);
   });
 
   it('leaves static UI paths on the static file handler', () => {

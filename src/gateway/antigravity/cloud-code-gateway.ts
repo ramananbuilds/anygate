@@ -12,8 +12,8 @@ import { formatUpstreamError } from '../../core/errors.js';
 import { readBody } from '../../core/http-utils.js';
 import { translateRequest, type TranslateRequestOptions } from './request-adapter.js';
 import { formatCloudCodeChunk, mapFinishReason, normalizeFunctionCallArgs } from './response-adapter.js';
-import { applyClaudeCodeOAuthIdentity } from '../../oauth/claude-code-identity.js';
-import { ANTIGRAVITY_BASE_URLS } from '../../oauth/antigravity-oauth.js';
+import { applyClaudeCodeOAuthIdentity } from '../../auth/claude-code-identity.js';
+import { ANTIGRAVITY_BASE_URLS } from '../../auth/antigravity-oauth.js';
 import type { AntigravityRoute, CatalogFixture } from './types.js';
 import { recordUsage } from '../../core/analytics-log.js';
 import {
