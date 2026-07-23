@@ -39,7 +39,7 @@ vi.mock('../src/auth/claude-code.js', () => ({
   })),
   generateCliUserID: vi.fn(() => 'cli-user-id'),
 }));
-vi.mock('../src/core/env.js', () => ({
+vi.mock('../src/config/env.js', () => ({
   saveProviderCredential: vi.fn(async () => false),
 }));
 vi.mock('../src/registry/io.js', () => ({
@@ -56,7 +56,7 @@ vi.mock('@clack/prompts', () => ({
   isCancel: vi.fn(() => false),
 }));
 
-import { saveProviderCredential } from './../src/core/env.js';
+import { saveProviderCredential } from './../src/config/env.js';
 import { saveRegistry } from '../src/registry/io.js';
 import { authenticateProvider } from '../src/registry/provider-auth.js';
 import { runOpencodeAuthBroker } from '../src/registry/auth-broker.js';

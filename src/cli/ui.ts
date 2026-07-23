@@ -1,6 +1,6 @@
 // src/cli/ui.ts — anygate ui command
-import type { ParsedArgs } from '../core/types.js';
-import { VERSION } from '../core/constants.js';
+import type { ParsedArgs } from '../types/index.js';
+import { VERSION } from '../config/constants.js';
 
 export async function handleUiCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {

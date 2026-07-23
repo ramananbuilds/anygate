@@ -1,7 +1,7 @@
 // Codex-only picker UX — no Claude Code strings.
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import type { LocalProvider, LocalProviderModel, UserPreferences } from '../../../src/core/types.js';
+import type { LocalProvider, LocalProviderModel, UserPreferences } from '../../../src/types/index.js';
 import type { CodexRoute } from './routing.js';
 import {
   confirmLaunchMessage,

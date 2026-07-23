@@ -4,7 +4,7 @@ import {
   providersForTarget,
   routableModelsForTarget,
 } from '../src/apps/shared/target-compatibility.js';
-import type { LocalProvider, LocalProviderModel } from './../src/core/types.js';
+import type { LocalProvider, LocalProviderModel } from './../src/types/index.js';
 
 const openAiModel: LocalProviderModel = {
   id: 'gpt-4o',

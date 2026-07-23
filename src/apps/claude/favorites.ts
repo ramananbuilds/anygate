@@ -1,5 +1,5 @@
-import { MAX_MODEL_CATALOG } from '../../../src/core/constants.js';
-import type { FavoriteModel } from '../../../src/core/types.js';
+import { MAX_MODEL_CATALOG } from '../../../src/config/constants.js';
+import type { FavoriteModel } from '../../../src/types/index.js';
 
 export function isFavorite(list: FavoriteModel[], fav: FavoriteModel): boolean {
   return list.some(f => f.providerId === fav.providerId && f.modelId === fav.modelId);

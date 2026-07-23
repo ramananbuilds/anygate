@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { resolveLocalProviderApiKey } from '../src/core/credentials.js';
-import type { LocalProvider } from '../src/core/types.js';
+import { resolveLocalProviderApiKey } from '../src/storage/credentials.js';
+import type { LocalProvider } from '../src/types/index.js';
 
 // Minimal LocalProvider fixture — only the fields resolveLocalProviderApiKey reads.
 function makeProvider(overrides: Partial<LocalProvider>): LocalProvider {

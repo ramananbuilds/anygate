@@ -7,7 +7,7 @@ import { CODEX_LAUNCH_SANDBOX, profileName } from './profile.js';
 import { codexProviderEnvKey } from './routing.js';
 import type { CodexRoute } from './routing.js';
 import { PROXY_PLACEHOLDER_KEY } from './proxy.js';
-import { getAppPathOverride } from '../../../src/core/config.js';
+import { getAppPathOverride } from '../../../src/storage/config.js';
 
 const isWindows = process.platform === 'win32';
 

@@ -2,26 +2,26 @@
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import { findClaudeBinary, launchClaude } from '../apps/shared/launch.js';
-import { resolveApiKey, detectConflicts, buildChildEnv, readGlobalOpencodeCredential } from '../core/env.js';
+import { resolveApiKey, detectConflicts, buildChildEnv, readGlobalOpencodeCredential } from '../config/env.js';
 import { claudeCodeClientModelId } from '../apps/shared/context-model-id.js';
 import { resolveOrCollectApiKey } from '../apps/shared/key-setup.js';
 import { needsFirstRunSetup, runFirstRunWizard } from '../apps/shared/first-run.js';
-import { MAX_MODEL_CATALOG } from '../core/constants.js';
+import { MAX_MODEL_CATALOG } from '../config/constants.js';
 import { startProxy, startProxyCatalog } from '../gateway/anthropic-proxy.js';
 import type { ProxyHandle, ProxyRoute } from '../gateway/anthropic-proxy.js';
 import {
   buildCatalogRoutes,
   makeRouteResolver,
 } from '../providers/provider-catalog.js';
-import type { ModelFormat } from '../core/types.js';
-import { loadPreferences, savePreferences, recordLaunchSelection } from '../core/config.js';
+import type { ModelFormat } from '../types/index.js';
+import { loadPreferences, savePreferences, recordLaunchSelection } from '../storage/config.js';
 import { pickLocalModel, browseAllModels } from '../apps/shared/prompts.js';
 import { fetchProviderCatalog, providersForPicker, providersForPickerWithTemplates } from '../providers/provider-catalog.js';
-import { resolveLocalProviderApiKey } from '../core/credentials.js';
-import { CredentialUnavailableError } from '../core/errors.js';
-import { BACKENDS, VERSION } from '../core/constants.js';
+import { resolveLocalProviderApiKey } from '../storage/credentials.js';
+import { CredentialUnavailableError } from '../shared/errors.js';
+import { BACKENDS, VERSION } from '../config/constants.js';
 import { checkForUpdates, formatUpdateNotification } from '../apps/shared/update-check.js';
-import type { ParsedArgs, ModelInfo, FavoriteModel, LocalProvider, LocalProviderModel } from '../core/types.js';
+import type { ParsedArgs, ModelInfo, FavoriteModel, LocalProvider, LocalProviderModel } from '../types/index.js';
 import { addFavorite, removeFavorite, isFavorite } from '../apps/claude/favorites.js';
 import {
   browseByProviderChoice,
@@ -34,7 +34,7 @@ import { prepareClaudeTraceLog, printTraceLog } from '../apps/shared/trace-log.j
 import { ANTIGRAVITY_BASE_URLS } from '../auth/antigravity-oauth.js';
 import { providersForTarget } from '../apps/shared/target-compatibility.js';
 import { refreshModelsDevCacheAsync } from '../registry/models-dev.js';
-import { setAgentStdoutMode, isAgentStdoutMode } from '../core/agent-io.js';
+import { setAgentStdoutMode, isAgentStdoutMode } from '../utils/agent-io.js';
 import {
   findProviderAndModel,
   normalizeClaudeAgentArgs,

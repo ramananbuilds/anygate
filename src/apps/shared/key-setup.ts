@@ -13,7 +13,7 @@ import {
   readFromCredentialStore,
   resolveApiKey,
   saveToCredentialStore,
-} from '../../../src/core/env.js';
+} from '../../../src/config/env.js';
 import { printApiKeyPanel, printDryRunPanel } from './ui.js';
 
 export function detectShellProfile(): { display: string; path: string } {

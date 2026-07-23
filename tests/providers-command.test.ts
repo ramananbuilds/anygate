@@ -12,7 +12,7 @@ import { emptyRegistry, loadRegistry, saveRegistry } from '../src/registry/io.js
 import { zenRegistryStub } from '../src/registry/builtins.js';
 import { providerAuthHelpText } from '../src/registry/provider-auth.js';
 import { PROVIDER_TEMPLATES } from '../src/providers/provider-templates.js';
-import * as env from './../src/core/env.js';
+import * as env from './../src/config/env.js';
 
 const selectMock = vi.hoisted(() => vi.fn());
 

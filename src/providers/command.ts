@@ -10,7 +10,7 @@
 
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { upgradeGlobalOpencodeCredential, readGlobalOpencodeCredential } from '../core/env.js';
+import { upgradeGlobalOpencodeCredential, readGlobalOpencodeCredential } from '../config/env.js';
 import { findOpencodeBinary } from './opencode-serve.js';
 import {
   listAddableTemplates,

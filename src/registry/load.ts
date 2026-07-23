@@ -1,8 +1,8 @@
 // src/registry/load.ts — materialize registry into runtime LocalProvider[]
 
-import { resolveProviderCredential, resolveProviderOAuthAccountId, resolveProviderOAuthProviderData } from '../core/env.js';
+import { resolveProviderCredential, resolveProviderOAuthAccountId, resolveProviderOAuthProviderData } from '../config/env.js';
 import type { CompatibilityAgent } from '../apps/shared/model-compatibility.ts';
-import type { LocalProvider } from '../core/types.js';
+import type { LocalProvider } from '../types/index.js';
 import { materializeRegistry } from './materialize.js';
 import { loadRegistry } from './io.js';
 

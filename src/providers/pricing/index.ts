@@ -4,7 +4,7 @@
 // metadata. This module formats cost information for terminal display
 // in the providers command and hub.
 
-import type { ModelCost } from '../../core/types.js';
+import type { ModelCost } from '../../types/index.js';
 
 /** Format a per-1M-tokens cost string for display (e.g. "$0.03 / 1M"). */
 export function formatCost(cost: ModelCost | undefined): string {

@@ -6,11 +6,11 @@ const execAsync = promisify(exec);
 import { existsSync, statSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { loadPreferences, recordLaunchFolder, savePreferences, setAppPathOverride } from '../core/config.js';
+import { loadPreferences, recordLaunchFolder, savePreferences, setAppPathOverride } from '../storage/config.js';
 import { fetchProviderCatalog } from '../providers/provider-catalog.ts';
 import { favoriteProviderDisplayName } from '../apps/claude/favorites-provider-display.ts';
-import { saveProviderCredential, resolveProviderCredential } from '../core/env.js';
-import { readBody, sendJson } from '../core/http-utils.ts';
+import { saveProviderCredential, resolveProviderCredential } from '../config/env.js';
+import { readBody, sendJson } from '../shared/http.ts';
 import { loadRegistry } from '../registry/io.js';
 import { refreshProviderModels, refreshAllProviderModels } from '../registry/refresh-models.js';
 import { listAddableTemplates, listSupportedTemplates, listVisibleOAuthTemplates, PROVIDER_TEMPLATES, getTemplateById } from '../providers/provider-templates.ts';
@@ -35,7 +35,7 @@ import { getServerStatus, startGatewayServer, stopGatewayServer, type ServerStar
 import { writeSecureLogLine } from '../apps/shared/trace-log.js';
 import { freeStatusLabel } from '../apps/shared/free-models.ts';
 import { checkForUpdates } from '../apps/shared/update-check.ts';
-import { aggregateAnalytics, type RangeId } from '../core/analytics-log.js';
+import { aggregateAnalytics, type RangeId } from '../storage/analytics.js';
 import { resolveInputTypes } from '../registry/models-dev.js';
 
 const MODELS_TIMEOUT_MS = 30_000;

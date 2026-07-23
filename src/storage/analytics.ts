@@ -8,7 +8,7 @@
 
 import { appendFileSync, openSync, writeSync, closeSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { getAppHome } from './paths.js';
+import { getAppHome } from '../config/paths.js';
 
 export type RangeId = 'all' | '30d' | '7d';
 

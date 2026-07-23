@@ -7,8 +7,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { VERSION } from '../../../src/core/constants.js';
-import { getAppHome } from '../../../src/core/paths.js';
+import { VERSION } from '../../../src/config/constants.js';
+import { getAppHome } from '../../../src/config/paths.js';
 
 export const UPDATE_CHECK_TTL_MS = 24 * 60 * 60 * 1000;
 export const UPDATE_CHECK_TIMEOUT_MS = 2_000;

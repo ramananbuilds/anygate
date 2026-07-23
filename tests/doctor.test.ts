@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // Mock the core env helpers the doctor command relies on. We don't want the
 // real keyring probe / credential store touching the OS during tests.
-vi.mock('../src/core/env.js', () => ({
+vi.mock('../src/config/env.js', () => ({
   detectConflicts: vi.fn(() => []),
   isSecretServiceAvailable: vi.fn(async () => true),
   readFromCredentialStore: vi.fn(async () => 'sk-test-123'),
@@ -10,7 +10,7 @@ vi.mock('../src/core/env.js', () => ({
 
 // Use a high, almost-certainly-free port so the bind probe never clashes
 // with a real `anygate server` on 17645.
-vi.mock('../src/core/constants.js', async (importOriginal) => {
+vi.mock('../src/config/constants.js', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return { ...actual, GATEWAY_PORT: 48123 };
 });
@@ -65,7 +65,7 @@ describe('doctor command', () => {
   });
 
   it('warns (exit 0) when the keyring probe throws', async () => {
-    const { isSecretServiceAvailable } = await import('../src/core/env.js');
+    const { isSecretServiceAvailable } = await import('../src/config/env.js');
     (isSecretServiceAvailable as unknown as vi.Mock).mockRejectedValueOnce(new Error('no keyring'));
     const cap = captureOutput();
     const exit = await runDoctorCommand(false);
@@ -75,7 +75,7 @@ describe('doctor command', () => {
   });
 
   it('warns (exit 0) when the API key is missing', async () => {
-    const { readFromCredentialStore } = await import('../src/core/env.js');
+    const { readFromCredentialStore } = await import('../src/config/env.js');
     (readFromCredentialStore as unknown as vi.Mock).mockResolvedValueOnce(null);
     const cap = captureOutput();
     const exit = await runDoctorCommand(false);
@@ -85,7 +85,7 @@ describe('doctor command', () => {
   });
 
   it('reports conflicting env vars when present', async () => {
-    const { detectConflicts } = await import('../src/core/env.js');
+    const { detectConflicts } = await import('../src/config/env.js');
     (detectConflicts as unknown as vi.Mock).mockReturnValueOnce([
       { name: 'ANTHROPIC_API_KEY', value: 'x' },
     ]);

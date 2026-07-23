@@ -6,8 +6,8 @@ import {
   AnygateError,
   CredentialUnavailableError,
   ModelNotFoundError,
-} from '../src/core/errors.js';
-import { redactTraceLine, redactTraceLog } from '../src/core/redact.js';
+} from '../src/shared/errors.js';
+import { redactTraceLine, redactTraceLog } from '../src/shared/redact.js';
 
 describe('safeJsonParse', () => {
   it('returns parsed object on valid JSON', () => {

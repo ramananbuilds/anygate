@@ -1,4 +1,4 @@
-import type { LocalProvider, LocalProviderModel, UserPreferences } from '../../../src/core/types.js';
+import type { LocalProvider, LocalProviderModel, UserPreferences } from '../../../src/types/index.js';
 
 export interface LaunchTarget {
   providerId?: string;

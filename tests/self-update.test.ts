@@ -36,7 +36,7 @@ vi.mock('node:child_process', () => ({
 }));
 
 import { runUpdateCommand } from '../src/apps/shared/self-update.js';
-import { VERSION } from '../src/core/constants.js';
+import { VERSION } from '../src/config/constants.js';
 
 describe('update command', () => {
   afterEach(() => {

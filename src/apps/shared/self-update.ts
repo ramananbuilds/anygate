@@ -3,7 +3,7 @@ import pc from 'picocolors';
 import { spawn, execFileSync } from 'node:child_process';
 import * as p from '@clack/prompts';
 import { checkForUpdates, UPDATE_COMMAND } from './update-check.js';
-import { VERSION } from '../../../src/core/constants.js';
+import { VERSION } from '../../../src/config/constants.js';
 
 /** Resolve the npm binary, accounting for Windows (npm.cmd). */
 function resolveNpmBin(): string {

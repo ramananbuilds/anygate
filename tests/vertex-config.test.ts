@@ -13,7 +13,7 @@ import {
   resolveVertexProject,
   vertexModelsToServerModels,
 } from '../src/gateway/vertex.js';
-import { VERTEX_ANTHROPIC_NPM } from './../src/core/constants.js';
+import { VERTEX_ANTHROPIC_NPM } from './../src/config/constants.js';
 
 describe('vertex-config', () => {
   let tempHome = '';

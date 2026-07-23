@@ -2,10 +2,10 @@
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import { fetchProviderCatalog, providersForPicker } from '../../../src/providers/provider-catalog.js';
-import { resolveLocalProviderApiKey } from '../../../src/core/credentials.js';
-import { CredentialUnavailableError } from '../../../src/core/errors.js';
-import { loadPreferences, recordLaunchSelection } from '../../../src/core/config.js';
-import { resolveApiKey, readFromCredentialStore } from '../../../src/core/env.js';
+import { resolveLocalProviderApiKey } from '../../../src/storage/credentials.js';
+import { CredentialUnavailableError } from '../../../src/shared/errors.js';
+import { loadPreferences, recordLaunchSelection } from '../../../src/storage/config.js';
+import { resolveApiKey, readFromCredentialStore } from '../../../src/config/env.js';
 import { resolveOrCollectApiKey } from '../../apps/shared/key-setup.js';
 import { startCodexProxy } from './proxy.js';
 import type { CodexProxyHandle } from './proxy.js';
@@ -40,7 +40,7 @@ import {
   hasApplicationDefaultCredentials,
   type VertexModelEntry,
 } from '../../../src/gateway/vertex.js';
-import { VERTEX_ANTHROPIC_NPM } from '../../../src/core/constants.js';
+import { VERTEX_ANTHROPIC_NPM } from '../../../src/config/constants.js';
 import { resolveContextWindow } from '../../apps/shared/context-window.js';
 import type { ResolvedFavorite } from '../../apps/shared/favorites-resolver.js';
 import {
@@ -54,7 +54,7 @@ import {
   resolveCodexFavorites,
 } from './favorites-launch.js';
 import { getFavoritesCatalogPath } from './profile.js';
-import type { LocalProvider, LocalProviderModel } from '../../../src/core/types.js';
+import type { LocalProvider, LocalProviderModel } from '../../../src/types/index.js';
 import {
   buildSingleModelCloudCodeRoute,
   needsCloudCodeBackend,
@@ -62,7 +62,7 @@ import {
   type CloudCodeBackend,
 } from '../shared/cloud-code-backend.js';
 import { getCodexProxyDebugLogPath, printTraceLog } from '../../apps/shared/trace-log.js';
-import { setAgentStdoutMode, isAgentStdoutMode } from '../../../src/core/agent-io.js';
+import { setAgentStdoutMode, isAgentStdoutMode } from '../../../src/utils/agent-io.js';
 import {
   findProviderAndModel,
   planLaunchWizard,
@@ -132,7 +132,7 @@ ${pc.bold('Favorites:')}
 
 async function writeLaunchArtifacts(
   route: CodexRoute,
-  selectedModel: import('../../core/types.js').LocalProviderModel,
+  selectedModel: import('../../types/index.js').LocalProviderModel,
   providerName: string,
   proxyPort?: number,
 ): Promise<{ profilePath: string; catalogPath: string }> {
@@ -165,7 +165,7 @@ async function writeFavoritesLaunchArtifacts(
   const catalog = buildFavoritesCodexCatalog(undefined, resolved);
   writeOverlayFile(catalogPath, serializeCatalog(catalog));
   const profilePath = getProfileOutputPath();
-  const model = starting.model as import('../../core/types.js').LocalProviderModel;
+  const model = starting.model as import('../../types/index.js').LocalProviderModel;
   const dummyRoute: CodexRoute = {
     tier: 'proxy',
     modelId: codexCliFavoritesSlug(starting.providerId, model.id),
@@ -197,7 +197,7 @@ function printCodexCleanupReminder(hadProxy: boolean): void {
   p.log.info(parts.join(' '));
 }
 
-function vertexEntryToLocalModel(entry: VertexModelEntry): import('../../core/types.js').LocalProviderModel {
+function vertexEntryToLocalModel(entry: VertexModelEntry): import('../../types/index.js').LocalProviderModel {
   return {
     id: entry.id,
     name: entry.display_name,

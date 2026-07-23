@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { getAppPathOverride } from '../../../src/core/config.js';
+import { getAppPathOverride } from '../../../src/storage/config.js';
 import { findBinaryOnPath } from '../shared/binary-lookup.js';
 import { findClaudeApp } from '../claude/desktop-launch.js';
 import { findCodexApp } from '../codex/app-launch.js';

@@ -111,7 +111,7 @@ export abstract class AppLauncher {
 
   protected getConfigOverride(): string | null {
     // Dynamic import to avoid circular deps
-    const { getAppPathOverride } = require('../../core/config.js') as typeof import('../../core/config.js');
+    const { getAppPathOverride } = require('../../storage/config.js') as typeof import('../../storage/config.js');
     const override = getAppPathOverride(this.configOverrideKey);
     return override && existsSync(override) ? override : null;
   }

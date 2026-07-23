@@ -1,13 +1,13 @@
 // Codex routing: tier 1 (direct OpenAI) vs tier 2 (Responses proxy).
 import type { CodexProxyRoute } from './proxy.js';
-import { BACKENDS } from '../../../src/core/constants.js';
+import { BACKENDS } from '../../../src/config/constants.js';
 import {
   isTargetCompatibleModel,
   providersForTarget,
   routableModelsForTarget,
   type GatewayLaunchTarget,
 } from '../../../src/apps/shared/target-compatibility.js';
-import type { LocalProvider, LocalProviderModel } from '../../../src/core/types.js';
+import type { LocalProvider, LocalProviderModel } from '../../../src/types/index.js';
 
 export interface CodexRoute {
   tier: 'direct' | 'proxy' | 'cloud-code';

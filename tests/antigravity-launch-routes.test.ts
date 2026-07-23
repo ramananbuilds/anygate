@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveAntigravityLaunchRoutes } from '../src/gateway/antigravity/launch-routes.js';
-import type { FavoriteModel, LocalProvider } from './../src/core/types.js';
+import type { FavoriteModel, LocalProvider } from './../src/types/index.js';
 
 const providers: LocalProvider[] = [
   {

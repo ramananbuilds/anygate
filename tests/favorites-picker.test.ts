@@ -5,7 +5,7 @@ import {
   globalFavoritePickKey,
   globalFavoriteSelectOption,
 } from '../src/apps/claude/favorites-picker.js';
-import type { LocalProvider } from './../src/core/types.js';
+import type { LocalProvider } from './../src/types/index.js';
 
 const providers: LocalProvider[] = [
   {

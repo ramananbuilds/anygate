@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { prepareIdeProfile } from './ide-profile.js';
-import { getAppPathOverride } from '../../core/config.js';
+import { getAppPathOverride } from '../../storage/config.js';
 
 type ProcessListOptions = {
   processList?: () => string;

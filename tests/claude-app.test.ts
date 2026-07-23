@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import type { LocalProvider, LocalProviderModel } from './../src/core/types.js';
-import { loadPreferences } from '../src/core/config.js';
+import type { LocalProvider, LocalProviderModel } from './../src/types/index.js';
+import { loadPreferences } from '../src/storage/config.js';
 
 const state = vi.hoisted(() => ({
   providers: [] as LocalProvider[],
@@ -47,11 +47,11 @@ vi.mock('../src/registry/load.js', () => ({
 vi.mock('../src/registry/io.js', () => ({
   loadRegistry: vi.fn(() => ({ schemaVersion: 1, providers: [] })),
 }));
-vi.mock('../src/core/config.js', () => ({
+vi.mock('../src/storage/config.js', () => ({
   loadPreferences: vi.fn(() => ({ favoriteModels: [] })),
   savePreferences: vi.fn(),
 }));
-vi.mock('../src/core/env.js', () => ({
+vi.mock('../src/config/env.js', () => ({
   resolveProviderCredential: vi.fn(async () => 'resolved-token'),
   resolveApiKey: vi.fn(() => 'resolved-token'),
   readFromCredentialStore: vi.fn(async () => null),

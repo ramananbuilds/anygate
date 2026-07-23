@@ -1,10 +1,10 @@
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import { fetchProviderCatalog, providersForPicker, localProvidersToServerModels } from '../../../src/providers/provider-catalog.js';
-import { resolveLocalProviderApiKey } from '../../../src/core/credentials.js';
-import { CredentialUnavailableError } from '../../../src/core/errors.js';
-import { loadPreferences, savePreferences } from '../../../src/core/config.js';
-import { resolveApiKey, readFromCredentialStore } from '../../../src/core/env.js';
+import { resolveLocalProviderApiKey } from '../../../src/storage/credentials.js';
+import { CredentialUnavailableError } from '../../../src/shared/errors.js';
+import { loadPreferences, savePreferences } from '../../../src/storage/config.js';
+import { resolveApiKey, readFromCredentialStore } from '../../../src/config/env.js';
 import { resolveOrCollectApiKey } from '../../apps/shared/key-setup.js';
 import { pickCodexProvider, pickCodexModel } from '../codex/prompts.js';
 import { resolveBootSelection } from '../codex/favorites-launch.js';
@@ -15,13 +15,13 @@ import {
 import { providersForTarget } from '../../apps/shared/target-compatibility.js';
 import { startServer, type ServerHandle } from '../../../src/gateway/router.js';
 import { createGatewayModelCatalog, type ServerModelInfo } from '../../../src/gateway/models.js';
-import { BACKENDS } from '../../../src/core/constants.js';
+import { BACKENDS } from '../../../src/config/constants.js';
 import { filterServerModelsByFavorites } from '../../../src/gateway/catalog-filter.js';
 import { writeAnygateIConfig, getClaudeDesktopHome } from './desktop-app.js';
 import { getProxyDebugLogPath } from '../../apps/shared/trace-log.js';
 import { readSessionLock, recoverSession, hasStaleSession, writeSessionLock, setupExitCleanup, cleanupSession, backupMetaJson, isConcurrentLiveSession, waitForShutdown } from './desktop-session.js';
 import { launchOrRestartClaudeApp, claudeAppSupported, isClaudeAppRunning, quitClaudeAppGracefully } from './desktop-launch.js';
-import type { LocalProvider, LocalProviderModel, FavoriteModel } from '../../../src/core/types.js';
+import type { LocalProvider, LocalProviderModel, FavoriteModel } from '../../../src/types/index.js';
 import {
   buildCloudCodeProxyRoute,
   startCloudCodeCatalogBackend,
@@ -217,7 +217,7 @@ export async function runClaudeAppCommand(args: string[], boot?: { launchProvide
         const model = antigravityProvider?.models.find((m: LocalProviderModel) => m.id === fav.modelId);
         return model?.modelFormat === 'cloud-code' ? model : null;
       })
-      .filter((m): m is import('../../core/types.js').LocalProviderModel => m !== null);
+      .filter((m): m is import('../../types/index.js').LocalProviderModel => m !== null);
 
     const regularFavorites = favorites.filter(
       fav => !cloudCodeFavoriteModels.some(m => m.id === fav.modelId && fav.providerId === 'antigravity'),

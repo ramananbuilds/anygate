@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { getAppHome } from '../core/paths.js';
+import { getAppHome } from '../config/paths.js';
 import { handleUiApiRequest, type UiServerLifecycleEvent } from './api.js';
 import { getUiDebugLogPath, makeTraceLogger } from '../apps/shared/trace-log.js';
 

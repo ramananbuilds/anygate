@@ -22,7 +22,7 @@ import { isWebSearchTool, makeWebSearchTool } from './web-search/tool.js';
 import { MAX_WEB_SEARCH_STEPS } from './web-search/constants.js';
 import { fitContextWindow, estimateContextTokens } from './context-fit.js';
 import type { AnthropicRequestMessage, AnthropicToolDefinition } from './proxy-types.js';
-import { anthropicErrorType, upstreamHttpStatus } from '../core/errors.js';
+import { anthropicErrorType, upstreamHttpStatus } from '../shared/errors.js';
 
 export { silenceSdkWarnings };
 

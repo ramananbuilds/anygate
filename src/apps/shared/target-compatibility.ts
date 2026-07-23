@@ -1,5 +1,5 @@
 import { shouldHideModel, type CompatibilityAgent } from './model-compatibility.js';
-import type { LocalProvider, LocalProviderModel } from '../../../src/core/types.js';
+import type { LocalProvider, LocalProviderModel } from '../../../src/types/index.js';
 
 export type GatewayLaunchTarget =
   | 'claude'

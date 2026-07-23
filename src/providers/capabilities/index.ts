@@ -1,6 +1,6 @@
 // Provider capabilities display: detail panels, cloud catalog management.
 import * as p from '@clack/prompts';
-import { loadPreferences } from '../../core/config.js';
+import { loadPreferences } from '../../storage/config.js';
 import { loadRegistry } from '../../registry/io.js';
 import { toggleProviderEnabled } from '../../registry/crud.js';
 import { printCloudProviderPanel, printProviderDetailPanel } from '../../apps/shared/ui.js';
@@ -10,7 +10,7 @@ import { supportsNativeOAuth } from '../../auth/types.js';
 import { formatRegistryAuthLabel } from '../provider-catalog.js';
 import { runProvidersRefreshModels } from '../models/index.js';
 import { runProvidersAuth, runProvidersRemove } from '../registry/index.js';
-import type { LocalProvider } from '../../core/types.js';
+import type { LocalProvider } from '../../types/index.js';
 
 export function providerHubChoiceValue(entry: { id: string }): string {
   return `provider:${entry.id}`;

@@ -6,8 +6,8 @@ import {
   formatAgyCapacityWarning,
   resolveAntigravityBootModel,
 } from '../src/apps/gemini/antigravity.js';
-import { buildAntigravityChildEnv } from './../src/core/env.js';
-import type { LocalProvider } from './../src/core/types.js';
+import { buildAntigravityChildEnv } from './../src/config/env.js';
+import type { LocalProvider } from './../src/types/index.js';
 
 describe('agy launch args', () => {
   it('detects --model flag', () => {

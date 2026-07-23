@@ -4,7 +4,7 @@ import {
   partitionAndStartCloudCodeBackend,
   type CloudCodeBackend,
 } from '../shared/cloud-code-backend.js';
-import type { LocalProvider, LocalProviderModel } from '../../../src/core/types.js';
+import type { LocalProvider, LocalProviderModel } from '../../../src/types/index.js';
 import {
   resolveCodexRoute,
   routableModelsForProvider,

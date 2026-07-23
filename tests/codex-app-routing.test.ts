@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { startProxyCatalog } from '../src/gateway/anthropic-proxy.js';
 import { buildCodexAppProviderCatalogRoutes } from '../src/apps/codex/app-provider-routes.js';
 import { buildCodexProxyRoutesForProvider } from '../src/apps/codex/routing.js';
-import type { LocalProvider } from './../src/core/types.js';
+import type { LocalProvider } from './../src/types/index.js';
 
 vi.mock('../src/gateway/anthropic-proxy.js', async importOriginal => {
   const actual = await importOriginal<typeof import('../src/gateway/anthropic-proxy.js')>();

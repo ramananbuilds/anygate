@@ -1,10 +1,10 @@
 // src/cli/completions.ts — anygate completions command
-import type { ParsedArgs } from '../core/types.js';
+import type { ParsedArgs } from '../types/index.js';
 import { runCompletionsCommand } from '../apps/shared/completions.js';
 
 export async function handleCompletionsCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    const { VERSION } = await import('../core/constants.js');
+    const { VERSION } = await import('../config/constants.js');
     console.log(VERSION);
     return 0;
   }

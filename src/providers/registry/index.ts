@@ -1,7 +1,7 @@
 // Provider registry management: import, auth, remove, list.
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import { upgradeGlobalOpencodeCredential, readGlobalOpencodeCredential, resolveProviderCredential } from '../../core/env.js';
+import { upgradeGlobalOpencodeCredential, readGlobalOpencodeCredential, resolveProviderCredential } from '../../config/env.js';
 import {
   formatRegistryAuthLabel,
   resolveProvidersForDisplay,

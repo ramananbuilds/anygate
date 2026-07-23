@@ -1,7 +1,7 @@
-import { MAX_MODEL_CATALOG } from '../../core/constants.js';
-import { resolveLocalProviderApiKey } from '../../core/credentials.js';
+import { MAX_MODEL_CATALOG } from '../../config/constants.js';
+import { resolveLocalProviderApiKey } from '../../storage/credentials.js';
 import { buildFavoritesList, type ResolveContext } from '../../apps/shared/favorites-resolver.js';
-import type { FavoriteModel, LocalProvider, LocalProviderModel } from '../../core/types.js';
+import type { FavoriteModel, LocalProvider, LocalProviderModel } from '../../types/index.js';
 import { buildAntigravityRoutes } from './catalog.js';
 import type { AntigravityRoute } from './types.js';
 

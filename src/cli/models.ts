@@ -1,7 +1,7 @@
 // src/cli/models.ts — anygate models command
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { loadPreferences, savePreferences } from '../core/config.js';
+import { loadPreferences, savePreferences } from '../storage/config.js';
 import { fetchProviderCatalog, providersForPicker } from '../providers/provider-catalog.js';
 import { providersForTarget } from '../apps/shared/target-compatibility.js';
 import { pickGlobalFavoriteModel, browseByProviderChoice } from '../apps/claude/favorites-picker.js';
@@ -10,7 +10,7 @@ import { favoriteProviderDisplayName } from '../apps/claude/favorites-provider-d
 import { buildGlobalFavoriteIndex } from '../apps/claude/favorites-picker.js';
 import { isFavorite } from '../apps/claude/favorites.js';
 import { addFavorite, removeFavorite } from '../apps/claude/favorites.js';
-import type { FavoriteModel, LocalProvider, LocalProviderModel, ParsedArgs } from '../core/types.js';
+import type { FavoriteModel, LocalProvider, LocalProviderModel, ParsedArgs } from '../types/index.js';
 
 const AGY_CLI_FAVORITES_CAP = 6;
 

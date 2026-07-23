@@ -12,7 +12,7 @@ vi.mock('../src/gateway/anthropic-proxy.js', async (importOriginal) => {
   };
 });
 
-vi.mock('../src/core/env.js', () => ({
+vi.mock('../src/config/env.js', () => ({
   resolveProviderCredential: vi.fn().mockResolvedValue('fresh-token'),
 }));
 

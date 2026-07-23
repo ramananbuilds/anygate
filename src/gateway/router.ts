@@ -17,9 +17,9 @@ import {
   streamOpenAiResponse,
   type OpenAiRequest,
 } from './openai-adapter.js';
-import { sendJson, readBody } from '../core/http-utils.js';
+import { sendJson, readBody } from '../shared/http.js';
 import { forwardAnthropicMessages } from '../upstream-forward.js';
-import { resolveProviderCredential } from '../core/env.js';
+import { resolveProviderCredential } from '../config/env.js';
 import { oauthAuthRef } from '../registry/import-build.js';
 import {
   injectClaudeCodeBillingSystemLine,
@@ -27,10 +27,10 @@ import {
   selectBetaFlags,
 } from '../auth/claude-identity.js';
 import { writeSecureLogLine, resetTraceLog } from '../apps/shared/trace-log.js';
-import { redactTraceLine } from '../core/redact.js';
+import { redactTraceLine } from '../shared/redact.js';
 import type { LanguageModel } from 'ai';
 import { createLanguageModel, isSdkUpgradedNpm, maxToolsForNpm } from './provider-factory.js';
-import { anthropicErrorType, formatUpstreamError, upstreamHttpStatus } from '../core/errors.js';
+import { anthropicErrorType, formatUpstreamError, upstreamHttpStatus } from '../shared/errors.js';
 import {
   translateRequest as sdkTranslateRequest,
   streamAnthropicResponse,
@@ -39,7 +39,7 @@ import {
   anthropicEffortFromRequest,
   type AnthropicRequest,
 } from './sdk-adapter.js';
-import { recordUsage } from '../core/analytics-log.js';
+import { recordUsage } from '../storage/analytics.js';
 import { resolveContextWindow } from '../apps/shared/context-window.js';
 
 export interface ServerBackend {

@@ -4,7 +4,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { streamText, generateText, tool, jsonSchema } from 'ai';
 import type { LanguageModel } from 'ai';
-import { readBody, sendJson } from '../../../src/core/http-utils.js';
+import { readBody, sendJson } from '../../../src/shared/http.js';
 import {
   createLanguageModel,
   deepMergeProviderOptions,
@@ -17,7 +17,7 @@ import { silenceSdkWarnings } from '../../../src/gateway/sdk-adapter.js';
 import { getGeminiProxyDebugLogPath, makeTraceLogger } from '../../apps/shared/trace-log.js';
 import type { ProxyRoute, ProxyHandle } from '../../../src/gateway/anthropic-proxy.js';
 import { routeLookupIds } from '../../apps/shared/context-model-id.js';
-import { formatUpstreamError } from '../../../src/core/errors.js';
+import { formatUpstreamError } from '../../../src/shared/errors.js';
 
 function mapFinishReason(reason: string): string {
   if (reason === 'stop' || reason === 'tool-calls') return 'STOP';

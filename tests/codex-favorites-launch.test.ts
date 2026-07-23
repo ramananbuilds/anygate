@@ -14,7 +14,7 @@ import { buildCodexChildEnv } from '../src/apps/codex/launch.js';
 import { ownedAppCatalogPaths, removeAppCatalogs } from '../src/apps/codex/app-session.js';
 import type { CodexRoute } from '../src/apps/codex/routing.js';
 import type { ResolvedFavorite } from '../src/apps/shared/favorites-resolver.js';
-import type { LocalProvider, FavoriteModel, ModelInfo } from './../src/core/types.js';
+import type { LocalProvider, FavoriteModel, ModelInfo } from './../src/types/index.js';
 
 const anthropicProvider: LocalProvider = {
   id: 'anthropic',

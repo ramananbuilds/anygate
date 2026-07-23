@@ -2,7 +2,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import pkg from '../../package.json' with { type: 'json' };
-import type { BackendConfig, ModelFormat } from './types.js';
+import type { BackendConfig, ModelFormat } from '../types/index.js';
 
 export const BACKENDS: Record<'zen' | 'go', BackendConfig> = {
   zen: {

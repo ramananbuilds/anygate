@@ -4,7 +4,7 @@ import { printOAuthStepsPanel, confirmSubscriptionOAuthRisk } from '../apps/shar
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import open from 'open';
-import { saveProviderCredential } from '../core/env.js';
+import { saveProviderCredential } from '../config/env.js';
 import { runOpenAiDeviceCodeFlow } from '../auth/openai.js';
 import {
   supportsNativeOAuth,

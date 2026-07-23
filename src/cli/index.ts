@@ -1,6 +1,6 @@
 // src/cli/index.ts — Command registry and dispatch
 
-import type { ParsedArgs } from '../core/types.js';
+import type { ParsedArgs } from '../types/index.js';
 
 export type CommandHandler = (parsed: ParsedArgs) => Promise<number>;
 

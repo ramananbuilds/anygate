@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { MAX_MODEL_CATALOG, VERSION } from '../../../src/core/constants.js';
-import { loadPreferences } from '../../../src/core/config.js';
-import { getAppHome, getConfigPath, getProvidersPath } from '../../../src/core/paths.js';
+import { MAX_MODEL_CATALOG, VERSION } from '../../../src/config/constants.js';
+import { loadPreferences } from '../../../src/storage/config.js';
+import { getAppHome, getConfigPath, getProvidersPath } from '../../../src/config/paths.js';
 import { loadRegistry } from '../../../src/registry/io.js';
 import type { RegistryProvider } from '../../../src/registry/types.js';
 

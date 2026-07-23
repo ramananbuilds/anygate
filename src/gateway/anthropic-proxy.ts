@@ -3,13 +3,13 @@
 import { createServer } from 'node:http';
 import type { ServerResponse } from 'node:http';
 import { appendFileSync, openSync, writeSync, closeSync } from 'node:fs';
-import { readBody, extractApiKey, sendJson } from '../core/http-utils.js';
+import { readBody, extractApiKey, sendJson } from '../shared/http.js';
 import { formatAnthropicModelEntry, formatAnthropicModelList } from './models.js';
 import { claudeCodeClientModelId, routeLookupIds, stripOneMContextSuffix } from '../apps/shared/context-model-id.js';
 import { getProxyDebugLogPath, resetTraceLog } from '../apps/shared/trace-log.js';
-import { redactTraceLine } from '../core/redact.js';
+import { redactTraceLine } from '../shared/redact.js';
 import { fetchWithOAuthRetry, forwardAnthropicMessages } from '../upstream-forward.js';
-import { UpstreamUnreachableError } from '../core/errors.js';
+import { UpstreamUnreachableError } from '../shared/errors.js';
 import {
   CLAUDE_CODE_CLI_VERSION,
   injectClaudeCodeBillingSystemLine,
@@ -26,8 +26,8 @@ import {
   generateAnthropicResponse,
   silenceSdkWarnings,
 } from './sdk-adapter.js';
-import { anthropicErrorType, upstreamHttpStatus } from '../core/errors.js';
-import { recordUsage } from '../core/analytics-log.js';
+import { anthropicErrorType, upstreamHttpStatus } from '../shared/errors.js';
+import { recordUsage } from '../storage/analytics.js';
 
 type ProxyLog = (message: string | (() => string)) => void;
 

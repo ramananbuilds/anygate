@@ -1,4 +1,4 @@
-// src/core/errors.ts — centralized, typed error hierarchy + helpers.
+// src/shared/errors.ts — centralized, typed error hierarchy + helpers.
 //
 // This module is the single source of truth for how anygate classifies and
 // reports failures (upstream outages, auth failures, missing models, bad
@@ -7,7 +7,7 @@
 // real upstream statuses into opaque 502s.
 
 import type { ServerResponse } from 'node:http';
-import { sendJson } from './http-utils.js';
+import { sendJson } from './http.js';
 
 /** Base class for every error anygate throws with a known HTTP mapping. */
 export class AnygateError extends Error {

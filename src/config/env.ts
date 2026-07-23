@@ -7,7 +7,7 @@ import {
   parseStoredOAuthCredential,
 } from '../auth/types.js';
 import { refreshStoredOAuthCredential, oauthCredentialShouldRefresh } from '../auth/refresh.js';
-import type { ConflictInfo } from './types.js';
+import type { ConflictInfo } from '../types/index.js';
 
 export function detectConflicts(): ConflictInfo[] {
   return CONFLICTING_ENV_VARS

@@ -4,7 +4,7 @@ import { shouldHideModel, type CompatibilityAgent } from '../apps/shared/model-c
 import { deriveBrand } from '../apps/shared/model-compatibility.js';
 import { resolveEndpoint } from '../providers/provider-catalog.js';
 import { resolveContextWindow } from '../apps/shared/context-window.js';
-import type { LocalProvider, LocalProviderModel } from '../core/types.js';
+import type { LocalProvider, LocalProviderModel } from '../types/index.js';
 import { normalizeGoogleDisplayName, normalizeGoogleModelId } from './google-model-id.js';
 import { findModelsDevModel } from './models-dev.js';
 import type { CachedModel, ProviderRegistry, RegistryProvider } from './types.js';

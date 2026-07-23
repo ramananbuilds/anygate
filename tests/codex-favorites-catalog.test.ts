@@ -6,7 +6,7 @@ import {
   defaultReasoningEffortForFavorite,
 } from '../src/apps/codex/favorites-catalog.js';
 import type { ResolvedFavorite } from '../src/apps/shared/favorites-resolver.js';
-import type { LocalProviderModel } from './../src/core/types.js';
+import type { LocalProviderModel } from './../src/types/index.js';
 
 const anthropicModel: LocalProviderModel = {
   id: 'claude-sonnet-4.5',

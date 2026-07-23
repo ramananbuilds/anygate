@@ -8,7 +8,7 @@ vi.mock('../src/gateway/anthropic-proxy.js', async (importOriginal) => {
   };
 });
 
-vi.mock('../src/core/env.js', () => ({
+vi.mock('../src/config/env.js', () => ({
   resolveProviderCredential: vi.fn().mockResolvedValue('fresh-token'),
 }));
 
@@ -24,7 +24,7 @@ import {
   startCloudCodeCatalogBackend,
 } from '../src/apps/shared/cloud-code-backend.js';
 import { startProxyCatalog } from '../src/gateway/anthropic-proxy.js';
-import type { LocalProviderModel } from './../src/core/types.js';
+import type { LocalProviderModel } from './../src/types/index.js';
 
 const model: LocalProviderModel = {
   id: 'gemini-3.5-flash-low',

@@ -1,5 +1,5 @@
 // src/cli/antigravity.ts — anygate agy / antigravity / antigravity-ide commands
-import type { ParsedArgs } from '../core/types.js';
+import type { ParsedArgs } from '../types/index.js';
 import { runAgyCommand, runAntigravityAppCommand, runAntigravityIdeCommand } from '../apps/gemini/antigravity.js';
 
 const AGY_HELP_TEXT = `
@@ -90,7 +90,7 @@ Examples:
 
 export async function handleAgyCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    const { VERSION } = await import('../core/constants.js');
+    const { VERSION } = await import('../config/constants.js');
     console.log(VERSION);
     return 0;
   }
@@ -106,7 +106,7 @@ export async function handleAgyCommand(parsed: ParsedArgs): Promise<number> {
 
 export async function handleAntigravityAppCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    const { VERSION } = await import('../core/constants.js');
+    const { VERSION } = await import('../config/constants.js');
     console.log(VERSION);
     return 0;
   }
@@ -122,7 +122,7 @@ export async function handleAntigravityAppCommand(parsed: ParsedArgs): Promise<n
 
 export async function handleAntigravityIdeCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    const { VERSION } = await import('../core/constants.js');
+    const { VERSION } = await import('../config/constants.js');
     console.log(VERSION);
     return 0;
   }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { modelToCatalogEntry } from '../src/apps/codex/catalog.js';
-import type { LocalProviderModel } from './../src/core/types.js';
+import type { LocalProviderModel } from './../src/types/index.js';
 
 describe('codex catalog entry generation', () => {
   it('defaults input_modalities to [text, image] when model has no modalities field', () => {

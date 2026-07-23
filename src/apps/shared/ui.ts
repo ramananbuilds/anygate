@@ -2,7 +2,7 @@
 // Use printPanel for important callouts (p.note dims all body text).
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import type { ConflictInfo, LocalProvider, LocalProviderModel } from '../../../src/core/types.js';
+import type { ConflictInfo, LocalProvider, LocalProviderModel } from '../../../src/types/index.js';
 import { formatCodexModelLabel } from '../codex/catalog.js';
 
 export { formatCodexModelLabel as formatModelLabel } from '../codex/catalog.js';

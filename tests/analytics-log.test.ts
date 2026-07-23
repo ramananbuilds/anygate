@@ -7,7 +7,7 @@ import {
   aggregateAnalytics,
   readAnalyticsLog,
   type UsageEvent,
-} from '../src/core/analytics-log.js';
+} from '../src/storage/analytics.js';
 
 // Use a temp app home so we never touch the real ~/.anygate.
 const TMP = mkdtempSync(join(tmpdir(), 'anygate-analytics-'));

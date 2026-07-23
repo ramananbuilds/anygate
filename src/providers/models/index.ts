@@ -1,6 +1,6 @@
 // Model listing and management: refresh model lists, pick from catalog.
 import * as p from '@clack/prompts';
-import { resolveProviderCredential } from '../../core/env.js';
+import { resolveProviderCredential } from '../../config/env.js';
 import { loadRegistry } from '../../registry/io.js';
 import { refreshAllProviderModels, refreshProviderModels } from '../../registry/refresh-models.js';
 import { resolveRefreshCredential } from '../../registry/refresh-credentials.js';

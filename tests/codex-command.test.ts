@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { resolveCodexRoute } from '../src/apps/codex/routing.js';
-import type { LocalProvider, LocalProviderModel } from './../src/core/types.js';
+import type { LocalProvider, LocalProviderModel } from './../src/types/index.js';
 
 const mocks = vi.hoisted(() => ({
   checkSessionLock: vi.fn(),
@@ -103,7 +103,7 @@ vi.mock('../src/providers/provider-catalog.js', () => ({
   resolveLocalProviderApiKey: mocks.resolveLocalProviderApiKey,
 }));
 
-vi.mock('../src/core/config.js', () => ({
+vi.mock('../src/storage/config.js', () => ({
   loadPreferences: mocks.loadPreferences,
   recordLaunchSelection: mocks.recordLaunchSelection,
 }));

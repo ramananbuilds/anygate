@@ -1,10 +1,10 @@
 // src/cli/codex.ts — anygate codex command
-import type { ParsedArgs } from '../core/types.js';
+import type { ParsedArgs } from '../types/index.js';
 import { runCodexCommand, codexHelpText } from '../apps/codex/cli.js';
 
 export async function handleCodexCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    const { VERSION } = await import('../core/constants.js');
+    const { VERSION } = await import('../config/constants.js');
     console.log(VERSION);
     return 0;
   }

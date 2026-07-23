@@ -1,5 +1,5 @@
 ﻿import { describe, it, expect } from 'vitest';
-import { formatUpstreamError, upstreamHttpStatus, anthropicErrorType, CredentialUnavailableError, ModelNotFoundError } from '../src/core/errors.js';
+import { formatUpstreamError, upstreamHttpStatus, anthropicErrorType, CredentialUnavailableError, ModelNotFoundError } from '../src/shared/errors.js';
 
 describe('formatUpstreamError', () => {
   it('uses lastError message and status without stack', () => {

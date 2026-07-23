@@ -1,4 +1,4 @@
-import type { ModelCost } from '../../../src/core/types.js';
+import type { ModelCost } from '../../../src/types/index.js';
 
 export type FreeStatus = 'verified_free' | 'free_provider' | 'paid' | 'unknown';
 

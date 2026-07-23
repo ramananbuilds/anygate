@@ -53,7 +53,7 @@ export function claudeAppSupported(): void {
   }
 }
 
-import { getAppPathOverride } from '../../core/config.js';
+import { getAppPathOverride } from '../../storage/config.js';
 
 export function findClaudeApp(): string | null {
   const override = getAppPathOverride('claude-app');

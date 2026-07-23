@@ -1,7 +1,7 @@
 // src/cli/server.ts — anygate server command
-import type { ParsedArgs } from '../core/types.js';
+import type { ParsedArgs } from '../types/index.js';
 import { runServerCommand } from '../gateway/server.js';
-import { VERSION } from '../core/constants.js';
+import { VERSION } from '../config/constants.js';
 
 const SERVER_HELP_TEXT = `
 anygate server — OpenCode/Registry API Gateway

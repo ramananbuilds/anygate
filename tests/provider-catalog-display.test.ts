@@ -2,13 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import * as env from './../src/core/env.js';
+import * as env from './../src/config/env.js';
 import {
   formatRegistryAuthLabel,
   providersForPicker,
   resolveProvidersForDisplay,
 } from '../src/providers/provider-catalog.js';
-import { resolveLocalProviderApiKey } from '../src/core/credentials.js';
+import { resolveLocalProviderApiKey } from '../src/storage/credentials.js';
 import { emptyRegistry, saveRegistry } from '../src/registry/io.js';
 
 describe('provider-catalog-display', () => {

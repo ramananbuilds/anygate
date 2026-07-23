@@ -4,7 +4,7 @@ import {
   parseSkillVersion,
 } from '../src/apps/shared/ai-doc.js';
 import { parseArgs } from '../src/cli.js';
-import { VERSION } from './../src/core/constants.js';
+import { VERSION } from './../src/config/constants.js';
 
 describe('ai-doc', () => {
   it('includes agent workflow sections', () => {

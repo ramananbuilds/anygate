@@ -2,10 +2,10 @@
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import { fetchProviderCatalog, providersForPicker } from '../../../src/providers/provider-catalog.js';
-import { resolveLocalProviderApiKey } from '../../../src/core/credentials.js';
-import { CredentialUnavailableError } from '../../../src/core/errors.js';
-import { loadPreferences, savePreferences } from '../../../src/core/config.js';
-import { resolveApiKey, readFromCredentialStore } from '../../../src/core/env.js';
+import { resolveLocalProviderApiKey } from '../../../src/storage/credentials.js';
+import { CredentialUnavailableError } from '../../../src/shared/errors.js';
+import { loadPreferences, savePreferences } from '../../../src/storage/config.js';
+import { resolveApiKey, readFromCredentialStore } from '../../../src/config/env.js';
 import { resolveOrCollectApiKey } from '../../apps/shared/key-setup.js';
 import { startCodexProxy } from './proxy.js';
 import type { CodexProxyHandle, CodexProxyRoute } from './proxy.js';
@@ -21,7 +21,7 @@ import {
 import { buildCodexAppProviderCatalogRoutes } from './app-provider-routes.js';
 import { applyAppConfigPatch, previewAppConfigToml } from './app-config.js';
 import { PREVIEW_PROXY_PORT, type CodexAppConfigSpec } from './app-profile.js';
-import type { LocalProvider, LocalProviderModel } from '../../../src/core/types.js';
+import type { LocalProvider, LocalProviderModel } from '../../../src/types/index.js';
 import {
   backupConfigToml,
   checkAppSessionLock,
@@ -51,7 +51,7 @@ import {
   hasApplicationDefaultCredentials,
   type VertexModelEntry,
 } from '../../../src/gateway/vertex.js';
-import { VERTEX_ANTHROPIC_NPM } from '../../../src/core/constants.js';
+import { VERTEX_ANTHROPIC_NPM } from '../../../src/config/constants.js';
 import { resolveContextWindow } from '../../apps/shared/context-window.js';
 import {
   buildCodexProxyRoutesFromResolved,
@@ -168,7 +168,7 @@ function providerForCodexPicker(provider: LocalProvider): LocalProvider {
   return { ...provider, models: routableModelsForProvider(provider, 'codex-app') };
 }
 
-function vertexEntryToLocalModel(entry: VertexModelEntry): import('../../core/types.js').LocalProviderModel {
+function vertexEntryToLocalModel(entry: VertexModelEntry): import('../../types/index.js').LocalProviderModel {
   return {
     id: entry.id,
     name: entry.display_name,

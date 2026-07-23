@@ -2,9 +2,9 @@ import type { CompatibilityAgent } from '../apps/shared/model-compatibility.js';
 import { deriveBrand } from '../apps/shared/model-compatibility.js';
 import { loadRegistry } from '../registry/io.js';
 import { loadRegistryProviders } from '../registry/load.js';
-import type { LocalProvider, LocalProviderModel, ModelInfo } from '../core/types.js';
+import type { LocalProvider, LocalProviderModel, ModelInfo } from '../types/index.js';
 import type { ServerModelInfo } from '../gateway/models.js';
-import { BACKENDS, MAX_MODEL_CATALOG, classifyModelFormat } from '../core/constants.js';
+import { BACKENDS, MAX_MODEL_CATALOG, classifyModelFormat } from '../config/constants.js';
 import { claudeCodeClientModelId } from '../apps/shared/context-model-id.js';
 import { resolveContextWindow, loadOpencodeCache } from '../apps/shared/context-window.js';
 import { shouldHideModel } from '../apps/shared/model-compatibility.js';
@@ -13,7 +13,7 @@ import { isSdkUpgradedNpm } from '../gateway/provider-factory.js';
 import { aliasModelId } from '../gateway/anthropic-proxy.js';
 import type { ProxyRoute } from '../gateway/anthropic-proxy.js';
 import { resolveInputTypes } from '../registry/models-dev.js';
-import type { FavoriteModel, BackendConfig } from '../core/types.js';
+import type { FavoriteModel, BackendConfig } from '../types/index.js';
 import { providersForTarget } from '../apps/shared/target-compatibility.js';
 import {
   listSupportedTemplates,

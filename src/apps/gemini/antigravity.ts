@@ -3,11 +3,11 @@ import pc from 'picocolors';
 const SHUTDOWN_DRAIN_MS = 500;
 import * as p from '@clack/prompts';
 import { appendFileSync } from 'node:fs';
-import { loadPreferences, savePreferences } from '../../../src/core/config.js';
+import { loadPreferences, savePreferences } from '../../../src/storage/config.js';
 import { fetchProviderCatalog, providersForPicker } from '../../../src/providers/provider-catalog.js';
 import { providersForTarget } from '../../../src/apps/shared/target-compatibility.js';
-import { detectConflicts, buildAntigravityChildEnv } from '../../../src/core/env.js';
-import { CredentialUnavailableError } from '../../../src/core/errors.js';
+import { detectConflicts, buildAntigravityChildEnv } from '../../../src/config/env.js';
+import { CredentialUnavailableError } from '../../../src/shared/errors.js';
 import { buildAntigravityRoutes } from '../../../src/gateway/antigravity/catalog.js';
 import { startCloudCodeGateway, type CloudCodeGatewayHandle } from '../../../src/gateway/antigravity/cloud-code-gateway.js';
 import { evaluateAgySwitchCompatibility } from '../../../src/gateway/antigravity/slot-registry.js';
@@ -31,7 +31,7 @@ import { resolveFirstAvailableFavorite } from '../../apps/shared/favorites-resol
 import { providerSelectOption, formatModelLabel, gateIntro, gateOutro } from '../../apps/shared/ui.js';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { FavoriteModel, UserPreferences, LocalProvider, LocalProviderModel } from '../../../src/core/types.js';
+import type { FavoriteModel, UserPreferences, LocalProvider, LocalProviderModel } from '../../../src/types/index.js';
 import type { CatalogFixture } from '../../../src/gateway/antigravity/types.js';
 
 const AGY_FAVORITES_PROVIDER_ID = '__gateway_agy_favorites__';

@@ -2,7 +2,7 @@ import pc from 'picocolors';
 import { networkInterfaces } from 'node:os';
 import * as p from '@clack/prompts';
 import { gateIntro } from '../apps/shared/ui.js';
-import { resolveApiKey, readFromCredentialStore } from '../core/env.js';
+import { resolveApiKey, readFromCredentialStore } from '../config/env.js';
 import { sanitizeCredential } from './auth.js';
 import {
   getSavedServerPassword,
@@ -18,15 +18,15 @@ import {
   setServerFreeModelsOnly,
   setServerListenMode,
   setServerMaskGatewayIds,
-} from '../core/config.js';
-import { BACKENDS, MAX_MODEL_CATALOG } from '../core/constants.js';
+} from '../storage/config.js';
+import { BACKENDS, MAX_MODEL_CATALOG } from '../config/constants.js';
 import {
   fetchProviderCatalog,
   localProvidersToServerModels,
 } from '../providers/provider-catalog.js';
 import { providersForTarget } from '../apps/shared/target-compatibility.js';
 import { loadRegistry } from '../registry/io.js';
-import type { ModelInfo } from '../core/types.js';
+import type { ModelInfo } from '../types/index.js';
 import type { ServerModelInfo, GatewayModelOptions } from './models.js';
 import {
   upstreamModelId,
@@ -147,7 +147,7 @@ function printModelCatalog(models: ServerModelInfo[], gateway?: GatewayModelOpti
   }
 }
 
-export function providerOptionsFromCatalog(catalog: import('../core/types.js').LocalProvider[]): ServerProviderOption[] {
+export function providerOptionsFromCatalog(catalog: import('../types/index.js').LocalProvider[]): ServerProviderOption[] {
   const options: ServerProviderOption[] = [];
   for (const provider of providersForTarget(catalog, 'server')) {
     options.push({

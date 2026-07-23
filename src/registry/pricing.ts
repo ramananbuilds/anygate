@@ -19,7 +19,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import bundledPricing from '../data/pricing-cache.json' with { type: 'json' };
-import { getAppHome } from '../core/paths.ts';
+import { getAppHome } from '../config/paths.ts';
 import type { CachedModel } from './types.js';
 import { loadRegistry, saveRegistry } from './io.js';
 import { classifyFreeStatus, isFreeStatus } from '../apps/shared/free-models.ts';

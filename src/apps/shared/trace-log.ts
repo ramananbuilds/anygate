@@ -10,8 +10,8 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import pc from 'picocolors';
-import { getLogsPath } from '../../core/paths.js';
-import { redactTraceLine, redactTraceLog } from '../../core/redact.js';
+import { getLogsPath } from '../../config/paths.js';
+import { redactTraceLine, redactTraceLog } from '../../shared/redact.js';
 
 const DIR_MODE = 0o700;
 const FILE_MODE = 0o600;
@@ -99,8 +99,8 @@ export function writeSecureLogLine(path: string, line: string): void {
   }
 }
 
-// Re-exported from core/redact so callers that historically imported redaction
-// from trace-log continue to work; new code should import from core/redact.
+// Re-exported from shared/redact so callers that historically imported redaction
+// from trace-log continue to work; new code should import from shared/redact.
 export { redactTraceLine, redactTraceLog };
 
 export function printTraceLog(debugLogPath: string): void {

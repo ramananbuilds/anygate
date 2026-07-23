@@ -10,7 +10,7 @@ import {
   shouldUseOpenAiResponsesEndpoint,
   thinkingProviderOptions,
 } from '../src/gateway/provider-factory.js';
-import { VERTEX_ANTHROPIC_NPM } from './../src/core/constants.js';
+import { VERTEX_ANTHROPIC_NPM } from './../src/config/constants.js';
 
 describe('isSdkUpgradedNpm', () => {
   it('returns true for any OpenCode-assigned npm except anthropic', () => {

@@ -1,4 +1,4 @@
-// src/core/credentials.ts — single source of truth for resolving a provider's API key.
+// src/storage/credentials.ts — single source of truth for resolving a provider's API key.
 //
 // Previously `resolveLocalProviderApiKey` lived in provider-catalog.ts but was
 // inlined/re-imported at 7 sites (cli.ts, codex.ts, codex-app.ts, claude-app.ts,
@@ -7,11 +7,11 @@
 // called the old inline copy instead of the shared helper. Centralizing here
 // guarantees every launcher uses identical credential resolution.
 
-import { resolveProviderCredential } from './env.js';
+import { resolveProviderCredential } from '../config/env.js';
 import { getTemplateById } from '../providers/provider-templates.js';
 import { loadRegistry } from '../registry/io.js';
 import { oauthAuthRef } from '../registry/import-build.js';
-import type { LocalProvider } from './types.js';
+import type { LocalProvider } from '../types/index.js';
 
 /** Resolve API key when provider.apiKey is empty (registry authRef or global OpenCode key). */
 export async function resolveLocalProviderApiKey(provider: LocalProvider): Promise<string | null> {

@@ -1,4 +1,4 @@
-import type { FavoriteModel } from '../core/types.js';
+import type { FavoriteModel } from '../types/index.js';
 import { isFreeStatus } from '../apps/shared/free-models.js';
 import type { ServerModelInfo } from './models.js';
 

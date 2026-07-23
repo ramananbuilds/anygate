@@ -1,12 +1,12 @@
 // src/apps/shared/doctor.ts
 import pc from 'picocolors';
 import { createServer } from 'node:net';
-import { GATEWAY_PORT, CONFLICTING_ENV_VARS } from '../../../src/core/constants.js';
+import { GATEWAY_PORT, CONFLICTING_ENV_VARS } from '../../../src/config/constants.js';
 import {
   detectConflicts,
   isSecretServiceAvailable,
   readFromCredentialStore,
-} from '../../../src/core/env.js';
+} from '../../../src/config/env.js';
 import { gateIntro, gateOutro, printPanel } from './ui.js';
 
 interface CheckResult {

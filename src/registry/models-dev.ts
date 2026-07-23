@@ -10,7 +10,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import bundledCache from '../data/models-dev-cache.json' with { type: 'json' };
-import { getAppHome } from '../core/paths.ts';
+import { getAppHome } from '../config/paths.ts';
 import { normalizeModelIdCandidates } from './pricing.js';
 
 export const MODELS_DEV_API_URL = 'https://models.dev/api.json';

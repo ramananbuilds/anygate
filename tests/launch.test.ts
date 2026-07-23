@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { findBinaryOnPath } from '../src/apps/shared/binary-lookup.js';
 import { buildClaudeArgs, findClaudeBinary } from '../src/apps/shared/launch.js';
 import { buildGeminiChildEnv, prepareGeminiChildEnv } from '../src/apps/gemini/launch.js';
-import { setAppPathOverride } from './../src/core/config.js';
+import { setAppPathOverride } from './../src/storage/config.js';
 
 describe('buildClaudeArgs', () => {
   it('builds model args when no extra args are provided', () => {

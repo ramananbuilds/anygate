@@ -13,7 +13,7 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
-import { getAppHome } from '../../../src/core/paths.js';
+import { getAppHome } from '../../../src/config/paths.js';
 
 export const CODEX_PROFILE_NAME = 'anygate-launch';
 export const STALE_SESSION_MS = 5 * 60 * 1000;

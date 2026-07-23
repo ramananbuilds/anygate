@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Socket } from 'node:net';
 import type { LanguageModel } from 'ai';
-import { readBody, extractApiKey, sendJson } from '../../../src/core/http-utils.js';
+import { readBody, extractApiKey, sendJson } from '../../../src/shared/http.js';
 import { routeLookupIds } from '../../apps/shared/context-model-id.js';
 import {
   CODEX_APP_AUTO_COMPACT_RATIO,
@@ -23,7 +23,7 @@ import {
   type CodexSdkCallParams,
 } from './responses-adapter.js';
 import { silenceSdkWarnings } from '../../../src/gateway/sdk-adapter.js';
-import { formatUpstreamError, upstreamHttpStatus } from '../../../src/core/errors.js';
+import { formatUpstreamError, upstreamHttpStatus } from '../../../src/shared/errors.js';
 import { getCodexProxyDebugLogPath, makeTraceLogger } from '../../apps/shared/trace-log.js';
 
 export function estimateCodexRequestChars(params: CodexSdkCallParams): number {

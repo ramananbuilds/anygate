@@ -1,7 +1,7 @@
 // Global cross-provider search for anygate models (favorites manager).
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import type { FavoriteModel, LocalProvider, LocalProviderModel } from '../../../src/core/types.js';
+import type { FavoriteModel, LocalProvider, LocalProviderModel } from '../../../src/types/index.js';
 import { isFavorite } from './favorites.js';
 import {
   pickModelFromPagedList,
