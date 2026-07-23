@@ -3,6 +3,7 @@ import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import { fetchProviderCatalog, providersForPicker } from '../../../src/providers/provider-catalog.js';
 import { resolveLocalProviderApiKey } from '../../../src/core/credentials.js';
+import { CredentialUnavailableError } from '../../../src/core/errors.js';
 import { loadPreferences, recordLaunchSelection } from '../../../src/core/config.js';
 import { findProviderAndModel, planLaunchWizard, wantsCleanAgentStdout } from '../../agents/shared/launch-target.js';
 import { setAgentStdoutMode, isAgentStdoutMode } from '../../../src/core/agent-io.js';
@@ -182,7 +183,7 @@ export async function runGeminiCommand(
   const launchApiKey = await resolveLocalProviderApiKey(activeProvider);
   if (!launchApiKey?.trim()) {
     p.log.error(
-      `No API key found for ${activeProvider.name}. Set it with anygate providers add.`,
+      new CredentialUnavailableError(activeProvider.id).userMessage,
     );
     return 1;
   }

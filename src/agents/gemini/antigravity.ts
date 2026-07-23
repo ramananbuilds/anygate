@@ -7,6 +7,7 @@ import { loadPreferences, savePreferences } from '../../../src/core/config.js';
 import { fetchProviderCatalog, providersForPicker } from '../../../src/providers/provider-catalog.js';
 import { providersForTarget } from '../../../src/agents/shared/target-compatibility.js';
 import { detectConflicts, buildAntigravityChildEnv } from '../../../src/core/env.js';
+import { CredentialUnavailableError } from '../../../src/core/errors.js';
 import { buildAntigravityRoutes } from '../../../src/gateway/antigravity/catalog.js';
 import { startCloudCodeGateway, type CloudCodeGatewayHandle } from '../../../src/gateway/antigravity/cloud-code-gateway.js';
 import { evaluateAgySwitchCompatibility } from '../../../src/gateway/antigravity/slot-registry.js';
@@ -262,7 +263,7 @@ async function resolveAndBuildRoutes(
     maxRoutes: opts.maxRoutes,
   });
   if (!result) {
-    p.log.error(`No credential for ${provider.name}. Run: anygate providers auth ${provider.id} or add an API key.`);
+    p.log.error(new CredentialUnavailableError(provider.id).userMessage);
     return null;
   }
 

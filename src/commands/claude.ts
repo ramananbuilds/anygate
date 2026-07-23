@@ -18,6 +18,7 @@ import { loadPreferences, savePreferences, recordLaunchSelection } from '../core
 import { pickLocalModel, browseAllModels } from '../agents/shared/prompts.js';
 import { fetchProviderCatalog, providersForPicker, providersForPickerWithTemplates } from '../providers/provider-catalog.js';
 import { resolveLocalProviderApiKey } from '../core/credentials.js';
+import { CredentialUnavailableError } from '../core/errors.js';
 import { BACKENDS, VERSION } from '../core/constants.js';
 import { checkForUpdates, formatUpdateNotification } from '../agents/shared/update-check.js';
 import type { ParsedArgs, ModelInfo, FavoriteModel, LocalProvider, LocalProviderModel } from '../core/types.js';
@@ -328,7 +329,7 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
   const launchApiKey = await resolveLocalProviderApiKey(activeProvider);
   if (!launchApiKey?.trim()) {
     p.log.error(
-      `No credential found for ${activeProvider.name}. Add a key with anygate providers or set OPENCODE_API_KEY.`,
+      new CredentialUnavailableError(activeProvider.id).userMessage,
     );
     return 1;
   }

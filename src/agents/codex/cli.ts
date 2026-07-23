@@ -3,6 +3,7 @@ import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import { fetchProviderCatalog, providersForPicker } from '../../../src/providers/provider-catalog.js';
 import { resolveLocalProviderApiKey } from '../../../src/core/credentials.js';
+import { CredentialUnavailableError } from '../../../src/core/errors.js';
 import { loadPreferences, recordLaunchSelection } from '../../../src/core/config.js';
 import { resolveApiKey, readFromCredentialStore } from '../../../src/core/env.js';
 import { resolveOrCollectApiKey } from '../../agents/shared/key-setup.js';
@@ -508,7 +509,7 @@ export async function runCodexCommand(
   const apiKey = await resolveLocalProviderApiKey(activeProvider);
   if (!apiKey) {
     if (!configOnly) {
-      p.log.error(`No credential for ${activeProvider.name}. Run anygate providers auth ${activeProvider.id} or add an API key.`);
+      p.log.error(new CredentialUnavailableError(activeProvider.id).userMessage);
     }
     return 1;
   }

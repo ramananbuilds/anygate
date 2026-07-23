@@ -2,6 +2,7 @@ import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import { fetchProviderCatalog, providersForPicker, localProvidersToServerModels } from '../../../src/providers/provider-catalog.js';
 import { resolveLocalProviderApiKey } from '../../../src/core/credentials.js';
+import { CredentialUnavailableError } from '../../../src/core/errors.js';
 import { loadPreferences, savePreferences } from '../../../src/core/config.js';
 import { resolveApiKey, readFromCredentialStore } from '../../../src/core/env.js';
 import { resolveOrCollectApiKey } from '../../agents/shared/key-setup.js';
@@ -196,7 +197,7 @@ export async function runClaudeAppCommand(args: string[], boot?: { launchProvide
   if (activeProvider) {
     const apiKey = await resolveLocalProviderApiKey(activeProvider);
     if (!apiKey) {
-      p.log.error(`No credential for ${activeProvider.name}. Run anygate providers auth ${activeProvider.id}.`);
+      p.log.error(new CredentialUnavailableError(activeProvider.id).userMessage);
       return 1;
     }
 
