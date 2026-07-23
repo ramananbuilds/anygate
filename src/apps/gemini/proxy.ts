@@ -14,9 +14,9 @@ import {
 } from '../../../src/gateway/provider-factory.js';
 import { applyClaudeCodeOAuthIdentity } from '../../../src/oauth/claude-code-identity.js';
 import { silenceSdkWarnings } from '../../../src/gateway/sdk-adapter.js';
-import { getGeminiProxyDebugLogPath, makeTraceLogger } from '../../agents/shared/trace-log.js';
+import { getGeminiProxyDebugLogPath, makeTraceLogger } from '../../apps/shared/trace-log.js';
 import type { ProxyRoute, ProxyHandle } from '../../../src/gateway/anthropic-proxy.js';
-import { routeLookupIds } from '../../agents/shared/context-model-id.js';
+import { routeLookupIds } from '../../apps/shared/context-model-id.js';
 import { formatUpstreamError } from '../../../src/core/errors.js';
 
 function mapFinishReason(reason: string): string {

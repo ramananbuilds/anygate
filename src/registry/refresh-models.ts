@@ -1,7 +1,7 @@
 // src/registry/refresh-models.ts — user-initiated model list refresh per modelSource
 
 import { BACKENDS } from '../core/constants.js';
-import { getModels, deriveBrand, shouldHideModel } from '../agents/shared/model-compatibility.js';
+import { getModels, deriveBrand, shouldHideModel } from '../apps/shared/model-compatibility.js';
 import { fetchAnthropicModels } from './custom-endpoint.js';
 import { fetchTemplateModels } from './fetch-template-models.js';
 import { fetchClaudeCodeModels } from '../oauth/claude-code.js';
@@ -27,9 +27,9 @@ import { buildOpenAiOAuthModels, CHATGPT_CODEX_UNSUPPORTED_MODELS } from '../dat
 import { buildXaiOAuthModels } from '../data/xai-oauth-models.js';
 import { ANTIGRAVITY_BASE_URLS } from '../oauth/antigravity-oauth.js';
 import { modelPrefersResponsesApi } from '../gateway/provider-factory.js';
-import { resolveContextWindow } from '../agents/shared/context-window.js';
-import { getInstalledClaudeVersion } from '../agents/shared/launch.js';
-import { classifyFreeStatus, isFreeStatus } from '../agents/shared/free-models.js';
+import { resolveContextWindow } from '../apps/shared/context-window.js';
+import { getInstalledClaudeVersion } from '../apps/shared/launch.js';
+import { classifyFreeStatus, isFreeStatus } from '../apps/shared/free-models.js';
 
 export interface RefreshProviderResult {
   id: string;

@@ -22,7 +22,7 @@ vi.mock('../src/registry/auth-broker.js', () => ({
     expires: Date.now() + 3600_000,
   })),
 }));
-vi.mock('../src/agents/shared/ui.js', () => ({
+vi.mock('../src/apps/shared/ui.js', () => ({
   printOAuthStepsPanel: vi.fn(),
   confirmSubscriptionOAuthRisk: vi.fn(async () => true),
 }));

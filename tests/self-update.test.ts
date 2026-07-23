@@ -6,7 +6,7 @@ const hoisted = vi.hoisted(() => {
 });
 
 // Mock the update check so we never hit the npm registry.
-vi.mock('../src/agents/shared/update-check.js', () => ({
+vi.mock('../src/apps/shared/update-check.js', () => ({
   checkForUpdates: vi.fn(async () => ({
     currentVersion: '0.5.3',
     latestVersion: null,
@@ -35,7 +35,7 @@ vi.mock('node:child_process', () => ({
   execFileSync: vi.fn(() => Buffer.from('')),
 }));
 
-import { runUpdateCommand } from '../src/agents/shared/self-update.js';
+import { runUpdateCommand } from '../src/apps/shared/self-update.js';
 import { VERSION } from '../src/core/constants.js';
 
 describe('update command', () => {
@@ -53,7 +53,7 @@ describe('update command', () => {
   });
 
   it('does not spawn npm in dry-run mode and prints the command', async () => {
-    const { checkForUpdates } = await import('../src/agents/shared/update-check.js');
+    const { checkForUpdates } = await import('../src/apps/shared/update-check.js');
     (checkForUpdates as unknown as vi.Mock).mockResolvedValueOnce({
       currentVersion: '0.5.3',
       latestVersion: '0.6.0',
@@ -71,7 +71,7 @@ describe('update command', () => {
   });
 
   it('prompts and (when declined) does not spawn npm', async () => {
-    const { checkForUpdates } = await import('../src/agents/shared/update-check.js');
+    const { checkForUpdates } = await import('../src/apps/shared/update-check.js');
     (checkForUpdates as unknown as vi.Mock).mockResolvedValueOnce({
       currentVersion: '0.5.3',
       latestVersion: '0.6.0',
@@ -89,7 +89,7 @@ describe('update command', () => {
   });
 
   it('spawns npm and returns the child exit code when confirmed', async () => {
-    const { checkForUpdates } = await import('../src/agents/shared/update-check.js');
+    const { checkForUpdates } = await import('../src/apps/shared/update-check.js');
     (checkForUpdates as unknown as vi.Mock).mockResolvedValueOnce({
       currentVersion: '0.5.3',
       latestVersion: '0.6.0',

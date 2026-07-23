@@ -1,4 +1,4 @@
-// Codex-specific terminal panels (shared primitives in ../../agents/shared/ui.ts).
+// Codex-specific terminal panels (shared primitives in ../../apps/shared/ui.ts).
 import pc from 'picocolors';
 import {
   fmtCommand,
@@ -9,7 +9,7 @@ import {
   printPanel,
   gateIntro,
   gateOutro,
-} from '../../agents/shared/ui.js';
+} from '../../apps/shared/ui.js';
 
 export {
   fmtModel as formatCodexModelRef,
@@ -17,7 +17,7 @@ export {
   logActiveModel as logCodexActiveModel,
   logProxy as logCodexProxy,
   printPanel,
-} from '../../agents/shared/ui.js';
+} from '../../apps/shared/ui.js';
 
 export function codexAppIntro(): void {
   gateIntro('Codex App');

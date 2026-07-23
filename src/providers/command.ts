@@ -25,14 +25,14 @@ import {
 } from '../registry/crud.js';
 import { loadRegistry } from '../registry/io.js';
 import { refreshProviderModels } from '../registry/refresh-models.js';
-import { resolveOrCollectApiKey } from '../agents/shared/key-setup.js';
+import { resolveOrCollectApiKey } from '../apps/shared/key-setup.js';
 import {
   fmtCount,
   fmtProvider,
   fmtUrl,
   logConnected,
   printPanel,
-} from '../agents/shared/ui.js';
+} from '../apps/shared/ui.js';
 import {
   runProvidersImport,
   runProvidersAuth,
@@ -52,7 +52,7 @@ import {
 // Re-export for backward compatibility (tests and external callers import from command.ts)
 export { providerHubChoiceValue };
 import { resolveProvidersForDisplay } from './provider-catalog.js';
-import { fmtEnabledStar } from '../agents/shared/ui.js';
+import { fmtEnabledStar } from '../apps/shared/ui.js';
 
 export type { ProviderTemplate } from './provider-templates.js';
 export { listAddableTemplates, getTemplateById } from './provider-templates.js';

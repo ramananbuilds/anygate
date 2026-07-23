@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { resolveCodexRoute } from '../src/agents/codex/routing.js';
+import { resolveCodexRoute } from '../src/apps/codex/routing.js';
 import type { LocalProvider, LocalProviderModel } from './../src/core/types.js';
 
 const mocks = vi.hoisted(() => ({
@@ -69,7 +69,7 @@ const mocks = vi.hoisted(() => ({
   }),
 }));
 
-vi.mock('../src/agents/codex/session.js', () => ({
+vi.mock('../src/apps/codex/session.js', () => ({
   CODEX_PROFILE_NAME: 'anygate-launch',
   getCatalogPath: (providerId: string) => `/tmp/models-${providerId}.json`,
   getCodexProfilePath: () => '/tmp/anygate-launch.config.toml',
@@ -82,7 +82,7 @@ vi.mock('../src/agents/codex/session.js', () => ({
   writeSessionLock: mocks.writeSessionLock,
 }));
 
-vi.mock('../src/agents/shared/cloud-code-backend.js', () => ({
+vi.mock('../src/apps/shared/cloud-code-backend.js', () => ({
   buildCloudCodeProxyRoute: mocks.buildCloudCodeProxyRoute,
   buildOAuthAnthropicProxyRoute: mocks.buildOAuthAnthropicProxyRoute,
   needsCloudCodeBackend: vi.fn((model: any, authType?: string) =>
@@ -108,13 +108,13 @@ vi.mock('../src/core/config.js', () => ({
   recordLaunchSelection: mocks.recordLaunchSelection,
 }));
 
-vi.mock('../src/agents/codex/launch.js', () => ({
+vi.mock('../src/apps/codex/launch.js', () => ({
   findCodexBinary: vi.fn(() => '/usr/local/bin/codex'),
   buildCodexChildEnv: vi.fn(() => ({})),
   launchCodex: mocks.launchCodex,
 }));
 
-vi.mock('../src/agents/codex/proxy.js', () => ({
+vi.mock('../src/apps/codex/proxy.js', () => ({
   startCodexProxy: mocks.startCodexProxy,
 }));
 
@@ -141,7 +141,7 @@ vi.mock('@clack/prompts', () => ({
   spinner: vi.fn(() => ({ start: vi.fn(), stop: vi.fn() })),
 }));
 
-import { runCodexCommand } from '../src/agents/codex/cli.js';
+import { runCodexCommand } from '../src/apps/codex/cli.js';
 
 const cloudCodeModel: LocalProviderModel = {
   id: 'gemini-3.5-flash-low',

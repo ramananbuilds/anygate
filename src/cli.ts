@@ -1,20 +1,20 @@
 // src/cli.ts
 import pc from 'picocolors';
-import { printAsciiBanner, fmtEnabledStar, fmtModel, providerSelectOption, gateIntro, gateOutro } from './agents/shared/ui.js';
-import { favoriteProviderDisplayName } from './agents/claude/favorites-provider-display.js';
+import { printAsciiBanner, fmtEnabledStar, fmtModel, providerSelectOption, gateIntro, gateOutro } from './apps/shared/ui.js';
+import { favoriteProviderDisplayName } from './apps/claude/favorites-provider-display.js';
 import * as p from '@clack/prompts';
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { checkForUpdates, formatUpdateNotification } from './agents/shared/update-check.js';
+import { checkForUpdates, formatUpdateNotification } from './apps/shared/update-check.js';
 import type { ParsedArgs } from './core/types.js';
 import { refreshModelsDevCacheAsync } from './registry/models-dev.js';
-import { generateAiDoc, installAiDoc, printAiInstallResult } from './agents/shared/ai-doc.js';
+import { generateAiDoc, installAiDoc, printAiInstallResult } from './apps/shared/ai-doc.js';
 import { dispatchCommand } from './commands/index.js';
 import { VERSION, MAX_MODEL_CATALOG } from './core/constants.js';
-import { codexHelpText } from './agents/codex/cli.js';
-import { geminiHelpText } from './agents/gemini/cli.js';
-import { codexAppHelpText } from './agents/codex/app.js';
-import { claudeAppHelpText } from './agents/claude/desktop.js';
+import { codexHelpText } from './apps/codex/cli.js';
+import { geminiHelpText } from './apps/gemini/cli.js';
+import { codexAppHelpText } from './apps/codex/app.js';
+import { claudeAppHelpText } from './apps/claude/desktop.js';
 
 const STARTER_CLAUDE_FLAGS = new Set(['--dry-run', '--setup', '--trace', '--help', '-h', '--version', '-v']);
 const GATEWAY_LAUNCH_FLAGS = new Set(['--provider', '--model']);

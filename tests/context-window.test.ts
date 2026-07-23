@@ -4,7 +4,7 @@ import {
   contextWindowFromHeuristics,
   buildContextWindowIndex,
   DEFAULT_CONTEXT_WINDOW,
-} from '../src/agents/shared/context-window.js';
+} from '../src/apps/shared/context-window.js';
 
 describe('contextWindowFromHeuristics', () => {
   it.each([

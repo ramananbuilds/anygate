@@ -4,7 +4,7 @@ import {
   translateGeminiRequest, 
   sanitizeModelSwitchTurns, 
   parseModelCommand 
-} from '../src/agents/gemini/proxy.js';
+} from '../src/apps/gemini/proxy.js';
 
 describe('translateGeminiRequest', () => {
   it('maps basic user and assistant turns', () => {

@@ -8,9 +8,9 @@ import {
   restoreCodexAppOverlay,
   saveAppRestoreStateBeforePatch,
   writeAppSessionLock,
-} from '../src/agents/codex/app-session.js';
-import { applyAppConfigPatch } from '../src/agents/codex/app-config.js';
-import type { CodexAppConfigSpec } from '../src/agents/codex/app-profile.js';
+} from '../src/apps/codex/app-session.js';
+import { applyAppConfigPatch } from '../src/apps/codex/app-config.js';
+import type { CodexAppConfigSpec } from '../src/apps/codex/app-profile.js';
 
 describe('codex app session', () => {
   let home: string;

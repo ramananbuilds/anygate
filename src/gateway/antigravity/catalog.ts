@@ -1,5 +1,5 @@
 import { MAX_MODEL_CATALOG } from '../../core/constants.js';
-import type { ResolvedFavorite } from '../../agents/shared/favorites-resolver.js';
+import type { ResolvedFavorite } from '../../apps/shared/favorites-resolver.js';
 import type { AntigravityRoute, CatalogFixture, CatalogModelEntry } from './types.js';
 import {
   getValidatedAgySwitchSlots,

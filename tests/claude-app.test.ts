@@ -20,7 +20,7 @@ vi.mock('@clack/prompts', () => ({
   isCancel: vi.fn(() => false),
   select: vi.fn(async () => '__favorites__'),
 }));
-vi.mock('../src/agents/claude/desktop-session.js', () => ({
+vi.mock('../src/apps/claude/desktop-session.js', () => ({
   readSessionLock: vi.fn(),
   recoverSession: vi.fn(),
   hasStaleSession: vi.fn(() => false),
@@ -31,13 +31,13 @@ vi.mock('../src/agents/claude/desktop-session.js', () => ({
   isConcurrentLiveSession: vi.fn(() => false),
   waitForShutdown: vi.fn(),
 }));
-vi.mock('../src/agents/claude/desktop-launch.js', () => ({
+vi.mock('../src/apps/claude/desktop-launch.js', () => ({
   launchOrRestartClaudeApp: vi.fn(),
   claudeAppSupported: vi.fn(),
   isClaudeAppRunning: vi.fn(() => false),
   quitClaudeAppGracefully: vi.fn(),
 }));
-vi.mock('../src/agents/claude/desktop-app.js', () => ({
+vi.mock('../src/apps/claude/desktop-app.js', () => ({
   writeAnygateIConfig: vi.fn(() => 'test-session-uuid'),
   getClaudeDesktopHome: vi.fn(() => '/tmp/anygate-test-claude-home'),
 }));
@@ -68,7 +68,7 @@ vi.mock('../src/gateway/router.js', () => ({
   }),
 }));
 
-vi.mock('../src/agents/shared/cloud-code-backend.js', () => ({
+vi.mock('../src/apps/shared/cloud-code-backend.js', () => ({
   buildCloudCodeProxyRoute: vi.fn((model: any) => ({
     aliasId: `anthropic-antigravity__${model.id}`,
     realModelId: model.id,
@@ -87,8 +87,8 @@ vi.mock('../src/agents/shared/cloud-code-backend.js', () => ({
   })),
 }));
 
-import { recoverSession } from '../src/agents/claude/desktop-session.js';
-import { modelToServerModelInfo, runClaudeAppCommand } from '../src/agents/claude/desktop.js';
+import { recoverSession } from '../src/apps/claude/desktop-session.js';
+import { modelToServerModelInfo, runClaudeAppCommand } from '../src/apps/claude/desktop.js';
 
 const helperModel: LocalProviderModel = {
   id: 'gpt-5.5',

@@ -1,6 +1,6 @@
 // src/commands/codex-app.ts — anygate codex-app / chatgpt command
 import type { ParsedArgs } from '../core/types.js';
-import { runCodexAppCommand } from '../agents/codex/app.js';
+import { runCodexAppCommand } from '../apps/codex/app.js';
 
 export async function handleCodexAppCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {

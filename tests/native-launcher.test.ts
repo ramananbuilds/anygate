@@ -5,7 +5,7 @@ import {
   getGatewayLaunchCommand,
   getTerminalLaunchCommand,
   getSupportedApps,
-} from '../src/agents/shared/native-launcher.js';
+} from '../src/apps/shared/native-launcher.js';
 
 function macCommandScriptPath(cmd: string): string | null {
   const match = cmd.match(/open -a Terminal (.+)$/);

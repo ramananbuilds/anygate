@@ -1,4 +1,4 @@
-// src/agents/shared/doctor.ts
+// src/apps/shared/doctor.ts
 import pc from 'picocolors';
 import { createServer } from 'node:net';
 import { GATEWAY_PORT, CONFLICTING_ENV_VARS } from '../../../src/core/constants.js';

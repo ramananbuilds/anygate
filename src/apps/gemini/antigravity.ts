@@ -5,7 +5,7 @@ import * as p from '@clack/prompts';
 import { appendFileSync } from 'node:fs';
 import { loadPreferences, savePreferences } from '../../../src/core/config.js';
 import { fetchProviderCatalog, providersForPicker } from '../../../src/providers/provider-catalog.js';
-import { providersForTarget } from '../../../src/agents/shared/target-compatibility.js';
+import { providersForTarget } from '../../../src/apps/shared/target-compatibility.js';
 import { detectConflicts, buildAntigravityChildEnv } from '../../../src/core/env.js';
 import { CredentialUnavailableError } from '../../../src/core/errors.js';
 import { buildAntigravityRoutes } from '../../../src/gateway/antigravity/catalog.js';
@@ -26,9 +26,9 @@ import {
   waitForAntigravityAppQuit,
   waitForAntigravityIdeQuit,
 } from '../../../src/gateway/antigravity/launch-ide.js';
-import { pickLocalModel } from '../../agents/shared/prompts.js';
-import { resolveFirstAvailableFavorite } from '../../agents/shared/favorites-resolver.js';
-import { providerSelectOption, formatModelLabel, gateIntro, gateOutro } from '../../agents/shared/ui.js';
+import { pickLocalModel } from '../../apps/shared/prompts.js';
+import { resolveFirstAvailableFavorite } from '../../apps/shared/favorites-resolver.js';
+import { providerSelectOption, formatModelLabel, gateIntro, gateOutro } from '../../apps/shared/ui.js';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { FavoriteModel, UserPreferences, LocalProvider, LocalProviderModel } from '../../../src/core/types.js';

@@ -1,4 +1,4 @@
-// src/agents/shared/completions.ts
+// src/apps/shared/completions.ts
 import pc from 'picocolors';
 
 export const SUBCOMMANDS = [

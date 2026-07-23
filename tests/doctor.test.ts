@@ -15,7 +15,7 @@ vi.mock('../src/core/constants.js', async (importOriginal) => {
   return { ...actual, GATEWAY_PORT: 48123 };
 });
 
-import { runDoctorCommand } from '../src/agents/shared/doctor.js';
+import { runDoctorCommand } from '../src/apps/shared/doctor.js';
 
 function captureOutput(): { restore: () => void; out: () => string } {
   let buf = '';

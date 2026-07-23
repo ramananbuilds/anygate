@@ -17,7 +17,7 @@ import {
   thinkingProviderOptions,
   type ReasoningMetadata,
 } from './provider-factory.js';
-import { resolveUpstreamTools } from '../agents/shared/tool-search.js';
+import { resolveUpstreamTools } from '../apps/shared/tool-search.js';
 import { isWebSearchTool, makeWebSearchTool } from './web-search/tool.js';
 import { MAX_WEB_SEARCH_STEPS } from './web-search/constants.js';
 import { fitContextWindow, estimateContextTokens } from './context-fit.js';

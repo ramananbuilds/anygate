@@ -20,7 +20,7 @@ vi.mock('../src/registry/import-build.js', () => ({
   oauthAuthRef: vi.fn((id: string) => `keyring:oauth:provider:${id}`),
 }));
 
-import { rewriteGeminiBackendRoutes } from '../src/agents/gemini/backend-routes.js';
+import { rewriteGeminiBackendRoutes } from '../src/apps/gemini/backend-routes.js';
 import { startProxyCatalog, type ProxyRoute } from '../src/gateway/anthropic-proxy.js';
 
 const regularRoute: ProxyRoute = {

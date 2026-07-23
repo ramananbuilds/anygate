@@ -22,7 +22,7 @@ import {
   needsCloudCodeBackend,
   partitionAndStartCloudCodeBackend,
   startCloudCodeCatalogBackend,
-} from '../src/agents/shared/cloud-code-backend.js';
+} from '../src/apps/shared/cloud-code-backend.js';
 import { startProxyCatalog } from '../src/gateway/anthropic-proxy.js';
 import type { LocalProviderModel } from './../src/core/types.js';
 

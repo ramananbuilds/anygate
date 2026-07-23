@@ -1,6 +1,6 @@
 // src/commands/doctor.ts — anygate doctor command
 import type { ParsedArgs } from '../core/types.js';
-import { runDoctorCommand } from '../agents/shared/doctor.js';
+import { runDoctorCommand } from '../apps/shared/doctor.js';
 
 export async function handleDoctorCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {

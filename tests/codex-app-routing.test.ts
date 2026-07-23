@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { startProxyCatalog } from '../src/gateway/anthropic-proxy.js';
-import { buildCodexAppProviderCatalogRoutes } from '../src/agents/codex/app-provider-routes.js';
-import { buildCodexProxyRoutesForProvider } from '../src/agents/codex/routing.js';
+import { buildCodexAppProviderCatalogRoutes } from '../src/apps/codex/app-provider-routes.js';
+import { buildCodexProxyRoutesForProvider } from '../src/apps/codex/routing.js';
 import type { LocalProvider } from './../src/core/types.js';
 
 vi.mock('../src/gateway/anthropic-proxy.js', async importOriginal => {

@@ -5,20 +5,20 @@ import { resolveLocalProviderApiKey } from '../../../src/core/credentials.js';
 import { CredentialUnavailableError } from '../../../src/core/errors.js';
 import { loadPreferences, savePreferences } from '../../../src/core/config.js';
 import { resolveApiKey, readFromCredentialStore } from '../../../src/core/env.js';
-import { resolveOrCollectApiKey } from '../../agents/shared/key-setup.js';
+import { resolveOrCollectApiKey } from '../../apps/shared/key-setup.js';
 import { pickCodexProvider, pickCodexModel } from '../codex/prompts.js';
 import { resolveBootSelection } from '../codex/favorites-launch.js';
 import {
   codexCompatibleProviders,
   routableModelsForProvider,
 } from '../codex/routing.js';
-import { providersForTarget } from '../../agents/shared/target-compatibility.js';
+import { providersForTarget } from '../../apps/shared/target-compatibility.js';
 import { startServer, type ServerHandle } from '../../../src/gateway/router.js';
 import { createGatewayModelCatalog, type ServerModelInfo } from '../../../src/gateway/models.js';
 import { BACKENDS } from '../../../src/core/constants.js';
 import { filterServerModelsByFavorites } from '../../../src/gateway/catalog-filter.js';
 import { writeAnygateIConfig, getClaudeDesktopHome } from './desktop-app.js';
-import { getProxyDebugLogPath } from '../../agents/shared/trace-log.js';
+import { getProxyDebugLogPath } from '../../apps/shared/trace-log.js';
 import { readSessionLock, recoverSession, hasStaleSession, writeSessionLock, setupExitCleanup, cleanupSession, backupMetaJson, isConcurrentLiveSession, waitForShutdown } from './desktop-session.js';
 import { launchOrRestartClaudeApp, claudeAppSupported, isClaudeAppRunning, quitClaudeAppGracefully } from './desktop-launch.js';
 import type { LocalProvider, LocalProviderModel, FavoriteModel } from '../../../src/core/types.js';

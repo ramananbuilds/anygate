@@ -11,7 +11,7 @@ import {
   planLaunchWizard,
   resolveLaunchTarget,
   wantsCleanAgentStdout,
-} from '../src/agents/shared/launch-target.js';
+} from '../src/apps/shared/launch-target.js';
 import type { LocalProvider } from './../src/core/types.js';
 
 const providers: LocalProvider[] = [

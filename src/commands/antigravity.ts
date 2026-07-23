@@ -1,6 +1,6 @@
 // src/commands/antigravity.ts — anygate agy / antigravity / antigravity-ide commands
 import type { ParsedArgs } from '../core/types.js';
-import { runAgyCommand, runAntigravityAppCommand, runAntigravityIdeCommand } from '../agents/gemini/antigravity.js';
+import { runAgyCommand, runAntigravityAppCommand, runAntigravityIdeCommand } from '../apps/gemini/antigravity.js';
 
 const AGY_HELP_TEXT = `
 anygate agy — Antigravity CLI

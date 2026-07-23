@@ -3,7 +3,7 @@ import {
   isTargetCompatibleModel,
   providersForTarget,
   routableModelsForTarget,
-} from '../src/agents/shared/target-compatibility.js';
+} from '../src/apps/shared/target-compatibility.js';
 import type { LocalProvider, LocalProviderModel } from './../src/core/types.js';
 
 const openAiModel: LocalProviderModel = {

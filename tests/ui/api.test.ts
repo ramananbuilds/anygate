@@ -26,15 +26,15 @@ vi.mock('../../src/providers/provider-catalog.js', async () => {
   };
 });
 
-vi.mock('../../src/agents/shared/update-check.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/agents/shared/update-check.js')>('../../src/agents/shared/update-check.js');
+vi.mock('../../src/apps/shared/update-check.js', async () => {
+  const actual = await vi.importActual<typeof import('../../src/apps/shared/update-check.js')>('../../src/apps/shared/update-check.js');
   return {
     ...actual,
     checkForUpdates: vi.fn(async () => state.updateInfo),
   };
 });
 
-vi.mock('../../src/agents/shared/native-launcher.js', () => ({
+vi.mock('../../src/apps/shared/native-launcher.js', () => ({
   getSupportedApps: () => [],
   getSupportedApp: () => undefined,
   detectApp: () => ({ installed: false, path: null }),

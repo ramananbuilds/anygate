@@ -8,8 +8,8 @@ import {
   modelSelectOption,
   navOption,
   providerSelectOption,
-} from '../../agents/shared/ui.js';
-import { browseAllModels } from '../../agents/shared/prompts.js';
+} from '../../apps/shared/ui.js';
+import { browseAllModels } from '../../apps/shared/prompts.js';
 
 export async function pickCodexProvider(
   providers: LocalProvider[],

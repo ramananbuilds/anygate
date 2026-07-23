@@ -6,10 +6,10 @@ import { resolveLocalProviderApiKey } from '../../../src/core/credentials.js';
 import { CredentialUnavailableError } from '../../../src/core/errors.js';
 import { loadPreferences, savePreferences } from '../../../src/core/config.js';
 import { resolveApiKey, readFromCredentialStore } from '../../../src/core/env.js';
-import { resolveOrCollectApiKey } from '../../agents/shared/key-setup.js';
+import { resolveOrCollectApiKey } from '../../apps/shared/key-setup.js';
 import { startCodexProxy } from './proxy.js';
 import type { CodexProxyHandle, CodexProxyRoute } from './proxy.js';
-import { getCodexProxyDebugLogPath, printTraceLog } from '../../agents/shared/trace-log.js';
+import { getCodexProxyDebugLogPath, printTraceLog } from '../../apps/shared/trace-log.js';
 import { buildAppCatalogFile, formatCodexModelLabel, serializeCatalog } from './catalog.js';
 import { pickCodexProvider, pickCodexModel, confirmCodexLaunch } from './prompts.js';
 import {
@@ -43,8 +43,8 @@ import {
   logCodexProxy,
   printCodexAppSessionPanel,
 } from './ui.js';
-import type { ResolvedFavorite } from '../../agents/shared/favorites-resolver.js';
-import { resolveFirstAvailableFavorite } from '../../agents/shared/favorites-resolver.js';
+import type { ResolvedFavorite } from '../../apps/shared/favorites-resolver.js';
+import { resolveFirstAvailableFavorite } from '../../apps/shared/favorites-resolver.js';
 import { buildFavoritesAppCatalog, codexCliFavoritesSlug } from './favorites-catalog.js';
 import {
   buildVertexRuntimeConfig,
@@ -52,7 +52,7 @@ import {
   type VertexModelEntry,
 } from '../../../src/gateway/vertex.js';
 import { VERTEX_ANTHROPIC_NPM } from '../../../src/core/constants.js';
-import { resolveContextWindow } from '../../agents/shared/context-window.js';
+import { resolveContextWindow } from '../../apps/shared/context-window.js';
 import {
   buildCodexProxyRoutesFromResolved,
   pickFavoriteStartingModel,

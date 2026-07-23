@@ -7,13 +7,13 @@ import {
   pickFavoriteStartingModel,
   resolveBootSelection,
   resolveCodexFavorites,
-} from '../src/agents/codex/favorites-launch.js';
-import { getFavoritesCatalogPath, getFavoritesAppCatalogPath } from '../src/agents/codex/profile.js';
-import { ownedOverlayPaths, getAnygateICodexDir } from '../src/agents/codex/session.js';
-import { buildCodexChildEnv } from '../src/agents/codex/launch.js';
-import { ownedAppCatalogPaths, removeAppCatalogs } from '../src/agents/codex/app-session.js';
-import type { CodexRoute } from '../src/agents/codex/routing.js';
-import type { ResolvedFavorite } from '../src/agents/shared/favorites-resolver.js';
+} from '../src/apps/codex/favorites-launch.js';
+import { getFavoritesCatalogPath, getFavoritesAppCatalogPath } from '../src/apps/codex/profile.js';
+import { ownedOverlayPaths, getAnygateICodexDir } from '../src/apps/codex/session.js';
+import { buildCodexChildEnv } from '../src/apps/codex/launch.js';
+import { ownedAppCatalogPaths, removeAppCatalogs } from '../src/apps/codex/app-session.js';
+import type { CodexRoute } from '../src/apps/codex/routing.js';
+import type { ResolvedFavorite } from '../src/apps/shared/favorites-resolver.js';
 import type { LocalProvider, FavoriteModel, ModelInfo } from './../src/core/types.js';
 
 const anthropicProvider: LocalProvider = {

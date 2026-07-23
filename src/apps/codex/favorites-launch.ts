@@ -1,8 +1,8 @@
 import * as p from '@clack/prompts';
 import type { CodexProxyRoute } from './proxy.js';
-import { buildFavoritesList, resolveFavorite } from '../../agents/shared/favorites-resolver.js';
-import type { ResolveContext, ResolvedFavorite } from '../../agents/shared/favorites-resolver.js';
-import { shouldHideModel, type CompatibilityAgent } from '../../agents/shared/model-compatibility.js';
+import { buildFavoritesList, resolveFavorite } from '../../apps/shared/favorites-resolver.js';
+import type { ResolveContext, ResolvedFavorite } from '../../apps/shared/favorites-resolver.js';
+import { shouldHideModel, type CompatibilityAgent } from '../../apps/shared/model-compatibility.js';
 import { resolveCodexRoute } from './routing.js';
 import type { LocalProvider, LocalProviderModel, FavoriteModel } from '../../../src/core/types.js';
 import { codexCliFavoritesSlug } from './favorites-catalog.js';

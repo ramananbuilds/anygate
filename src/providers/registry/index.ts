@@ -17,7 +17,7 @@ import { loadRegistry } from '../../registry/io.js';
 import { refreshProviderModels } from '../../registry/refresh-models.js';
 import { resolveRefreshCredential } from '../../registry/refresh-credentials.js';
 import { authenticateProvider, providerAuthHelpText, type ProviderAuthMethod } from '../../registry/provider-auth.js';
-import { printImportConflictPanel } from '../../agents/shared/ui.js';
+import { printImportConflictPanel } from '../../apps/shared/ui.js';
 import { runProvidersRefreshModels } from '../models/index.js';
 
 export async function runProvidersImport(): Promise<number> {

@@ -26,7 +26,7 @@ import {
   injectClaudeIdentity,
   selectBetaFlags,
 } from '../oauth/claude-identity.js';
-import { writeSecureLogLine, resetTraceLog } from '../agents/shared/trace-log.js';
+import { writeSecureLogLine, resetTraceLog } from '../apps/shared/trace-log.js';
 import { redactTraceLine } from '../core/redact.js';
 import type { LanguageModel } from 'ai';
 import { createLanguageModel, isSdkUpgradedNpm, maxToolsForNpm } from './provider-factory.js';
@@ -40,7 +40,7 @@ import {
   type AnthropicRequest,
 } from './sdk-adapter.js';
 import { recordUsage } from '../core/analytics-log.js';
-import { resolveContextWindow } from '../agents/shared/context-window.js';
+import { resolveContextWindow } from '../apps/shared/context-window.js';
 
 export interface ServerBackend {
   baseUrl: string;

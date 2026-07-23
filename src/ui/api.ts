@@ -1,4 +1,4 @@
-import { getSupportedApps, getSupportedApp, getGatewayLaunchCommand, detectApp } from '../agents/shared/native-launcher.ts';
+import { getSupportedApps, getSupportedApp, getGatewayLaunchCommand, detectApp } from '../apps/shared/native-launcher.ts';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -8,7 +8,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { loadPreferences, recordLaunchFolder, savePreferences, setAppPathOverride } from '../core/config.js';
 import { fetchProviderCatalog } from '../providers/provider-catalog.ts';
-import { favoriteProviderDisplayName } from '../agents/claude/favorites-provider-display.ts';
+import { favoriteProviderDisplayName } from '../apps/claude/favorites-provider-display.ts';
 import { saveProviderCredential, resolveProviderCredential } from '../core/env.js';
 import { readBody, sendJson } from '../core/http-utils.ts';
 import { loadRegistry } from '../registry/io.js';
@@ -32,9 +32,9 @@ import {
 
 import { providerOptionsFromCatalog } from '../gateway/server.ts';
 import { getServerStatus, startGatewayServer, stopGatewayServer, type ServerStartRequest } from './server-control.js';
-import { writeSecureLogLine } from '../agents/shared/trace-log.js';
-import { freeStatusLabel } from '../agents/shared/free-models.ts';
-import { checkForUpdates } from '../agents/shared/update-check.ts';
+import { writeSecureLogLine } from '../apps/shared/trace-log.js';
+import { freeStatusLabel } from '../apps/shared/free-models.ts';
+import { checkForUpdates } from '../apps/shared/update-check.ts';
 import { aggregateAnalytics, type RangeId } from '../core/analytics-log.js';
 import { resolveInputTypes } from '../registry/models-dev.js';
 

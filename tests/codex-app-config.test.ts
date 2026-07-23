@@ -8,9 +8,9 @@ import {
   isAppManagedConfig,
   restoreConfigFromState,
   previewAppConfigToml,
-} from '../src/agents/codex/app-config.js';
-import { CODEX_APP_PROVIDER_ID, CODEX_APP_AUTO_COMPACT_RATIO } from '../src/agents/codex/app-profile.js';
-import type { CodexAppConfigSpec } from '../src/agents/codex/app-profile.js';
+} from '../src/apps/codex/app-config.js';
+import { CODEX_APP_PROVIDER_ID, CODEX_APP_AUTO_COMPACT_RATIO } from '../src/apps/codex/app-profile.js';
+import type { CodexAppConfigSpec } from '../src/apps/codex/app-profile.js';
 
 describe('app-config', () => {
   let home: string;

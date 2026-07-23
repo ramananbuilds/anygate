@@ -5,11 +5,11 @@ import type { FavoriteModel, LocalProvider, LocalProviderModel } from '../../../
 import { isFavorite } from './favorites.js';
 import {
   pickModelFromPagedList,
-} from '../../../src/agents/shared/prompts.js';
-import { fmtModel, fmtProviderBracket, formatModelLabel } from '../../../src/agents/shared/ui.js';
-import { scoreModelSearch } from '../../../src/agents/shared/model-search.js';
+} from '../../../src/apps/shared/prompts.js';
+import { fmtModel, fmtProviderBracket, formatModelLabel } from '../../../src/apps/shared/ui.js';
+import { scoreModelSearch } from '../../../src/apps/shared/model-search.js';
 import { favoriteProviderDisplayName } from './favorites-provider-display.js';
-import { isFreeStatus } from '../../../src/agents/shared/free-models.js';
+import { isFreeStatus } from '../../../src/apps/shared/free-models.js';
 
 export interface GlobalFavoritePick {
   providerId: string;

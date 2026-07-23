@@ -1,6 +1,6 @@
 // src/core/redact.ts — centralized secret redaction for debug/trace logs.
 //
-// Hoisted from agents/shared/trace-log.ts so any layer (core, gateway,
+// Hoisted from apps/shared/trace-log.ts so any layer (core, gateway,
 // registry) can redact secrets without importing agent code — preserving the
 // one-way dependency rule (core never imports agents; gateway never imports
 // agents for redaction).

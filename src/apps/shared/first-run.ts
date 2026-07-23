@@ -2,7 +2,7 @@
 
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { printWelcomePanel } from '../../../src/agents/shared/ui.js';
+import { printWelcomePanel } from '../../../src/apps/shared/ui.js';
 import {
   upgradeGlobalOpencodeCredential,
   readGlobalOpencodeCredential,

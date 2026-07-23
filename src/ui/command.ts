@@ -7,7 +7,7 @@ import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import { getAppHome } from '../core/paths.js';
 import { handleUiApiRequest, type UiServerLifecycleEvent } from './api.js';
-import { getUiDebugLogPath, makeTraceLogger } from '../agents/shared/trace-log.js';
+import { getUiDebugLogPath, makeTraceLogger } from '../apps/shared/trace-log.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Served SPA is produced by `vite build` (ui/ → src/ui/dist). Version is injected

@@ -1,4 +1,4 @@
-import type { ResolvedFavorite } from '../../agents/shared/favorites-resolver.js';
+import type { ResolvedFavorite } from '../../apps/shared/favorites-resolver.js';
 import type { LocalProviderModel } from '../../../src/core/types.js';
 import { getReasoningCapabilities } from '../../../src/gateway/provider-factory.js';
 import {

@@ -1,4 +1,4 @@
-// src/agents/shared/self-update.ts
+// src/apps/shared/self-update.ts
 import pc from 'picocolors';
 import { spawn, execFileSync } from 'node:child_process';
 import * as p from '@clack/prompts';

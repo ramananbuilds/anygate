@@ -5,7 +5,7 @@ import { fetchProviderCatalog, providersForPicker } from '../../../src/providers
 import { resolveLocalProviderApiKey } from '../../../src/core/credentials.js';
 import { CredentialUnavailableError } from '../../../src/core/errors.js';
 import { loadPreferences, recordLaunchSelection } from '../../../src/core/config.js';
-import { findProviderAndModel, planLaunchWizard, wantsCleanAgentStdout } from '../../agents/shared/launch-target.js';
+import { findProviderAndModel, planLaunchWizard, wantsCleanAgentStdout } from '../../apps/shared/launch-target.js';
 import { setAgentStdoutMode, isAgentStdoutMode } from '../../../src/core/agent-io.js';
 import { findGeminiBinary, prepareGeminiChildEnv, launchGemini } from './launch.js';
 import {
@@ -16,12 +16,12 @@ import {
   rejectGeminiManagedFlags,
 } from './prompts.js';
 import { startGeminiProxy } from './proxy.js';
-import { getGeminiProxyDebugLogPath, printTraceLog } from '../../agents/shared/trace-log.js';
+import { getGeminiProxyDebugLogPath, printTraceLog } from '../../apps/shared/trace-log.js';
 import type { ProxyRoute, ProxyHandle } from '../../../src/gateway/anthropic-proxy.js';
 import type { CloudCodeBackend } from '../shared/cloud-code-backend.js';
 import { rewriteGeminiBackendRoutes } from './backend-routes.js';
 import { VERSION } from '../../../src/core/constants.js';
-import { providersForTarget } from '../../../src/agents/shared/target-compatibility.js';
+import { providersForTarget } from '../../../src/apps/shared/target-compatibility.js';
 
 export function geminiHelpText(): string {
   return `${pc.bold('anygate gemini')} v${VERSION}

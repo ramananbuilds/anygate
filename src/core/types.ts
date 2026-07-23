@@ -1,6 +1,6 @@
 // src/types.ts
 
-import type { FreeStatus } from '../agents/shared/free-models.js';
+import type { FreeStatus } from '../apps/shared/free-models.js';
 import type { ProviderTemplate } from '../providers/provider-templates.js';
 
 export type ModelFormat = 'anthropic' | 'openai' | 'unsupported';

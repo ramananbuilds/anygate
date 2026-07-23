@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { resolveContextWindow } from '../agents/shared/context-window.js';
+import { resolveContextWindow } from '../apps/shared/context-window.js';
 import { VERTEX_ANTHROPIC_NPM } from '../core/constants.js';
 import { getVertexModelsPath } from '../core/paths.js';
 import { getReasoningCapabilities } from './provider-factory.js';

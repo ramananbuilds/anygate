@@ -1,6 +1,6 @@
 // src/commands/claude-app.ts — anygate claude-app command
 import type { ParsedArgs } from '../core/types.js';
-import { runClaudeAppCommand } from '../agents/claude/desktop.js';
+import { runClaudeAppCommand } from '../apps/claude/desktop.js';
 
 export async function handleClaudeAppCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {

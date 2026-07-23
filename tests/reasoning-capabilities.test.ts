@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   effortProviderOptions,
   resolveReasoningCapabilities,
-} from '../src/agents/shared/reasoning-capabilities.js';
+} from '../src/apps/shared/reasoning-capabilities.js';
 
 describe('resolveReasoningCapabilities', () => {
   it('uses OpenRouter supported_parameters as the source for controllable reasoning', () => {

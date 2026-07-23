@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { runCompletionsCommand, SUBCOMMANDS } from '../src/agents/shared/completions.js';
+import { runCompletionsCommand, SUBCOMMANDS } from '../src/apps/shared/completions.js';
 
 const SUBCOMMAND_TOKENS = SUBCOMMANDS;
 

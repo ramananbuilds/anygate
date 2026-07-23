@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { streamText } from 'ai';
 import { createLanguageModel } from '../src/gateway/provider-factory.js';
-import { startGeminiProxy } from '../src/agents/gemini/proxy.js';
+import { startGeminiProxy } from '../src/apps/gemini/proxy.js';
 import type { ProxyHandle, ProxyRoute } from '../src/gateway/anthropic-proxy.js';
 
 vi.mock('ai', () => ({

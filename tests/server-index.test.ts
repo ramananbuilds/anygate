@@ -60,7 +60,7 @@ vi.mock('../src/core/config.js', () => ({
   }),
 }));
 
-vi.mock('../src/agents/shared/model-compatibility.js', () => ({
+vi.mock('../src/apps/shared/model-compatibility.js', () => ({
   getModels: vi.fn(async () => ({ models, fromCache: false })),
   shouldHideModel: vi.fn(() => false),
 }));

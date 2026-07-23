@@ -1,6 +1,6 @@
 // src/commands/gemini.ts — anygate gemini command
 import type { ParsedArgs } from '../core/types.js';
-import { runGeminiCommand, geminiHelpText } from '../agents/gemini/cli.js';
+import { runGeminiCommand, geminiHelpText } from '../apps/gemini/cli.js';
 
 export async function handleGeminiCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {

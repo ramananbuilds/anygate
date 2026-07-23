@@ -13,8 +13,8 @@
 // Update this list when xAI adds new models to their SuperGrok offering.
 
 import type { CachedModel } from '../registry/types.js';
-import { resolveContextWindow } from '../agents/shared/context-window.js';
-import { deriveBrand } from '../agents/shared/model-compatibility.js';
+import { resolveContextWindow } from '../apps/shared/context-window.js';
+import { deriveBrand } from '../apps/shared/model-compatibility.js';
 
 interface OAuthModelSeed {
   id: string;

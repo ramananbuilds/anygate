@@ -1,20 +1,20 @@
-import type { CompatibilityAgent } from '../agents/shared/model-compatibility.js';
-import { deriveBrand } from '../agents/shared/model-compatibility.js';
+import type { CompatibilityAgent } from '../apps/shared/model-compatibility.js';
+import { deriveBrand } from '../apps/shared/model-compatibility.js';
 import { loadRegistry } from '../registry/io.js';
 import { loadRegistryProviders } from '../registry/load.js';
 import type { LocalProvider, LocalProviderModel, ModelInfo } from '../core/types.js';
 import type { ServerModelInfo } from '../gateway/models.js';
 import { BACKENDS, MAX_MODEL_CATALOG, classifyModelFormat } from '../core/constants.js';
-import { claudeCodeClientModelId } from '../agents/shared/context-model-id.js';
-import { resolveContextWindow, loadOpencodeCache } from '../agents/shared/context-window.js';
-import { shouldHideModel } from '../agents/shared/model-compatibility.js';
+import { claudeCodeClientModelId } from '../apps/shared/context-model-id.js';
+import { resolveContextWindow, loadOpencodeCache } from '../apps/shared/context-window.js';
+import { shouldHideModel } from '../apps/shared/model-compatibility.js';
 import { ANTIGRAVITY_BASE_URLS } from '../oauth/antigravity-oauth.js';
 import { isSdkUpgradedNpm } from '../gateway/provider-factory.js';
 import { aliasModelId } from '../gateway/anthropic-proxy.js';
 import type { ProxyRoute } from '../gateway/anthropic-proxy.js';
 import { resolveInputTypes } from '../registry/models-dev.js';
 import type { FavoriteModel, BackendConfig } from '../core/types.js';
-import { providersForTarget } from '../agents/shared/target-compatibility.js';
+import { providersForTarget } from '../apps/shared/target-compatibility.js';
 import {
   listSupportedTemplates,
   listAddableTemplates,

@@ -1,7 +1,7 @@
 import pc from 'picocolors';
 import { networkInterfaces } from 'node:os';
 import * as p from '@clack/prompts';
-import { gateIntro } from '../agents/shared/ui.js';
+import { gateIntro } from '../apps/shared/ui.js';
 import { resolveApiKey, readFromCredentialStore } from '../core/env.js';
 import { sanitizeCredential } from './auth.js';
 import {
@@ -24,7 +24,7 @@ import {
   fetchProviderCatalog,
   localProvidersToServerModels,
 } from '../providers/provider-catalog.js';
-import { providersForTarget } from '../agents/shared/target-compatibility.js';
+import { providersForTarget } from '../apps/shared/target-compatibility.js';
 import { loadRegistry } from '../registry/io.js';
 import type { ModelInfo } from '../core/types.js';
 import type { ServerModelInfo, GatewayModelOptions } from './models.js';

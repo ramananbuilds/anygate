@@ -6,7 +6,7 @@ import { resolveLocalProviderApiKey } from '../../../src/core/credentials.js';
 import { CredentialUnavailableError } from '../../../src/core/errors.js';
 import { loadPreferences, recordLaunchSelection } from '../../../src/core/config.js';
 import { resolveApiKey, readFromCredentialStore } from '../../../src/core/env.js';
-import { resolveOrCollectApiKey } from '../../agents/shared/key-setup.js';
+import { resolveOrCollectApiKey } from '../../apps/shared/key-setup.js';
 import { startCodexProxy } from './proxy.js';
 import type { CodexProxyHandle } from './proxy.js';
 import { buildCatalogFile, formatCodexModelLabel, serializeCatalog } from './catalog.js';
@@ -41,8 +41,8 @@ import {
   type VertexModelEntry,
 } from '../../../src/gateway/vertex.js';
 import { VERTEX_ANTHROPIC_NPM } from '../../../src/core/constants.js';
-import { resolveContextWindow } from '../../agents/shared/context-window.js';
-import type { ResolvedFavorite } from '../../agents/shared/favorites-resolver.js';
+import { resolveContextWindow } from '../../apps/shared/context-window.js';
+import type { ResolvedFavorite } from '../../apps/shared/favorites-resolver.js';
 import {
   buildFavoritesCodexCatalog,
   codexCliFavoritesSlug,
@@ -61,13 +61,13 @@ import {
   partitionAndStartCloudCodeBackend,
   type CloudCodeBackend,
 } from '../shared/cloud-code-backend.js';
-import { getCodexProxyDebugLogPath, printTraceLog } from '../../agents/shared/trace-log.js';
+import { getCodexProxyDebugLogPath, printTraceLog } from '../../apps/shared/trace-log.js';
 import { setAgentStdoutMode, isAgentStdoutMode } from '../../../src/core/agent-io.js';
 import {
   findProviderAndModel,
   planLaunchWizard,
   wantsCleanAgentStdout,
-} from '../../agents/shared/launch-target.js';
+} from '../../apps/shared/launch-target.js';
 
 export { findCodexBinary } from './launch.js';
 export { codexCompatibleProviders } from './routing.js';

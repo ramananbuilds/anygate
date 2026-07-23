@@ -2,9 +2,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { parseArgs, rootHelpText, claudeHelpText, serverHelpText, modelsHelpText, main } from '../src/cli.js';
 import { VERSION } from './../src/core/constants.js';
-import { codexHelpText } from '../src/agents/codex/cli.js';
-import { codexAppHelpText } from '../src/agents/codex/app.js';
-import { claudeAppHelpText } from '../src/agents/claude/desktop.js';
+import { codexHelpText } from '../src/apps/codex/cli.js';
+import { codexAppHelpText } from '../src/apps/codex/app.js';
+import { claudeAppHelpText } from '../src/apps/claude/desktop.js';
 
 afterEach(() => {
   vi.restoreAllMocks();

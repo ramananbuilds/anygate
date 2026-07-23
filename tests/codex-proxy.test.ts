@@ -5,16 +5,16 @@ import {
   isLikelyCodexCompactionRequest,
   protectCodexCompactionParams,
   startCodexProxy,
-} from '../src/agents/codex/proxy.js';
-import type { CodexSdkCallParams } from '../src/agents/codex/responses-adapter.js';
-import { CODEX_APP_AUTO_COMPACT_RATIO } from '../src/agents/codex/app-profile.js';
+} from '../src/apps/codex/proxy.js';
+import type { CodexSdkCallParams } from '../src/apps/codex/responses-adapter.js';
+import { CODEX_APP_AUTO_COMPACT_RATIO } from '../src/apps/codex/app-profile.js';
 
 // The 2 tests below POST to /v1/responses with requireAuth:false, which would
 // otherwise reach the real Anthropic upstream (network + live credentials). Stub
 // only the upstream generation so the proxy's routing/auth/fallback logic is
 // still exercised deterministically. translateResponsesRequest stays real.
-vi.mock('../src/agents/codex/responses-adapter.js', async () => {
-  const actual = await vi.importActual<typeof import('../src/agents/codex/responses-adapter.js')>('../src/agents/codex/responses-adapter.js');
+vi.mock('../src/apps/codex/responses-adapter.js', async () => {
+  const actual = await vi.importActual<typeof import('../src/apps/codex/responses-adapter.js')>('../src/apps/codex/responses-adapter.js');
   return {
     ...actual,
     generateResponsesResponse: vi.fn(async () => ({
@@ -91,7 +91,7 @@ describe('startCodexProxy', () => {
   });
 
   it('resolves namespaced catalog model ids', async () => {
-    const { findCodexProxyRoute } = await import('../src/agents/codex/proxy.js');
+    const { findCodexProxyRoute } = await import('../src/apps/codex/proxy.js');
     const routes = [
       {
         modelId: 'claude-sonnet-4-6',
@@ -105,7 +105,7 @@ describe('startCodexProxy', () => {
   });
 
   it('resolves double underscore namespaced model ids (CLI favorites)', async () => {
-    const { findCodexProxyRoute } = await import('../src/agents/codex/proxy.js');
+    const { findCodexProxyRoute } = await import('../src/apps/codex/proxy.js');
     const routes = [
       {
         modelId: 'grok-4.3',
@@ -398,7 +398,7 @@ describe('Codex compaction protection', () => {
 
 describe('resolveCodexRoute', () => {
   it('routes OpenAI to tier 1 direct', async () => {
-    const { resolveCodexRoute } = await import('../src/agents/codex/routing.js');
+    const { resolveCodexRoute } = await import('../src/apps/codex/routing.js');
     const route = resolveCodexRoute(
       { id: 'openai', name: 'OpenAI', apiKey: 'k', models: [] },
       { id: 'gpt-5', name: 'GPT', family: '', brand: '', modelFormat: 'openai', upstreamModelId: 'gpt-5', npm: '@ai-sdk/openai' },
@@ -408,7 +408,7 @@ describe('resolveCodexRoute', () => {
   });
 
   it('routes OpenAI OAuth through the proxy', async () => {
-    const { resolveCodexRoute } = await import('../src/agents/codex/routing.js');
+    const { resolveCodexRoute } = await import('../src/apps/codex/routing.js');
     const route = resolveCodexRoute(
       { id: 'openai', name: 'OpenAI', apiKey: 'oauth-token', authType: 'oauth', models: [] },
       { id: 'gpt-5.5', name: 'GPT', family: '', brand: '', modelFormat: 'openai', upstreamModelId: 'gpt-5.5', npm: '@ai-sdk/openai' },
@@ -419,7 +419,7 @@ describe('resolveCodexRoute', () => {
   });
 
   it('routes Anthropic to tier 2 proxy', async () => {
-    const { resolveCodexRoute } = await import('../src/agents/codex/routing.js');
+    const { resolveCodexRoute } = await import('../src/apps/codex/routing.js');
     const route = resolveCodexRoute(
       { id: 'anthropic', name: 'Anthropic', apiKey: 'k', models: [] },
       { id: 'claude-sonnet-4-6', name: 'Sonnet', family: '', brand: '', modelFormat: 'anthropic', upstreamModelId: 'claude-sonnet-4-6', npm: '@ai-sdk/anthropic' },
@@ -429,7 +429,7 @@ describe('resolveCodexRoute', () => {
   });
 
   it('routes xAI to tier 2 proxy in v1', async () => {
-    const { resolveCodexRoute } = await import('../src/agents/codex/routing.js');
+    const { resolveCodexRoute } = await import('../src/apps/codex/routing.js');
     const route = resolveCodexRoute(
       { id: 'xai', name: 'xAI', apiKey: 'k', models: [] },
       { id: 'grok-3', name: 'Grok', family: '', brand: '', modelFormat: 'openai', upstreamModelId: 'grok-3', npm: '@ai-sdk/xai' },
@@ -439,7 +439,7 @@ describe('resolveCodexRoute', () => {
   });
 
   it('carries custom endpoint headers through to the route', async () => {
-    const { resolveCodexRoute } = await import('../src/agents/codex/routing.js');
+    const { resolveCodexRoute } = await import('../src/apps/codex/routing.js');
     const route = resolveCodexRoute(
       { id: 'custom-zai', name: 'Z.AI Coding Plan', apiKey: 'k', headers: { 'X-Plan': 'coding' }, models: [] },
       { id: 'glm-5.2', name: 'GLM', family: '', brand: '', modelFormat: 'openai', upstreamModelId: 'glm-5.2', npm: '@ai-sdk/openai-compatible', apiBaseUrl: 'https://api.z.ai/api/coding/paas/v4' },
@@ -452,7 +452,7 @@ describe('resolveCodexRoute', () => {
 
 describe('codexCompatibleProviders', () => {
   it('includes anthropic and zen/go', async () => {
-    const { codexCompatibleProviders } = await import('../src/agents/codex/routing.js');
+    const { codexCompatibleProviders } = await import('../src/apps/codex/routing.js');
     const providers = [
       { id: 'zen', name: 'Zen', apiKey: 'k', models: [{ id: 'm', name: 'M', family: '', brand: '', modelFormat: 'openai' as const, upstreamModelId: 'm' }] },
       { id: 'groq', name: 'Groq', apiKey: 'k', models: [{ id: 'm', name: 'M', family: '', brand: '', modelFormat: 'openai' as const, upstreamModelId: 'm', npm: '@ai-sdk/groq' }] },
@@ -464,7 +464,7 @@ describe('codexCompatibleProviders', () => {
 
 describe('buildCodexProfileToml', () => {
   it('writes proxy tier profile with ANYGATE_CODEX_KEY', async () => {
-    const { buildCodexProfileToml } = await import('../src/agents/codex/profile.js');
+    const { buildCodexProfileToml } = await import('../src/apps/codex/profile.js');
     const toml = buildCodexProfileToml({
       route: {
         tier: 'proxy',
@@ -485,7 +485,7 @@ describe('buildCodexProfileToml', () => {
   });
 
   it('writes direct tier for OpenAI', async () => {
-    const { buildCodexProfileToml } = await import('../src/agents/codex/profile.js');
+    const { buildCodexProfileToml } = await import('../src/apps/codex/profile.js');
     const toml = buildCodexProfileToml({
       route: {
         tier: 'direct',
@@ -503,7 +503,7 @@ describe('buildCodexProfileToml', () => {
   });
 
   it('writes favorites slug and default reasoning effort for capable models', async () => {
-    const { buildCodexProfileToml } = await import('../src/agents/codex/profile.js');
+    const { buildCodexProfileToml } = await import('../src/apps/codex/profile.js');
     const toml = buildCodexProfileToml({
       route: {
         tier: 'proxy',
@@ -522,7 +522,7 @@ describe('buildCodexProfileToml', () => {
   });
 
   it('escapes Windows paths as valid TOML strings', async () => {
-    const { buildCodexProfileToml } = await import('../src/agents/codex/profile.js');
+    const { buildCodexProfileToml } = await import('../src/apps/codex/profile.js');
     const toml = buildCodexProfileToml({
       route: {
         tier: 'direct',
@@ -546,7 +546,7 @@ describe('buildCodexProfileToml', () => {
 
 describe('buildCatalogFile', () => {
   it('emits valid ModelInfo schema', async () => {
-    const { buildCatalogFile, serializeCatalog } = await import('../src/agents/codex/catalog.js');
+    const { buildCatalogFile, serializeCatalog } = await import('../src/apps/codex/catalog.js');
     const catalog = buildCatalogFile([
       { id: 'claude-sonnet-4-6', name: 'Sonnet', family: 'claude', brand: '', modelFormat: 'anthropic', upstreamModelId: 'claude-sonnet-4-6', npm: '@ai-sdk/anthropic', contextWindow: 200000 },
     ], 'Anthropic');
@@ -561,7 +561,7 @@ describe('buildCatalogFile', () => {
   });
 
   it('formats claude ids when name equals id', async () => {
-    const { formatCodexModelLabel, buildAppCatalogFile } = await import('../src/agents/codex/catalog.js');
+    const { formatCodexModelLabel, buildAppCatalogFile } = await import('../src/apps/codex/catalog.js');
     const haiku = { id: 'claude-haiku-4-5-20251001', name: 'claude-haiku-4-5-20251001', family: 'claude', brand: 'Claude', modelFormat: 'anthropic' as const, upstreamModelId: 'claude-haiku-4-5-20251001', contextWindow: 200000 };
     const sonnet = { id: 'claude-sonnet-4-6', name: 'claude-sonnet-4-6', family: 'claude', brand: 'Claude', modelFormat: 'anthropic' as const, upstreamModelId: 'claude-sonnet-4-6', contextWindow: 200000 };
     expect(formatCodexModelLabel(haiku)).toBe('Claude Haiku 4.5');

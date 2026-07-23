@@ -1,6 +1,6 @@
 // provider-auth.ts — anygate providers auth (native device-code + OpenCode broker)
 
-import { printOAuthStepsPanel, confirmSubscriptionOAuthRisk } from '../agents/shared/ui.ts';
+import { printOAuthStepsPanel, confirmSubscriptionOAuthRisk } from '../apps/shared/ui.ts';
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import open from 'open';

@@ -1,8 +1,8 @@
 // src/server/models.ts
-import { resolveContextWindow } from '../agents/shared/context-window.js';
+import { resolveContextWindow } from '../apps/shared/context-window.js';
 import { aliasModelId } from './anthropic-proxy.js';
 import { maskGatewayModelId } from './vendor-mask.js';
-import type { FreeStatus } from '../agents/shared/free-models.js';
+import type { FreeStatus } from '../apps/shared/free-models.js';
 
 export interface GatewayModelOptions {
   maskGatewayIds?: boolean;

@@ -1,5 +1,5 @@
 import type { FavoriteModel } from '../core/types.js';
-import { isFreeStatus } from '../agents/shared/free-models.js';
+import { isFreeStatus } from '../apps/shared/free-models.js';
 import type { ServerModelInfo } from './models.js';
 
 export function filterServerModelsByProviders(
