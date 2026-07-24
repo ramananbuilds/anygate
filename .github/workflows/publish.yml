@@ -40,8 +40,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ github.ref_name }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          NOTES=$(node -e "const fs=require('fs');const cl=fs.readFileSync('CHANGELOG.md','utf8');const m=cl.match(new RegExp('##\\s+' + process.env.VERSION + '.*?(?=\\n##\\s|\\n#\\s|$)', 's'));console.log(m?m[0].trim():'')")
+          NOTES=$(node -e "const fs=require('fs');const cl=fs.readFileSync('CHANGELOG.md','utf8');const v=process.env.VERSION.replace(/^v/,'');const m=cl.match(new RegExp('##\\s+' + v + '.*?(?=\\n##\\s|\\n#\\s|$)', 's'));console.log(m?m[0].trim():'')")
           if [ -z "$NOTES" ]; then
             NOTES=$(git log -1 --pretty=%B)
           fi
