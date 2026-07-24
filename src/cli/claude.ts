@@ -47,7 +47,7 @@ import {
   getTemplateById,
   type ProviderTemplate,
   runTemplateAddFlow,
-} from '../providers/command.js';
+} from './providers-command.js';
 
 const STARTER_CLAUDE_FLAGS = new Set(['--dry-run', '--setup', '--trace', '--help', '-h', '--version', '-v']);
 const GATEWAY_LAUNCH_FLAGS = new Set(['--provider', '--model']);

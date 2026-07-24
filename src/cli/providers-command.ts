@@ -11,7 +11,7 @@
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import { upgradeGlobalOpencodeCredential, readGlobalOpencodeCredential } from '../config/env.js';
-import { findOpencodeBinary } from './opencode-serve.js';
+import { findOpencodeBinary } from '../providers/opencode-serve.js';
 import {
   listAddableTemplates,
   type ProviderTemplate,
@@ -34,20 +34,20 @@ import {
   printPanel,
 } from '../apps/shared/ui.js';
 import {
-  runProvidersImport,
   runProvidersAuth,
-  runProvidersRemove,
+  runProvidersImport,
   runProvidersList,
+  runProvidersRemove,
   providerAuthHelpText,
   type ProviderAuthMethod,
   listVisibleOAuthTemplates,
-} from './registry/index.js';
-import { runProvidersRefreshModels, pickTemplateFromCatalog } from './models/index.js';
+} from '../providers/registry/index.js';
+import { runProvidersRefreshModels, pickTemplateFromCatalog } from '../providers/models/index.js';
 import {
   runProviderDetail,
   runOpenCodeCloudDetail,
   providerHubChoiceValue,
-} from './capabilities/index.js';
+} from '../providers/capabilities/index.js';
 
 // Re-export for backward compatibility (tests and external callers import from command.ts)
 export { providerHubChoiceValue };

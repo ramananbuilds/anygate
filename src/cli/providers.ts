@@ -1,6 +1,6 @@
 // src/cli/providers.ts — anygate providers command
 import type { ParsedArgs } from '../types/index.js';
-import { runProvidersCommand, providersHelpText } from '../providers/command.js';
+import { runProvidersCommand, providersHelpText } from './providers-command.js';
 
 export async function handleProvidersCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
