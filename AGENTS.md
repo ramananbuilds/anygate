@@ -1,6 +1,15 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository. Note that the codebase supports Claude Code, OpenAI Codex, and Google Gemini CLI.
+This file provides guidance to Codex (Codex.ai/code) and other AI coding agents working with code in this repository. Note that the codebase supports Claude Code, OpenAI Codex, Google Gemini CLI, and Antigravity.
+
+> 💡 **Documentation Memory System**: Deep technical documentation and AI context files are maintained in `docs/` and `.context/`. Always consult these documents before making architectural changes:
+> - **Architecture Docs**: [docs/architecture/overview.md](docs/architecture/overview.md), [request-lifecycle.md](docs/architecture/request-lifecycle.md), [routing-engine.md](docs/architecture/routing-engine.md), [provider-system.md](docs/architecture/provider-system.md), [gateway.md](docs/architecture/gateway.md), [authentication.md](docs/architecture/authentication.md), [launcher-system.md](docs/architecture/launcher-system.md), [storage.md](docs/architecture/storage.md), [ui-system.md](docs/architecture/ui-system.md)
+> - **Component Guides**: [docs/components/](docs/components/)
+> - **Developer Guides**: [docs/guides/](docs/guides/)
+> - **Reference Lookups**: [docs/reference/](docs/reference/)
+> - **AI Context & Rules**: [.context/vision.md](.context/vision.md), [.context/architecture-rules.md](.context/architecture-rules.md), [.context/coding-standards.md](.context/coding-standards.md), [.context/repository-map.md](.context/repository-map.md), [.context/current-focus.md](.context/current-focus.md)
+>
+> ⚠️ **Living Context Maintenance**: Whenever you add, delete, or update a feature or UI component, you MUST update the corresponding documentation files in `docs/`, `.context/`, `AGENTS.md`, and `CLAUDE.md`.
 
 ## Commands
 
@@ -46,7 +55,7 @@ npm run build && anygate --version
   - `codex/`: OpenAI Codex & ChatGPT app launcher logic
   - `gemini/`: Google Gemini CLI & Antigravity launcher logic
   - `shared/`: Shared prompt builders, key setup, context-window calculation, free-models logic, and model compatibility filters
-- **`src/auth/`**: Authentication, PKCE, OAuth device flows, keyring adapters, & token handling (GitHub, OpenAI, xAI, Claude Code)
+- **`src/auth/`**: Authentication, PKCE, OAuth device flows, keyring adapters, & token handling (GitHub, OpenAI, xAI, Claude Code, Antigravity)
 - **`src/cli/`**: Subcommand entry points (`claude.ts`, `codex.ts`, `gemini.ts`, `antigravity.ts`, `providers-command.ts`, `models.ts`, `server.ts`, `ui.ts`, `doctor.ts`, `update.ts`)
 - **`src/config/`**: System constants, path definitions, default preferences, and environment variable resolution
 - **`src/core/`**: Domain contracts, constants (`constants/`), error hierarchy (`errors/`), lifecycle events (`events/`), and interfaces (`interfaces/`)
@@ -96,58 +105,6 @@ Tests mirror `src/` domain subdirectories:
 - `tests/storage/`: Configuration & credential store tests
 - `tests/ui/`: UI REST API & dashboard control tests
 - `tests/web-search/`: Web search tool tests
-
----
-
-## Data Flow (`anygate claude` / `anygate codex`)
-
-```
-src/cli.ts
-  → handleClaudeCommand()       [src/cli/claude.ts — orchestrate launch]
-  → resolveProvidersForDisplay() [src/registry/provider-catalog.ts — resolve configured providers]
-  → p.select "Which provider?"  [shown when providers are available]
-
-  ── OpenCode cloud path (default) ──
-  → resolveOrCollectApiKey()    [src/apps/shared/key-setup.ts — read credential store or prompt]
-  → loadRegistry()             [src/registry/storage/io.ts — fetch registry catalog]
-  → selectModelWithSearch()     [src/apps/shared/prompts.ts — select backend model]
-
-  ── Registry provider path ──
-  → pickLocalModel()            [src/apps/shared/prompts.ts — filter/select model from provider]
-
-  ── Shared launch (no favorites) ──
-  → startProxy()                [src/gateway/proxy/anthropic-proxy.ts — single-model proxy]
-  → buildChildEnv(baseUrl, …)   [src/config/env.ts — strip 17 conflicting vars, set child env]
-  → launchClaude()              [src/launchers/app-launcher.ts — spawn child process]
-  → proxyHandle.close()         [stop proxy after CLI exits]
-
-  ── Catalog launch (favorites.length > 0) ──
-  → buildCatalogRoutes()        [src/apps/codex/catalog.ts — starting model + favorites, max 20]
-  → startProxyCatalog()         [src/gateway/proxy/anthropic-proxy.ts — multi-route proxy]
-  → launchClaudeViaCatalog()    [src/cli/claude.ts — shared launch + cleanup]
-```
-
-## Favorites & Catalog Routing
-
-**`anygate models`**: Interactive favorites manager (`src/storage/favorites.ts`). Reads/writes `favoriteModels` in config. Stale favorites (unavailable models) are silently skipped when building the catalog.
-
-**Catalog routing**: `localModelToRoute`, `makeRouteResolver`, `buildCatalogRoutes`. Routes built for starting model + favorites. Alias IDs via `aliasModelId()` in proxy so coding tools see unique model names in `/model`.
-
-**Critical URL constraint**: `BACKENDS.baseUrl` in `src/config/constants.ts` must NOT include `/v1`. The Anthropic SDK appends `/v1/messages` automatically.
-
-## Translation Layer — Vercel AI SDK Adapter
-
-All non-Anthropic providers route through the Vercel AI SDK (`ai` + `@ai-sdk/*`), which owns wire format, endpoint selection, and provider quirks.
-- **`src/gateway/providers/provider-factory.ts`**: `createLanguageModel({ npm, modelId, apiKey, baseURL })` dynamically imports the SDK provider package (`@ai-sdk/openai`, `@ai-sdk/google`, `@ai-sdk/groq`, etc.).
-- **`src/gateway/adapters/sdk-adapter.ts`**: Anthropic `/v1/messages` ↔ SDK adapter. Folds inline `role: 'system'` messages into system prompts, streams Anthropic SSE, and round-trips `thought_signature`.
-
-## Credential Storage
-
-Per-provider API keys and OAuth tokens use `@napi-rs/keyring` (installed as `optionalDependencies`) for cross-platform credential store access (macOS Keychain, Windows Credential Manager, Linux Secret Service). Missing native binaries degrade gracefully to plaintext shell profiles.
-
-## Server Tab & UI (`anygate ui`)
-
-Runs the gateway in-process inside the `anygate ui` web server (`src/ui/server-control.ts`). Provides a Svelte 5 frontend app (`src/ui/app/`) for point-and-click launching, provider management, model browsing, and gateway controls.
 
 ---
 
