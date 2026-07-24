@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.10 (2026-07-24)
+
+### Bug Fixes
+- **UI serving path**: Fixed `anygate ui` serving "Not found" in browser. The `PUBLIC_DIR` in `src/ui/command.ts` was pointing to `dist/app/dist` (leftover from the old root-level `ui/` folder), but the build copies assets to `dist/ui/dist`. Updated to `join(__dirname, 'ui', 'dist')`.
+- **CI workflow**: Fixed `npm ci --prefix ui` → `npm ci --prefix src/ui/app` in publish workflow (UI app lives at `src/ui/app/`, not `ui/`).
+- **CI workflow**: Fixed release notes extraction to use `CHANGELOG.md` instead of non-existent `RELEASE_NOTES.md`.
+- **Version sync**: Synced `package-lock.json` version with `package.json`.
+
 ## 0.5.9 (2026-07-24)
 
 ### Architectural Refactoring & Domain Modularization

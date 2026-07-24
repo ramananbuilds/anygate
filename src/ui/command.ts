@@ -11,9 +11,9 @@ import { handleUiApiRequest, type UiServerLifecycleEvent } from './api.js';
 import { getUiDebugLogPath, makeTraceLogger } from '../apps/shared/trace-log.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-// Served SPA is produced by `vite build` (ui/ → src/ui/dist). Version is injected
+// Served SPA is produced by `vite build` (src/ui/app → dist/ui/dist). Version is injected
 // at build time via the __APP_VERSION__ define, so no runtime substitution needed.
-const PUBLIC_DIR = join(__dirname, 'app', 'dist');
+const PUBLIC_DIR = join(__dirname, 'ui', 'dist');
 const LOCK_FILE = join(getAppHome(), 'ui.lock');
 
 const MIME: Record<string, string> = {

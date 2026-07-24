@@ -1,4 +1,4 @@
-// Copy the Vite-built SPA (src/ui/dist) into dist/ui/dist so it ships in the
+// Copy the Vite-built SPA (src/ui/app/dist) into dist/ui/dist so it ships in the
 // published package. Source of truth is the Vite build (npm run ui:build).
 import { cpSync, existsSync, mkdirSync } from 'node:fs';
 

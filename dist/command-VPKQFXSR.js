@@ -66,11 +66,11 @@ import {
   summarizeServerProviders,
   validateCustomEndpointUrl,
   writeSecureLogLine
-} from "./chunk-4QWXLW4A.js";
+} from "./chunk-OWYL2WR5.js";
 import {
   BACKENDS,
   MAX_MODEL_CATALOG
-} from "./chunk-D4BQYUXP.js";
+} from "./chunk-CIKBF5Z7.js";
 import {
   getTemplateById,
   listSupportedTemplates,
@@ -1623,7 +1623,7 @@ async function handleBrowseFolder(res) {
 
 // src/ui/command.ts
 var __dirname = dirname(fileURLToPath(import.meta.url));
-var PUBLIC_DIR = join2(__dirname, "app", "dist");
+var PUBLIC_DIR = join2(__dirname, "ui", "dist");
 var LOCK_FILE = join2(getAppHome(), "ui.lock");
 var MIME = {
   ".html": "text/html; charset=utf-8",
@@ -1821,4 +1821,4 @@ export {
   resolveUiShutdownDecision,
   runUiCommand
 };
-//# sourceMappingURL=command-37BNWIXN.js.map
+//# sourceMappingURL=command-VPKQFXSR.js.map
