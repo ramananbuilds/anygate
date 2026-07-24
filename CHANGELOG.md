@@ -1,16 +1,21 @@
 # Changelog
 
-## 0.5.9 (2026-07-23)
+## 0.5.9 (2026-07-24)
+
+### Architectural Refactoring & Domain Modularization
+- **17-Domain `src/` Architecture**: Restructured `src/` into focused, single-responsibility subdomains (`apps/`, `auth/`, `cli/`, `config/`, `core/`, `engine/`, `gateway/`, `launchers/`, `protocols/`, `providers/`, `registry/`, `services/`, `shared/`, `storage/`, `types/`, `ui/`, `utils/`).
+- **Engine Subdomain Reorganization**: Split core routing and selection engine into `src/engine/routing/` (`router.ts`, `resolver.ts`, `dispatcher.ts`, `strategy.ts`, `failover.ts`, `health.ts`, `middleware.ts`, `pipeline.ts`) and `src/engine/selection/` (`selector.ts`, `target-compatibility.ts`, `launch-target.ts`).
+- **Registry Provider Metadata**: Standardized provider metadata definitions inside `src/registry/providers/` (`anthropic`, `google`, `groq`, `mistral`, `nvidia`, `ollama`, `openai`, `vertex`, `xai`).
+- **Colocated Web UI**: Relocated Svelte 5 visual launcher frontend application to `src/ui/app/`.
+- **Domain Test Suite Structure**: Reorganized all 117 test files into matching `tests/` subdirectories (`apps/`, `auth/`, `cli/`, `engine/`, `gateway/`, `helpers/`, `registry/`, `services/`, `storage/`, `ui/`, `web-search/`).
 
 ### UI — Full provider catalog in web UI
 - Fixed `GET /api/providers/templates` to return **all supported templates** (via `listSupportedTemplates()`) instead of only templates not yet configured (`listAddableTemplates()`).
 - The web UI "Add Provider" modal now shows **all 19 supported providers** (Anthropic, Cerebras, Cohere, DeepInfra, DeepSeek, Fireworks, Groq, Kilo, LM Studio, Mistral, NVIDIA, Ollama, OpenCode Cloud, OpenRouter, OVH, Perplexity, Scaleway, Together AI, Venice, xAI) plus 3 OAuth providers (GitHub Copilot, OpenAI, xAI) and 2 custom templates — matching the CLI behavior.
-- Previously the endpoint filtered to only "addable" templates (those not yet in the registry), hiding providers already configured.
 
 ### Provider catalog — `listSupportedTemplates()` / `listAddableTemplates()` distinction
 - `listSupportedTemplates()` now returns all supported templates (used by UI and `anygate providers add` picker).
 - `listAddableTemplates()` still filters out already-configured providers (used by CLI provider hub).
-- Clear separation of concerns avoids future confusion.
 
 ### Provider templates moved to JSON data
 - All provider templates moved from `src/providers/provider-templates.ts` to individual JSON files under `src/registry/data/templates/` (19 files) and `src/registry/data/providers/` (Zen/Go).

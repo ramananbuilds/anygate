@@ -7,7 +7,7 @@ import { join } from "path";
 // package.json
 var package_default = {
   name: "anygate",
-  version: "0.5.8",
+  version: "0.5.9",
   publishConfig: {
     access: "public"
   },
@@ -165,4 +165,4 @@ export {
   classifyModelFormat,
   VERSION
 };
-//# sourceMappingURL=chunk-BANVD2PF.js.map
+//# sourceMappingURL=chunk-D4BQYUXP.js.map
