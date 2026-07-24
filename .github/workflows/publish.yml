@@ -34,15 +34,15 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # Create a GitHub Release from the matching RELEASE_NOTES.md section.
+      # Create a GitHub Release from the matching CHANGELOG.md section.
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
         run: |
-          if [ -f RELEASE_NOTES.md ]; then
-            NOTES=$(node -e "const fs=require('fs');const cl=fs.readFileSync('RELEASE_NOTES.md','utf8');const m=cl.match(/# anygate[^\n]*\n([\s\S]*?)(?=\n# anygate|$)/);console.log(m?m[1].trim():cl.trim())")
-          else
+          VERSION="${GITHUB_REF_NAME#v}"
+          NOTES=$(node -e "const fs=require('fs');const cl=fs.readFileSync('CHANGELOG.md','utf8');const m=cl.match(new RegExp('##\\s+' + process.env.VERSION + '.*?(?=\\n##\\s|\\n#\\s|$)', 's'));console.log(m?m[0].trim():'')")
+          if [ -z "$NOTES" ]; then
             NOTES=$(git log -1 --pretty=%B)
           fi
           gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes "$NOTES"
-
