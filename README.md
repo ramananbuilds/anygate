@@ -66,9 +66,9 @@ Pick your backend:
 
 ## Features
 
-- **Visual launcher UI:** `anygate ui` opens a browser dashboard — launch any supported tool with a point-and-click model picker. Pick provider and model in the UI; the terminal opens straight to the running session with no second selection step. Manage providers and favorites without leaving the browser.
+- **Visual launcher UI:** `anygate ui` opens a browser dashboard (built with Svelte 5 at `src/ui/app/`) — launch any supported tool with a point-and-click model picker. Pick provider and model in the UI; the terminal opens straight to the running session with no second selection step. Manage providers and favorites without leaving the browser.
 - **Server tab in the UI:** Run the same API gateway as `anygate server` — favorites-only or specific providers, discovery id masking for Claude Desktop / Cowork, local or network listen mode — from a browser form instead of a terminal wizard. Shows live URLs, the API key, and the full model catalog once started, with a one-click Stop.
-- **Native provider registry:** `anygate providers` stores config in `~/.anygate/providers.json` and secrets in the OS keychain — no OpenCode binary required at launch. See **[docs/PROVIDERS.md](docs/PROVIDERS.md)** for a full list of providers and known issues.
+- **Native provider registry:** `anygate providers` stores config in `~/.anygate/providers.json`, metadata in `src/registry/providers/`, and secrets in the OS keychain — no OpenCode binary required at launch. See **[docs/PROVIDERS.md](docs/PROVIDERS.md)** for a full list of providers and known issues.
 - **Provider templates:** Add Groq, Mistral, Together, OpenRouter, and 15+ SDK-backed providers, plus custom OpenAI/Anthropic-compatible endpoints.
 - **OpenCode import:** One-time import from OpenCode (`providers import`); validates API keys and skips placeholders like `anything`.
 - **OpenCode Zen / Go:** Optional cloud backends when you have an OpenCode API key.
