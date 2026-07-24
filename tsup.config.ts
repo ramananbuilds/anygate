@@ -22,25 +22,29 @@ export default defineConfig({
     'open',
   ],
   onSuccess: async () => {
-    // Copy template JSON files to dist directory
+    // Copy template JSON files to dist directory if present
     const srcTemplatesDir = 'src/registry/data/templates';
     const destTemplatesDir = 'dist/registry/data/templates';
     const srcProvidersDir = 'src/registry/data/providers';
     const destProvidersDir = 'dist/registry/data/providers';
 
     // Copy templates
-    mkdirSync(destTemplatesDir, { recursive: true });
-    for (const file of readdirSync(srcTemplatesDir)) {
-      if (file.endsWith('.json')) {
-        copyFileSync(join(srcTemplatesDir, file), join(destTemplatesDir, file));
+    if (existsSync(srcTemplatesDir)) {
+      mkdirSync(destTemplatesDir, { recursive: true });
+      for (const file of readdirSync(srcTemplatesDir)) {
+        if (file.endsWith('.json')) {
+          copyFileSync(join(srcTemplatesDir, file), join(destTemplatesDir, file));
+        }
       }
     }
 
     // Copy providers
-    mkdirSync(destProvidersDir, { recursive: true });
-    for (const file of readdirSync(srcProvidersDir)) {
-      if (file.endsWith('.json')) {
-        copyFileSync(join(srcProvidersDir, file), join(destProvidersDir, file));
+    if (existsSync(srcProvidersDir)) {
+      mkdirSync(destProvidersDir, { recursive: true });
+      for (const file of readdirSync(srcProvidersDir)) {
+        if (file.endsWith('.json')) {
+          copyFileSync(join(srcProvidersDir, file), join(destProvidersDir, file));
+        }
       }
     }
   },
