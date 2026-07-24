@@ -1,7 +1,7 @@
 // Shared Gemini content-part → Anthropic block parsing.
 
-import type { AnthropicContentBlock, GeminiPart, GeminiUsageMetadata, ParsedGeminiPart } from '../../../src/gateway/proxy-types.js';
-import { encodeToolUseId, parseToolArguments } from '../../../src/gateway/proxy-shared.js';
+import type { AnthropicContentBlock, GeminiPart, GeminiUsageMetadata, ParsedGeminiPart } from '../../../src/gateway/proxy/proxy-types.js';
+import { encodeToolUseId, parseToolArguments } from '../../../src/gateway/proxy/proxy-shared.js';
 
 export function partThoughtSignature(part: GeminiPart): string | undefined {
   const sig = part.thoughtSignature ?? part.thought_signature;

@@ -50,7 +50,7 @@ import {
   buildVertexRuntimeConfig,
   hasApplicationDefaultCredentials,
   type VertexModelEntry,
-} from '../../../src/gateway/vertex.js';
+} from '../../../src/gateway/adapters/vertex.js';
 import { VERTEX_ANTHROPIC_NPM } from '../../../src/config/constants.js';
 import { resolveContextWindow } from '../../apps/shared/context-window.js';
 import {
@@ -66,7 +66,7 @@ import {
   startCloudCodeCatalogBackend,
   type CloudCodeBackend,
 } from '../shared/cloud-code-backend.js';
-import type { ProxyRoute } from '../../../src/gateway/anthropic-proxy.js';
+import type { ProxyRoute } from '../../../src/gateway/proxy/anthropic-proxy.js';
 
 function codexProxyRouteToCodexRoute(route: CodexProxyRoute, fallbackProviderId: string): CodexRoute {
   return {

@@ -14,7 +14,7 @@
 // "keeps going" only because it routes to Gemini's 1M–2M window; for small
 // free models (Nemotron 131K, etc.) trimming is the only way to keep going.
 
-import type { AnthropicMsg, AnthropicBlock } from './sdk-adapter.js';
+import type { AnthropicMsg, AnthropicBlock } from '../adapters/sdk-adapter.js';
 
 const CHARS_PER_TOKEN = 4;
 const RESERVE_TOKENS = 256; // breathing room for request framing / overhead

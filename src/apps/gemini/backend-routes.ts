@@ -4,7 +4,7 @@ import {
   type BackendPartitionInput,
   type CloudCodeBackend,
 } from '../shared/cloud-code-backend.js';
-import type { ProxyRoute } from '../../../src/gateway/anthropic-proxy.js';
+import type { ProxyRoute } from '../../../src/gateway/proxy/anthropic-proxy.js';
 import type { LocalProviderModel } from '../../../src/types/index.js';
 
 interface GeminiBackendInput extends BackendPartitionInput {

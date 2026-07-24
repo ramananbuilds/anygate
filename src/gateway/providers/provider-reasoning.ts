@@ -3,7 +3,7 @@
 // Extracted from provider-factory.ts to keep the core SDK factory lean.
 // The reasoning section is ~640 lines of model-id pattern matching and
 // per-provider effort-level mapping — self-contained behind getReasoningCapabilities.
-import { VERTEX_ANTHROPIC_NPM } from '../config/constants.js';
+import { VERTEX_ANTHROPIC_NPM } from '../../config/constants.js';
 import { modelPrefersResponsesApi } from './provider-factory.js';
 
 export type ReasoningMode = 'none' | 'internal-only' | 'controllable';

@@ -11,13 +11,13 @@ import {
   grabRoundTripSignature,
   parseDsmlToolCalls,
   type FullStreamPart,
-} from '../../../src/gateway/proxy-shared.js';
+} from '../../../src/gateway/proxy/proxy-shared.js';
 import {
   deepMergeProviderOptions,
   effortProviderOptions,
   thinkingProviderOptions,
   type ReasoningMetadata,
-} from '../../../src/gateway/provider-factory.js';
+} from '../../../src/gateway/providers/provider-factory.js';
 import { formatUpstreamError } from '../../../src/shared/errors.js';
 
 export { silenceSdkWarnings };

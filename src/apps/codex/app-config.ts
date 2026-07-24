@@ -1,4 +1,4 @@
-﻿// Read/merge/restore ~/.codex/config.toml for Codex App.
+// Read/merge/restore ~/.codex/config.toml for Codex App.
 import { existsSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { parse, stringify } from 'smol-toml';
@@ -7,7 +7,7 @@ import {
   buildCodexAppRootConfig,
   type CodexAppConfigSpec,
 } from './app-profile.js';
-import { getReasoningCapabilities } from '../../../src/gateway/provider-factory.js';
+import { getReasoningCapabilities } from '../../../src/gateway/providers/provider-factory.js';
 import { getCodexHome } from './session.js';
 
 export type TomlRecord = Record<string, unknown>;

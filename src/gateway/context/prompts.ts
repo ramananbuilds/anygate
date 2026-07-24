@@ -1,6 +1,6 @@
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import { printFavoritesOnlyPanel, printGatewayMaskPanel, printNetworkWarningPanel } from '../apps/shared/ui.js';
+import { printFavoritesOnlyPanel, printGatewayMaskPanel, printNetworkWarningPanel } from '../../apps/shared/ui.js';
 
 export type ListenMode = 'local' | 'network';
 export type ServerStartMode = 'configure' | 'quick';

@@ -30,7 +30,7 @@ import {
   completeAntigravityExchange,
 } from '../auth/antigravity-oauth.js';
 
-import { providerOptionsFromCatalog } from '../gateway/server.ts';
+import { providerOptionsFromCatalog } from '../gateway/server/server.js';
 import { getServerStatus, startGatewayServer, stopGatewayServer, type ServerStartRequest } from './server-control.js';
 import { writeSecureLogLine } from '../apps/shared/trace-log.js';
 import { freeStatusLabel } from '../apps/shared/free-models.ts';

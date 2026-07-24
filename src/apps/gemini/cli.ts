@@ -17,7 +17,7 @@ import {
 } from './prompts.js';
 import { startGeminiProxy } from './proxy.js';
 import { getGeminiProxyDebugLogPath, printTraceLog } from '../../apps/shared/trace-log.js';
-import type { ProxyRoute, ProxyHandle } from '../../../src/gateway/anthropic-proxy.js';
+import type { ProxyRoute, ProxyHandle } from '../../../src/gateway/proxy/anthropic-proxy.js';
 import type { CloudCodeBackend } from '../shared/cloud-code-backend.js';
 import { rewriteGeminiBackendRoutes } from './backend-routes.js';
 import { VERSION } from '../../../src/config/constants.js';

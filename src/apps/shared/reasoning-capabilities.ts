@@ -3,7 +3,7 @@ import {
   getReasoningCapabilities,
   type ReasoningCapabilities,
   type ReasoningMetadata,
-} from '../../../src/gateway/provider-factory.js';
+} from '../../../src/gateway/providers/provider-factory.js';
 
 export type {
   ReasoningCapabilities,
@@ -12,7 +12,7 @@ export type {
   ReasoningSource,
   ReasoningConfidence,
   ReasoningWireFormat,
-} from '../../../src/gateway/provider-factory.js';
+} from '../../../src/gateway/providers/provider-factory.js';
 
 export interface ResolveReasoningInput extends ReasoningMetadata {
   npm: string;

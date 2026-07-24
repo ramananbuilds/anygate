@@ -3,7 +3,7 @@
 
 import { randomUUID } from 'node:crypto';
 import type { ServerResponse } from 'node:http';
-import { encodeToolUseId } from '../proxy-shared.js';
+import { encodeToolUseId } from '../proxy/proxy-shared.js';
 
 type JsonRecord = Record<string, unknown>;
 type LogFn = (message: string | (() => string)) => void;

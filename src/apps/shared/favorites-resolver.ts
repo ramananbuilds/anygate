@@ -1,6 +1,6 @@
 // src/favorites-resolver.ts
 import type { FavoriteModel, LocalProvider, LocalProviderModel, ModelInfo } from '../../../src/types/index.js';
-import type { ServerModelInfo } from '../../../src/gateway/models.js';
+import type { ServerModelInfo } from '../../../src/gateway/server/models.js';
 import { shouldHideModel, type CompatibilityAgent } from '../shared/model-compatibility.js';
 import { resolveLocalProviderApiKey } from '../../../src/storage/credentials.js';
 

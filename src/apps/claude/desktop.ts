@@ -13,10 +13,10 @@ import {
   routableModelsForProvider,
 } from '../codex/routing.js';
 import { providersForTarget } from '../../apps/shared/target-compatibility.js';
-import { startServer, type ServerHandle } from '../../../src/gateway/router.js';
-import { createGatewayModelCatalog, type ServerModelInfo } from '../../../src/gateway/models.js';
+import { startServer, type ServerHandle } from '../../../src/gateway/server/router.js';
+import { createGatewayModelCatalog, type ServerModelInfo } from '../../../src/gateway/server/models.js';
 import { BACKENDS } from '../../../src/config/constants.js';
-import { filterServerModelsByFavorites } from '../../../src/gateway/catalog-filter.js';
+import { filterServerModelsByFavorites } from '../../../src/gateway/server/catalog-filter.js';
 import { writeAnygateIConfig, getClaudeDesktopHome } from './desktop-app.js';
 import { getProxyDebugLogPath } from '../../apps/shared/trace-log.js';
 import { readSessionLock, recoverSession, hasStaleSession, writeSessionLock, setupExitCleanup, cleanupSession, backupMetaJson, isConcurrentLiveSession, waitForShutdown } from './desktop-session.js';
@@ -27,7 +27,7 @@ import {
   startCloudCodeCatalogBackend,
   type CloudCodeBackend,
 } from '../shared/cloud-code-backend.js';
-import type { ProxyRoute } from '../../../src/gateway/anthropic-proxy.js';
+import type { ProxyRoute } from '../../../src/gateway/proxy/anthropic-proxy.js';
 
 export function claudeAppHelpText(): string {
   return `${pc.bold('anygate claude-app')} — launch Claude Desktop app in 3P mode with your registry providers

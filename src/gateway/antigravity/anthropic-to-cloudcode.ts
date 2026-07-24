@@ -3,7 +3,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { normalizeJsonSchema } from './request-adapter.js';
-import { splitToolUseId } from '../proxy-shared.js';
+import { splitToolUseId } from '../proxy/proxy-shared.js';
 
 type JsonRecord = Record<string, unknown>;
 

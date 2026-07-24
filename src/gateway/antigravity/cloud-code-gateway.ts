@@ -6,8 +6,8 @@ import {
   effortProviderOptions,
   maxToolsForNpm,
   thinkingProviderOptions,
-} from '../provider-factory.js';
-import { silenceSdkWarnings } from '../sdk-adapter.js';
+} from '../providers/provider-factory.js';
+import { silenceSdkWarnings } from '../adapters/sdk-adapter.js';
 import { formatUpstreamError } from '../../shared/errors.js';
 import { readBody } from '../../shared/http.js';
 import { translateRequest, type TranslateRequestOptions } from './request-adapter.js';

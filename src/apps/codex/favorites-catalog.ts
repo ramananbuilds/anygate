@@ -1,6 +1,6 @@
 import type { ResolvedFavorite } from '../../apps/shared/favorites-resolver.js';
 import type { LocalProviderModel } from '../../../src/types/index.js';
-import { getReasoningCapabilities } from '../../../src/gateway/provider-factory.js';
+import { getReasoningCapabilities } from '../../../src/gateway/providers/provider-factory.js';
 import {
   catalogEntryFromModel,
   type CodexCatalogFile,

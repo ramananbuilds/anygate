@@ -11,11 +11,11 @@ import {
   effortProviderOptions,
   maxToolsForNpm,
   thinkingProviderOptions,
-} from '../../../src/gateway/provider-factory.js';
+} from '../../../src/gateway/providers/provider-factory.js';
 import { applyClaudeCodeOAuthIdentity } from '../../../src/auth/claude-code-identity.js';
-import { silenceSdkWarnings } from '../../../src/gateway/sdk-adapter.js';
+import { silenceSdkWarnings } from '../../../src/gateway/adapters/sdk-adapter.js';
 import { getGeminiProxyDebugLogPath, makeTraceLogger } from '../../apps/shared/trace-log.js';
-import type { ProxyRoute, ProxyHandle } from '../../../src/gateway/anthropic-proxy.js';
+import type { ProxyRoute, ProxyHandle } from '../../../src/gateway/proxy/anthropic-proxy.js';
 import { routeLookupIds } from '../../apps/shared/context-model-id.js';
 import { formatUpstreamError } from '../../../src/shared/errors.js';
 

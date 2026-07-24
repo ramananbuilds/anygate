@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { tool, jsonSchema, type ModelMessage } from 'ai';
-import { serializeToolResultContent } from '../proxy-shared.js';
+import { serializeToolResultContent } from '../proxy/proxy-shared.js';
 
 export interface CloudCodePart {
   text?: string;

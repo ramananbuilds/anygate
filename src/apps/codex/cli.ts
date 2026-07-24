@@ -26,7 +26,7 @@ import {
   routableModelsForProvider,
   type CodexRoute,
 } from './routing.js';
-import { getReasoningCapabilities } from '../../../src/gateway/provider-factory.js';
+import { getReasoningCapabilities } from '../../../src/gateway/providers/provider-factory.js';
 import {
   checkSessionLock,
   recoverInterruptedCodexSession,
@@ -39,7 +39,7 @@ import {
   buildVertexRuntimeConfig,
   hasApplicationDefaultCredentials,
   type VertexModelEntry,
-} from '../../../src/gateway/vertex.js';
+} from '../../../src/gateway/adapters/vertex.js';
 import { VERTEX_ANTHROPIC_NPM } from '../../../src/config/constants.js';
 import { resolveContextWindow } from '../../apps/shared/context-window.js';
 import type { ResolvedFavorite } from '../../apps/shared/favorites-resolver.js';

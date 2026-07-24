@@ -5,7 +5,7 @@
 // that are immediately available: non-deferred, tool-search, and any tool
 // already referenced in the conversation.
 
-import type { AnthropicRequestMessage, AnthropicToolDefinition } from '../../../src/gateway/proxy-types.js';
+import type { AnthropicRequestMessage, AnthropicToolDefinition } from '../../../src/gateway/proxy/proxy-types.js';
 
 const TOOL_SEARCH_TYPE_PREFIX = 'tool_search_tool';
 

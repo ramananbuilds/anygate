@@ -1,11 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { resolveContextWindow } from '../apps/shared/context-window.js';
-import { VERTEX_ANTHROPIC_NPM } from '../config/constants.js';
-import { getVertexModelsPath } from '../config/paths.js';
-import { getReasoningCapabilities } from './provider-factory.js';
-import { createGatewayModelCatalog, type ModelCatalog, type ServerModelInfo } from './models.js';
+import { resolveContextWindow } from '../../apps/shared/context-window.js';
+import { VERTEX_ANTHROPIC_NPM } from '../../config/constants.js';
+import { getVertexModelsPath } from '../../config/paths.js';
+import { getReasoningCapabilities } from '../providers/provider-factory.js';
+import { createGatewayModelCatalog, type ModelCatalog, type ServerModelInfo } from '../server/models.js';
 
 export interface VertexModelEntry {
   id: string;

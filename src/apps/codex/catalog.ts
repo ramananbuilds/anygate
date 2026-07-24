@@ -5,7 +5,7 @@ import {
   buildCodexReasoningLevels,
   getReasoningCapabilities,
   type ReasoningMetadata,
-} from '../../../src/gateway/provider-factory.js';
+} from '../../../src/gateway/providers/provider-factory.js';
 import { codexAppModelSlug } from './app-profile.js';
 
 export interface CodexCatalogModel {

@@ -1,4 +1,4 @@
-import { startProxyCatalog, aliasModelId, type ProxyHandle, type ProxyRoute } from '../../../src/gateway/anthropic-proxy.js';
+import { startProxyCatalog, aliasModelId, type ProxyHandle, type ProxyRoute } from '../../../src/gateway/proxy/anthropic-proxy.js';
 import { claudeCodeClientModelId } from '../../apps/shared/context-model-id.js';
 import { ANTIGRAVITY_BASE_URLS } from '../../../src/auth/antigravity-oauth.js';
 import { resolveProviderCredential } from '../../../src/config/env.js';

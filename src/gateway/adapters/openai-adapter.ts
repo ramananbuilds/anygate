@@ -1,6 +1,6 @@
 import { tool, jsonSchema, streamText, generateText } from 'ai';
 import type { LanguageModel, ModelMessage } from 'ai';
-import { parseToolArguments } from './proxy-shared.js';
+import { parseToolArguments } from '../proxy/proxy-shared.js';
 import type { SdkCallParams } from './sdk-adapter.js';
 
 // ── OpenAI request shapes ───────────────────────────────────────────────────

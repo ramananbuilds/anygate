@@ -11,7 +11,7 @@ import {
   parseCodexAppModelSlug,
   codexAppModelSlug,
 } from './app-profile.js';
-import { createLanguageModel, maxToolsForNpm, type VertexProviderConfig } from '../../../src/gateway/provider-factory.js';
+import { createLanguageModel, maxToolsForNpm, type VertexProviderConfig } from '../../../src/gateway/providers/provider-factory.js';
 import { applyClaudeCodeOAuthIdentity } from '../../../src/auth/claude-code-identity.js';
 import {
   translateResponsesRequest,
@@ -22,7 +22,7 @@ import {
   responsesRateLimitBody,
   type CodexSdkCallParams,
 } from './responses-adapter.js';
-import { silenceSdkWarnings } from '../../../src/gateway/sdk-adapter.js';
+import { silenceSdkWarnings } from '../../../src/gateway/adapters/sdk-adapter.js';
 import { formatUpstreamError, upstreamHttpStatus } from '../../../src/shared/errors.js';
 import { getCodexProxyDebugLogPath, makeTraceLogger } from '../../apps/shared/trace-log.js';
 

@@ -3,31 +3,31 @@
 import { createServer } from 'node:http';
 import type { ServerResponse } from 'node:http';
 import { appendFileSync, openSync, writeSync, closeSync } from 'node:fs';
-import { readBody, extractApiKey, sendJson } from '../shared/http.js';
-import { formatAnthropicModelEntry, formatAnthropicModelList } from './models.js';
-import { claudeCodeClientModelId, routeLookupIds, stripOneMContextSuffix } from '../apps/shared/context-model-id.js';
-import { getProxyDebugLogPath, resetTraceLog } from '../apps/shared/trace-log.js';
-import { redactTraceLine } from '../shared/redact.js';
-import { fetchWithOAuthRetry, forwardAnthropicMessages } from '../upstream-forward.js';
-import { UpstreamUnreachableError } from '../shared/errors.js';
+import { readBody, extractApiKey, sendJson } from '../../shared/http.js';
+import { formatAnthropicModelEntry, formatAnthropicModelList } from '../server/models.js';
+import { claudeCodeClientModelId, routeLookupIds, stripOneMContextSuffix } from '../../apps/shared/context-model-id.js';
+import { getProxyDebugLogPath, resetTraceLog } from '../../apps/shared/trace-log.js';
+import { redactTraceLine } from '../../shared/redact.js';
+import { fetchWithOAuthRetry, forwardAnthropicMessages } from '../../upstream-forward.js';
+import { UpstreamUnreachableError } from '../../shared/errors.js';
 import {
   CLAUDE_CODE_CLI_VERSION,
   injectClaudeCodeBillingSystemLine,
   injectClaudeIdentity,
   selectBetaFlags,
-} from '../auth/claude-identity.js';
-import { anthropicToCloudCode } from './antigravity/anthropic-to-cloudcode.js';
-import { streamCloudCodeToAnthropic, collectCloudCodeToAnthropic } from './antigravity/cloudcode-to-anthropic.js';
-import { createLanguageModel, isSdkUpgradedNpm, maxToolsForNpm } from './provider-factory.js';
+} from '../../auth/claude-identity.js';
+import { anthropicToCloudCode } from '../antigravity/anthropic-to-cloudcode.js';
+import { streamCloudCodeToAnthropic, collectCloudCodeToAnthropic } from '../antigravity/cloudcode-to-anthropic.js';
+import { createLanguageModel, isSdkUpgradedNpm, maxToolsForNpm } from '../providers/provider-factory.js';
 import { randomUUID } from 'node:crypto';
 import {
   translateRequest as sdkTranslateRequest,
   streamAnthropicResponse,
   generateAnthropicResponse,
   silenceSdkWarnings,
-} from './sdk-adapter.js';
-import { anthropicErrorType, upstreamHttpStatus } from '../shared/errors.js';
-import { recordUsage } from '../storage/analytics.js';
+} from '../adapters/sdk-adapter.js';
+import { anthropicErrorType, upstreamHttpStatus } from '../../shared/errors.js';
+import { recordUsage } from '../../storage/analytics.js';
 
 type ProxyLog = (message: string | (() => string)) => void;
 

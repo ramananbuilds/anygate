@@ -1,8 +1,8 @@
 import pc from 'picocolors';
 import { networkInterfaces } from 'node:os';
 import * as p from '@clack/prompts';
-import { gateIntro } from '../apps/shared/ui.js';
-import { resolveApiKey, readFromCredentialStore } from '../config/env.js';
+import { gateIntro } from '../../apps/shared/ui.js';
+import { resolveApiKey, readFromCredentialStore } from '../../config/env.js';
 import { sanitizeCredential } from './auth.js';
 import {
   getSavedServerPassword,
@@ -18,22 +18,22 @@ import {
   setServerFreeModelsOnly,
   setServerListenMode,
   setServerMaskGatewayIds,
-} from '../storage/config.js';
-import { BACKENDS, MAX_MODEL_CATALOG } from '../config/constants.js';
+} from '../../storage/config.js';
+import { BACKENDS, MAX_MODEL_CATALOG } from '../../config/constants.js';
 import {
   fetchProviderCatalog,
   localProvidersToServerModels,
-} from '../registry/provider-catalog.js';
-import { providersForTarget } from '../apps/shared/target-compatibility.js';
-import { loadRegistry } from '../registry/storage/io.js';
-import type { ModelInfo } from '../types/index.js';
+} from '../../registry/provider-catalog.js';
+import { providersForTarget } from '../../apps/shared/target-compatibility.js';
+import { loadRegistry } from '../../registry/storage/io.js';
+import type { ModelInfo } from '../../types/index.js';
 import type { ServerModelInfo, GatewayModelOptions } from './models.js';
 import {
   upstreamModelId,
   gatewayProviderLabel,
   buildDedupedModelRows,
 } from './models.js';
-import { getReasoningCapabilities } from './provider-factory.js';
+import { getReasoningCapabilities } from '../providers/provider-factory.js';
 import {
   askFavoritesOnly,
   askFreeModelsOnly,
@@ -43,7 +43,7 @@ import {
   askServerPassword,
   askServerStartMode,
   askUseSavedServerPassword,
-} from './prompts.js';
+} from '../context/prompts.js';
 import { createGatewayModelCatalog } from './models.js';
 import { startServer } from './router.js';
 import {
@@ -52,13 +52,13 @@ import {
   filterServerModelsByProviders,
   summarizeServerProviders,
 } from './catalog-filter.js';
-import { selectServerProviders, type ServerProviderOption } from './provider-select.js';
+import { selectServerProviders, type ServerProviderOption } from '../providers/provider-select.js';
 import {
   buildVertexRuntimeConfig,
   createVertexModelCatalog,
   hasApplicationDefaultCredentials,
   vertexModelsToServerModels,
-} from './vertex.js';
+} from '../adapters/vertex.js';
 
 export interface ServerRunConfig {
   exposedProviders: string[] | null;
@@ -147,7 +147,7 @@ function printModelCatalog(models: ServerModelInfo[], gateway?: GatewayModelOpti
   }
 }
 
-export function providerOptionsFromCatalog(catalog: import('../types/index.js').LocalProvider[]): ServerProviderOption[] {
+export function providerOptionsFromCatalog(catalog: import('../../types/index.js').LocalProvider[]): ServerProviderOption[] {
   const options: ServerProviderOption[] = [];
   for (const provider of providersForTarget(catalog, 'server')) {
     options.push({

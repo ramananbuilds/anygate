@@ -7,8 +7,8 @@ import { claudeCodeClientModelId } from '../apps/shared/context-model-id.js';
 import { resolveOrCollectApiKey } from '../apps/shared/key-setup.js';
 import { needsFirstRunSetup, runFirstRunWizard } from '../apps/shared/first-run.js';
 import { MAX_MODEL_CATALOG } from '../config/constants.js';
-import { startProxy, startProxyCatalog } from '../gateway/anthropic-proxy.js';
-import type { ProxyHandle, ProxyRoute } from '../gateway/anthropic-proxy.js';
+import { startProxy, startProxyCatalog } from '../gateway/proxy/anthropic-proxy.js';
+import type { ProxyHandle, ProxyRoute } from '../gateway/proxy/anthropic-proxy.js';
 import {
   buildCatalogRoutes,
   makeRouteResolver,
