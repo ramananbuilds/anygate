@@ -50,7 +50,18 @@ anygate/
 │   ├── ui/                            # Web App & Dashboard
 │   │   └── app/                       # Svelte 5 / Vite UI Frontend Application
 │   └── utils/                         # Pure Helper Functions & Utilities
-├── tests/                             # Vitest Test Suite (Mirrors src/ architecture)
+├── tests/                             # Vitest Test Suites (Mirrors src/ architecture)
+│   ├── apps/                          # Tests for AI application launchers & integrations
+│   ├── auth/                          # Tests for authentication, PKCE, OAuth, & credentials
+│   ├── cli/                           # Tests for CLI commands & argument parsing
+│   ├── engine/                        # Tests for routing engine, selection, & targets
+│   ├── gateway/                       # Tests for gateway servers, proxies, & SDK adapters
+│   ├── helpers/                       # Test utilities & mock request/response helpers
+│   ├── registry/                      # Tests for provider registry, templates, & sync
+│   ├── services/                      # Tests for shared cross-cutting services
+│   ├── storage/                       # Tests for preferences, credentials, & config
+│   ├── ui/                            # Tests for UI API endpoints & dashboard server
+│   └── web-search/                    # Tests for web search tools & providers
 ├── docs/                              # Project Documentation & Guides
 └── dist/                              # Compiled ESM Output & CLI Entry Points
 ```
