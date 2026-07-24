@@ -18,7 +18,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
-import bundledPricing from '../data/pricing-cache.json' with { type: 'json' };
+import bundledPricing from './data/pricing-cache.json' with { type: 'json' };
 import { getAppHome } from '../config/paths.ts';
 import type { CachedModel } from './types.js';
 import { loadRegistry, saveRegistry } from './io.js';

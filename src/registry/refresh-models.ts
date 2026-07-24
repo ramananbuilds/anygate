@@ -23,8 +23,8 @@ import {
 import { cachedModelCount, isLikelyPlaceholderKey, resolveRefreshCredential, skipWithCachedModels } from './refresh-credentials.js';
 import { readGlobalOpencodeCredential } from '../config/env.js';
 import type { CachedModel, ProviderRegistry, RegistryProvider } from './types.js';
-import { buildOpenAiOAuthModels, CHATGPT_CODEX_UNSUPPORTED_MODELS } from '../data/openai-oauth-models.js';
-import { buildXaiOAuthModels } from '../data/xai-oauth-models.js';
+import { buildOpenAiOAuthModels, CHATGPT_CODEX_UNSUPPORTED_MODELS } from './providers/openai/oauth-models.js';
+import { buildXaiOAuthModels } from './providers/xai/oauth-models.js';
 import { ANTIGRAVITY_BASE_URLS } from '../auth/antigravity-oauth.js';
 import { modelPrefersResponsesApi } from '../gateway/provider-factory.js';
 import { resolveContextWindow } from '../apps/shared/context-window.js';

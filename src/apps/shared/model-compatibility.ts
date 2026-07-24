@@ -1,6 +1,6 @@
 // src/model-compatibility.ts — curated blacklist + models.dev capability filtering
 
-import blacklistData from '../../data/model-incompatible.json' with { type: 'json' };
+import blacklistData from '../../registry/data/model-incompatible.json' with { type: 'json' };
 import type { BackendConfig, ModelInfo } from '../../types/index.js';
 import { classifyModelFormat } from '../../config/constants.js';
 import { loadOpencodeCache, resolveContextWindow } from './context-window.js';

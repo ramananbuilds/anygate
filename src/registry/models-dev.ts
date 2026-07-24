@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
-import bundledCache from '../data/models-dev-cache.json' with { type: 'json' };
+import bundledCache from './data/models-dev-cache.json' with { type: 'json' };
 import { getAppHome } from '../config/paths.ts';
 import { normalizeModelIdCandidates } from './pricing.js';
 
