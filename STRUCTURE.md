@@ -1,319 +1,64 @@
 # Anygate Repository Structure
 
-```
+```text
 anygate/
 ├── src/                               # Backend CLI, Core Gateway Engine, & Server
 │   ├── apps/                          # AI Application Integrations
 │   │   ├── claude/                    # Claude Code CLI & Desktop launchers
-│   │   │   ├── desktop-launch.ts
-│   │   │   ├── desktop.ts
-│   │   │   └── favorites-picker.ts
 │   │   ├── codex/                     # OpenAI Codex & ChatGPT App launchers
-│   │   │   ├── app-launch.ts
-│   │   │   ├── app.ts
-│   │   │   ├── cli.ts
-│   │   │   └── routing.ts
 │   │   ├── gemini/                    # Google Gemini & Antigravity IDE launchers
-│   │   │   ├── antigravity.ts
-│   │   │   └── cli.ts
-│   │   └── shared/                    # Shared app utilities
-│   │       ├── ai-doc.ts
-│   │       ├── binary-lookup.ts
-│   │       ├── cloud-code-backend.ts
-│   │       ├── completions.ts
-│   │       ├── context-model-id.ts
-│   │       ├── context-window.ts
-│   │       ├── favorites-resolver.ts
-│   │       ├── first-run.ts
-│   │       ├── free-models.ts
-│   │       ├── key-setup.ts
-│   │       ├── model-compatibility.ts
-│   │       ├── model-search.ts
-│   │       ├── prompts.ts
-│   │       ├── reasoning-capabilities.ts
-│   │       ├── tool-search.ts
-│   │       ├── trace-log.ts
-│   │       └── ui.ts
+│   │   └── shared/                    # Shared application utilities & helpers
 │   ├── auth/                          # Authentication, PKCE, OAuth, & Keyring
-│   │   ├── github.ts
-│   │   ├── index.ts
-│   │   ├── openai.ts
-│   │   ├── responses-websocket.ts
-│   │   └── xai.ts
 │   ├── cli/                           # Command Line Interface Subcommands
-│   │   ├── antigravity.ts
-│   │   ├── claude-app.ts
-│   │   ├── claude.ts
-│   │   ├── codex-app.ts
-│   │   ├── codex.ts
-│   │   ├── completions.ts
-│   │   ├── doctor.ts
-│   │   ├── gemini.ts
-│   │   ├── index.ts
-│   │   ├── models.ts
-│   │   ├── providers.ts
-│   │   ├── server.ts
-│   │   ├── ui.ts
-│   │   └── update.ts
 │   ├── config/                        # Configuration Tokens, Paths, & Envs
-│   │   ├── constants.ts
-│   │   ├── defaults.ts
-│   │   ├── env.ts
-│   │   ├── features.ts
-│   │   ├── index.ts
-│   │   ├── paths.ts
-│   │   └── versions.ts
-│   ├── data/                          # Shared OAuth & Model Definitions
-│   │   ├── openai-oauth-models.ts
-│   │   └── xai-oauth-models.ts
+│   ├── core/                          # Domain Abstractions & Contracts
+│   │   ├── constants/                 # Immutable application constants
+│   │   ├── errors/                    # Standardized error hierarchy
+│   │   ├── events/                    # Event bus & lifecycle definitions
+│   │   └── interfaces/                # Core domain types & abstractions
 │   ├── engine/                        # Core Routing & Selection Engine
-│   │   ├── dispatcher.ts
-│   │   ├── failover.ts
-│   │   ├── health.ts
-│   │   ├── index.ts
-│   │   ├── launch-target.ts
-│   │   ├── middleware.ts
-│   │   ├── pipeline.ts
-│   │   ├── resolver.ts
-│   │   ├── router.ts
-│   │   ├── selector.ts
-│   │   ├── strategy.ts
-│   │   └── target-compatibility.ts
+│   │   ├── context/                   # Context window & token fitting
+│   │   ├── routing/                   # Route dispatchers & strategies
+│   │   └── selection/                 # Model selection & fallback heuristics
 │   ├── gateway/                       # API Gateway, Adapters, & HTTP Proxies
-│   │   ├── anthropic-proxy.ts
-│   │   ├── antigravity/
-│   │   │   ├── catalog.ts
-│   │   │   ├── cloud-code-gateway.ts
-│   │   │   ├── launch-cli.ts
-│   │   │   ├── launch-ide.ts
-│   │   │   └── launch-routes.ts
-│   │   ├── auth.ts
-│   │   ├── catalog-filter.ts
-│   │   ├── context-fit.ts
-│   │   ├── models.ts
-│   │   ├── openai-adapter.ts
-│   │   ├── prompts.ts
-│   │   ├── provider-factory.ts
-│   │   ├── provider-reasoning.ts
-│   │   ├── provider-select.ts
-│   │   ├── proxy-shared.ts
-│   │   ├── proxy-types.ts
-│   │   ├── router.ts
-│   │   ├── sdk-adapter.ts
-│   │   ├── server.ts
-│   │   ├── vendor-mask.ts
-│   │   ├── vertex.ts
-│   │   └── web-search/
-│   │       ├── duckduckgo.ts
-│   │       ├── searxng.ts
-│   │       ├── tool.ts
-│   │       └── types.ts
-│   ├── launchers/                     # Cross-Platform Application Launchers
-│   │   ├── app-launcher.ts
-│   │   ├── desktop.ts
-│   │   ├── index.ts
-│   │   ├── launch.ts
-│   │   ├── linux.ts
-│   │   ├── macos.ts
-│   │   ├── native-launcher.ts
-│   │   ├── shared.ts
-│   │   ├── terminal.ts
-│   │   └── windows.ts
-│   ├── providers/                     # Direct Provider Implementation Modules
-│   │   ├── anthropic.ts
-│   │   ├── command.ts
-│   │   ├── github.ts
-│   │   ├── groq.ts
-│   │   ├── index.ts
-│   │   ├── mistral.ts
-│   │   ├── nvidia.ts
-│   │   ├── ollama.ts
-│   │   ├── opencode-serve.ts
-│   │   ├── openai.ts
-│   │   ├── openrouter.ts
-│   │   ├── provider-catalog.ts
-│   │   ├── provider-templates.ts
-│   │   └── vertex.ts
-│   ├── registry/                      # Provider & Model Registry Data & Resolvers
-│   │   ├── add-template.ts
-│   │   ├── auth-broker.ts
-│   │   ├── builtins.ts
-│   │   ├── convert.ts
-│   │   ├── crud.ts
-│   │   ├── custom-endpoint.ts
-│   │   ├── data/
-│   │   │   ├── providers/
-│   │   │   │   ├── go.json
-│   │   │   │   └── zen.json
-│   │   │   └── templates/
-│   │   │       └── [30+ JSON provider templates]
-│   │   ├── data-loader.ts
-│   │   ├── fetch-template-models.ts
-│   │   ├── google-model-id.ts
-│   │   ├── import-build.ts
-│   │   ├── import-opencode.ts
-│   │   ├── index.ts
-│   │   ├── io.ts
-│   │   ├── load.ts
-│   │   ├── materialize.ts
-│   │   ├── model-source.ts
-│   │   ├── models-dev.ts
-│   │   ├── opencode-auth.ts
-│   │   ├── pricing.ts
-│   │   ├── provider-auth.ts
-│   │   ├── providers/
-│   │   │   ├── index.ts
-│   │   │   ├── mistral/
-│   │   │   │   └── index.ts
-│   │   │   ├── nvidia/
-│   │   │   │   └── index.ts
-│   │   │   └── openai/
-│   │   │       ├── auth.ts
-│   │   │       ├── capabilities.ts
-│   │   │       ├── index.ts
-│   │   │       ├── limits.ts
-│   │   │       ├── models.ts
-│   │   │       ├── pricing.ts
-│   │   │       └── provider.ts
-│   │   ├── refresh-credentials.ts
-│   │   ├── refresh-models.ts
-│   │   ├── resolve-template.ts
-│   │   ├── types.ts
-│   │   ├── upgrade.ts
-│   │   ├── url-security.ts
-│   │   ├── validate-import-key.ts
-│   │   └── validate.ts
-│   ├── services/                      # Shared Business Logic & Background Services
-│   │   ├── analytics.ts
-│   │   ├── doctor.ts
-│   │   ├── downloads.ts
-│   │   ├── favorites.ts
-│   │   ├── index.ts
-│   │   ├── model-sync.ts
-│   │   ├── provider-health.ts
-│   │   ├── self-update.ts
-│   │   ├── update-check.ts
-│   │   └── updates.ts
-│   ├── shared/                        # Shared Reusable Utility Modules
-│   │   ├── errors.ts
-│   │   ├── events.ts
-│   │   ├── http.ts
-│   │   ├── index.ts
-│   │   ├── logger.ts
-│   │   ├── prompts.ts
-│   │   ├── redact.ts
-│   │   ├── schemas.ts
-│   │   └── validators.ts
-│   ├── storage/                       # Config, Cache, Session, & Log Storage
-│   │   ├── analytics.ts
-│   │   ├── cache.ts
-│   │   ├── config.ts
-│   │   ├── credentials.ts
-│   │   ├── favorites.ts
-│   │   ├── history.ts
-│   │   ├── index.ts
-│   │   ├── logs.ts
-│   │   └── sessions.ts
-│   ├── types/                         # Shared Domain TypeScript Definitions
-│   │   ├── api.ts
-│   │   ├── auth.ts
-│   │   ├── config.ts
-│   │   ├── gateway.ts
-│   │   ├── index.ts
-│   │   ├── launch.ts
-│   │   ├── model.ts
-│   │   ├── provider.ts
-│   │   └── registry.ts
-│   ├── ui/                            # Embedded UI Gateway API Server
-│   │   ├── api-types.ts
-│   │   ├── api.ts
-│   │   ├── command.ts
-│   │   └── server-control.ts
-│   ├── cli.ts                         # Main CLI Entry Point
-│   └── upstream-forward.ts             # Upstream HTTP Forwarder
-├── ui/                                # Web Dashboard Frontend (Svelte + Vite)
-│   ├── public/                        # Static UI Assets & Icons
-│   ├── src/
-│   │   ├── lib/
-│   │   │   ├── components/            # UI Components (Apps, Models, Providers, Primitives, Server)
-│   │   │   │   ├── apps/
-│   │   │   │   │   ├── AppCard.svelte
-│   │   │   │   │   └── LaunchModal.svelte
-│   │   │   │   ├── models/
-│   │   │   │   │   ├── ModelBadges.svelte
-│   │   │   │   │   ├── ModelDetailDrawer.svelte
-│   │   │   │   │   ├── ModelFilters.svelte
-│   │   │   │   │   └── ModelRow.svelte
-│   │   │   │   ├── primitives/
-│   │   │   │   │   ├── Badge.svelte
-│   │   │   │   │   ├── Button.svelte
-│   │   │   │   │   ├── Card.svelte
-│   │   │   │   │   ├── Drawer.svelte
-│   │   │   │   │   ├── Modal.svelte
-│   │   │   │   │   ├── Select.svelte
-│   │   │   │   │   └── Tabs.svelte
-│   │   │   │   ├── providers/
-│   │   │   │   │   ├── ProviderCard.svelte
-│   │   │   │   │   ├── ProviderForm.svelte
-│   │   │   │   │   └── ProviderLogo.svelte
-│   │   │   │   └── server/
-│   │   │   │       ├── ServerPanel.svelte
-│   │   │   │       └── ServerStatusBadge.svelte
-│   │   │   ├── providers/             # UI Logos & Model Formatting
-│   │   │   ├── stores/                # Reactive State (Apps, Config, Favorites, Server, UI, Theme)
-│   │   │   └── Topbar.svelte
-│   │   ├── routes/                    # SPA Page Views
-│   │   │   ├── Apps.svelte
-│   │   │   ├── Dashboard.svelte
-│   │   │   ├── Models.svelte
-│   │   │   ├── Providers.svelte
-│   │   │   ├── Server.svelte
-│   │   │   ├── Settings.svelte
-│   │   │   └── Tester.svelte
-│   │   ├── styles/
-│   │   │   └── tokens.css
-│   │   ├── App.svelte                 # Main SPA Layout
-│   │   └── main.ts                    # UI Application Entry
-│   ├── index.html
-│   ├── package.json
-│   ├── svelte.config.js
-│   ├── tsconfig.json
-│   └── vite.config.ts
-├── tests/                             # Vitest Test Suite (117 test files)
-│   ├── ai-doc.test.ts
-│   ├── analytics-log.test.ts
-│   ├── antigravity-gateway.test.ts
-│   ├── antigravity-launch-ide.test.ts
-│   ├── catalog.test.ts
-│   ├── claude-app.test.ts
-│   ├── cli.test.ts
-│   ├── codex-app.test.ts
-│   ├── codex-proxy.test.ts
-│   ├── config.test.ts
-│   ├── doctor.test.ts
-│   ├── env.test.ts
-│   ├── favorites.test.ts
-│   ├── launch-target.test.ts
-│   ├── launch.test.ts
-│   ├── model-compatibility.test.ts
-│   ├── models.test.ts
-│   ├── native-launcher.test.ts
-│   ├── oauth.test.ts
-│   ├── provider-factory.test.ts
-│   ├── providers.test.ts
-│   ├── proxy.test.ts
-│   ├── registry.test.ts
-│   ├── sdk-adapter.test.ts
-│   ├── self-update.test.ts
-│   ├── server-index.test.ts
-│   ├── server-router.test.ts
-│   ├── target-compatibility.test.ts
-│   ├── ui-api-apps.test.ts
-│   ├── ui-api-server.test.ts
-│   ├── update-check.test.ts
-│   └── ...
-├── package.json                       # Workspace Configuration & Dependencies
-├── tsconfig.json                      # Root TypeScript Config
-├── tsup.config.ts                     # Tsup Build Config (dist/cli.js)
-└── vitest.config.ts                   # Vitest Runner Config
+│   │   ├── adapters/                  # Wire format & provider adapters
+│   │   ├── antigravity/               # Cloud Code / Antigravity gateway
+│   │   ├── context/                   # Prompt & context assembly
+│   │   ├── providers/                 # Language model provider factories
+│   │   ├── proxy/                     # Anthropic & OpenAI HTTP proxies
+│   │   ├── server/                    # Standalone gateway HTTP server & router
+│   │   └── web-search/                # Web search tooling integrations
+│   ├── launchers/                     # External process launchers & execution
+│   ├── protocols/                     # Protocol Translations & Payloads
+│   │   ├── anthropic/                 # Anthropic protocol wire format & SSE
+│   │   ├── google/                    # Google / Gemini wire format translation
+│   │   └── openai/                    # OpenAI Responses / Chat API translation
+│   ├── providers/                     # Implementation Clients & Drivers
+│   ├── registry/                      # Provider & Model Registry Subdomains
+│   │   ├── data/                      # Bundled static model caches & data
+│   │   ├── loader/                    # Registry loaders, importers, & materializer
+│   │   ├── providers/                 # Per-provider definitions & metadata
+│   │   ├── resolver/                  # ID normalization & resolution logic
+│   │   ├── storage/                   # Registry CRUD, IO, & persistence
+│   │   ├── sync/                      # Model catalog background refresh & sync
+│   │   ├── templates/                 # Provider templates & model fetchers
+│   │   └── validation/                # Credential & model schema validators
+│   ├── services/                      # Cross-Cutting Shared Services
+│   ├── shared/                        # Common Shared Helpers & Utilities
+│   ├── storage/                       # Config Store, Keyring, & Cache
+│   ├── types/                         # TypeScript Interface & Type Definitions
+│   ├── ui/                            # Web App & Dashboard
+│   │   └── app/                       # Svelte 5 / Vite UI Frontend Application
+│   └── utils/                         # Pure Helper Functions & Utilities
+├── tests/                             # Vitest Test Suite (Mirrors src/ architecture)
+├── docs/                              # Project Documentation & Guides
+└── dist/                              # Compiled ESM Output & CLI Entry Points
 ```
+
+## Key Architectural Principles
+
+1. **Clean Subdomain Separation**: Code logic is grouped into single-responsibility subdomains (e.g., `registry/` handles metadata resolution, `gateway/` handles HTTP request proxying and SDK transformation).
+2. **Standardized Barrel Exports**: Core subdomains export their public surface via `index.ts` barrel files.
+3. **Registry-First Provider Discovery**: Provider definitions and OAuth metadata live inside per-provider subdirectories under `src/registry/providers/`.
+4. **Decoupled Gateway Protocol Adapters**: Protocol translation (Anthropic SSE, Vercel AI SDK, Vertex, Cloud Code) is encapsulated within dedicated adapters in `src/gateway/adapters/` and `src/protocols/`.
+5. **Colocated UI**: The Svelte 5 web dashboard is located cleanly under `src/ui/app/`, avoiding root workspace clutter.
