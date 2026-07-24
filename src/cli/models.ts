@@ -2,7 +2,7 @@
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
 import { loadPreferences, savePreferences } from '../storage/config.js';
-import { fetchProviderCatalog, providersForPicker } from '../providers/provider-catalog.js';
+import { fetchProviderCatalog, providersForPicker } from '../registry/provider-catalog.js';
 import { providersForTarget } from '../apps/shared/target-compatibility.js';
 import { pickGlobalFavoriteModel, browseByProviderChoice } from '../apps/claude/favorites-picker.js';
 import { providerSelectOption, formatModelLabel, gateIntro, gateOutro, fmtEnabledStar, fmtModel } from '../apps/shared/ui.js';

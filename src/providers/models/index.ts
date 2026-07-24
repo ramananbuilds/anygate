@@ -1,10 +1,10 @@
 // Model listing and management: refresh model lists, pick from catalog.
 import * as p from '@clack/prompts';
 import { resolveProviderCredential } from '../../config/env.js';
-import { loadRegistry } from '../../registry/io.js';
-import { refreshAllProviderModels, refreshProviderModels } from '../../registry/refresh-models.js';
-import { resolveRefreshCredential } from '../../registry/refresh-credentials.js';
-import { filterTemplates, listAddableTemplates, listSupportedTemplates, type ProviderTemplate } from '../provider-templates.js';
+import { loadRegistry } from '../../registry/storage/io.js';
+import { refreshAllProviderModels, refreshProviderModels } from '../../registry/sync/refresh-models.js';
+import { resolveRefreshCredential } from '../../registry/sync/refresh-credentials.js';
+import { filterTemplates, listAddableTemplates, listSupportedTemplates, type ProviderTemplate } from '../../registry/templates/provider-templates.js';
 
 export async function runProvidersRefreshModels(providerId?: string): Promise<number> {
   const resolveKey = async (provider: import('../../registry/types.js').RegistryProvider) =>

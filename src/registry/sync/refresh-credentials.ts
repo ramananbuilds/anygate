@@ -1,6 +1,6 @@
 // src/registry/refresh-credentials.ts — keys for refresh-models (OpenCode placeholders, env fallbacks)
 
-import type { RegistryProvider } from './types.js';
+import type { RegistryProvider } from '../types.js';
 
 /** OpenCode uses these when OAuth/env supplies the real credential at runtime. */
 const PLACEHOLDER_KEYS = new Set([

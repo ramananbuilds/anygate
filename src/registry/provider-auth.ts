@@ -19,15 +19,15 @@ import {
   generateCliUserID,
 } from '../auth/claude-code.js';
 import { runAntigravityOAuthFlow } from '../auth/antigravity-oauth.js';
-import { getTemplateById } from '../providers/provider-templates.ts';
-import { fetchRawOpencodeProviders } from '../providers/opencode-serve.ts';
-import { findOpencodeBinary } from '../providers/opencode-serve.ts';
+import { getTemplateById } from './templates/provider-templates.js';
+import { fetchRawOpencodeProviders } from '../providers/opencode-serve.js';
+import { findOpencodeBinary } from '../providers/opencode-serve.js';
 import { runOpencodeAuthBroker } from './auth-broker.js';
-import { localProviderToRegistry } from './convert.js';
-import { buildImportProviderList, oauthAuthRef, toOAuthRegistryId } from './import-build.js';
-import { loadRegistry, saveRegistry } from './io.js';
+import { localProviderToRegistry } from './storage/convert.js';
+import { buildImportProviderList, oauthAuthRef, toOAuthRegistryId } from './loader/import-build.js';
+import { loadRegistry, saveRegistry } from './storage/io.js';
 import { oauthCredentialToKeychainJson, type OpencodeOAuthCredential } from './opencode-auth.js';
-import { refreshProviderModels } from './refresh-models.js';
+import { refreshProviderModels } from './sync/refresh-models.js';
 import type { RegistryProvider } from './types.js';
 
 export type { OpencodeOAuthCredential } from './opencode-auth.js';

@@ -1,8 +1,8 @@
 // src/registry/convert.ts — LocalProvider ↔ RegistryProvider conversion
 
-import type { LocalProvider, LocalProviderModel } from '../types/index.js';
-import type { CachedModel, RegistryProvider } from './types.js';
-import { isValidProviderId } from './validate.js';
+import type { LocalProvider, LocalProviderModel } from '../../types/index.js';
+import type { CachedModel, RegistryProvider } from '../types.js';
+import { isValidProviderId } from '../validation/validate.js';
 
 function modelToCached(model: LocalProviderModel): CachedModel {
   return {

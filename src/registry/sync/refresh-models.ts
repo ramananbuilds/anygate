@@ -1,35 +1,35 @@
 // src/registry/refresh-models.ts — user-initiated model list refresh per modelSource
 
-import { BACKENDS } from '../config/constants.js';
-import { getModels, deriveBrand, shouldHideModel } from '../apps/shared/model-compatibility.js';
-import { fetchAnthropicModels } from './custom-endpoint.js';
-import { fetchTemplateModels } from './fetch-template-models.js';
-import { fetchClaudeCodeModels } from '../auth/claude-code.js';
-import { loadRegistry, saveRegistry } from './io.js';
-import { resolveModelSource } from './model-source.js';
-import { validateCustomEndpointUrl } from './url-security.js';
+import { BACKENDS } from '../../config/constants.js';
+import { getModels, deriveBrand, shouldHideModel } from '../../apps/shared/model-compatibility.js';
+import { fetchAnthropicModels } from '../storage/custom-endpoint.js';
+import { fetchTemplateModels } from '../templates/fetch-template-models.js';
+import { fetchClaudeCodeModels } from '../../auth/claude-code.js';
+import { loadRegistry, saveRegistry } from '../storage/io.js';
+import { resolveModelSource } from '../model-source.js';
+import { validateCustomEndpointUrl } from '../validation/url-security.js';
 import {
   effectiveProviderBaseUrl,
   resolveProviderTemplate,
   syntheticTemplate,
-} from './resolve-template.js';
+} from '../resolver/resolve-template.js';
 import {
   buildPricingIndex,
   enrichModelsWithPricing,
   enrichPricingAsync,
   loadPricingCache,
   pricingPlatformForProvider,
-} from './pricing.js';
+} from '../pricing.js';
 import { cachedModelCount, isLikelyPlaceholderKey, resolveRefreshCredential, skipWithCachedModels } from './refresh-credentials.js';
-import { readGlobalOpencodeCredential } from '../config/env.js';
-import type { CachedModel, ProviderRegistry, RegistryProvider } from './types.js';
-import { buildOpenAiOAuthModels, CHATGPT_CODEX_UNSUPPORTED_MODELS } from './providers/openai/oauth-models.js';
-import { buildXaiOAuthModels } from './providers/xai/oauth-models.js';
-import { ANTIGRAVITY_BASE_URLS } from '../auth/antigravity-oauth.js';
-import { modelPrefersResponsesApi } from '../gateway/provider-factory.js';
-import { resolveContextWindow } from '../apps/shared/context-window.js';
-import { getInstalledClaudeVersion } from '../apps/shared/launch.js';
-import { classifyFreeStatus, isFreeStatus } from '../apps/shared/free-models.js';
+import { readGlobalOpencodeCredential } from '../../config/env.js';
+import type { CachedModel, ProviderRegistry, RegistryProvider } from '../types.js';
+import { buildOpenAiOAuthModels, CHATGPT_CODEX_UNSUPPORTED_MODELS } from '../providers/openai/oauth-models.js';
+import { buildXaiOAuthModels } from '../providers/xai/oauth-models.js';
+import { ANTIGRAVITY_BASE_URLS } from '../../auth/antigravity-oauth.js';
+import { modelPrefersResponsesApi } from '../../gateway/provider-factory.js';
+import { resolveContextWindow } from '../../apps/shared/context-window.js';
+import { getInstalledClaudeVersion } from '../../apps/shared/launch.js';
+import { classifyFreeStatus, isFreeStatus } from '../../apps/shared/free-models.js';
 
 export interface RefreshProviderResult {
   id: string;

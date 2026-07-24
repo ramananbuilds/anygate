@@ -15,16 +15,16 @@ import { findOpencodeBinary } from './opencode-serve.js';
 import {
   listAddableTemplates,
   type ProviderTemplate,
-} from './provider-templates.js';
-import { addProviderFromTemplate } from '../registry/add-template.js';
-import { addCustomEndpointProvider } from '../registry/custom-endpoint.js';
-import { validateCustomEndpointUrl } from '../registry/url-security.js';
+} from '../registry/templates/provider-templates.js';
+import { addProviderFromTemplate } from '../registry/templates/add-template.js';
+import { addCustomEndpointProvider } from '../registry/storage/custom-endpoint.js';
+import { validateCustomEndpointUrl } from '../registry/validation/url-security.js';
 import {
   addGoRegistryStub,
   addZenRegistryStub,
-} from '../registry/crud.js';
-import { loadRegistry } from '../registry/io.js';
-import { refreshProviderModels } from '../registry/refresh-models.js';
+} from '../registry/storage/crud.js';
+import { loadRegistry } from '../registry/storage/io.js';
+import { refreshProviderModels } from '../registry/sync/refresh-models.js';
 import { resolveOrCollectApiKey } from '../apps/shared/key-setup.js';
 import {
   fmtCount,
@@ -51,11 +51,11 @@ import {
 
 // Re-export for backward compatibility (tests and external callers import from command.ts)
 export { providerHubChoiceValue };
-import { resolveProvidersForDisplay } from './provider-catalog.js';
+import { resolveProvidersForDisplay } from '../registry/provider-catalog.js';
 import { fmtEnabledStar } from '../apps/shared/ui.js';
 
-export type { ProviderTemplate } from './provider-templates.js';
-export { listAddableTemplates, getTemplateById } from './provider-templates.js';
+export type { ProviderTemplate } from '../registry/templates/provider-templates.js';
+export { listAddableTemplates, getTemplateById } from '../registry/templates/provider-templates.js';
 
 export type ProvidersSubcommand = 'hub' | 'add' | 'import' | 'list' | 'remove' | 'refresh-models' | 'auth' | 'help';
 

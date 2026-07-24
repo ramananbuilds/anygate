@@ -3,10 +3,10 @@
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { RegistryProvider, RegistrySubscriptionFilter } from './types.js';
+import type { RegistryProvider, RegistrySubscriptionFilter } from '../types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROVIDERS_DIR = join(__dirname, 'data', 'providers');
+const PROVIDERS_DIR = join(__dirname, '..', 'data', 'providers');
 
 /** Built-in provider data structure matching JSON files. */
 interface BuiltinProviderData {

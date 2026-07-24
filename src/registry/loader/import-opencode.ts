@@ -1,9 +1,9 @@
 // src/registry/import-opencode.ts — one-shot import from OpenCode serve API
 
-import { resolveProviderCredential, saveProviderCredential } from '../config/env.js';
-import { fetchRawOpencodeProviders } from '../providers/opencode-serve.ts';
-import type { LocalProvider } from '../types/index.js';
-import { localProviderToRegistry } from './convert.js';
+import { resolveProviderCredential, saveProviderCredential } from '../../config/env.js';
+import { fetchRawOpencodeProviders } from '../../providers/opencode-serve.js';
+import type { LocalProvider } from '../../types/index.js';
+import { localProviderToRegistry } from '../storage/convert.js';
 import {
   buildImportProviderList,
   isOAuthImportProvider,
@@ -12,15 +12,15 @@ import {
   oauthAuthRef,
   type OAuthImportContext,
 } from './import-build.js';
-import { loadRegistry, saveRegistry } from './io.js';
-import { upgradeLegacyCloudProviders } from './upgrade.js';
-import { readOpencodeAuthFile, oauthCredentialToKeychainJson } from './opencode-auth.js';
-import type { RegistryProvider } from './types.js';
-import { isValidProviderId } from './validate.js';
+import { loadRegistry, saveRegistry } from '../storage/io.js';
+import { upgradeLegacyCloudProviders } from '../upgrade.js';
+import { readOpencodeAuthFile, oauthCredentialToKeychainJson } from '../opencode-auth.js';
+import type { RegistryProvider } from '../types.js';
+import { isValidProviderId } from '../validation/validate.js';
 import {
   type ImportKeySkipReason,
   validateImportKey,
-} from './validate-import-key.js';
+} from '../validation/validate-import-key.js';
 
 export type ImportSkipReason =
   | 'invalid-id'

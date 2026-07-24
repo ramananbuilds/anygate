@@ -7,11 +7,11 @@ import {
   addZenRegistryStub,
   removeProviderFromRegistry,
   toggleProviderEnabled,
-} from '../src/registry/crud.js';
-import { emptyRegistry, loadRegistry, saveRegistry } from '../src/registry/io.js';
-import { zenRegistryStub } from '../src/registry/builtins.js';
+} from '../src/registry/storage/crud.js';
+import { emptyRegistry, loadRegistry, saveRegistry } from '../src/registry/storage/io.js';
+import { zenRegistryStub } from '../src/registry/storage/builtins.js';
 import { providerAuthHelpText } from '../src/registry/provider-auth.js';
-import { PROVIDER_TEMPLATES } from '../src/providers/provider-templates.js';
+import { PROVIDER_TEMPLATES } from '../src/registry/templates/provider-templates.js';
 import * as env from './../src/config/env.js';
 
 const selectMock = vi.hoisted(() => vi.fn());

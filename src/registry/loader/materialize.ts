@@ -1,16 +1,16 @@
 // src/registry/materialize.ts — registry entries → LocalProvider runtime shape
 
-import { shouldHideModel, type CompatibilityAgent } from '../apps/shared/model-compatibility.js';
-import { deriveBrand } from '../apps/shared/model-compatibility.js';
-import { resolveEndpoint } from '../providers/provider-catalog.js';
-import { resolveContextWindow } from '../apps/shared/context-window.js';
-import type { LocalProvider, LocalProviderModel } from '../types/index.js';
-import { normalizeGoogleDisplayName, normalizeGoogleModelId } from './google-model-id.js';
-import { findModelsDevModel } from './models-dev.js';
-import type { CachedModel, ProviderRegistry, RegistryProvider } from './types.js';
-import { isValidProviderId } from './validate.js';
-import { getTemplateById } from '../providers/provider-templates.js';
-import { classifyFreeStatus, isFreeStatus } from '../apps/shared/free-models.js';
+import { shouldHideModel, type CompatibilityAgent } from '../../apps/shared/model-compatibility.js';
+import { deriveBrand } from '../../apps/shared/model-compatibility.js';
+import { resolveEndpoint } from '../provider-catalog.js';
+import { resolveContextWindow } from '../../apps/shared/context-window.js';
+import type { LocalProvider, LocalProviderModel } from '../../types/index.js';
+import { normalizeGoogleDisplayName, normalizeGoogleModelId } from '../resolver/google-model-id.js';
+import { findModelsDevModel } from '../models-dev.js';
+import type { CachedModel, ProviderRegistry, RegistryProvider } from '../types.js';
+import { isValidProviderId } from '../validation/validate.js';
+import { getTemplateById } from '../templates/provider-templates.js';
+import { classifyFreeStatus, isFreeStatus } from '../../apps/shared/free-models.js';
 
 export type CredentialResolver = (provider: RegistryProvider) => string | null;
 

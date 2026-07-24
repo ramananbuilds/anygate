@@ -1,7 +1,7 @@
 // src/gemini.ts — anygate gemini: launch Google Gemini CLI with registry providers
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { fetchProviderCatalog, providersForPicker } from '../../../src/providers/provider-catalog.js';
+import { fetchProviderCatalog, providersForPicker } from '../../../src/registry/provider-catalog.js';
 import { resolveLocalProviderApiKey } from '../../../src/storage/credentials.js';
 import { CredentialUnavailableError } from '../../../src/shared/errors.js';
 import { loadPreferences, recordLaunchSelection } from '../../../src/storage/config.js';

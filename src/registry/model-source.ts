@@ -1,7 +1,7 @@
 // src/registry/model-source.ts — resolve how a registry provider refreshes its model list
 
-import { getTemplateById, type ProviderModelSource } from '../providers/provider-templates.ts';
-import { resolveProviderTemplate } from './resolve-template.js';
+import { getTemplateById, type ProviderModelSource } from './templates/provider-templates.js';
+import { resolveProviderTemplate } from './resolver/resolve-template.js';
 import type { RegistryProvider } from './types.js';
 
 const MANUAL_ONLY_TEMPLATE_IDS = new Set(['vertex', 'bedrock', 'azure']);

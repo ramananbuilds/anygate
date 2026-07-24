@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = join(__dirname, 'data');
+const DATA_DIR = join(__dirname, '..', 'data');
 const TEMPLATES_DIR = join(DATA_DIR, 'templates');
 const PROVIDERS_DIR = join(DATA_DIR, 'providers');
 

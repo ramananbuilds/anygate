@@ -8,9 +8,9 @@ import {
   readGlobalOpencodeCredential,
 } from '../../../src/config/env.js';
 import { findOpencodeBinary } from '../../../src/providers/opencode-serve.js';
-import { zenRegistryStub } from '../../../src/registry/builtins.js';
-import { importFromOpencode } from '../../../src/registry/import-opencode.js';
-import { loadRegistry, saveRegistry } from '../../../src/registry/io.js';
+import { zenRegistryStub } from '../../../src/registry/storage/builtins.js';
+import { importFromOpencode } from '../../../src/registry/loader/import-opencode.js';
+import { loadRegistry, saveRegistry } from '../../../src/registry/storage/io.js';
 import { resolveOrCollectApiKey } from './key-setup.js';
 
 export type FirstRunResult = 'continue' | 'cancel';

@@ -12,11 +12,11 @@ import {
   closeSync,
 } from 'node:fs';
 import { dirname } from 'node:path';
-import { getAppHome, getProvidersPath } from '../config/paths.ts';
-import type { ProviderRegistry, RegistryProvider } from './types.js';
-import { REGISTRY_SCHEMA_VERSION } from './types.js';
-import { upgradeLegacyCloudProviders, upgradeOAuthOpenAiProvider, upgradeOAuthXaiProvider } from './upgrade.js';
-import { isValidProviderId } from './validate.js';
+import { getAppHome, getProvidersPath } from '../../config/paths.ts';
+import type { ProviderRegistry, RegistryProvider } from '../types.js';
+import { REGISTRY_SCHEMA_VERSION } from '../types.js';
+import { upgradeLegacyCloudProviders, upgradeOAuthOpenAiProvider, upgradeOAuthXaiProvider } from '../upgrade.js';
+import { isValidProviderId } from '../validation/validate.js';
 
 const DIR_MODE = 0o700;
 const FILE_MODE = 0o600;

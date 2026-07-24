@@ -23,9 +23,9 @@ import { BACKENDS, MAX_MODEL_CATALOG } from '../config/constants.js';
 import {
   fetchProviderCatalog,
   localProvidersToServerModels,
-} from '../providers/provider-catalog.js';
+} from '../registry/provider-catalog.js';
 import { providersForTarget } from '../apps/shared/target-compatibility.js';
-import { loadRegistry } from '../registry/io.js';
+import { loadRegistry } from '../registry/storage/io.js';
 import type { ModelInfo } from '../types/index.js';
 import type { ServerModelInfo, GatewayModelOptions } from './models.js';
 import {

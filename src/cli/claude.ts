@@ -12,11 +12,11 @@ import type { ProxyHandle, ProxyRoute } from '../gateway/anthropic-proxy.js';
 import {
   buildCatalogRoutes,
   makeRouteResolver,
-} from '../providers/provider-catalog.js';
+} from '../registry/provider-catalog.js';
 import type { ModelFormat } from '../types/index.js';
 import { loadPreferences, savePreferences, recordLaunchSelection } from '../storage/config.js';
 import { pickLocalModel, browseAllModels } from '../apps/shared/prompts.js';
-import { fetchProviderCatalog, providersForPicker, providersForPickerWithTemplates } from '../providers/provider-catalog.js';
+import { fetchProviderCatalog, providersForPicker, providersForPickerWithTemplates } from '../registry/provider-catalog.js';
 import { resolveLocalProviderApiKey } from '../storage/credentials.js';
 import { CredentialUnavailableError } from '../shared/errors.js';
 import { BACKENDS, VERSION } from '../config/constants.js';

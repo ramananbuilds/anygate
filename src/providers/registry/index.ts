@@ -6,16 +6,16 @@ import {
   formatRegistryAuthLabel,
   resolveProvidersForDisplay,
   type ProviderDisplayEntry,
-} from '../provider-catalog.js';
+} from '../../registry/provider-catalog.js';
 import {
   listVisibleOAuthTemplates,
   type ProviderTemplate,
-} from '../provider-templates.js';
-import { importFromOpencode, type ImportConflictChoice, type ImportConflictContext } from '../../registry/import-opencode.js';
-import { removeProviderFromRegistry } from '../../registry/crud.js';
-import { loadRegistry } from '../../registry/io.js';
-import { refreshProviderModels } from '../../registry/refresh-models.js';
-import { resolveRefreshCredential } from '../../registry/refresh-credentials.js';
+} from '../../registry/templates/provider-templates.js';
+import { importFromOpencode, type ImportConflictChoice, type ImportConflictContext } from '../../registry/loader/import-opencode.js';
+import { removeProviderFromRegistry } from '../../registry/storage/crud.js';
+import { loadRegistry } from '../../registry/storage/io.js';
+import { refreshProviderModels } from '../../registry/sync/refresh-models.js';
+import { resolveRefreshCredential } from '../../registry/sync/refresh-credentials.js';
 import { authenticateProvider, providerAuthHelpText, type ProviderAuthMethod } from '../../registry/provider-auth.js';
 import { printImportConflictPanel } from '../../apps/shared/ui.js';
 import { runProvidersRefreshModels } from '../models/index.js';

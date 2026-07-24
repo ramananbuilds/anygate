@@ -1,5 +1,5 @@
 import type { LocalProviderModel } from './model.js';
-import type { ProviderTemplate } from '../providers/provider-templates.js';
+import type { ProviderTemplate } from '../registry/templates/provider-templates.js';
 
 export interface LocalProvider {
   id: string;

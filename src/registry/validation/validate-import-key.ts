@@ -1,13 +1,13 @@
 // src/registry/validate-import-key.ts — verify OpenCode credentials before import
 
-import { fetchAnthropicModels } from './custom-endpoint.js';
-import { fetchTemplateModels } from './fetch-template-models.js';
-import { isLikelyPlaceholderKey } from './refresh-credentials.js';
-import { resolveModelSource } from './model-source.js';
-import { effectiveProviderBaseUrl, resolveProviderTemplate, syntheticTemplate } from './resolve-template.js';
+import { fetchAnthropicModels } from '../storage/custom-endpoint.js';
+import { fetchTemplateModels } from '../templates/fetch-template-models.js';
+import { isLikelyPlaceholderKey } from '../sync/refresh-credentials.js';
+import { resolveModelSource } from '../model-source.js';
+import { effectiveProviderBaseUrl, resolveProviderTemplate, syntheticTemplate } from '../resolver/resolve-template.js';
 import { validateCustomEndpointUrl } from './url-security.js';
-import type { RegistryProvider } from './types.js';
-import type { LocalProvider } from '../types/index.js';
+import type { RegistryProvider } from '../types.js';
+import type { LocalProvider } from '../../types/index.js';
 
 export type ImportKeySkipReason = 'placeholder-key' | 'invalid-key' | 'untested-manual';
 

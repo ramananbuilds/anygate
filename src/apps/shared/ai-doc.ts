@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { MAX_MODEL_CATALOG, VERSION } from '../../../src/config/constants.js';
 import { loadPreferences } from '../../../src/storage/config.js';
 import { getAppHome, getConfigPath, getProvidersPath } from '../../../src/config/paths.js';
-import { loadRegistry } from '../../../src/registry/io.js';
+import { loadRegistry } from '../../../src/registry/storage/io.js';
 import type { RegistryProvider } from '../../../src/registry/types.js';
 
 const SKILL_DIR_NAME = 'anygate-cli';

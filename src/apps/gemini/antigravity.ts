@@ -4,7 +4,7 @@ const SHUTDOWN_DRAIN_MS = 500;
 import * as p from '@clack/prompts';
 import { appendFileSync } from 'node:fs';
 import { loadPreferences, savePreferences } from '../../../src/storage/config.js';
-import { fetchProviderCatalog, providersForPicker } from '../../../src/providers/provider-catalog.js';
+import { fetchProviderCatalog, providersForPicker } from '../../../src/registry/provider-catalog.js';
 import { providersForTarget } from '../../../src/apps/shared/target-compatibility.js';
 import { detectConflicts, buildAntigravityChildEnv } from '../../../src/config/env.js';
 import { CredentialUnavailableError } from '../../../src/shared/errors.js';

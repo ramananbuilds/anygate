@@ -1,10 +1,10 @@
 // src/registry/load.ts — materialize registry into runtime LocalProvider[]
 
-import { resolveProviderCredential, resolveProviderOAuthAccountId, resolveProviderOAuthProviderData } from '../config/env.js';
-import type { CompatibilityAgent } from '../apps/shared/model-compatibility.ts';
-import type { LocalProvider } from '../types/index.js';
+import { resolveProviderCredential, resolveProviderOAuthAccountId, resolveProviderOAuthProviderData } from '../../config/env.js';
+import type { CompatibilityAgent } from '../../apps/shared/model-compatibility.js';
+import type { LocalProvider } from '../../types/index.js';
 import { materializeRegistry } from './materialize.js';
-import { loadRegistry } from './io.js';
+import { loadRegistry } from '../storage/io.js';
 
 /** Load enabled providers from ~/.anygate/providers.json with resolved credentials. */
 export async function loadRegistryProviders(

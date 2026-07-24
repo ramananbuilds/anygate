@@ -1,12 +1,12 @@
-﻿// src/registry/fetch-template-models.ts â€” test connection and list models for template providers
+// src/registry/fetch-template-models.ts â€” test connection and list models for template providers
 
-import { deriveBrand } from '../apps/shared/model-compatibility.js';
-import { resolveContextWindow } from '../apps/shared/context-window.js';
-import type { ProviderTemplate } from '../providers/provider-templates.js';
-import { normalizeGoogleDisplayName, normalizeGoogleModelId } from './google-model-id.js';
-import type { CachedModel } from './types.js';
-import { makeTraceLogger, getProviderDebugLogPath } from '../apps/shared/trace-log.js';
-import { classifyFreeStatus, isFreeStatus } from '../apps/shared/free-models.js';
+import { deriveBrand } from '../../apps/shared/model-compatibility.js';
+import { resolveContextWindow } from '../../apps/shared/context-window.js';
+import type { ProviderTemplate } from './provider-templates.js';
+import { normalizeGoogleDisplayName, normalizeGoogleModelId } from '../resolver/google-model-id.js';
+import type { CachedModel } from '../types.js';
+import { makeTraceLogger, getProviderDebugLogPath } from '../../apps/shared/trace-log.js';
+import { classifyFreeStatus, isFreeStatus } from '../../apps/shared/free-models.js';
 
 const TEST_TIMEOUT_MS = 10_000;
 

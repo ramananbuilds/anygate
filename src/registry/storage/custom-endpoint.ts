@@ -1,14 +1,14 @@
-﻿// src/registry/custom-endpoint.ts â€” add custom OpenAI/Anthropic-compatible providers
+// src/registry/custom-endpoint.ts â€” add custom OpenAI/Anthropic-compatible providers
 
-import { saveProviderCredential } from '../config/env.js';
-import { deriveBrand } from '../apps/shared/model-compatibility.js';
-import { resolveContextWindow } from '../apps/shared/context-window.js';
-import { fetchTemplateModels } from './fetch-template-models.js';
+import { saveProviderCredential } from '../../config/env.js';
+import { deriveBrand } from '../../apps/shared/model-compatibility.js';
+import { resolveContextWindow } from '../../apps/shared/context-window.js';
+import { fetchTemplateModels } from '../templates/fetch-template-models.js';
 import { loadRegistry, saveRegistry } from './io.js';
-import type { CachedModel, RegistryProvider } from './types.js';
-import { customProviderId, isValidProviderId, slugifyProviderId } from './validate.js';
-import { validateCustomEndpointUrl } from './url-security.js';
-import { makeTraceLogger, getProviderDebugLogPath } from '../apps/shared/trace-log.js';
+import type { CachedModel, RegistryProvider } from '../types.js';
+import { customProviderId, isValidProviderId, slugifyProviderId } from '../validation/validate.js';
+import { validateCustomEndpointUrl } from '../validation/url-security.js';
+import { makeTraceLogger, getProviderDebugLogPath } from '../../apps/shared/trace-log.js';
 
 export type CustomEndpointKind = 'openai' | 'anthropic';
 

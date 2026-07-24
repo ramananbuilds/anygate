@@ -7,18 +7,18 @@ import { existsSync, statSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { loadPreferences, recordLaunchFolder, savePreferences, setAppPathOverride } from '../storage/config.js';
-import { fetchProviderCatalog } from '../providers/provider-catalog.ts';
+import { fetchProviderCatalog } from '../registry/provider-catalog.js';
 import { favoriteProviderDisplayName } from '../apps/claude/favorites-provider-display.ts';
 import { saveProviderCredential, resolveProviderCredential } from '../config/env.js';
 import { readBody, sendJson } from '../shared/http.ts';
-import { loadRegistry } from '../registry/io.js';
-import { refreshProviderModels, refreshAllProviderModels } from '../registry/refresh-models.js';
-import { listAddableTemplates, listSupportedTemplates, listVisibleOAuthTemplates, PROVIDER_TEMPLATES, getTemplateById } from '../providers/provider-templates.ts';
-import { addProviderFromTemplate, type AddTemplateResult } from '../registry/add-template.js';
-import { addCustomEndpointProvider, type CustomEndpointKind } from '../registry/custom-endpoint.js';
-import { validateCustomEndpointUrl } from '../registry/url-security.js';
+import { loadRegistry } from '../registry/storage/io.js';
+import { refreshProviderModels, refreshAllProviderModels } from '../registry/sync/refresh-models.js';
+import { listAddableTemplates, listSupportedTemplates, listVisibleOAuthTemplates, PROVIDER_TEMPLATES, getTemplateById } from '../registry/templates/provider-templates.js';
+import { addProviderFromTemplate, type AddTemplateResult } from '../registry/templates/add-template.js';
+import { addCustomEndpointProvider, type CustomEndpointKind } from '../registry/storage/custom-endpoint.js';
+import { validateCustomEndpointUrl } from '../registry/validation/url-security.js';
 import { saveNativeOAuthCredential } from '../registry/provider-auth.js';
-import { removeProviderFromRegistry } from '../registry/crud.js';
+import { removeProviderFromRegistry } from '../registry/storage/crud.js';
 import { requestXaiDeviceCode, pollXaiDeviceCodeToken } from '../auth/xai.js';
 import { requestOpenAiDeviceCode, pollOpenAiDeviceCodeToken, openAiDeviceCodeUrl } from '../auth/openai.js';
 import { requestGithubDeviceCode, pollGithubDeviceCodeToken } from '../auth/github.js';
@@ -639,7 +639,7 @@ async function handleAddProvider(req: IncomingMessage, res: ServerResponse): Pro
     if (!templateId || typeof templateId !== 'string') {
       sendJson(res, 400, { error: 'templateId required' }); return;
     }
-    const { listSupportedTemplates } = await import('../providers/provider-templates.js');
+    const { listSupportedTemplates } = await import('../registry/templates/provider-templates.js');
     const template = listSupportedTemplates().find(t => t.id === templateId);
     if (!template) {
       sendJson(res, 404, { error: `Template '${templateId}' not found` }); return;

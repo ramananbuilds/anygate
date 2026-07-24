@@ -8,9 +8,9 @@
 // guarantees every launcher uses identical credential resolution.
 
 import { resolveProviderCredential } from '../config/env.js';
-import { getTemplateById } from '../providers/provider-templates.js';
-import { loadRegistry } from '../registry/io.js';
-import { oauthAuthRef } from '../registry/import-build.js';
+import { getTemplateById } from '../registry/templates/provider-templates.js';
+import { loadRegistry } from '../registry/storage/io.js';
+import { oauthAuthRef } from '../registry/loader/import-build.js';
 import type { LocalProvider } from '../types/index.js';
 
 /** Resolve API key when provider.apiKey is empty (registry authRef or global OpenCode key). */

@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { LocalProvider } from '../types/index.js';
-import { normalizeProviders, type RawProvider } from './provider-catalog.js';
+import { normalizeProviders, type RawProvider } from '../registry/provider-catalog.js';
 
 const isWindows = process.platform === 'win32';
 

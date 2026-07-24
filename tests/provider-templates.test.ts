@@ -6,8 +6,8 @@ import {
   listSupportedTemplates,
   listVisibleOAuthTemplates,
   PROVIDER_TEMPLATES,
-} from '../src/providers/provider-templates.js';
-import { fetchTemplateModels } from '../src/registry/fetch-template-models.js';
+} from '../src/registry/templates/provider-templates.js';
+import { fetchTemplateModels } from '../src/registry/templates/fetch-template-models.js';
 
 describe('provider templates', () => {
   it('includes groq in supported templates', () => {

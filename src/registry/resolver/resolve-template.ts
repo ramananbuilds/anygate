@@ -1,7 +1,7 @@
 // src/registry/resolve-template.ts — map imported OpenCode ids to builtin templates + default URLs
 
-import { getTemplateById, type ProviderTemplate } from '../providers/provider-templates.ts';
-import type { RegistryProvider } from './types.js';
+import { getTemplateById, type ProviderTemplate } from '../templates/provider-templates.js';
+import type { RegistryProvider } from '../types.js';
 
 /** OpenCode provider ids that differ from anygate template ids */
 const TEMPLATE_ID_ALIASES: Record<string, string> = {

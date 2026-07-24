@@ -20,7 +20,7 @@ import {
 import { sendJson, readBody } from '../shared/http.js';
 import { forwardAnthropicMessages } from '../upstream-forward.js';
 import { resolveProviderCredential } from '../config/env.js';
-import { oauthAuthRef } from '../registry/import-build.js';
+import { oauthAuthRef } from '../registry/loader/import-build.js';
 import {
   injectClaudeCodeBillingSystemLine,
   injectClaudeIdentity,

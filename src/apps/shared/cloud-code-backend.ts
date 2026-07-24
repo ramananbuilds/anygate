@@ -2,7 +2,7 @@ import { startProxyCatalog, aliasModelId, type ProxyHandle, type ProxyRoute } fr
 import { claudeCodeClientModelId } from '../../apps/shared/context-model-id.js';
 import { ANTIGRAVITY_BASE_URLS } from '../../../src/auth/antigravity-oauth.js';
 import { resolveProviderCredential } from '../../../src/config/env.js';
-import { oauthAuthRef } from '../../../src/registry/import-build.js';
+import { oauthAuthRef } from '../../../src/registry/loader/import-build.js';
 import type { LocalProviderModel } from '../../../src/types/index.js';
 
 export interface CloudCodeBackend {

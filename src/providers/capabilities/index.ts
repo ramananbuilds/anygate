@@ -1,13 +1,13 @@
 // Provider capabilities display: detail panels, cloud catalog management.
 import * as p from '@clack/prompts';
 import { loadPreferences } from '../../storage/config.js';
-import { loadRegistry } from '../../registry/io.js';
-import { toggleProviderEnabled } from '../../registry/crud.js';
+import { loadRegistry } from '../../registry/storage/io.js';
+import { toggleProviderEnabled } from '../../registry/storage/crud.js';
 import { printCloudProviderPanel, printProviderDetailPanel } from '../../apps/shared/ui.js';
 import { browseAllModels } from '../../apps/shared/prompts.js';
-import { cachedModelToLocal } from '../../registry/materialize.js';
+import { cachedModelToLocal } from '../../registry/loader/materialize.js';
 import { supportsNativeOAuth } from '../../auth/types.js';
-import { formatRegistryAuthLabel } from '../provider-catalog.js';
+import { formatRegistryAuthLabel } from '../../registry/provider-catalog.js';
 import { runProvidersRefreshModels } from '../models/index.js';
 import { runProvidersAuth, runProvidersRemove } from '../registry/index.js';
 import type { LocalProvider } from '../../types/index.js';

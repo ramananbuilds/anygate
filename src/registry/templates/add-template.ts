@@ -1,19 +1,19 @@
 // src/registry/add-template.ts — add a provider from a builtin template
 
-import { saveProviderCredential } from '../config/env.js';
-import { isSdkUpgradedNpm } from '../gateway/provider-factory.ts';
-import type { ProviderTemplate } from '../providers/provider-templates.ts';
-import { classifyFreeStatus, isFreeStatus } from '../apps/shared/free-models.ts';
+import { saveProviderCredential } from '../../config/env.js';
+import { isSdkUpgradedNpm } from '../../gateway/provider-factory.js';
+import type { ProviderTemplate } from './provider-templates.js';
+import { classifyFreeStatus, isFreeStatus } from '../../apps/shared/free-models.js';
 import { fetchTemplateModels } from './fetch-template-models.js';
-import { loadRegistry, saveRegistry } from './io.js';
+import { loadRegistry, saveRegistry } from '../storage/io.js';
 import {
   buildPricingIndex,
   enrichModelsWithPricing,
   enrichPricingAsync,
   loadPricingCache,
   pricingPlatformForProvider,
-} from './pricing.js';
-import type { RegistryProvider } from './types.js';
+} from '../pricing.js';
+import type { RegistryProvider } from '../types.js';
 
 export interface AddTemplateResult {
   added: boolean;
