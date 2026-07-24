@@ -66,21 +66,22 @@ import {
   summarizeServerProviders,
   validateCustomEndpointUrl,
   writeSecureLogLine
-} from "./chunk-WOMYFO7B.js";
+} from "./chunk-X7UBPUTB.js";
 import {
   BACKENDS,
   MAX_MODEL_CATALOG
-} from "./chunk-EAILT64O.js";
+} from "./chunk-BANVD2PF.js";
 import {
   getTemplateById,
   listSupportedTemplates,
   listVisibleOAuthTemplates
-} from "./chunk-UO7QY5I3.js";
+} from "./chunk-6AFYEDSU.js";
 import "./chunk-72WNE2IK.js";
 
 // src/ui/command.ts
 init_paths();
 import { createServer } from "http";
+import { execSync } from "child_process";
 import { readFileSync, readdirSync, writeFileSync as writeFileSync2, unlinkSync, existsSync as existsSync3, mkdirSync } from "fs";
 import { join as join2 } from "path";
 import { fileURLToPath } from "url";
@@ -88,7 +89,7 @@ import { dirname } from "path";
 import pc from "picocolors";
 import * as p from "@clack/prompts";
 
-// src/agents/shared/native-launcher.ts
+// src/apps/shared/native-launcher.ts
 init_config();
 import { chmodSync, existsSync, mkdtempSync, writeFileSync } from "fs";
 import { homedir } from "os";
@@ -606,11 +607,11 @@ function handleUiApiRequest(req, res, opts = {}) {
     handleAddCustomProvider(req, res);
   } else if (url === "/api/providers/delete" && req.method === "POST") {
     handleDeleteProvider(req, res);
-  } else if (url === "/api/providers/oauth/start" && req.method === "POST") {
+  } else if (url === "/api/providers/auth/start" && req.method === "POST") {
     handleOAuthStart(req, res);
-  } else if (url.startsWith("/api/providers/oauth/status") && req.method === "GET") {
+  } else if (url.startsWith("/api/providers/auth/status") && req.method === "GET") {
     handleOAuthStatus(req, res);
-  } else if (url.startsWith("/oauth/callback") && req.method === "GET") {
+  } else if (url.startsWith("/auth/callback") && req.method === "GET") {
     handleOAuthCallback(req, res);
   } else if (url === "/api/apps" && req.method === "GET") {
     handleGetApps(res);
@@ -1096,7 +1097,7 @@ async function handleAddProvider(req, res) {
       sendJson(res, 400, { error: "templateId required" });
       return;
     }
-    const { listSupportedTemplates: listSupportedTemplates2 } = await import("./provider-templates-AD2KSG4Q.js");
+    const { listSupportedTemplates: listSupportedTemplates2 } = await import("./provider-templates-MNJZTG3Z.js");
     const template = listSupportedTemplates2().find((t) => t.id === templateId);
     if (!template) {
       sendJson(res, 404, { error: `Template '${templateId}' not found` });
@@ -1622,7 +1623,7 @@ async function handleBrowseFolder(res) {
 
 // src/ui/command.ts
 var __dirname = dirname(fileURLToPath(import.meta.url));
-var PUBLIC_DIR = join2(__dirname, "ui", "dist");
+var PUBLIC_DIR = join2(__dirname, "app", "dist");
 var LOCK_FILE = join2(getAppHome(), "ui.lock");
 var MIME = {
   ".html": "text/html; charset=utf-8",
@@ -1695,7 +1696,7 @@ function checkExistingServer() {
   return null;
 }
 function isUiApiRoute(url) {
-  return url.startsWith("/api/") || url.startsWith("/oauth/callback");
+  return url.startsWith("/api/") || url.startsWith("/auth/callback");
 }
 function formatUiServerLifecycleMessage(event) {
   if (event.type === "stopped") return "\u25C7 Server Gateway stopped";
@@ -1820,4 +1821,4 @@ export {
   resolveUiShutdownDecision,
   runUiCommand
 };
-//# sourceMappingURL=command-J6V6KMIA.js.map
+//# sourceMappingURL=command-3OFEKFOJ.js.map

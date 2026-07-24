@@ -6792,14 +6792,15 @@ var glob = Object.assign(glob_, {
 });
 glob.glob = glob;
 
-// src/providers/provider-templates.ts
+// src/registry/templates/provider-templates.ts
 import { readFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath as fileURLToPath3 } from "url";
 var __dirname = dirname(fileURLToPath3(import.meta.url));
 function getTemplatesDir() {
+  const srcPath = join(__dirname, "..", "data", "templates");
   const distPath = join(__dirname, "registry", "data", "templates");
-  const srcPath = join(__dirname, "..", "registry", "data", "templates");
+  if (existsSync(srcPath)) return srcPath;
   if (existsSync(distPath)) return distPath;
   return srcPath;
 }
@@ -6930,4 +6931,4 @@ export {
   getTemplateById,
   filterTemplates
 };
-//# sourceMappingURL=chunk-UO7QY5I3.js.map
+//# sourceMappingURL=chunk-6AFYEDSU.js.map

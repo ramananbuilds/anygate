@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// src/core/constants.ts
+// src/config/constants.ts
 import { homedir } from "os";
 import { join } from "path";
 
@@ -51,8 +51,8 @@ var package_default = {
     typecheck: "tsc --noEmit",
     "refresh:models-dev": "node scripts/refresh-models-dev-cache.mjs",
     prepublishOnly: `node -e "if (require('./package.json').version !== require('./package-lock.json').version) { console.error('Error: package.json and package-lock.json versions are out of sync! Run npm install to sync.'); process.exit(1); }" && npm run build`,
-    "ui:dev": "npm --prefix ui run dev",
-    "ui:build": "npm --prefix ui run build"
+    "ui:dev": "npm --prefix src/ui/app run dev",
+    "ui:build": "npm --prefix src/ui/app run build"
   },
   dependencies: {
     "@ai-sdk/alibaba": "^1.0.26",
@@ -100,7 +100,7 @@ var package_default = {
   }
 };
 
-// src/core/constants.ts
+// src/config/constants.ts
 var BACKENDS = {
   zen: {
     id: "zen",
@@ -165,4 +165,4 @@ export {
   classifyModelFormat,
   VERSION
 };
-//# sourceMappingURL=chunk-EAILT64O.js.map
+//# sourceMappingURL=chunk-BANVD2PF.js.map
