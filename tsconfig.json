@@ -15,5 +15,6 @@
     "isolatedModules": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/ui/app"]
 }

@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+
+/* Design tokens — ported from the existing oklch palette (dark default + light). */
+@import './src/styles/tokens.css';
+
+@source "../src/**/*.{svelte,ts}";
