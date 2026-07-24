@@ -26,7 +26,7 @@ jobs:
 
       # Install UI dependencies so vite-plugin-svelte resolves in CI.
       - name: Install UI dependencies
-        run: npm ci --prefix ui
+        run: npm ci --prefix src/ui/app
 
       - run: npm run build
 
