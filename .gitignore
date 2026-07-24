@@ -26,3 +26,7 @@ ANTIGRAVITY-DEBUG-SESSION.md
 
 # scratch build/test logs
 *.out.txt
+
+# Untracked context directory
+context/
+
