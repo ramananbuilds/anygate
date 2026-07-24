@@ -29,5 +29,5 @@ Checks:
 `);
     return 0;
   }
-  return runDoctorCommand(parsed.dryRun);
+  return runDoctorCommand(Boolean(parsed.dryRun));
 }

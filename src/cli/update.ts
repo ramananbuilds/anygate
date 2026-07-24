@@ -22,5 +22,5 @@ Options:
 `);
     return 0;
   }
-  return runUpdateCommand(parsed.dryRun);
+  return runUpdateCommand(Boolean(parsed.dryRun));
 }
