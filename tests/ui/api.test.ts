@@ -18,8 +18,8 @@ const state = vi.hoisted(() => ({
   updateInfo: { current: '0.1.0', latest: '0.4.4', updateAvailable: false } as any,
 }));
 
-vi.mock('../../src/providers/provider-catalog.js', async () => {
-  const actual = await vi.importActual<typeof import('../../src/providers/provider-catalog.js')>('../../src/providers/provider-catalog.js');
+vi.mock('../../src/registry/provider-catalog.js', async () => {
+  const actual = await vi.importActual<typeof import('../../src/registry/provider-catalog.js')>('../../src/registry/provider-catalog.js');
   return {
     ...actual,
     fetchProviderCatalog: vi.fn(async () => state.catalog),

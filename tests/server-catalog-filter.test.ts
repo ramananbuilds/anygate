@@ -4,9 +4,9 @@ import {
   filterServerModelsByFavorites,
   filterServerModelsByProviders,
   summarizeServerProviders,
-} from '../src/gateway/catalog-filter.js';
-import { resolveInitialServerProviders } from '../src/gateway/provider-select.js';
-import type { ServerModelInfo } from '../src/gateway/models.js';
+} from '../src/gateway/server/catalog-filter.js';
+import { resolveInitialServerProviders } from '../src/gateway/providers/provider-select.js';
+import type { ServerModelInfo } from '../src/gateway/server/models.js';
 
 function model(partial: Partial<ServerModelInfo> & Pick<ServerModelInfo, 'id' | 'providerId'>): ServerModelInfo {
   return {

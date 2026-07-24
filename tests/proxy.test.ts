@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
-import { aliasModelId, startProxyCatalog, type ProxyRoute } from '../src/gateway/anthropic-proxy.js';
+import { aliasModelId, startProxyCatalog, type ProxyRoute } from '../src/gateway/proxy/anthropic-proxy.js';
 import { getProxyDebugLogPath } from '../src/apps/shared/trace-log.js';
 
 /** POST JSON to a local proxy via node:http (avoids vi.stubGlobal('fetch') interception). */

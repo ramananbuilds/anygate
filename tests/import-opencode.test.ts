@@ -5,7 +5,7 @@ import type { RegistryProvider } from '../src/registry/types.js';
 vi.mock('../src/providers/opencode-serve.js', () => ({
   fetchRawOpencodeProviders: vi.fn(),
 }));
-vi.mock('../src/registry/io.js', () => ({
+vi.mock('../src/registry/storage/io.js', () => ({
   loadRegistry: vi.fn(),
   saveRegistry: vi.fn(),
 }));
@@ -17,8 +17,8 @@ vi.mock('../src/registry/opencode-auth.js', () => ({
   readOpencodeAuthFile: vi.fn(() => ({ entries: {} })),
   oauthCredentialToKeychainJson: vi.fn(),
 }));
-vi.mock('../src/registry/validate-import-key.js', async importOriginal => {
-  const actual = await importOriginal<typeof import('../src/registry/validate-import-key.js')>();
+vi.mock('../src/registry/validation/validate-import-key.js', async importOriginal => {
+  const actual = await importOriginal<typeof import('../src/registry/validation/validate-import-key.js')>();
   return {
     ...actual,
     validateImportKey: vi.fn(),
@@ -26,11 +26,11 @@ vi.mock('../src/registry/validate-import-key.js', async importOriginal => {
 });
 
 import { fetchRawOpencodeProviders } from '../src/providers/opencode-serve.js';
-import { loadRegistry, saveRegistry } from '../src/registry/io.js';
+import { loadRegistry, saveRegistry } from '../src/registry/storage/io.js';
 import { saveProviderCredential } from './../src/config/env.js';
-import { importFromOpencode } from '../src/registry/import-opencode.js';
-import { validateImportKey } from '../src/registry/validate-import-key.js';
-import { goRegistryStub, zenRegistryStub } from '../src/registry/builtins.js';
+import { importFromOpencode } from '../src/registry/loader/import-opencode.js';
+import { validateImportKey } from '../src/registry/validation/validate-import-key.js';
+import { goRegistryStub, zenRegistryStub } from '../src/registry/storage/builtins.js';
 
 const groqLocal: LocalProvider = {
   id: 'groq',

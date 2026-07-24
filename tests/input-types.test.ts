@@ -1,7 +1,7 @@
 // tests/input-types.test.ts
 import { describe, it, expect } from 'vitest';
 import { resolveInputTypes } from '../src/registry/models-dev.js';
-import { formatAnthropicModelEntry, formatAnthropicModelList } from '../src/gateway/models.js';
+import { formatAnthropicModelEntry, formatAnthropicModelList } from '../src/gateway/server/models.js';
 
 // Minimal cache shape for deterministic unit tests (skips the 2.26MB bundled file).
 type Cache = Record<string, { models?: Record<string, { modalities?: { input?: string[] } }> }>;

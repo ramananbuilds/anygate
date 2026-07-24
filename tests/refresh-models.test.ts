@@ -1,20 +1,20 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { refreshProviderModels } from '../src/registry/refresh-models.js';
+import { refreshProviderModels } from '../src/registry/sync/refresh-models.js';
 import type { ProviderRegistry } from '../src/registry/types.js';
 
-vi.mock('../src/registry/fetch-template-models.js', () => ({
+vi.mock('../src/registry/templates/fetch-template-models.js', () => ({
   fetchTemplateModels: vi.fn(),
 }));
-vi.mock('../src/registry/custom-endpoint.js', () => ({
+vi.mock('../src/registry/storage/custom-endpoint.js', () => ({
   fetchAnthropicModels: vi.fn(),
 }));
-vi.mock('../src/registry/io.js', () => ({
+vi.mock('../src/registry/storage/io.js', () => ({
   loadRegistry: vi.fn(() => ({ version: 1, providers: [] })),
   saveRegistry: vi.fn(),
 }));
 
-import { fetchTemplateModels } from '../src/registry/fetch-template-models.js';
-import { saveRegistry } from '../src/registry/io.js';
+import { fetchTemplateModels } from '../src/registry/templates/fetch-template-models.js';
+import { saveRegistry } from '../src/registry/storage/io.js';
 
 describe('refreshProviderModels', () => {
   beforeEach(() => {

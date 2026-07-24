@@ -97,7 +97,7 @@ vi.mock('../src/apps/shared/cloud-code-backend.js', () => ({
   }),
 }));
 
-vi.mock('../src/providers/provider-catalog.js', () => ({
+vi.mock('../src/registry/provider-catalog.js', () => ({
   fetchProviderCatalog: mocks.fetchProviderCatalog,
   providersForPicker: mocks.providersForPicker,
   resolveLocalProviderApiKey: mocks.resolveLocalProviderApiKey,
@@ -118,8 +118,8 @@ vi.mock('../src/apps/codex/proxy.js', () => ({
   startCodexProxy: mocks.startCodexProxy,
 }));
 
-vi.mock('../src/gateway/vertex.js', async importOriginal => {
-  const actual = await importOriginal<typeof import('../src/gateway/vertex.js')>();
+vi.mock('../src/gateway/adapters/vertex.js', async importOriginal => {
+  const actual = await importOriginal<typeof import('../src/gateway/adapters/vertex.js')>();
   return {
     ...actual,
     hasApplicationDefaultCredentials: vi.fn(() => true),

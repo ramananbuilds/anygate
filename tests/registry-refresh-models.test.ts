@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { refreshProviderModels } from '../src/registry/refresh-models.js';
-import * as io from '../src/registry/io.js';
+import { refreshProviderModels } from '../src/registry/sync/refresh-models.js';
+import * as io from '../src/registry/storage/io.js';
 import type { ProviderRegistry } from '../src/registry/types.js';
 
-vi.mock('../src/registry/io.js', () => ({
+vi.mock('../src/registry/storage/io.js', () => ({
   loadRegistry: vi.fn(),
   saveRegistry: vi.fn(),
 }));

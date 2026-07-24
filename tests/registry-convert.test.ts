@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { localProviderToRegistry } from '../src/registry/convert.js';
+import { localProviderToRegistry } from '../src/registry/storage/convert.js';
 import type { LocalProvider } from './../src/types/index.js';
 
 const sampleProvider: LocalProvider = {

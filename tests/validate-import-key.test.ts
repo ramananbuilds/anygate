@@ -1,18 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { isLikelyPlaceholderKey } from '../src/registry/refresh-credentials.js';
-import { validateImportKey } from '../src/registry/validate-import-key.js';
+import { isLikelyPlaceholderKey } from '../src/registry/sync/refresh-credentials.js';
+import { validateImportKey } from '../src/registry/validation/validate-import-key.js';
 import type { LocalProvider } from './../src/types/index.js';
 import type { RegistryProvider } from '../src/registry/types.js';
 
-vi.mock('../src/registry/fetch-template-models.js', () => ({
+vi.mock('../src/registry/templates/fetch-template-models.js', () => ({
   fetchTemplateModels: vi.fn(),
 }));
-vi.mock('../src/registry/custom-endpoint.js', () => ({
+vi.mock('../src/registry/storage/custom-endpoint.js', () => ({
   fetchAnthropicModels: vi.fn(),
 }));
 
-import { fetchTemplateModels } from '../src/registry/fetch-template-models.js';
-import { fetchAnthropicModels } from '../src/registry/custom-endpoint.js';
+import { fetchTemplateModels } from '../src/registry/templates/fetch-template-models.js';
+import { fetchAnthropicModels } from '../src/registry/storage/custom-endpoint.js';
 
 const baseRegistry = (over: Partial<RegistryProvider>): RegistryProvider => ({
   id: 'groq',

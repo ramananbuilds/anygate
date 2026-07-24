@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
-vi.mock('../src/gateway/anthropic-proxy.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/gateway/anthropic-proxy.js')>();
+vi.mock('../src/gateway/proxy/anthropic-proxy.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/gateway/proxy/anthropic-proxy.js')>();
   return {
     ...actual,
     startProxyCatalog: vi.fn().mockResolvedValue({ port: 49999, token: 'proxy-token-xyz', close: vi.fn() }),
@@ -23,7 +23,7 @@ import {
   partitionAndStartCloudCodeBackend,
   startCloudCodeCatalogBackend,
 } from '../src/apps/shared/cloud-code-backend.js';
-import { startProxyCatalog } from '../src/gateway/anthropic-proxy.js';
+import { startProxyCatalog } from '../src/gateway/proxy/anthropic-proxy.js';
 import type { LocalProviderModel } from './../src/types/index.js';
 
 const model: LocalProviderModel = {

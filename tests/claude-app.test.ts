@@ -41,10 +41,10 @@ vi.mock('../src/apps/claude/desktop-app.js', () => ({
   writeAnygateIConfig: vi.fn(() => 'test-session-uuid'),
   getClaudeDesktopHome: vi.fn(() => '/tmp/anygate-test-claude-home'),
 }));
-vi.mock('../src/registry/load.js', () => ({
+vi.mock('../src/registry/loader/load.js', () => ({
   loadRegistryProviders: vi.fn(async () => state.providers),
 }));
-vi.mock('../src/registry/io.js', () => ({
+vi.mock('../src/registry/storage/io.js', () => ({
   loadRegistry: vi.fn(() => ({ schemaVersion: 1, providers: [] })),
 }));
 vi.mock('../src/storage/config.js', () => ({
@@ -56,7 +56,7 @@ vi.mock('../src/config/env.js', () => ({
   resolveApiKey: vi.fn(() => 'resolved-token'),
   readFromCredentialStore: vi.fn(async () => null),
 }));
-vi.mock('../src/gateway/router.js', () => ({
+vi.mock('../src/gateway/server/router.js', () => ({
   startServer: vi.fn(async (options: any) => {
     state.startServerOptions = options;
     return {
@@ -249,7 +249,7 @@ describe('runClaudeAppCommand', () => {
     // Both favorites must be present in the catalog exposed to Claude Desktop.
     expect(models.map((m: any) => m.id).sort()).toEqual(['claude-opus-4-7', 'gpt-5.5']);
     // And the discovery-facing /v1/models payload must list both unique alias ids.
-    const { formatGatewayAnthropicModels } = await import('../src/gateway/models.js');
+    const { formatGatewayAnthropicModels } = await import('../src/gateway/server/models.js');
     const listed = formatGatewayAnthropicModels(models, { maskGatewayIds: true });
     expect(listed.data.length).toBe(2);
     expect(listed.data.map((m: any) => m.id)).toEqual(

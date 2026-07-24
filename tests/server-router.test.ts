@@ -1,19 +1,19 @@
 import { createServer, type Server } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createGatewayModelCatalog, type ServerModelInfo } from '../src/gateway/models.js';
-import { startServer, type ServerHandle } from '../src/gateway/router.js';
-import { createLanguageModel } from '../src/gateway/provider-factory.js';
+import { createGatewayModelCatalog, type ServerModelInfo } from '../src/gateway/server/models.js';
+import { startServer, type ServerHandle } from '../src/gateway/server/router.js';
+import { createLanguageModel } from '../src/gateway/providers/provider-factory.js';
 
-vi.mock('../src/gateway/provider-factory.js', async importOriginal => {
-  const actual = await importOriginal<typeof import('../src/gateway/provider-factory.js')>();
+vi.mock('../src/gateway/providers/provider-factory.js', async importOriginal => {
+  const actual = await importOriginal<typeof import('../src/gateway/providers/provider-factory.js')>();
   return {
     ...actual,
     createLanguageModel: vi.fn(async (spec: unknown) => ({ spec })),
   };
 });
 
-vi.mock('../src/gateway/sdk-adapter.js', async importOriginal => {
-  const actual = await importOriginal<typeof import('../src/gateway/sdk-adapter.js')>();
+vi.mock('../src/gateway/adapters/sdk-adapter.js', async importOriginal => {
+  const actual = await importOriginal<typeof import('../src/gateway/adapters/sdk-adapter.js')>();
   return {
     ...actual,
     generateAnthropicResponse: vi.fn(async (_model: unknown, _params: unknown, modelId: string) => ({
@@ -29,8 +29,8 @@ vi.mock('../src/gateway/sdk-adapter.js', async importOriginal => {
   };
 });
 
-vi.mock('../src/gateway/openai-adapter.js', async importOriginal => {
-  const actual = await importOriginal<typeof import('../src/gateway/openai-adapter.js')>();
+vi.mock('../src/gateway/adapters/openai-adapter.js', async importOriginal => {
+  const actual = await importOriginal<typeof import('../src/gateway/adapters/openai-adapter.js')>();
   return {
     ...actual,
     generateOpenAiResponse: vi.fn(async (_model: unknown, _params: unknown, modelId: string) => ({

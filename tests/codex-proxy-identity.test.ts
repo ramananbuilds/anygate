@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createLanguageModel } from '../src/gateway/provider-factory.js';
+import { createLanguageModel } from '../src/gateway/providers/provider-factory.js';
 import { generateResponsesResponse } from '../src/apps/codex/responses-adapter.js';
 import { startCodexProxy, type CodexProxyHandle } from '../src/apps/codex/proxy.js';
 
-vi.mock('../src/gateway/provider-factory.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/gateway/provider-factory.js')>();
+vi.mock('../src/gateway/providers/provider-factory.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/gateway/providers/provider-factory.js')>();
   return {
     ...actual,
     createLanguageModel: vi.fn().mockResolvedValue({}),

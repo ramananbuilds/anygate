@@ -3,8 +3,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { needsFirstRunSetup } from '../src/apps/shared/first-run.js';
-import { emptyRegistry, saveRegistry } from '../src/registry/io.js';
-import { zenRegistryStub } from '../src/registry/builtins.js';
+import { emptyRegistry, saveRegistry } from '../src/registry/storage/io.js';
+import { zenRegistryStub } from '../src/registry/storage/builtins.js';
 import * as env from './../src/config/env.js';
 
 describe('needsFirstRunSetup', () => {

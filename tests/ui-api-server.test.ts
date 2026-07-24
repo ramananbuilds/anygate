@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ServerModelInfo } from '../src/gateway/models.js';
+import type { ServerModelInfo } from '../src/gateway/server/models.js';
 import type { FavoriteModel } from './../src/types/index.js';
 import { createMockRequest, createMockResponse } from './helpers/ui-api-test-utils.js';
 import { VERSION } from './../src/config/constants.js';
@@ -32,8 +32,8 @@ const state = vi.hoisted(() => ({
   favorites: [] as FavoriteModel[],
 }));
 
-vi.mock('../src/gateway/server.js', async () => {
-  const actual = await vi.importActual<typeof import('../src/gateway/server.js')>('../src/gateway/server.js');
+vi.mock('../src/gateway/server/server.js', async () => {
+  const actual = await vi.importActual<typeof import('../src/gateway/server/server.js')>('../src/gateway/server/server.js');
   return {
     ...actual,
     loadServerModels: vi.fn(async () => state.models),
@@ -64,7 +64,7 @@ vi.mock('../src/storage/config.js', async () => {
   };
 });
 
-vi.mock('../src/gateway/router.js', () => ({
+vi.mock('../src/gateway/server/router.js', () => ({
   startServer: vi.fn(async (options: any) => {
     if (state.failNextStartWithPortConflict) {
       state.failNextStartWithPortConflict = false;

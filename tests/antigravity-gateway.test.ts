@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateText, streamText } from 'ai';
-import { createLanguageModel } from '../src/gateway/provider-factory.js';
+import { createLanguageModel } from '../src/gateway/providers/provider-factory.js';
 import { startCloudCodeGateway, type CloudCodeGatewayHandle } from '../src/gateway/antigravity/cloud-code-gateway.js';
 import type { AntigravityRoute } from '../src/gateway/antigravity/types.js';
 
@@ -33,7 +33,7 @@ vi.mock('ai', () => {
   };
 });
 
-vi.mock('../src/gateway/provider-factory.js', () => {
+vi.mock('../src/gateway/providers/provider-factory.js', () => {
   return {
     createLanguageModel: vi.fn().mockResolvedValue({}),
     deepMergeProviderOptions: vi.fn((a, b) => {

@@ -42,11 +42,11 @@ vi.mock('../src/auth/claude-code.js', () => ({
 vi.mock('../src/config/env.js', () => ({
   saveProviderCredential: vi.fn(async () => false),
 }));
-vi.mock('../src/registry/io.js', () => ({
+vi.mock('../src/registry/storage/io.js', () => ({
   loadRegistry: vi.fn(() => ({ version: 1, providers: [] })),
   saveRegistry: vi.fn(),
 }));
-vi.mock('../src/registry/refresh-models.js', () => ({
+vi.mock('../src/registry/sync/refresh-models.js', () => ({
   refreshProviderModels: vi.fn(),
 }));
 vi.mock('@clack/prompts', () => ({
@@ -57,7 +57,7 @@ vi.mock('@clack/prompts', () => ({
 }));
 
 import { saveProviderCredential } from './../src/config/env.js';
-import { saveRegistry } from '../src/registry/io.js';
+import { saveRegistry } from '../src/registry/storage/io.js';
 import { authenticateProvider } from '../src/registry/provider-auth.js';
 import { runOpencodeAuthBroker } from '../src/registry/auth-broker.js';
 import { runAntigravityOAuthFlow } from '../src/auth/antigravity-oauth.js';

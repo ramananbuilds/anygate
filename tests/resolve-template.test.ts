@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { effectiveProviderBaseUrl, resolveProviderTemplate } from '../src/registry/resolve-template.js';
+import { effectiveProviderBaseUrl, resolveProviderTemplate } from '../src/registry/resolver/resolve-template.js';
 import type { RegistryProvider } from '../src/registry/types.js';
 
 function stub(partial: Partial<RegistryProvider> & Pick<RegistryProvider, 'id' | 'templateId'>): RegistryProvider {

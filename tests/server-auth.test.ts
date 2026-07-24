@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractBearerToken, isAuthorized, sanitizeCredential } from '../src/gateway/auth.js';
+import { extractBearerToken, isAuthorized, sanitizeCredential } from '../src/gateway/server/auth.js';
 
 function request(headers: Record<string, string> = {}): Request {
   return new Request('http://localhost/test', { headers });

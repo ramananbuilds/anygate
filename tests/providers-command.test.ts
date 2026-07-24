@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { parseProvidersArgs, providerHubChoiceValue, providersHelpText, runProvidersAdd } from '../src/providers/command.js';
+import { parseProvidersArgs, providerHubChoiceValue, providersHelpText, runProvidersAdd } from '../src/cli/providers-command.js';
 import {
   addZenRegistryStub,
   removeProviderFromRegistry,

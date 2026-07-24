@@ -3,7 +3,7 @@ import {
   normalizeGoogleDisplayName,
   normalizeGoogleModelId,
   stripGoogleModelPrefix,
-} from '../src/registry/google-model-id.js';
+} from '../src/registry/resolver/google-model-id.js';
 
 describe('google model id normalization', () => {
   it('strips models/ prefix for @ai-sdk/google', () => {

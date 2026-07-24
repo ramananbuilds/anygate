@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isLikelyPlaceholderKey, isPlaceholderProviderKey, resolveRefreshCredential } from '../src/registry/refresh-credentials.js';
+import { isLikelyPlaceholderKey, isPlaceholderProviderKey, resolveRefreshCredential } from '../src/registry/sync/refresh-credentials.js';
 import type { RegistryProvider } from '../src/registry/types.js';
 
 function makeProvider(overrides: Partial<RegistryProvider> = {}): RegistryProvider {

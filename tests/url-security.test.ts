@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { validateCustomEndpointUrl } from '../src/registry/url-security.js';
+import { validateCustomEndpointUrl } from '../src/registry/validation/url-security.js';
 
 describe('validateCustomEndpointUrl', () => {
   afterEach(() => {

@@ -12,7 +12,7 @@ import {
   buildImportProviderList,
   classifyOpencodeCredentialGap,
   listCredentialSkippedProviders,
-} from '../src/registry/import-build.js';
+} from '../src/registry/loader/import-build.js';
 import type { RawProvider } from '../src/providers/provider-catalog.js';
 
 describe.skipIf(process.platform === 'win32')('resolveOpencodeAuthPath', () => {

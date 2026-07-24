@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { translateTools, translateRequest } from '../src/gateway/sdk-adapter.js';
+import { translateTools, translateRequest } from '../src/gateway/adapters/sdk-adapter.js';
 
 describe('translateTools — web search substitution', () => {
   it('replaces a hosted web_search tool with a local executable tool', () => {

@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   fitContextWindow,
   estimateContextTokens,
-} from '../src/gateway/context-fit.js';
-import type { AnthropicMsg } from '../src/gateway/sdk-adapter.js';
+} from '../src/gateway/context/context-fit.js';
+import type { AnthropicMsg } from '../src/gateway/adapters/sdk-adapter.js';
 
 // 1 char ~=1/4 token, so ~400 chars ~= 100 tokens. Keep window tight in tests.
 

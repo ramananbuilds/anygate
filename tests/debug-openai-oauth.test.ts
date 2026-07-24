@@ -1,5 +1,5 @@
 import { describe, it } from 'vitest';
-import { loadRegistry } from '../src/registry/io.js';
+import { loadRegistry } from '../src/registry/storage/io.js';
 import { resolveProviderCredential, resolveProviderOAuthAccountId } from './../src/config/env.js';
 
 function extractModels(data: unknown): any[] {

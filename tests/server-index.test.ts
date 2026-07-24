@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ModelInfo } from './../src/types/index.js';
-import type { ServerModelInfo } from '../src/gateway/models.js';
+import type { ServerModelInfo } from '../src/gateway/server/models.js';
 
 const originalStdinIsTTY = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
 const originalSetRawMode = Object.getOwnPropertyDescriptor(process.stdin, 'setRawMode');
@@ -70,8 +70,8 @@ vi.mock('../src/apps/shared/model-compatibility.js', () => ({
 // model-compatibility.shouldHideModel, getReasoningCapabilities, …) isn't
 // exercised by these tests. Stub the loader/auth/ip helpers the way
 // ui-api-server.test.ts does, so the wizard/startServer flow is isolated.
-vi.mock('../src/gateway/server.js', async () => {
-  const actual = await vi.importActual<typeof import('../src/gateway/server.js')>('../src/gateway/server.js');
+vi.mock('../src/gateway/server/server.js', async () => {
+  const actual = await vi.importActual<typeof import('../src/gateway/server/server.js')>('../src/gateway/server/server.js');
   return {
     ...actual,
     loadServerModels: vi.fn(async () => models),
@@ -80,7 +80,7 @@ vi.mock('../src/gateway/server.js', async () => {
   };
 });
 
-vi.mock('../src/registry/load.js', () => ({
+vi.mock('../src/registry/loader/load.js', () => ({
   loadRegistryProviders: vi.fn(async () => [
     {
       id: 'zen',
@@ -102,11 +102,11 @@ vi.mock('../src/registry/load.js', () => ({
   ]),
 }));
 
-vi.mock('../src/registry/io.js', () => ({
+vi.mock('../src/registry/storage/io.js', () => ({
   loadRegistry: vi.fn(() => ({ schemaVersion: 1, providers: [] })),
 }));
 
-vi.mock('../src/gateway/prompts.js', () => ({
+vi.mock('../src/gateway/context/prompts.js', () => ({
   askServerStartMode: state.askServerStartMode,
   askFavoritesOnly: state.askFavoritesOnly,
   askFreeModelsOnly: async () => false,
@@ -117,11 +117,11 @@ vi.mock('../src/gateway/prompts.js', () => ({
   askUseSavedServerPassword: state.askUseSavedServerPassword,
 }));
 
-vi.mock('../src/gateway/provider-select.js', () => ({
+vi.mock('../src/gateway/providers/provider-select.js', () => ({
   selectServerProviders: vi.fn(async () => []),
 }));
 
-vi.mock('../src/gateway/router.js', () => ({
+vi.mock('../src/gateway/server/router.js', () => ({
   startServer: vi.fn(async (options: any) => {
     state.startServerOptions = options;
     return {
@@ -179,7 +179,7 @@ describe('runServerCommand', () => {
   });
 
   it('starts local mode on 127.0.0.1 without server password auth', async () => {
-    const { runServerCommand } = await import('../src/gateway/server.js');
+    const { runServerCommand } = await import('../src/gateway/server/server.js');
     const result = runServerCommand();
     await vi.waitFor(() => expect(state.startServerOptions).not.toBeNull());
     process.emit('SIGINT');
@@ -198,7 +198,7 @@ describe('runServerCommand', () => {
     state.listenMode = 'network';
     state.savePassword = true;
 
-    const { runServerCommand } = await import('../src/gateway/server.js');
+    const { runServerCommand } = await import('../src/gateway/server/server.js');
     const result = runServerCommand();
     await vi.waitFor(() => expect(state.startServerOptions).not.toBeNull());
     process.emit('SIGTERM');
@@ -216,7 +216,7 @@ describe('runServerCommand', () => {
     state.savedPassword = 'saved-password';
     state.savedChoice = 'use-saved';
 
-    const { runServerCommand } = await import('../src/gateway/server.js');
+    const { runServerCommand } = await import('../src/gateway/server/server.js');
     const result = runServerCommand();
     await vi.waitFor(() => expect(state.startServerOptions).not.toBeNull());
     process.emit('SIGINT');
@@ -232,7 +232,7 @@ describe('runServerCommand', () => {
   it('quick starts from saved settings without prompting for start mode or listen mode', async () => {
     state.savedListenMode = 'local';
 
-    const { runServerCommand } = await import('../src/gateway/server.js');
+    const { runServerCommand } = await import('../src/gateway/server/server.js');
     const result = runServerCommand({ quick: true } as any);
     await vi.waitFor(() => expect(state.startServerOptions).not.toBeNull());
     process.emit('SIGINT');
@@ -247,7 +247,7 @@ describe('runServerCommand', () => {
   });
 
   it('quick network launch can use a one-run password flag without password prompts', async () => {
-    const { runServerCommand } = await import('../src/gateway/server.js');
+    const { runServerCommand } = await import('../src/gateway/server/server.js');
     const result = runServerCommand({ quick: true, listenMode: 'network', password: 'one-run-secret' } as any);
     await vi.waitFor(() => expect(state.startServerOptions).not.toBeNull());
     process.emit('SIGINT');
@@ -268,7 +268,7 @@ describe('runServerCommand', () => {
     state.savedPassword = null;
     state.serverPassword = null;
 
-    const { runServerCommand } = await import('../src/gateway/server.js');
+    const { runServerCommand } = await import('../src/gateway/server/server.js');
     const result = await runServerCommand({ quick: true, listenMode: 'network' } as any);
 
     expect(result).toBe(1);
@@ -281,7 +281,7 @@ describe('runServerCommand', () => {
 
 describe('formatModelCatalogLines', () => {
   it('formats models as compact one-line rows and hides exact duplicate rows', async () => {
-    const { formatModelCatalogLines } = await import('../src/gateway/server.js');
+    const { formatModelCatalogLines } = await import('../src/gateway/server/server.js');
     const catalogModels: ServerModelInfo[] = [
       {
         id: 'deepseek-v4-flash',

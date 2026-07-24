@@ -7,9 +7,9 @@ import {
   formatRegistryAuthLabel,
   providersForPicker,
   resolveProvidersForDisplay,
-} from '../src/providers/provider-catalog.js';
+} from '../src/registry/provider-catalog.js';
 import { resolveLocalProviderApiKey } from '../src/storage/credentials.js';
-import { emptyRegistry, saveRegistry } from '../src/registry/io.js';
+import { emptyRegistry, saveRegistry } from '../src/registry/storage/io.js';
 
 describe('provider-catalog-display', () => {
   let home: string;

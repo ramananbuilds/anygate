@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mergeModels } from '../src/apps/shared/model-compatibility.js';
-import { materializeRegistry } from '../src/registry/materialize.js';
+import { materializeRegistry } from '../src/registry/loader/materialize.js';
 import {
   findBlacklistEntry,
   hideReason,
@@ -14,7 +14,7 @@ import {
   stripModelsDevCacheMeta,
 } from '../src/registry/models-dev.js';
 import { isRoutableModel } from '../src/apps/codex/routing.js';
-import { normalizeProviders } from '../src/providers/provider-catalog.js';
+import { normalizeProviders } from '../src/registry/provider-catalog.js';
 import type { LocalProviderModel } from './../src/types/index.js';
 
 describe('shouldHideModel', () => {
