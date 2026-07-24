@@ -1,0 +1,118 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const hoisted = vi.hoisted(() => {
+  const spawnMock = vi.fn();
+  return { spawnMock };
+});
+
+// Mock the update check so we never hit the npm registry.
+vi.mock('../../src/apps/shared/update-check.js', () => ({
+  checkForUpdates: vi.fn(async () => ({
+    currentVersion: '0.5.3',
+    latestVersion: null,
+    updateAvailable: false,
+  })),
+  UPDATE_COMMAND: 'npm install -g anygate@latest',
+}));
+
+// Mock @clack/prompts confirm (non-configurable export otherwise).
+vi.mock('@clack/prompts', () => ({
+  confirm: vi.fn(async () => false),
+  isCancel: vi.fn(() => false),
+  log: {
+    info: vi.fn(),
+    success: vi.fn(),
+    step: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+// Mock node:child_process so the dry-run / declined paths can assert that
+// spawn is never called (and the confirm path can verify it).
+vi.mock('node:child_process', () => ({
+  spawn: hoisted.spawnMock,
+  execFileSync: vi.fn(() => Buffer.from('')),
+}));
+
+import { runUpdateCommand } from '../../src/apps/shared/self-update.js';
+import { VERSION } from '../../src/config/constants.js';
+
+describe('update command', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    hoisted.spawnMock.mockClear();
+  });
+
+  it('reports up-to-date and exits 0 when no update is available', async () => {
+    const { log } = await import('@clack/prompts');
+    const exit = await runUpdateCommand(false);
+    expect(exit).toBe(0);
+    const out = (log.success as unknown as vi.Mock).mock.calls.flat().join('\n');
+    expect(out).toContain(`up to date (v${VERSION})`);
+  });
+
+  it('does not spawn npm in dry-run mode and prints the command', async () => {
+    const { checkForUpdates } = await import('../../src/apps/shared/update-check.js');
+    (checkForUpdates as unknown as vi.Mock).mockResolvedValueOnce({
+      currentVersion: '0.5.3',
+      latestVersion: '0.6.0',
+      updateAvailable: true,
+    });
+
+    const { log } = await import('@clack/prompts');
+
+    const exit = await runUpdateCommand(true);
+    expect(exit).toBe(0);
+    const out = (log.step as unknown as vi.Mock).mock.calls.flat().join('\n');
+    expect(out).toContain('Would run');
+    expect(out).toContain('install -g anygate@latest');
+    expect(hoisted.spawnMock).not.toHaveBeenCalled();
+  });
+
+  it('prompts and (when declined) does not spawn npm', async () => {
+    const { checkForUpdates } = await import('../../src/apps/shared/update-check.js');
+    (checkForUpdates as unknown as vi.Mock).mockResolvedValueOnce({
+      currentVersion: '0.5.3',
+      latestVersion: '0.6.0',
+      updateAvailable: true,
+    });
+
+    const { confirm, log } = await import('@clack/prompts');
+    (confirm as unknown as vi.Mock).mockResolvedValueOnce(false);
+
+    const exit = await runUpdateCommand(false);
+    expect(exit).toBe(0);
+    expect(hoisted.spawnMock).not.toHaveBeenCalled();
+    const out = (log.info as unknown as vi.Mock).mock.calls.flat().join('\n');
+    expect(out).toContain('Update skipped');
+  });
+
+  it('spawns npm and returns the child exit code when confirmed', async () => {
+    const { checkForUpdates } = await import('../../src/apps/shared/update-check.js');
+    (checkForUpdates as unknown as vi.Mock).mockResolvedValueOnce({
+      currentVersion: '0.5.3',
+      latestVersion: '0.6.0',
+      updateAvailable: true,
+    });
+
+    const { confirm } = await import('@clack/prompts');
+    (confirm as unknown as vi.Mock).mockResolvedValueOnce(true);
+
+    // Fake child process: emits 'close' with code 0; ignores 'error'.
+    const fakeChild = {
+      on(event: string, cb: (arg: unknown) => void) {
+        if (event === 'close') queueMicrotask(() => cb(0));
+        return fakeChild;
+      },
+    };
+    hoisted.spawnMock.mockReturnValueOnce(fakeChild as unknown as ReturnType<typeof hoisted.spawnMock>);
+
+    const exit = await runUpdateCommand(false);
+    expect(exit).toBe(0);
+    expect(hoisted.spawnMock).toHaveBeenCalledTimes(1);
+    const [bin, args] = hoisted.spawnMock.mock.calls[0];
+    expect(args).toEqual(['install', '-g', 'anygate@latest']);
+    expect(String(bin)).toMatch(/npm(\.cmd)?$/);
+  });
+});

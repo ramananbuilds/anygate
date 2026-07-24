@@ -1,0 +1,281 @@
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import type { LocalProvider, LocalProviderModel } from '../../src/types/index.js';
+import { loadPreferences } from '../../src/storage/config.js';
+
+const state = vi.hoisted(() => ({
+  providers: [] as LocalProvider[],
+  startServerOptions: null as any,
+}));
+
+vi.mock('@clack/prompts', () => ({
+  spinner: vi.fn(() => ({
+    start: vi.fn(),
+    stop: vi.fn(),
+  })),
+  log: {
+    error: vi.fn(),
+    warn: vi.fn(),
+  },
+  confirm: vi.fn(async () => false),
+  isCancel: vi.fn(() => false),
+  select: vi.fn(async () => '__favorites__'),
+}));
+vi.mock('../../src/apps/claude/desktop-session.js', () => ({
+  readSessionLock: vi.fn(),
+  recoverSession: vi.fn(),
+  hasStaleSession: vi.fn(() => false),
+  writeSessionLock: vi.fn(),
+  setupExitCleanup: vi.fn(),
+  cleanupSession: vi.fn(),
+  backupMetaJson: vi.fn(),
+  isConcurrentLiveSession: vi.fn(() => false),
+  waitForShutdown: vi.fn(),
+}));
+vi.mock('../../src/apps/claude/desktop-launch.js', () => ({
+  launchOrRestartClaudeApp: vi.fn(),
+  claudeAppSupported: vi.fn(),
+  isClaudeAppRunning: vi.fn(() => false),
+  quitClaudeAppGracefully: vi.fn(),
+}));
+vi.mock('../../src/apps/claude/desktop-app.js', () => ({
+  writeAnygateIConfig: vi.fn(() => 'test-session-uuid'),
+  getClaudeDesktopHome: vi.fn(() => '/tmp/anygate-test-claude-home'),
+}));
+vi.mock('../../src/registry/loader/load.js', () => ({
+  loadRegistryProviders: vi.fn(async () => state.providers),
+}));
+vi.mock('../../src/registry/storage/io.js', () => ({
+  loadRegistry: vi.fn(() => ({ schemaVersion: 1, providers: [] })),
+}));
+vi.mock('../../src/storage/config.js', () => ({
+  loadPreferences: vi.fn(() => ({ favoriteModels: [] })),
+  savePreferences: vi.fn(),
+}));
+vi.mock('../../src/config/env.js', () => ({
+  resolveProviderCredential: vi.fn(async () => 'resolved-token'),
+  resolveApiKey: vi.fn(() => 'resolved-token'),
+  readFromCredentialStore: vi.fn(async () => null),
+}));
+vi.mock('../../src/gateway/server/router.js', () => ({
+  startServer: vi.fn(async (options: any) => {
+    state.startServerOptions = options;
+    return {
+      host: options.host,
+      port: 17646,
+      url: `http://${options.host}:17646`,
+      close: vi.fn(async () => undefined),
+    };
+  }),
+}));
+
+vi.mock('../../src/apps/shared/cloud-code-backend.js', () => ({
+  buildCloudCodeProxyRoute: vi.fn((model: any) => ({
+    aliasId: `anthropic-antigravity__${model.id}`,
+    realModelId: model.id,
+    displayName: model.name,
+    upstreamUrl: 'https://cloud.test',
+    apiKey: 'cc-token',
+    modelFormat: 'cloud-code',
+    providerId: 'antigravity',
+    authType: 'oauth',
+  })),
+  startCloudCodeCatalogBackend: vi.fn(async (routes: any[]) => ({
+    port: 17777,
+    token: 'cc-token',
+    handle: { close: vi.fn() },
+    routes,
+  })),
+}));
+
+import { recoverSession } from '../../src/apps/claude/desktop-session.js';
+import { modelToServerModelInfo, runClaudeAppCommand } from '../../src/apps/claude/desktop.js';
+
+const helperModel: LocalProviderModel = {
+  id: 'gpt-5.5',
+  name: 'GPT-5.5',
+  family: 'gpt-5',
+  brand: 'OpenAI',
+  modelFormat: 'openai',
+  upstreamModelId: 'gpt-5.5',
+  npm: '@ai-sdk/openai',
+  apiBaseUrl: 'https://api.openai.com/v1',
+  contextWindow: 400_000,
+  supportedParameters: ['reasoning_effort'],
+  reasoning: true,
+  interleavedReasoningField: 'reasoning_content',
+};
+
+const helperProvider: LocalProvider = {
+  id: 'openai-oauth',
+  name: 'OpenAI (ChatGPT)',
+  apiKey: 'oauth-token',
+  authType: 'oauth',
+  oauthAccountId: 'account-123',
+  headers: { 'x-provider-plan': 'plus' },
+  models: [helperModel],
+};
+
+const favoriteModels = [
+  { id: 'gpt-5.5', name: 'GPT-5.5', family: 'gpt-5', brand: 'OpenAI', modelFormat: 'openai', upstreamModelId: 'gpt-5.5', npm: '@ai-sdk/openai', apiBaseUrl: 'https://api.openai.com/v1', contextWindow: 400_000, supportedParameters: ['reasoning_effort'], reasoning: true, interleavedReasoningField: 'reasoning_content' },
+  { id: 'claude-opus-4-7', name: 'Claude Opus 4.7', family: 'claude-opus', brand: 'Anthropic', modelFormat: 'anthropic', upstreamModelId: 'claude-opus-4-7', baseUrl: 'https://api.anthropic.com', contextWindow: 1_000_000, supportedParameters: [], reasoning: false, interleavedReasoningField: undefined },
+];
+
+const favoritesProvider: LocalProvider = {
+  id: 'openai-oauth',
+  name: 'OpenAI (ChatGPT)',
+  apiKey: 'oauth-token',
+  authType: 'oauth',
+  oauthAccountId: 'account-123',
+  headers: { 'x-provider-plan': 'plus' },
+  models: favoriteModels,
+};
+
+describe('modelToServerModelInfo', () => {
+  it('builds regular ServerModelInfo with auth and model metadata', () => {
+    const info = modelToServerModelInfo(helperModel, helperProvider);
+
+    expect(info).toMatchObject({
+      id: helperModel.id,
+      providerId: helperProvider.id,
+      apiKey: helperProvider.apiKey,
+      authType: helperProvider.authType,
+      oauthAccountId: helperProvider.oauthAccountId,
+      headers: helperProvider.headers,
+      supportedParameters: helperModel.supportedParameters,
+      reasoning: true,
+      interleavedReasoningField: 'reasoning_content',
+    });
+  });
+
+  it('allows cloud-code backend overrides without dropping context metadata', () => {
+    const info = modelToServerModelInfo(helperModel, helperProvider, {
+      modelFormat: 'anthropic',
+      baseUrl: 'http://127.0.0.1:9999',
+      apiKey: 'backend-token',
+      completionsUrl: undefined,
+      npm: undefined,
+      apiBaseUrl: undefined,
+    });
+
+    expect(info).toMatchObject({
+      modelFormat: 'anthropic',
+      apiKey: 'backend-token',
+      contextWindow: helperModel.contextWindow,
+    });
+  });
+});
+
+describe('runClaudeAppCommand', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  const originalIsTTY = process.stdin.isTTY;
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    state.providers = [];
+    state.startServerOptions = null;
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+  });
+
+  afterEach(() => {
+    logSpy.mockRestore();
+    vi.clearAllMocks();
+    Object.defineProperty(process.stdin, 'isTTY', { value: originalIsTTY, configurable: true });
+  });
+
+  it('restores Claude Desktop config without requiring a TTY', async () => {
+    const code = await runClaudeAppCommand(['--restore']);
+
+    expect(code).toBe(0);
+    expect(recoverSession).toHaveBeenCalled();
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Restored'));
+  });
+
+  it('preserves OAuth and model metadata for direct single-model launches', async () => {
+    state.providers = [{
+      id: 'openai-oauth',
+      name: 'OpenAI (ChatGPT)',
+      apiKey: 'oauth-token',
+      authType: 'oauth',
+      oauthAccountId: 'account-123',
+      headers: { 'x-provider-plan': 'plus' },
+      models: [{
+        id: 'gpt-5.5',
+        name: 'GPT-5.5',
+        family: 'gpt-5',
+        brand: 'OpenAI',
+        modelFormat: 'openai',
+        upstreamModelId: 'gpt-5.5',
+        npm: '@ai-sdk/openai',
+        apiBaseUrl: 'https://api.openai.com/v1',
+        contextWindow: 400_000,
+        supportedParameters: ['reasoning_effort'],
+        reasoning: true,
+        interleavedReasoningField: 'reasoning_content',
+      }],
+    }];
+
+    const code = await runClaudeAppCommand([], {
+      launchProvider: 'openai-oauth',
+      launchModel: 'gpt-5.5',
+    });
+
+    expect(code).toBe(0);
+    const [model] = state.startServerOptions.catalog.list();
+    expect(model).toMatchObject({
+      id: 'gpt-5.5',
+      providerId: 'openai-oauth',
+      authType: 'oauth',
+      oauthAccountId: 'account-123',
+      supportedParameters: ['reasoning_effort'],
+      reasoning: true,
+      interleavedReasoningField: 'reasoning_content',
+      headers: { 'x-provider-plan': 'plus' },
+    });
+  });
+
+  it('exposes ALL favorite models in the gateway catalog (not just the first)', async () => {
+    state.providers = [favoritesProvider];
+    vi.mocked(loadPreferences).mockReturnValue({
+      favoriteModels: [
+        { providerId: 'openai-oauth', modelId: 'gpt-5.5' },
+        { providerId: 'openai-oauth', modelId: 'claude-opus-4-7' },
+      ],
+    } as any);
+
+    const code = await runClaudeAppCommand([], { launchProvider: '__favorites__', launchModel: '' });
+
+    expect(code).toBe(0);
+    const models = state.startServerOptions.catalog.list();
+    // Both favorites must be present in the catalog exposed to Claude Desktop.
+    expect(models.map((m: any) => m.id).sort()).toEqual(['claude-opus-4-7', 'gpt-5.5']);
+    // And the discovery-facing /v1/models payload must list both unique alias ids.
+    const { formatGatewayAnthropicModels } = await import('../../src/gateway/server/models.js');
+    const listed = formatGatewayAnthropicModels(models, { maskGatewayIds: true });
+    expect(listed.data.length).toBe(2);
+    expect(listed.data.map((m: any) => m.id)).toEqual(
+      expect.arrayContaining(['claude-opus-4-7', 'anthropic-htuao-ianepo__5.5-tpg']),
+    );
+  });
+  it('dedupes repeated registry models so the picker shows one row per favorite', async () => {
+    // The Mistral registry lists mistral-medium-2604 twice; the favorites
+    // catalog must collapse that to a single discovery id.
+    const dupProvider: LocalProvider = {
+      id: 'mistral',
+      name: 'Mistral',
+      apiKey: 'k',
+      models: [
+        { id: 'mistral-medium-2604', name: 'Mistral Medium', family: 'mistral', brand: 'Mistral', modelFormat: 'openai', npm: '@ai-sdk/mistral', contextWindow: 262144 },
+        { id: 'mistral-medium-2604', name: 'Mistral Medium', family: 'mistral', brand: 'Mistral', modelFormat: 'openai', npm: '@ai-sdk/mistral', contextWindow: 262144 },
+      ],
+    };
+    state.providers = [dupProvider];
+    vi.mocked(loadPreferences).mockReturnValue({
+      favoriteModels: [{ providerId: 'mistral', modelId: 'mistral-medium-2604' }],
+    } as any);
+
+    const code = await runClaudeAppCommand([], { launchProvider: '__favorites__', launchModel: '' });
+    expect(code).toBe(0);
+    const models = state.startServerOptions.catalog.list();
+    expect(models.length).toBe(1);
+  });
+});

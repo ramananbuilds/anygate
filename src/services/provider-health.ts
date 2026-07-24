@@ -1,4 +1,4 @@
-import { isProviderHealthy, getProviderHealth, updateProviderHealth } from '../engine/health.js';
+import { isProviderHealthy, getProviderHealth, updateProviderHealth } from '../engine/routing/health.js';
 
 export function checkProviderHealth(providerId: string) {
   const status = getProviderHealth(providerId);
