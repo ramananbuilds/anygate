@@ -41,7 +41,7 @@ function categorizeOnboardingProviders(): {
 } {
   const templates = ONBOARDING_TEMPLATES
     .map(id => getTemplateById(id))
-    .filter((t): t is ProviderTemplate => t !== null && t.supported);
+    .filter((t): t is ProviderTemplate => t !== undefined && t.supported);
 
   const keyless: ProviderTemplate[] = [];
   const apiKeyRequired: ProviderTemplate[] = [];
@@ -82,7 +82,7 @@ async function handleApiKeyProvider(template: ProviderTemplate): Promise<boolean
   const signupUrl = template.signupUrl ?? 'https://opencode.ai/auth';
   printApiKeyProviderPanel(template.name, signupUrl);
 
-  const choice = await p.select({
+  let choice = await p.select({
     message: `How would you like to set up ${template.name}?`,
     options: [
       {
@@ -404,6 +404,13 @@ async function runMainMenu(): Promise<number> {
 
 /** Main entry point for the bare `anygate` command. */
 export async function handleRootCommand(_parsed: ParsedArgs): Promise<number> {
+  // Non-interactive (piped stdin) — fall back to help text
+  if (!process.stdin.isTTY) {
+    const { printHelp, rootHelpText } = await import('../cli.js');
+    printHelp(rootHelpText());
+    return 0;
+  }
+
   gateIntro('anygate');
 
   if (!hasConfiguredProviders()) {

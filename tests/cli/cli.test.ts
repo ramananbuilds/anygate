@@ -14,7 +14,7 @@ describe('parseArgs', () => {
   it('parses bare root command without launching claude', () => {
     expect(parseArgs([])).toEqual({
       command: 'root',
-      showHelp: true,
+      showHelp: false,
       showVersion: false,
       dryRun: false,
       setup: false,
@@ -395,7 +395,7 @@ describe('help text', () => {
 });
 
 describe('main routing', () => {
-  it('prints root help and returns 0 for no args', async () => {
+  it('prints root help and returns 0 for no args in non-interactive mode', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
     await expect(main([])).resolves.toBe(0);
