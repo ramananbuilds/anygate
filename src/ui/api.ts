@@ -241,6 +241,7 @@ async function handleGetModels(res: ServerResponse): Promise<void> {
         freeLabel: freeStatusLabel(m.freeStatus),
         contextWindow: m.contextWindow,
         cost: m.cost,
+        providerId: p.id,
         inputTypes: resolveInputTypes(m.family, p.id, m.id),
       })),
     }));

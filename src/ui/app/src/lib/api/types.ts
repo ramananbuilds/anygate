@@ -29,6 +29,8 @@ export interface UiProviderModel {
   freeLabel?: string;
   contextWindow?: number;
   cost?: unknown;
+  /** Provider this model belongs to — used for provider-aware format detection. */
+  providerId?: string;
   // Enriched fields (backend-later; derived client-side when absent)
   format?: 'anthropic' | 'openai' | 'unsupported';
   reasoning?: boolean;

@@ -32,6 +32,8 @@ export interface CachedModel {
   useResponsesLite?: boolean;
   /** Backend capability: model must use the WebSocket Responses transport instead of HTTP. */
   preferWebSockets?: boolean;
+  /** Provider this model belongs to — used for provider-aware format detection. */
+  providerId?: string;
 }
 
 export interface RegistryProvider {

@@ -97,7 +97,7 @@ function parseNativePricing(pricing: ProviderModelListRow['pricing']): CachedMod
   return cost;
 }
 
-function parseModelList(body: OpenAiModelListResponse, npm: string): CachedModel[] {
+function parseModelList(body: OpenAiModelListResponse, npm: string, providerId?: string): CachedModel[] {
   const rows = body.data ?? body.models ?? [];
   const format = modelFormatForNpm(npm);
   const models: CachedModel[] = [];
@@ -128,6 +128,7 @@ function parseModelList(body: OpenAiModelListResponse, npm: string): CachedModel
       freeStatus,
       modelFormat: format,
       npm,
+      providerId,
       supportedParameters: Array.isArray(row.supported_parameters) ? row.supported_parameters : undefined,
       useResponsesLite: typeof row.use_responses_lite === 'boolean' ? row.use_responses_lite : undefined,
       preferWebSockets: typeof row.prefer_websockets === 'boolean' ? row.prefer_websockets : undefined,
@@ -256,7 +257,7 @@ export async function fetchTemplateModels(
       // Failed to parse, use empty object
     }
 
-    const models = parseModelList(json, template.npm);
+    const models = parseModelList(json, template.npm, template.id);
     if (models.length === 0) {
       return {
         models: [],
