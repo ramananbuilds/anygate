@@ -66,6 +66,7 @@ import {
   getProvidersPath,
   getProxyDebugLogPath,
   getReasoningCapabilities,
+  getValidationStatus,
   grabRoundTripSignature,
   hasApplicationDefaultCredentials,
   init_config,
@@ -120,6 +121,8 @@ import {
   providersForPicker,
   providersForPickerWithTemplates,
   providersForTarget,
+  pruneValidationCache,
+  quickValidateModel,
   quitClaudeAppGracefully,
   quitCodexAppGracefully,
   readBody,
@@ -167,9 +170,10 @@ import {
   upgradeLegacyCloudProviders,
   upstreamHttpStatus,
   validateCustomEndpointUrl,
+  validateModels,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-7VFPTJPC.js";
+} from "./chunk-662WNT64.js";
 import {
   BACKENDS,
   CONFLICTING_ENV_VARS,
@@ -2861,6 +2865,15 @@ Error: ${launchPlan.error}
       console.log("");
       return 0;
     }
+    const isAvailable2 = await quickValidateModel(activeProvider.id, selectedModel.id);
+    if (!isAvailable2) {
+      const cached = getValidationStatus(activeProvider.id, selectedModel.id);
+      p6.log.error(
+        `Model ${selectedModel.id} (${activeProvider.name}) has been marked as deprecated: ${cached?.error ?? "unknown"}.`
+      );
+      p6.log.info(`Run ${pc5.cyan("anygate providers refresh-models")} to re-check.`);
+      return 1;
+    }
     return launchClaudeViaCatalog(
       catalogRoutes,
       startingRoute,
@@ -2890,6 +2903,15 @@ Error: ${launchPlan.error}
     p6.log.error(
       new CredentialUnavailableError(activeProvider.id).userMessage
     );
+    return 1;
+  }
+  const isAvailable = await quickValidateModel(activeProvider.id, selectedModel.id);
+  if (!isAvailable) {
+    const cached = getValidationStatus(activeProvider.id, selectedModel.id);
+    p6.log.error(
+      `Model ${selectedModel.id} (${activeProvider.name}) has been marked as deprecated: ${cached?.error ?? "unknown"}.`
+    );
+    p6.log.info(`Run ${pc5.cyan("anygate providers refresh-models")} to re-check.`);
     return 1;
   }
   let proxyHandle = null;
@@ -12252,7 +12274,7 @@ Options:
 `);
     return 0;
   }
-  const { runUiCommand } = await import("./command-H4LPSVPI.js");
+  const { runUiCommand } = await import("./command-RCJO4PHH.js");
   return runUiCommand({ trace: parsed.trace });
 }
 
@@ -12386,6 +12408,9 @@ async function pickGlobalFavoriteModel(providers, favorites, opts) {
 // src/cli/models.ts
 var AGY_CLI_FAVORITES_CAP = 6;
 async function runModelsCommand(parsed) {
+  if (parsed.validateSubcommand) {
+    return runValidateSubcommand(parsed);
+  }
   const scope = parsed.favoritesAgy ? "agy" : "global";
   const maxFavorites = scope === "agy" ? AGY_CLI_FAVORITES_CAP : 20;
   const scopeName = scope === "agy" ? "Antigravity CLI Favorites" : "Favorite Models";
@@ -12578,6 +12603,92 @@ async function runModelsCommand(parsed) {
     favorites.length === 0 ? pc14.dim("Launch uses single-model mode") : pc14.cyan("/model menu ready on next launch")
   );
   return 0;
+}
+async function runValidateSubcommand(parsed) {
+  gateIntro("Model Validation");
+  const providerId = parsed.validateProvider;
+  const force = parsed.force ?? false;
+  const ttlMs = force ? 0 : void 0;
+  const catalog = await fetchProviderCatalog();
+  const registry = loadRegistry();
+  let providersToValidate = catalog;
+  if (providerId) {
+    const found = catalog.find((p18) => p18.id === providerId);
+    if (!found) {
+      p16.log.error(`Provider not found: ${providerId}`);
+      return 1;
+    }
+    providersToValidate = [found];
+  }
+  if (providersToValidate.length === 0) {
+    p16.log.warn("No providers configured.");
+    return 0;
+  }
+  const allParams = [];
+  for (const provider of providersToValidate) {
+    const regProvider = registry.providers.find((p18) => p18.id === provider.id);
+    if (!regProvider) continue;
+    const apiKey = provider.apiKey || await resolveProviderCredential(provider.id, regProvider.authRef).catch(() => "");
+    if (!apiKey?.trim()) {
+      p16.log.warn(`Skipping ${provider.name} \u2014 no API key available.`);
+      continue;
+    }
+    const baseUrl = provider.models[0]?.apiBaseUrl || provider.models[0]?.completionsUrl || "";
+    if (!baseUrl) {
+      p16.log.warn(`Skipping ${provider.name} \u2014 no base URL available.`);
+      continue;
+    }
+    for (const model of provider.models) {
+      const completionsUrl = model.completionsUrl || model.apiBaseUrl || "";
+      if (!completionsUrl) continue;
+      allParams.push({
+        modelId: model.id,
+        providerId: provider.id,
+        baseUrl: completionsUrl.replace(/\/chat\/completions$/, "").replace(/\/v1\/?$/, ""),
+        apiKey,
+        modelFormat: model.modelFormat === "anthropic" ? "anthropic" : "openai",
+        headers: provider.headers
+      });
+    }
+  }
+  if (allParams.length === 0) {
+    p16.log.warn("No models to validate.");
+    return 0;
+  }
+  const spinner10 = p16.spinner();
+  spinner10.start(`Validating ${allParams.length} model${allParams.length === 1 ? "" : "s"}...`);
+  const results = await validateModels(allParams, { ttlMs });
+  spinner10.stop("");
+  const available = results.filter((r) => r.status === "available").length;
+  const deprecated = results.filter((r) => r.status === "deprecated").length;
+  const errors = results.filter((r) => r.status === "error").length;
+  const unverified = results.filter((r) => r.status === "unverified").length;
+  if (deprecated > 0) {
+    p16.log.error(`${deprecated} model${deprecated === 1 ? "" : "s"} marked as deprecated:`);
+    for (const r of results.filter((r2) => r2.status === "deprecated")) {
+      p16.log.error(`  ${r.modelId} (${r.providerId}): ${r.error ?? "unknown"}`);
+    }
+  }
+  if (errors > 0) {
+    p16.log.warn(`${errors} model${errors === 1 ? "" : "s"} with errors:`);
+    for (const r of results.filter((r2) => r2.status === "error")) {
+      p16.log.warn(`  ${r.modelId} (${r.providerId}): ${r.error ?? "unknown"}`);
+    }
+  }
+  if (unverified > 0) {
+    p16.log.warn(`${unverified} model${unverified === 1 ? "" : "s"} unverified (will retry later):`);
+    for (const r of results.filter((r2) => r2.status === "unverified")) {
+      p16.log.warn(`  ${r.modelId} (${r.providerId}): ${r.error ?? "unknown"}`);
+    }
+  }
+  p16.log.success(
+    `${available} available, ${deprecated} deprecated, ${errors} error${errors === 1 ? "" : "s"}, ${unverified} unverified`
+  );
+  const pruned = pruneValidationCache();
+  if (pruned > 0) {
+    p16.log.info(`Pruned ${pruned} stale cache entr${pruned === 1 ? "y" : "ies"}.`);
+  }
+  return deprecated > 0 ? 1 : 0;
 }
 
 // src/cli/providers.ts
@@ -13105,10 +13216,21 @@ function parseArgs(args) {
   }
   if (first === "models" || first === "favorites") {
     const parsed2 = emptyParsed("models");
-    for (const arg of rest) {
+    for (let i = 0; i < rest.length; i += 1) {
+      const arg = rest[i];
       if (arg === "--help" || arg === "-h") parsed2.showHelp = true;
       else if (arg === "--version" || arg === "-v") parsed2.showVersion = true;
       else if (arg === "--agy") parsed2.favoritesAgy = true;
+      else if (arg === "--force") parsed2.force = true;
+      else if (arg === "--provider" || arg.startsWith("--provider=")) {
+        const value = arg.startsWith("--provider=") ? arg.slice("--provider=".length) : rest[i + 1];
+        if (!value || value.startsWith("-")) {
+          parsed2.error = "Missing value for --provider";
+          return parsed2;
+        }
+        if (!arg.startsWith("--provider=")) i += 1;
+        parsed2.validateProvider = value;
+      } else if (arg === "validate") parsed2.validateSubcommand = true;
       else if (!parsed2.error) parsed2.error = `Unknown models option: ${arg}`;
     }
     return parsed2;
@@ -13401,6 +13523,7 @@ ${pc18.bold("Usage:")}
   anygate server [options]
   anygate ui
   anygate models
+  anygate models validate [--provider <id>] [--force]
   anygate favorites
   anygate providers
   anygate doctor

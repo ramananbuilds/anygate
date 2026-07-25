@@ -15,7 +15,7 @@ src/cli/
 ├── antigravity.ts         # `anygate antigravity` — Antigravity launch
 ├── providers-command.ts   # `anygate providers` — full provider management (27KB)
 ├── providers.ts           # Provider subcommand dispatcher
-├── models.ts              # `anygate models` — favorites manager (10KB)
+├── models.ts              # `anygate models` — favorites manager + validate subcommand (10KB)
 ├── server.ts              # `anygate server` — gateway server
 ├── ui.ts                  # `anygate ui` — web dashboard
 ├── doctor.ts              # `anygate doctor` — system health check

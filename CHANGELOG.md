@@ -5,6 +5,7 @@
 ### Features
 - **Bare `anygate` command**: New `src/cli/root.ts` handler — running `anygate` with no subcommand now launches a 3-step onboarding flow on first run (categorize providers: keyless vs API-key-required; handle each selection: paste key, open signup page, or skip; show summary) and a main menu on subsequent runs (Launch Claude, Launch Codex, Configure Providers, Free Setup, Doctor, Server, Dashboard, Settings). Non-TTY mode gracefully falls back to help text.
 - **Provider-aware model format detection**: Rewrote `src/ui/app/src/lib/providers/modelFormat.ts` with `inferModelFormat(modelId, providerId)` that distinguishes OpenAI-compatible providers (NVIDIA, Groq, Mistral, etc.) from the actual OpenAI provider. Fixes NVIDIA's `openai/gpt-oss-120b` being incorrectly marked "Unsupported" because its model ID contains "openai". Added `providerId` to `UiProviderModel` type, API response, and `CachedModel` type.
+- **Self-healing model validation**: New `src/registry/validation/` module (`model-validator.ts`, `config.ts`) that automatically checks model availability by calling provider APIs. Features: 24h cache TTL, 5 concurrent validations, 8s timeout, HTTP status interpretation (2xx→available, 404/410→deprecated, 401/403→error, 429/5xx→unverified), fire-and-forget background validation in `fetch-template-models.ts`, deprecated model filtering in `provider-catalog.ts`, launch-time blocking in `cli/claude.ts`, and `anygate models validate` subcommand in `cli/models.ts`.
 
 ## 0.5.10 (2026-07-24)
 

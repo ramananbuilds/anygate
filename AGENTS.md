@@ -83,7 +83,7 @@ npm run build && anygate --version
   - `storage/`: Registry persistence, custom endpoint CRUD, & IO (`crud.ts`, `io.ts`)
   - `sync/`: Background catalog model & credential refreshers
   - `templates/`: Provider template definitions & model catalog fetchers
-  - `validation/`: URL security and credential verification
+  - `validation/`: URL security, credential verification, & self-healing model validation (`model-validator.ts`, `config.ts`)
 - **`src/services/`**: Cross-cutting shared services (`analytics.ts`, `doctor.ts`, `downloads.ts`, `favorites.ts`, `provider-health.ts`, `self-update.ts`)
 - **`src/storage/`**: Local configuration (`config.ts`), credentials (`credentials.ts`), favorites (`favorites.ts`), history (`history.ts`), and logs (`logs.ts`)
 - **`src/types/`**: TypeScript type definitions (`api.ts`, `auth.ts`, `config.ts`, `gateway.ts`, `launch.ts`, `model.ts`, `provider.ts`, `registry.ts`)

@@ -22,8 +22,9 @@ Whenever a feature is added, modified, or deleted in the codebase or UI:
 - [x] Update `AGENTS.md` and `CLAUDE.md` if agent workflows are affected
 - [x] Update `CHANGELOG.md`
 
-## Recent Changes (v0.5.10)
+## Recent Changes (v0.5.11)
 
 1. **Bare `anygate` Command**: New `src/cli/root.ts` handler — onboarding flow on first run (3-step: categorize providers, handle selections, summary) and main menu on subsequent runs.
 2. **Provider-Aware Model Format Detection**: Rewrote `src/ui/app/src/lib/providers/modelFormat.ts` with `inferModelFormat(modelId, providerId)` that distinguishes OpenAI-compatible providers (NVIDIA, Groq, etc.) from the actual OpenAI provider. Fixes NVIDIA `openai/gpt-oss-120b` being incorrectly marked "unsupported".
 3. **Non-TTY Graceful Degradation**: Bare `anygate` in non-interactive mode falls back to help text instead of crashing.
+4. **Self-Healing Model Validation**: New `src/registry/validation/` module with `model-validator.ts` and `config.ts`. Automatically checks model availability via provider APIs, caches results (24h TTL), and integrates into `fetch-template-models.ts` (background validation), `provider-catalog.ts` (filter deprecated), `cli/claude.ts` (block deprecated at launch), and `cli/models.ts` (`validate` subcommand).

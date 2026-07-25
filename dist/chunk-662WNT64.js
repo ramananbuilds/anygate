@@ -4525,6 +4525,242 @@ async function getModels(backend, fallbackModels) {
   }
 }
 
+// src/registry/validation/model-validator.ts
+init_paths();
+import { existsSync as existsSync7, readFileSync as readFileSync10, mkdirSync as mkdirSync7, openSync as openSync2, writeSync as writeSync2, closeSync as closeSync2, chmodSync as chmodSync6 } from "fs";
+
+// src/registry/validation/config.ts
+var VALIDATION_CONFIG = {
+  /** Cache time-to-live: 24 hours in milliseconds. */
+  TTL_MS: 24 * 60 * 60 * 1e3,
+  /** Maximum concurrent validation requests. */
+  CONCURRENCY: 5,
+  /** Per-request timeout in milliseconds. */
+  TIMEOUT_MS: 8e3,
+  /** HTTP status codes that are retryable (will be marked 'unverified'). */
+  RETRYABLE_CODES: [429, 500, 502, 503, 504],
+  /** HTTP status codes that indicate a model is deprecated. */
+  DEPRECATED_CODES: [404, 410],
+  /** HTTP status codes that indicate an auth issue (marked 'error'). */
+  AUTH_CODES: [401, 403],
+  /** Schema version for the cache file format. */
+  CACHE_SCHEMA_VERSION: 1,
+  /** Path to the validation cache file (relative to app home). */
+  CACHE_FILENAME: "model-validation-cache.json"
+};
+
+// src/registry/validation/model-validator.ts
+var CACHE_PATH = `${getAppHome()}/${VALIDATION_CONFIG.CACHE_FILENAME}`;
+function getCacheKey(providerId, modelId) {
+  return `${providerId}|${modelId}`;
+}
+function loadCache() {
+  try {
+    if (!existsSync7(CACHE_PATH)) {
+      return { schema_version: VALIDATION_CONFIG.CACHE_SCHEMA_VERSION, results: {} };
+    }
+    const raw = readFileSync10(CACHE_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    if (parsed.schema_version !== VALIDATION_CONFIG.CACHE_SCHEMA_VERSION) {
+      return { schema_version: VALIDATION_CONFIG.CACHE_SCHEMA_VERSION, results: {} };
+    }
+    return {
+      schema_version: VALIDATION_CONFIG.CACHE_SCHEMA_VERSION,
+      results: parsed.results ?? {}
+    };
+  } catch {
+    return { schema_version: VALIDATION_CONFIG.CACHE_SCHEMA_VERSION, results: {} };
+  }
+}
+function saveCache(cache) {
+  try {
+    const home = getAppHome();
+    mkdirSync7(home, { recursive: true, mode: 448 });
+    const payload = `${JSON.stringify(cache, null, 2)}
+`;
+    const fd = openSync2(CACHE_PATH, "w", 384);
+    try {
+      writeSync2(fd, payload);
+    } finally {
+      closeSync2(fd);
+    }
+    try {
+      chmodSync6(CACHE_PATH, 384);
+    } catch {
+    }
+  } catch {
+  }
+}
+function isCacheFresh(result, ttlMs = VALIDATION_CONFIG.TTL_MS) {
+  try {
+    const checkedAt = new Date(result.checkedAt).getTime();
+    if (isNaN(checkedAt)) return false;
+    return Date.now() - checkedAt < ttlMs;
+  } catch {
+    return false;
+  }
+}
+function getValidationStatus(providerId, modelId, ttlMs) {
+  const cache = loadCache();
+  const key = getCacheKey(providerId, modelId);
+  const result = cache.results[key];
+  if (!result) return null;
+  if (ttlMs !== void 0 && !isCacheFresh(result, ttlMs)) return null;
+  return result;
+}
+function pruneValidationCache(maxAgeMs = VALIDATION_CONFIG.TTL_MS) {
+  const cache = loadCache();
+  const cutoff = Date.now() - maxAgeMs;
+  let pruned = 0;
+  for (const [key, result] of Object.entries(cache.results)) {
+    try {
+      const checkedAt = new Date(result.checkedAt).getTime();
+      if (isNaN(checkedAt) || checkedAt < cutoff) {
+        delete cache.results[key];
+        pruned++;
+      }
+    } catch {
+      delete cache.results[key];
+      pruned++;
+    }
+  }
+  if (pruned > 0) {
+    saveCache(cache);
+  }
+  return pruned;
+}
+function buildRequestBody(modelId) {
+  return JSON.stringify({
+    model: modelId,
+    messages: [{ role: "user", content: "ping" }],
+    max_tokens: 1,
+    stream: false
+  });
+}
+function buildHeaders(params) {
+  const headers = {
+    "Content-Type": "application/json"
+  };
+  if (params.modelFormat === "anthropic") {
+    headers["x-api-key"] = params.apiKey;
+  } else {
+    headers["Authorization"] = `Bearer ${params.apiKey}`;
+  }
+  if (params.headers) {
+    for (const [key, value] of Object.entries(params.headers)) {
+      if (!(key.toLowerCase() in headers)) {
+        headers[key] = value;
+      }
+    }
+  }
+  return headers;
+}
+function buildUrl(baseUrl) {
+  const trimmed = baseUrl.replace(/\/+$/, "");
+  if (trimmed.endsWith("/v1")) return `${trimmed}/chat/completions`;
+  if (trimmed.endsWith("/v1/")) return `${trimmed}chat/completions`;
+  return `${trimmed}/v1/chat/completions`;
+}
+function interpretStatus(httpStatus) {
+  if (httpStatus >= 200 && httpStatus < 300) {
+    return { status: "available" };
+  }
+  if (VALIDATION_CONFIG.DEPRECATED_CODES.includes(httpStatus)) {
+    return { status: "deprecated", error: `HTTP ${httpStatus} \u2014 model not found` };
+  }
+  if (VALIDATION_CONFIG.AUTH_CODES.includes(httpStatus)) {
+    return { status: "error", error: `HTTP ${httpStatus} \u2014 authentication failed` };
+  }
+  if (VALIDATION_CONFIG.RETRYABLE_CODES.includes(httpStatus)) {
+    return { status: "unverified", error: `HTTP ${httpStatus} \u2014 retryable server error` };
+  }
+  return { status: "unverified", error: `HTTP ${httpStatus}` };
+}
+async function validateModel(params) {
+  const { modelId, providerId, ttlMs } = params;
+  const cacheKey = getCacheKey(providerId, modelId);
+  const cached = getValidationStatus(providerId, modelId, ttlMs);
+  if (cached) return cached;
+  const url = buildUrl(params.baseUrl);
+  const headers = buildHeaders(params);
+  const body = buildRequestBody(modelId);
+  const timeoutMs = VALIDATION_CONFIG.TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  let httpStatus;
+  let latencyMs;
+  try {
+    const t0 = Date.now();
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body,
+      signal: controller.signal
+    });
+    latencyMs = Date.now() - t0;
+    httpStatus = response.status;
+    const { status, error } = interpretStatus(httpStatus);
+    const result = {
+      modelId,
+      providerId,
+      status,
+      checkedAt: now,
+      httpStatus,
+      latencyMs,
+      ...error ? { error } : {}
+    };
+    const cache = loadCache();
+    cache.results[cacheKey] = result;
+    saveCache(cache);
+    return result;
+  } catch (err) {
+    const isTimeout = err instanceof Error && err.name === "AbortError";
+    const error = isTimeout ? `Request timed out after ${timeoutMs}ms` : err instanceof Error ? err.message : String(err);
+    const result = {
+      modelId,
+      providerId,
+      status: "unverified",
+      checkedAt: now,
+      error,
+      latencyMs
+    };
+    const cache = loadCache();
+    cache.results[cacheKey] = result;
+    saveCache(cache);
+    return result;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+async function validateModels(models, options = {}) {
+  const concurrency = options.concurrency ?? VALIDATION_CONFIG.CONCURRENCY;
+  const ttlMs = options.ttlMs;
+  const results = new Array(models.length);
+  for (let i = 0; i < models.length; i += concurrency) {
+    const chunk = models.slice(i, i + concurrency);
+    const chunkResults = await Promise.all(
+      chunk.map(async (params, idx) => {
+        const modelParams = { ...params, ttlMs: ttlMs ?? params.ttlMs };
+        return validateModel(modelParams);
+      })
+    );
+    for (let j = 0; j < chunkResults.length; j++) {
+      results[i + j] = chunkResults[j];
+    }
+  }
+  return results;
+}
+async function quickValidateModel(providerId, modelId) {
+  const cached = getValidationStatus(providerId, modelId);
+  if (!cached) return true;
+  return cached.status !== "deprecated";
+}
+function backgroundValidateModels(models, options = {}) {
+  validateModels(models, options).catch(() => {
+  });
+}
+
 // src/registry/templates/fetch-template-models.ts
 var TEST_TIMEOUT_MS = 1e4;
 function modelFormatForNpm(npm) {
@@ -4705,6 +4941,18 @@ async function fetchTemplateModels(template, apiKey, baseUrlOverride, extraHeade
         hint: "The API key may be valid but model listing is unavailable for this provider."
       };
     }
+    if (trimmedApiKey && baseUrl) {
+      backgroundValidateModels(
+        models.map((m) => ({
+          modelId: m.id,
+          providerId: template.id,
+          baseUrl,
+          apiKey: trimmedApiKey,
+          modelFormat: template.authType === "oauth" ? "anthropic" : "openai",
+          headers: template.headers
+        }))
+      );
+    }
     return { models, baseUrl };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -4882,7 +5130,7 @@ function sendJson(res, status, body) {
 
 // src/gateway/proxy/anthropic-proxy.ts
 import { createServer } from "http";
-import { appendFileSync as appendFileSync2, openSync as openSync3, writeSync as writeSync3, closeSync as closeSync3 } from "fs";
+import { appendFileSync as appendFileSync2, openSync as openSync4, writeSync as writeSync4, closeSync as closeSync4 } from "fs";
 
 // src/upstream-forward.ts
 import { Readable } from "stream";
@@ -6609,7 +6857,7 @@ async function generateAnthropicResponse(model, params, modelId, options) {
 
 // src/storage/analytics.ts
 init_paths();
-import { appendFileSync, openSync as openSync2, writeSync as writeSync2, closeSync as closeSync2, readFileSync as readFileSync10, existsSync as existsSync7 } from "fs";
+import { appendFileSync, openSync as openSync3, writeSync as writeSync3, closeSync as closeSync3, readFileSync as readFileSync11, existsSync as existsSync8 } from "fs";
 import { join as join8 } from "path";
 var ANALYTICS_FILE = "analytics.jsonl";
 function normalizeModelKey(modelId) {
@@ -6620,11 +6868,11 @@ function analyticsPath() {
 }
 function appendAtomic(path, line) {
   try {
-    const fd = openSync2(path, "a", 384);
+    const fd = openSync3(path, "a", 384);
     try {
-      writeSync2(fd, line + "\n");
+      writeSync3(fd, line + "\n");
     } finally {
-      closeSync2(fd);
+      closeSync3(fd);
     }
   } catch {
     try {
@@ -6651,10 +6899,10 @@ function recordUsage(event) {
 }
 function readAnalyticsLog() {
   const path = analyticsPath();
-  if (!existsSync7(path)) return [];
+  if (!existsSync8(path)) return [];
   let raw;
   try {
-    raw = readFileSync10(path, "utf8");
+    raw = readFileSync11(path, "utf8");
   } catch {
     return [];
   }
@@ -6810,12 +7058,12 @@ function aggregateAnalytics(range) {
 function appendSecureLog(logPath, line) {
   const redacted = redactTraceLine(line);
   try {
-    const fd = openSync3(logPath, "a", 384);
+    const fd = openSync4(logPath, "a", 384);
     try {
-      writeSync3(fd, `${(/* @__PURE__ */ new Date()).toISOString()} ${redacted}
+      writeSync4(fd, `${(/* @__PURE__ */ new Date()).toISOString()} ${redacted}
 `);
     } finally {
-      closeSync3(fd);
+      closeSync4(fd);
     }
   } catch {
     try {
@@ -7470,6 +7718,10 @@ async function fetchProviderCatalog(opts) {
 }
 function providersForPicker(providers) {
   for (const p7 of providers) {
+    p7.models = p7.models.filter((m) => {
+      const cached = getValidationStatus(p7.id, m.id);
+      return !cached || cached.status !== "deprecated";
+    });
     p7.models.sort((a, b) => {
       const nameA = a.name || a.id;
       const nameB = b.name || b.id;
@@ -7942,14 +8194,14 @@ async function addCustomEndpointProvider(input) {
 }
 
 // src/registry/storage/builtins.ts
-import { readFileSync as readFileSync11 } from "fs";
+import { readFileSync as readFileSync12 } from "fs";
 import { join as join9, dirname as dirname5 } from "path";
 import { fileURLToPath } from "url";
 var __dirname = dirname5(fileURLToPath(import.meta.url));
 var PROVIDERS_DIR = join9(__dirname, "..", "data", "providers");
 function loadBuiltinProviderSync(id) {
   try {
-    const content = readFileSync11(join9(PROVIDERS_DIR, `${id}.json`), "utf8");
+    const content = readFileSync12(join9(PROVIDERS_DIR, `${id}.json`), "utf8");
     return JSON.parse(content);
   } catch {
     return void 0;
@@ -8199,16 +8451,16 @@ function buildXaiOAuthModels() {
 // src/apps/shared/launch.ts
 init_config();
 import { execSync, spawn } from "child_process";
-import { existsSync as existsSync9, appendFileSync as appendFileSync3 } from "fs";
+import { existsSync as existsSync10, appendFileSync as appendFileSync3 } from "fs";
 import { homedir as homedir4 } from "os";
 import { join as join10 } from "path";
 
 // src/apps/shared/binary-lookup.ts
 import { execFileSync } from "child_process";
-import { existsSync as existsSync8 } from "fs";
+import { existsSync as existsSync9 } from "fs";
 function findBinaryOnPath(name, fallbackPaths, options = {}) {
   const isWindows3 = options.isWindows ?? process.platform === "win32";
-  const exists = options.exists ?? existsSync8;
+  const exists = options.exists ?? existsSync9;
   const runWhich = options.runWhich ?? ((binary, win) => execFileSync(win ? "where.exe" : "which", [binary], {
     encoding: "utf8",
     stdio: ["pipe", "pipe", "pipe"]
@@ -8239,7 +8491,7 @@ var FALLBACK_PATHS = isWindows ? [
 ];
 function findClaudeBinary() {
   const override = getAppPathOverride("claude");
-  if (override) return existsSync9(override) ? override : null;
+  if (override) return existsSync10(override) ? override : null;
   return findBinaryOnPath("claude", FALLBACK_PATHS);
 }
 function getInstalledClaudeVersion() {
@@ -8775,7 +9027,7 @@ import open3 from "open";
 
 // src/providers/opencode-serve.ts
 import { execSync as execSync2, spawn as spawn2 } from "child_process";
-import { existsSync as existsSync10 } from "fs";
+import { existsSync as existsSync11 } from "fs";
 import { homedir as homedir5 } from "os";
 import { join as join11 } from "path";
 var isWindows2 = process.platform === "win32";
@@ -8802,7 +9054,7 @@ function findOpencodeBinary() {
   } catch {
   }
   for (const path of OPENCODE_FALLBACK_PATHS) {
-    if (existsSync10(path)) return path;
+    if (existsSync11(path)) return path;
   }
   return null;
 }
@@ -9296,7 +9548,7 @@ ${pc3.bold("Device code (works on SSH/VPS):")}
 }
 
 // src/gateway/adapters/vertex.ts
-import { existsSync as existsSync11, readFileSync as readFileSync12 } from "fs";
+import { existsSync as existsSync12, readFileSync as readFileSync13 } from "fs";
 import { homedir as homedir6 } from "os";
 import { join as join12 } from "path";
 init_paths();
@@ -9327,14 +9579,14 @@ function defaultAdcCredentialsPath(home = homedir6()) {
 }
 function hasApplicationDefaultCredentials(home = homedir6(), adcPath = defaultAdcCredentialsPath(home), env = process.env) {
   const explicitPath = env["GOOGLE_APPLICATION_CREDENTIALS"]?.trim();
-  if (explicitPath && existsSync11(explicitPath)) return true;
-  return existsSync11(adcPath);
+  if (explicitPath && existsSync12(explicitPath)) return true;
+  return existsSync12(adcPath);
 }
 function loadVertexModelEntries(env = process.env) {
   const configPath = getVertexModelsPath(env);
-  if (!existsSync11(configPath)) return DEFAULT_VERTEX_MODELS;
+  if (!existsSync12(configPath)) return DEFAULT_VERTEX_MODELS;
   try {
-    const parsed = JSON.parse(readFileSync12(configPath, "utf8"));
+    const parsed = JSON.parse(readFileSync13(configPath, "utf8"));
     if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_VERTEX_MODELS;
     const models = parsed.filter(
       (entry) => !!entry && typeof entry === "object" && typeof entry.id === "string" && entry.id.length > 0 && typeof entry.display_name === "string" && entry.display_name.length > 0
@@ -9426,13 +9678,13 @@ function createVertexModelCatalog(models) {
 
 // src/apps/codex/app-launch.ts
 import { execSync as execSync4 } from "child_process";
-import { existsSync as existsSync13 } from "fs";
+import { existsSync as existsSync14 } from "fs";
 import { homedir as homedir8 } from "os";
 import { join as join14 } from "path";
 
 // src/apps/shared/app-launcher.ts
 import { execSync as execSync3, spawn as spawn4 } from "child_process";
-import { existsSync as existsSync12, readdirSync, statSync as statSync3 } from "fs";
+import { existsSync as existsSync13, readdirSync, statSync as statSync3 } from "fs";
 import { homedir as homedir7 } from "os";
 import { join as join13 } from "path";
 import * as p3 from "@clack/prompts";
@@ -9482,7 +9734,7 @@ var AppLauncher = class {
   /** Find the app binary/installation path. */
   findApp() {
     const override = this.getConfigOverride();
-    if (override && existsSync12(override)) return override;
+    if (override && existsSync13(override)) return override;
     if (process.platform === "darwin") {
       return this.findDarwinApp();
     }
@@ -9494,7 +9746,7 @@ var AppLauncher = class {
   getConfigOverride() {
     const { getAppPathOverride: getAppPathOverride2 } = (init_config(), __toCommonJS(config_exports));
     const override = getAppPathOverride2(this.configOverrideKey);
-    return override && existsSync12(override) ? override : null;
+    return override && existsSync13(override) ? override : null;
   }
   findDarwinApp() {
     for (const bundleName of this.darwinAppBundleNames) {
@@ -9503,7 +9755,7 @@ var AppLauncher = class {
         join13(homedir7(), "Applications", bundleName)
       ];
       for (const path of paths) {
-        if (existsSync12(path)) return path;
+        if (existsSync13(path)) return path;
       }
     }
     return this.findDarwinAppExtra();
@@ -9512,13 +9764,13 @@ var AppLauncher = class {
     const localAppData = process.env.LOCALAPPDATA ?? join13(homedir7(), "AppData", "Local");
     for (const baseName of this.winInstallBases) {
       const base = join13(localAppData, "Programs", baseName);
-      if (!existsSync12(base)) continue;
+      if (!existsSync13(base)) continue;
       try {
         for (const dir of readdirSync(base)) {
           if (dir.startsWith("app-")) {
             for (const exeName of this.winExeNames) {
               const fullPath = join13(base, dir, exeName);
-              if (existsSync12(fullPath) && statSync3(fullPath).isFile()) {
+              if (existsSync13(fullPath) && statSync3(fullPath).isFile()) {
                 return fullPath;
               }
             }
@@ -9535,7 +9787,7 @@ var AppLauncher = class {
         ];
         for (const path of paths) {
           try {
-            if (existsSync12(path) && statSync3(path).isFile()) return path;
+            if (existsSync13(path) && statSync3(path).isFile()) return path;
           } catch {
           }
         }
@@ -9689,7 +9941,7 @@ var CodexAppLauncher = class extends AppLauncher {
     try {
       const out = this.run(`mdfind "kMDItemCFBundleIdentifier == '${CODEX_BUNDLE_ID}'"`);
       const first = out.split("\n").map((l) => l.trim()).find(Boolean);
-      return first && existsSync13(first) ? first : null;
+      return first && existsSync14(first) ? first : null;
     } catch {
       return null;
     }
@@ -9721,7 +9973,7 @@ function findCodexApp() {
         join14(homedir8(), "Applications", bundleName)
       ];
       for (const path of paths) {
-        if (existsSync13(path)) return path;
+        if (existsSync14(path)) return path;
       }
     }
     try {
@@ -9730,7 +9982,7 @@ function findCodexApp() {
         stdio: ["pipe", "pipe", "pipe"]
       }).trim();
       const first = out.split("\n").map((l) => l.trim()).find(Boolean);
-      if (first && existsSync13(first)) return first;
+      if (first && existsSync14(first)) return first;
     } catch {
     }
   }
@@ -9744,7 +9996,7 @@ function findCodexApp() {
         ];
         for (const path of paths) {
           try {
-            if (existsSync13(path)) return path;
+            if (existsSync14(path)) return path;
           } catch {
           }
         }
@@ -10306,7 +10558,7 @@ function summarizeServerProviders(models) {
 
 // src/apps/claude/desktop-launch.ts
 import { execSync as execSync5 } from "child_process";
-import { existsSync as existsSync14 } from "fs";
+import { existsSync as existsSync15 } from "fs";
 import { homedir as homedir9 } from "os";
 import { join as join15 } from "path";
 init_config();
@@ -10324,7 +10576,7 @@ var ClaudeAppLauncher = class extends AppLauncher {
     try {
       const out = this.run(`mdfind "kMDItemCFBundleIdentifier == '${CLAUDE_BUNDLE_ID}'"`);
       const first = out.split("\n").map((l) => l.trim()).find(Boolean);
-      return first && existsSync14(first) ? first : null;
+      return first && existsSync15(first) ? first : null;
     } catch {
       return null;
     }
@@ -10352,7 +10604,7 @@ function claudeAppSupported() {
 }
 function findClaudeApp() {
   const override = getAppPathOverride("claude-app");
-  if (override && existsSync14(override)) return override;
+  if (override && existsSync15(override)) return override;
   if (process.platform === "darwin") {
     for (const bundleName of launcher2.darwinAppBundleNames) {
       const paths = [
@@ -10360,7 +10612,7 @@ function findClaudeApp() {
         join15(homedir9(), "Applications", bundleName)
       ];
       for (const path of paths) {
-        if (existsSync14(path)) return path;
+        if (existsSync15(path)) return path;
       }
     }
     try {
@@ -10369,7 +10621,7 @@ function findClaudeApp() {
         stdio: ["pipe", "pipe", "pipe"]
       }).trim();
       const first = out.split("\n").map((l) => l.trim()).find(Boolean);
-      if (first && existsSync14(first)) return first;
+      if (first && existsSync15(first)) return first;
     } catch {
     }
   }
@@ -10383,7 +10635,7 @@ function findClaudeApp() {
         ];
         for (const path of paths) {
           try {
-            if (existsSync14(path)) return path;
+            if (existsSync15(path)) return path;
           } catch {
           }
         }
@@ -11157,6 +11409,10 @@ export {
   makeTraceLogger,
   writeSecureLogLine,
   printTraceLog,
+  getValidationStatus,
+  pruneValidationCache,
+  validateModels,
+  quickValidateModel,
   fetchTemplateModels,
   addProviderFromTemplate,
   cachedModelToLocal,
@@ -11245,4 +11501,4 @@ export {
   runServerCommand,
   favoriteProviderDisplayName
 };
-//# sourceMappingURL=chunk-7VFPTJPC.js.map
+//# sourceMappingURL=chunk-662WNT64.js.map
