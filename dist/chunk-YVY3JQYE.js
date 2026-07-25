@@ -1741,6 +1741,47 @@ function printFavoritesOnlyPanel() {
     `${pc.white("Edit with ")}${pc.cyan("anygate models")}${pc.white(".")}`
   ]);
 }
+function printOnboardingPanel() {
+  printPanel(pc.cyan("Welcome to anygate"), [
+    `${pc.white("Let's configure free AI providers.")}`,
+    `${pc.dim("You can always add more later with ")}${fmtCommand("anygate providers")}${pc.dim(".")}`
+  ]);
+}
+function printProviderCategoryPanel() {
+  printPanel(pc.cyan("Provider categories"), [
+    `${pc.white("Keyless (works instantly):")}`,
+    `${pc.dim("  No API key needed \u2014 providers like Kilo Code work immediately.")}`,
+    "",
+    `${pc.white("API Key Required (free tier):")}`,
+    `${pc.dim("  NVIDIA, Groq, Mistral, Cerebras \u2014 free signup, no credit card.")}`
+  ]);
+}
+function printSetupSummaryPanel(configured, skipped) {
+  const lines = [];
+  for (const p7 of configured) {
+    const tag = p7.keyless ? pc.dim("(keyless)") : pc.dim("(API key configured)");
+    lines.push(`  ${pc.green("\u2713")} ${pc.bold(p7.name)} ${tag}`);
+  }
+  for (const s of skipped) {
+    lines.push(`  ${pc.yellow("\u26A0")} ${s} ${pc.dim("(skipped \u2014 add later with ")}${fmtCommand("anygate providers add")}${pc.dim(")")}`);
+  }
+  lines.push("");
+  lines.push(`${pc.bold(String(configured.length))} provider${configured.length === 1 ? "" : "s"} ready.`);
+  printPanel(pc.cyan("Setup complete"), lines);
+}
+function printMainMenuPanel(version, providerCount) {
+  printPanel(pc.cyan(`AnyGate v${version}`), [
+    `${pc.bold(String(providerCount))} provider${providerCount === 1 ? "" : "s"} configured`,
+    "",
+    `${pc.dim("Select an action:")}`
+  ]);
+}
+function printApiKeyProviderPanel(name, signupUrl) {
+  printPanel(pc.cyan(`${name} API key`), [
+    `${pc.white("Requires an API key (free at:")} ${fmtUrl(signupUrl)}`,
+    `${pc.dim("AnyGate stores it securely in your system keychain.")}`
+  ]);
+}
 
 // src/apps/shared/update-check.ts
 import {
@@ -3875,6 +3916,910 @@ async function isSecretServiceAvailable() {
   } catch {
     return false;
   }
+}
+
+// src/registry/data/model-incompatible.json
+var model_incompatible_default = {
+  schema_version: "1",
+  entries: [
+    {
+      provider: "google",
+      modelId: "antigravity-preview-05-2026",
+      category: "managed_agent",
+      reason: "Interactions API only; coding agents send multiturn chat via @ai-sdk/google streamGenerateContent",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "manual UAT 2026-06-10"
+      ],
+      verifiedAt: "2026-06-10"
+    },
+    {
+      provider: "*",
+      modelId: "z-ai/glm4.7",
+      category: "gated_access",
+      reason: "NVIDIA NIM requires separate access approval (HTTP 410)",
+      sources: [
+        "manual probe 2026-06"
+      ],
+      verifiedAt: "2026-06-10"
+    },
+    {
+      provider: "*",
+      modelId: "qwen3.6-plus-free",
+      category: "stale_promotion",
+      reason: "Free promotion ended; API returns 401",
+      sources: [
+        "OpenCode Zen catalog"
+      ],
+      verifiedAt: "2026-06-10"
+    },
+    {
+      provider: "*",
+      modelId: "mimo-v2-pro",
+      category: "deprecated",
+      reason: "Deprecated; API returns 400 \u2014 use mimo-v2.5-pro",
+      sources: [
+        "OpenCode Zen catalog"
+      ],
+      verifiedAt: "2026-06-10"
+    },
+    {
+      provider: "*",
+      modelId: "mimo-v2-omni",
+      category: "deprecated",
+      reason: "Deprecated; API returns 400 \u2014 use mimo-v2.5",
+      sources: [
+        "OpenCode Zen catalog"
+      ],
+      verifiedAt: "2026-06-10"
+    },
+    {
+      provider: "google",
+      modelId: "aqa",
+      category: "managed_agent",
+      reason: "Attributed QA model \u2014 not for coding agents",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "deep-research-max-preview-04-2026",
+      category: "managed_agent",
+      reason: "Specialized agent API \u2014 not standard coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "deep-research-preview-04-2026",
+      category: "managed_agent",
+      reason: "Specialized agent API \u2014 not standard coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "deep-research-pro-preview-12-2025",
+      category: "managed_agent",
+      reason: "Specialized agent API \u2014 not standard coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-2.5-computer-use-preview-10-2025",
+      category: "managed_agent",
+      reason: "Specialized agent API \u2014 not standard coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-2.5-flash-image",
+      category: "image_generation",
+      reason: "Image-output model \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-2.5-flash-native-audio-latest",
+      category: "audio_only",
+      reason: "Audio/music output \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-2.5-flash-native-audio-preview-09-2025",
+      category: "audio_only",
+      reason: "Audio/music output \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-2.5-flash-native-audio-preview-12-2025",
+      category: "audio_only",
+      reason: "Audio/music output \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-2.5-flash-preview-tts",
+      category: "audio_only",
+      reason: "Audio/music output \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-2.5-pro-preview-tts",
+      category: "audio_only",
+      reason: "Audio/music output \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-3-pro-preview",
+      category: "deprecated",
+      reason: "Retired preview; API returns 404 \u2014 use gemini-3.1-pro-preview or newer",
+      sources: [
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview",
+        "manual UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-3-pro-image",
+      category: "image_generation",
+      reason: "Image-output model \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-3-pro-image-preview",
+      category: "image_generation",
+      reason: "Image-output model \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-3.1-flash-image",
+      category: "image_generation",
+      reason: "Image-output model \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-3.1-flash-image-preview",
+      category: "image_generation",
+      reason: "Image-output model \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-3.1-flash-live-preview",
+      category: "managed_agent",
+      reason: "Live/session API \u2014 not for Codex multiturn chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-3.1-flash-tts-preview",
+      category: "audio_only",
+      reason: "Audio/music output \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-3.5-live-translate-preview",
+      category: "managed_agent",
+      reason: "Live/session API \u2014 not for Codex multiturn chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-embedding-001",
+      category: "embedding",
+      reason: "Embedding model \u2014 not for chat or tools",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-embedding-2",
+      category: "embedding",
+      reason: "Embedding model \u2014 not for chat or tools",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-embedding-2-preview",
+      category: "embedding",
+      reason: "Embedding model \u2014 not for chat or tools",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-robotics-er-1.5-preview",
+      category: "managed_agent",
+      reason: "Specialized agent API \u2014 not standard coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "gemini-robotics-er-1.6-preview",
+      category: "managed_agent",
+      reason: "Specialized agent API \u2014 not standard coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "imagen-4.0-fast-generate-001",
+      category: "image_generation",
+      reason: "Image generation \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "imagen-4.0-generate-001",
+      category: "image_generation",
+      reason: "Image generation \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "imagen-4.0-ultra-generate-001",
+      category: "image_generation",
+      reason: "Image generation \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "lyria-3-clip-preview",
+      category: "audio_only",
+      reason: "Audio/music output \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "lyria-3-pro-preview",
+      category: "audio_only",
+      reason: "Audio/music output \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "lyria-realtime-exp",
+      category: "audio_only",
+      reason: "Audio/music output \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "nano-banana-pro-preview",
+      category: "image_generation",
+      reason: "Image generation \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "veo-2.0-generate-001",
+      category: "video_generation",
+      reason: "Video generation \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "veo-3.0-fast-generate-001",
+      category: "video_generation",
+      reason: "Video generation \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "veo-3.0-generate-001",
+      category: "video_generation",
+      reason: "Video generation \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "veo-3.1-fast-generate-preview",
+      category: "video_generation",
+      reason: "Video generation \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "veo-3.1-generate-preview",
+      category: "video_generation",
+      reason: "Video generation \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    },
+    {
+      provider: "google",
+      modelId: "veo-3.1-lite-generate-preview",
+      category: "video_generation",
+      reason: "Video generation \u2014 not for coding chat",
+      sources: [
+        "https://ai.google.dev/gemini-api/docs/models",
+        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
+      ],
+      verifiedAt: "2026-06-11"
+    }
+  ]
+};
+
+// src/apps/shared/model-compatibility.ts
+var BRAND_MAP = [
+  ["claude", "Claude"],
+  ["gpt", "GPT"],
+  ["gemini", "Gemini"],
+  ["deepseek", "DeepSeek"],
+  ["qwen", "Qwen"],
+  ["minimax", "MiniMax"],
+  ["kimi", "Kimi"],
+  ["glm", "GLM"],
+  ["mimo", "MiMo"],
+  ["grok", "Grok"],
+  ["nemotron", "Nemotron"]
+];
+function deriveBrand(family) {
+  const lower = family.toLowerCase();
+  for (const [prefix, brand] of BRAND_MAP) {
+    if (lower.startsWith(prefix)) return brand;
+  }
+  return "Other";
+}
+var BLACKLIST_ENTRIES = model_incompatible_default.entries ?? [];
+var ANTIGRAVITY_VALIDATED_AGENT_MODELS = /* @__PURE__ */ new Set([
+  "gemini-3.5-flash-low",
+  "gemini-3.5-flash-extra-low",
+  "gemini-3.1-pro-low",
+  "gemini-pro-agent",
+  "claude-sonnet-4-6",
+  "claude-opus-4-6-thinking",
+  "gpt-oss-120b-medium"
+]);
+function matchesAgent(entryAgents, agent) {
+  if (!entryAgents || entryAgents.length === 0) return true;
+  return entryAgents.includes(agent);
+}
+function matchesProvider(entryProvider, providerId) {
+  return entryProvider === providerId || entryProvider === "*";
+}
+function findBlacklistEntry(ctx) {
+  for (const entry of BLACKLIST_ENTRIES) {
+    if (entry.modelId !== ctx.modelId) continue;
+    if (!matchesProvider(entry.provider, ctx.providerId)) continue;
+    if (!matchesAgent(entry.agents, ctx.agent)) continue;
+    return entry;
+  }
+  return null;
+}
+function hideReason(ctx) {
+  if (ctx.providerId === "antigravity" && !ANTIGRAVITY_VALIDATED_AGENT_MODELS.has(ctx.modelId)) {
+    return "[antigravity-oauth] not a validated user-selectable Cloud Code agent model";
+  }
+  const blacklist = findBlacklistEntry(ctx);
+  if (blacklist) return `[blacklist:${blacklist.category}] ${blacklist.reason}`;
+  const modelsDev = findModelsDevModel(ctx.providerId, ctx.modelId, loadModelsDevCache());
+  if (modelsDev && shouldHideByModelsDevCapabilities(modelsDev)) {
+    return "[models.dev] incompatible capabilities for coding agents";
+  }
+  return null;
+}
+function shouldHideModel(ctx) {
+  return hideReason(ctx) !== null;
+}
+function readModelsFromCache(backendId) {
+  const cache = loadOpencodeCache();
+  if (!cache) return null;
+  const providerKey = backendId === "zen" ? "opencode" : "opencode-go";
+  const providerData = cache[providerKey];
+  if (!providerData?.models) return null;
+  const result = /* @__PURE__ */ new Map();
+  for (const entry of Object.values(providerData.models)) {
+    if (!entry.id || entry.status === "deprecated") continue;
+    const isFree = entry.cost !== void 0 && entry.cost.input === 0 && entry.cost.output === 0;
+    const rawFormat = classifyModelFormat(entry.id, entry.provider?.npm);
+    const modelFormat = backendId === "go" && rawFormat === "anthropic" ? "openai" : rawFormat;
+    result.set(entry.id, {
+      id: entry.id,
+      name: entry.name ?? entry.id,
+      isFree,
+      brand: deriveBrand(entry.family ?? ""),
+      sourceBackend: backendId,
+      modelFormat,
+      cost: entry.cost,
+      contextWindow: resolveContextWindow(entry.id, entry.limit?.context),
+      reasoning: entry.reasoning,
+      interleavedReasoningField: entry.interleaved?.field
+    });
+  }
+  return result;
+}
+async function fetchModelsFromApi(backend) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5e3);
+  try {
+    const res = await fetch(`${backend.baseUrl}/v1/models`, {
+      signal: controller.signal,
+      headers: { Authorization: "Bearer test" }
+    });
+    if (!res.ok) throw new Error(`API returned HTTP ${res.status}`);
+    const body = await res.json();
+    return body.data.map((m) => m.id);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+function mergeModels(apiIds, cache, backendId) {
+  const uniqueIds = Array.from(new Set(apiIds));
+  return uniqueIds.filter((id) => !shouldHideModel({ providerId: backendId, modelId: id, agent: "claude" })).map((id) => {
+    const cached = cache?.get(id);
+    if (cached) {
+      const modelFormat2 = backendId === "go" && cached.modelFormat === "anthropic" ? "openai" : cached.modelFormat;
+      return { ...cached, sourceBackend: backendId, modelFormat: modelFormat2 };
+    }
+    const modelFormat = classifyModelFormat(id, void 0);
+    return {
+      id,
+      name: id,
+      isFree: false,
+      brand: "Other",
+      sourceBackend: backendId,
+      modelFormat,
+      contextWindow: resolveContextWindow(id)
+    };
+  });
+}
+async function getModels(backend, fallbackModels) {
+  const cache = readModelsFromCache(backend.id);
+  try {
+    const apiIds = await fetchModelsFromApi(backend);
+    return { models: mergeModels(apiIds, cache, backend.id), fromCache: false };
+  } catch {
+    if (cache && cache.size > 0) {
+      return { models: [...cache.values()], fromCache: true };
+    }
+    if (fallbackModels && fallbackModels.length > 0) {
+      return { models: fallbackModels, fromCache: true };
+    }
+    throw new Error(
+      "Cannot fetch models. Check your network and https://opencode.ai status."
+    );
+  }
+}
+
+// src/registry/templates/fetch-template-models.ts
+var TEST_TIMEOUT_MS = 1e4;
+function modelFormatForNpm(npm) {
+  return npm === "@ai-sdk/anthropic" ? "anthropic" : "openai";
+}
+function modelsUrl(baseUrl, template) {
+  const trimmed = baseUrl.replace(/\/$/, "");
+  if (template.modelsPath) {
+    const path = template.modelsPath.startsWith("/") ? template.modelsPath : `/${template.modelsPath}`;
+    return `${trimmed}${path}`;
+  }
+  if (/\/(v\d+[a-z]*|openai|beta)$/.test(trimmed)) {
+    return `${trimmed}/models`;
+  }
+  return `${trimmed}/v1/models`;
+}
+function toNumber(value) {
+  if (value === void 0) return void 0;
+  const num = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(num) ? num : void 0;
+}
+function perMillion(value) {
+  if (value === void 0) return void 0;
+  return Number((value * 1e6).toPrecision(12));
+}
+function parseNativePricing(pricing) {
+  if (!pricing) return void 0;
+  const inputPerToken = toNumber(pricing.prompt) ?? toNumber(pricing.input) ?? toNumber(pricing.input_cost_per_token) ?? toNumber(pricing.inputCostPerToken);
+  const outputPerToken = toNumber(pricing.completion) ?? toNumber(pricing.output) ?? toNumber(pricing.output_cost_per_token) ?? toNumber(pricing.outputCostPerToken);
+  const inputPerMillion = toNumber(pricing.input_per_1m_tokens) ?? toNumber(pricing.inputPer1MTokens);
+  const outputPerMillion = toNumber(pricing.output_per_1m_tokens) ?? toNumber(pricing.outputPer1MTokens);
+  const input = perMillion(inputPerToken) ?? inputPerMillion;
+  const output = perMillion(outputPerToken) ?? outputPerMillion;
+  if (input === void 0 && output === void 0) return void 0;
+  const cost = {
+    input: input ?? 0,
+    output: output ?? 0
+  };
+  const cacheRead = perMillion(toNumber(pricing.input_cache_read) ?? toNumber(pricing.cache_read));
+  const cacheWrite = perMillion(toNumber(pricing.input_cache_write) ?? toNumber(pricing.cache_write));
+  if (cacheRead !== void 0) cost.cache_read = cacheRead;
+  if (cacheWrite !== void 0) cost.cache_write = cacheWrite;
+  return cost;
+}
+function parseModelList(body, npm, providerId) {
+  const rows = body.data ?? body.models ?? [];
+  const format = modelFormatForNpm(npm);
+  const models = [];
+  for (const row of rows) {
+    const rawId = row.id?.trim();
+    if (!rawId) continue;
+    const { id, upstreamModelId: upstreamModelId2 } = normalizeGoogleModelId(rawId, npm);
+    const family = id.split(/[-/:]/)[0] ?? id;
+    const cost = parseNativePricing(row.pricing);
+    const freeStatus = classifyFreeStatus({
+      model: { cost, isFree: row.isFree }
+    });
+    const contextWindow = row.context_length ?? row.contextWindow ?? row.context_window ?? resolveContextWindow(id);
+    models.push({
+      id,
+      name: normalizeGoogleDisplayName(row.name, id),
+      upstreamModelId: upstreamModelId2,
+      family,
+      brand: deriveBrand(family),
+      contextWindow,
+      cost,
+      isFree: isFreeStatus(freeStatus),
+      freeStatus,
+      modelFormat: format,
+      npm,
+      providerId,
+      supportedParameters: Array.isArray(row.supported_parameters) ? row.supported_parameters : void 0,
+      useResponsesLite: typeof row.use_responses_lite === "boolean" ? row.use_responses_lite : void 0,
+      preferWebSockets: typeof row.prefer_websockets === "boolean" ? row.prefer_websockets : void 0
+    });
+  }
+  return models;
+}
+async function fetchTemplateModels(template, apiKey, baseUrlOverride, extraHeaders) {
+  const trimmedOverride = baseUrlOverride?.trim();
+  const baseUrl = (trimmedOverride || template.defaultBaseUrl)?.replace(/\/$/, "");
+  if (!baseUrl) {
+    return {
+      models: [],
+      baseUrl: "",
+      error: "This provider needs a base URL.",
+      hint: "Use anygate providers import from OpenCode for advanced setups."
+    };
+  }
+  if (template.modelSource === "static-seed") {
+    const models = (template.staticModels || []).map((sm) => {
+      const family = sm.id.split(/[-/:]/)[0] ?? sm.id;
+      return {
+        id: sm.id,
+        name: sm.name,
+        upstreamModelId: sm.id,
+        family,
+        brand: deriveBrand(family),
+        contextWindow: resolveContextWindow(sm.id),
+        modelFormat: modelFormatForNpm(template.npm),
+        npm: template.npm
+      };
+    });
+    return { models, baseUrl };
+  }
+  const url = modelsUrl(baseUrl, template);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
+  const headers = { Accept: "application/json" };
+  const trimmedApiKey = apiKey.trim();
+  if (template.npm === "@ai-sdk/anthropic") {
+    if (trimmedApiKey) headers["x-api-key"] = trimmedApiKey;
+    headers["anthropic-version"] = "2023-06-01";
+  } else if (trimmedApiKey) {
+    headers["Authorization"] = `Bearer ${trimmedApiKey}`;
+  }
+  if (template.headers) Object.assign(headers, template.headers);
+  if (extraHeaders) Object.assign(headers, extraHeaders);
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      redirect: "manual",
+      signal: controller.signal
+    });
+    if (response.status >= 300 && response.status < 400) {
+      return {
+        models: [],
+        baseUrl,
+        error: "Provider redirected the connection test.",
+        hint: "Check the base URL \xE2\u20AC\u201D redirects are blocked for security."
+      };
+    }
+    let logTrace;
+    if (process.env.ANYGATE_TRACE === "1") {
+      logTrace = makeTraceLogger(getProviderDebugLogPath());
+    }
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      if (logTrace) {
+        logTrace(`[fetchTemplateModels] HTTP ${response.status} from ${url}`);
+        logTrace(`[fetchTemplateModels] Body: ${body}`);
+      }
+      const detail = body.slice(0, 200).trim();
+      if (response.status === 401 || response.status === 403) {
+        return {
+          models: [],
+          baseUrl,
+          error: "API key was rejected.",
+          hint: template.signupUrl ? `Get or verify your key at ${template.signupUrl}` : "Double-check the key you pasted."
+        };
+      }
+      return {
+        models: [],
+        baseUrl,
+        error: `Provider returned HTTP ${response.status}.`,
+        hint: detail || "Check your API key and try again."
+      };
+    }
+    const rawBodyText = await response.text().catch(() => "");
+    if (logTrace) {
+      logTrace(`[fetchTemplateModels] HTTP ${response.status} from ${url}`);
+      logTrace(`[fetchTemplateModels] Body: ${rawBodyText}`);
+    }
+    let json = {};
+    try {
+      if (rawBodyText.trim()) {
+        json = JSON.parse(rawBodyText);
+      }
+    } catch {
+    }
+    const models = parseModelList(json, template.npm, template.id);
+    if (models.length === 0) {
+      return {
+        models: [],
+        baseUrl,
+        error: "Connected but no models were returned.",
+        hint: "The API key may be valid but model listing is unavailable for this provider."
+      };
+    }
+    return { models, baseUrl };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const timedOut = message.includes("abort") || message.includes("Abort");
+    return {
+      models: [],
+      baseUrl,
+      error: timedOut ? "Connection timed out after 10 seconds." : "Could not reach the provider.",
+      hint: timedOut ? "Check your network or try again." : "Verify the provider is online and your API key is correct."
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// src/registry/templates/add-template.ts
+async function probeTemplatePackage(template) {
+  if (!template.supported) return template.unsupportedReason ?? "Provider is not supported yet.";
+  if (!template.npm) return "Template is missing an SDK package.";
+  if (!isSdkUpgradedNpm(template.npm) && template.npm !== "@ai-sdk/anthropic") {
+    return `SDK package ${template.npm} is not available in anygate.`;
+  }
+  try {
+    await import(template.npm);
+    return null;
+  } catch {
+    return `Could not load ${template.npm}. Run npm install in your anygate checkout.`;
+  }
+}
+function filterAnonymousFreeModels(models, template) {
+  if (!template.anonymousFreeModels) return models;
+  return models.filter((model) => isFreeStatus(classifyFreeStatus({
+    model,
+    providerId: template.id,
+    templateId: template.id
+  })));
+}
+async function addProviderFromTemplate(template, apiKey, opts) {
+  const packageError = await probeTemplatePackage(template);
+  if (packageError) {
+    return { added: false, error: packageError };
+  }
+  const trimmedKey = apiKey.trim();
+  if (!trimmedKey && !template.apiKeyOptional) {
+    return { added: false, error: "API key cannot be empty." };
+  }
+  const registry = loadRegistry();
+  const existing = registry.providers.find((p7) => p7.id === template.id);
+  if (existing && !opts?.replaceExisting) {
+    return {
+      added: false,
+      error: `${template.name} is already configured.`,
+      hint: `Remove it first with: anygate providers remove ${template.id}`
+    };
+  }
+  const fetched = await fetchTemplateModels(template, trimmedKey, opts?.baseUrl);
+  if (fetched.error || fetched.models.length === 0) {
+    return {
+      added: false,
+      error: fetched.error ?? "No models returned.",
+      hint: fetched.hint
+    };
+  }
+  const usableModels = !trimmedKey && template.anonymousFreeModels ? filterAnonymousFreeModels(fetched.models, template) : fetched.models;
+  if (usableModels.length === 0) {
+    return {
+      added: false,
+      error: "No free models were returned for anonymous access.",
+      hint: template.signupUrl ? `Add a ${template.name} API key from ${template.signupUrl} to use paid models.` : void 0
+    };
+  }
+  const authRef = `keyring:provider:${template.id}`;
+  const saved = trimmedKey ? await saveProviderCredential(authRef, trimmedKey) : true;
+  if (!saved) {
+    return {
+      added: false,
+      error: "Could not save API key to Keychain.",
+      hint: "Grant Keychain access or try again."
+    };
+  }
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const pricingCache = loadPricingCache();
+  const platform = pricingPlatformForProvider(template.id, template.id);
+  const pricedModels = enrichModelsWithPricing(
+    usableModels.map((m) => ({ ...m, apiUrl: fetched.baseUrl })),
+    buildPricingIndex(pricingCache),
+    platform
+  );
+  const entry = {
+    id: template.id,
+    templateId: template.id,
+    name: template.name,
+    enabled: true,
+    authRef,
+    authType: template.authType,
+    api: {
+      npm: template.npm,
+      url: fetched.baseUrl
+    },
+    addedAt: existing?.addedAt ?? now,
+    refreshedAt: now,
+    modelsCache: {
+      fetchedAt: now,
+      models: pricedModels
+    }
+  };
+  if (existing) {
+    const idx = registry.providers.findIndex((p7) => p7.id === template.id);
+    registry.providers[idx] = entry;
+  } else {
+    registry.providers.push(entry);
+  }
+  saveRegistry(registry);
+  enrichPricingAsync();
+  return { added: true, provider: entry, modelCount: pricedModels.length };
 }
 
 // src/shared/http.ts
@@ -6349,613 +7294,6 @@ function formatOpenAIModels(models) {
   };
 }
 
-// src/registry/data/model-incompatible.json
-var model_incompatible_default = {
-  schema_version: "1",
-  entries: [
-    {
-      provider: "google",
-      modelId: "antigravity-preview-05-2026",
-      category: "managed_agent",
-      reason: "Interactions API only; coding agents send multiturn chat via @ai-sdk/google streamGenerateContent",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "manual UAT 2026-06-10"
-      ],
-      verifiedAt: "2026-06-10"
-    },
-    {
-      provider: "*",
-      modelId: "z-ai/glm4.7",
-      category: "gated_access",
-      reason: "NVIDIA NIM requires separate access approval (HTTP 410)",
-      sources: [
-        "manual probe 2026-06"
-      ],
-      verifiedAt: "2026-06-10"
-    },
-    {
-      provider: "*",
-      modelId: "qwen3.6-plus-free",
-      category: "stale_promotion",
-      reason: "Free promotion ended; API returns 401",
-      sources: [
-        "OpenCode Zen catalog"
-      ],
-      verifiedAt: "2026-06-10"
-    },
-    {
-      provider: "*",
-      modelId: "mimo-v2-pro",
-      category: "deprecated",
-      reason: "Deprecated; API returns 400 \u2014 use mimo-v2.5-pro",
-      sources: [
-        "OpenCode Zen catalog"
-      ],
-      verifiedAt: "2026-06-10"
-    },
-    {
-      provider: "*",
-      modelId: "mimo-v2-omni",
-      category: "deprecated",
-      reason: "Deprecated; API returns 400 \u2014 use mimo-v2.5",
-      sources: [
-        "OpenCode Zen catalog"
-      ],
-      verifiedAt: "2026-06-10"
-    },
-    {
-      provider: "google",
-      modelId: "aqa",
-      category: "managed_agent",
-      reason: "Attributed QA model \u2014 not for coding agents",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "deep-research-max-preview-04-2026",
-      category: "managed_agent",
-      reason: "Specialized agent API \u2014 not standard coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "deep-research-preview-04-2026",
-      category: "managed_agent",
-      reason: "Specialized agent API \u2014 not standard coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "deep-research-pro-preview-12-2025",
-      category: "managed_agent",
-      reason: "Specialized agent API \u2014 not standard coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-2.5-computer-use-preview-10-2025",
-      category: "managed_agent",
-      reason: "Specialized agent API \u2014 not standard coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-2.5-flash-image",
-      category: "image_generation",
-      reason: "Image-output model \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-2.5-flash-native-audio-latest",
-      category: "audio_only",
-      reason: "Audio/music output \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-2.5-flash-native-audio-preview-09-2025",
-      category: "audio_only",
-      reason: "Audio/music output \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-2.5-flash-native-audio-preview-12-2025",
-      category: "audio_only",
-      reason: "Audio/music output \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-2.5-flash-preview-tts",
-      category: "audio_only",
-      reason: "Audio/music output \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-2.5-pro-preview-tts",
-      category: "audio_only",
-      reason: "Audio/music output \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-3-pro-preview",
-      category: "deprecated",
-      reason: "Retired preview; API returns 404 \u2014 use gemini-3.1-pro-preview or newer",
-      sources: [
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview",
-        "manual UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-3-pro-image",
-      category: "image_generation",
-      reason: "Image-output model \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-3-pro-image-preview",
-      category: "image_generation",
-      reason: "Image-output model \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-3.1-flash-image",
-      category: "image_generation",
-      reason: "Image-output model \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-3.1-flash-image-preview",
-      category: "image_generation",
-      reason: "Image-output model \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-3.1-flash-live-preview",
-      category: "managed_agent",
-      reason: "Live/session API \u2014 not for Codex multiturn chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-3.1-flash-tts-preview",
-      category: "audio_only",
-      reason: "Audio/music output \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-3.5-live-translate-preview",
-      category: "managed_agent",
-      reason: "Live/session API \u2014 not for Codex multiturn chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-embedding-001",
-      category: "embedding",
-      reason: "Embedding model \u2014 not for chat or tools",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-embedding-2",
-      category: "embedding",
-      reason: "Embedding model \u2014 not for chat or tools",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-embedding-2-preview",
-      category: "embedding",
-      reason: "Embedding model \u2014 not for chat or tools",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-robotics-er-1.5-preview",
-      category: "managed_agent",
-      reason: "Specialized agent API \u2014 not standard coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "gemini-robotics-er-1.6-preview",
-      category: "managed_agent",
-      reason: "Specialized agent API \u2014 not standard coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "imagen-4.0-fast-generate-001",
-      category: "image_generation",
-      reason: "Image generation \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "imagen-4.0-generate-001",
-      category: "image_generation",
-      reason: "Image generation \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "imagen-4.0-ultra-generate-001",
-      category: "image_generation",
-      reason: "Image generation \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "lyria-3-clip-preview",
-      category: "audio_only",
-      reason: "Audio/music output \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "lyria-3-pro-preview",
-      category: "audio_only",
-      reason: "Audio/music output \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "lyria-realtime-exp",
-      category: "audio_only",
-      reason: "Audio/music output \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "nano-banana-pro-preview",
-      category: "image_generation",
-      reason: "Image generation \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "veo-2.0-generate-001",
-      category: "video_generation",
-      reason: "Video generation \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "veo-3.0-fast-generate-001",
-      category: "video_generation",
-      reason: "Video generation \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "veo-3.0-generate-001",
-      category: "video_generation",
-      reason: "Video generation \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "veo-3.1-fast-generate-preview",
-      category: "video_generation",
-      reason: "Video generation \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "veo-3.1-generate-preview",
-      category: "video_generation",
-      reason: "Video generation \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    },
-    {
-      provider: "google",
-      modelId: "veo-3.1-lite-generate-preview",
-      category: "video_generation",
-      reason: "Video generation \u2014 not for coding chat",
-      sources: [
-        "https://ai.google.dev/gemini-api/docs/models",
-        "Google GET /v1/models vs models.dev gap \u2014 UAT 2026-06-11"
-      ],
-      verifiedAt: "2026-06-11"
-    }
-  ]
-};
-
-// src/apps/shared/model-compatibility.ts
-var BRAND_MAP = [
-  ["claude", "Claude"],
-  ["gpt", "GPT"],
-  ["gemini", "Gemini"],
-  ["deepseek", "DeepSeek"],
-  ["qwen", "Qwen"],
-  ["minimax", "MiniMax"],
-  ["kimi", "Kimi"],
-  ["glm", "GLM"],
-  ["mimo", "MiMo"],
-  ["grok", "Grok"],
-  ["nemotron", "Nemotron"]
-];
-function deriveBrand(family) {
-  const lower = family.toLowerCase();
-  for (const [prefix, brand] of BRAND_MAP) {
-    if (lower.startsWith(prefix)) return brand;
-  }
-  return "Other";
-}
-var BLACKLIST_ENTRIES = model_incompatible_default.entries ?? [];
-var ANTIGRAVITY_VALIDATED_AGENT_MODELS = /* @__PURE__ */ new Set([
-  "gemini-3.5-flash-low",
-  "gemini-3.5-flash-extra-low",
-  "gemini-3.1-pro-low",
-  "gemini-pro-agent",
-  "claude-sonnet-4-6",
-  "claude-opus-4-6-thinking",
-  "gpt-oss-120b-medium"
-]);
-function matchesAgent(entryAgents, agent) {
-  if (!entryAgents || entryAgents.length === 0) return true;
-  return entryAgents.includes(agent);
-}
-function matchesProvider(entryProvider, providerId) {
-  return entryProvider === providerId || entryProvider === "*";
-}
-function findBlacklistEntry(ctx) {
-  for (const entry of BLACKLIST_ENTRIES) {
-    if (entry.modelId !== ctx.modelId) continue;
-    if (!matchesProvider(entry.provider, ctx.providerId)) continue;
-    if (!matchesAgent(entry.agents, ctx.agent)) continue;
-    return entry;
-  }
-  return null;
-}
-function hideReason(ctx) {
-  if (ctx.providerId === "antigravity" && !ANTIGRAVITY_VALIDATED_AGENT_MODELS.has(ctx.modelId)) {
-    return "[antigravity-oauth] not a validated user-selectable Cloud Code agent model";
-  }
-  const blacklist = findBlacklistEntry(ctx);
-  if (blacklist) return `[blacklist:${blacklist.category}] ${blacklist.reason}`;
-  const modelsDev = findModelsDevModel(ctx.providerId, ctx.modelId, loadModelsDevCache());
-  if (modelsDev && shouldHideByModelsDevCapabilities(modelsDev)) {
-    return "[models.dev] incompatible capabilities for coding agents";
-  }
-  return null;
-}
-function shouldHideModel(ctx) {
-  return hideReason(ctx) !== null;
-}
-function readModelsFromCache(backendId) {
-  const cache = loadOpencodeCache();
-  if (!cache) return null;
-  const providerKey = backendId === "zen" ? "opencode" : "opencode-go";
-  const providerData = cache[providerKey];
-  if (!providerData?.models) return null;
-  const result = /* @__PURE__ */ new Map();
-  for (const entry of Object.values(providerData.models)) {
-    if (!entry.id || entry.status === "deprecated") continue;
-    const isFree = entry.cost !== void 0 && entry.cost.input === 0 && entry.cost.output === 0;
-    const rawFormat = classifyModelFormat(entry.id, entry.provider?.npm);
-    const modelFormat = backendId === "go" && rawFormat === "anthropic" ? "openai" : rawFormat;
-    result.set(entry.id, {
-      id: entry.id,
-      name: entry.name ?? entry.id,
-      isFree,
-      brand: deriveBrand(entry.family ?? ""),
-      sourceBackend: backendId,
-      modelFormat,
-      cost: entry.cost,
-      contextWindow: resolveContextWindow(entry.id, entry.limit?.context),
-      reasoning: entry.reasoning,
-      interleavedReasoningField: entry.interleaved?.field
-    });
-  }
-  return result;
-}
-async function fetchModelsFromApi(backend) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5e3);
-  try {
-    const res = await fetch(`${backend.baseUrl}/v1/models`, {
-      signal: controller.signal,
-      headers: { Authorization: "Bearer test" }
-    });
-    if (!res.ok) throw new Error(`API returned HTTP ${res.status}`);
-    const body = await res.json();
-    return body.data.map((m) => m.id);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-function mergeModels(apiIds, cache, backendId) {
-  const uniqueIds = Array.from(new Set(apiIds));
-  return uniqueIds.filter((id) => !shouldHideModel({ providerId: backendId, modelId: id, agent: "claude" })).map((id) => {
-    const cached = cache?.get(id);
-    if (cached) {
-      const modelFormat2 = backendId === "go" && cached.modelFormat === "anthropic" ? "openai" : cached.modelFormat;
-      return { ...cached, sourceBackend: backendId, modelFormat: modelFormat2 };
-    }
-    const modelFormat = classifyModelFormat(id, void 0);
-    return {
-      id,
-      name: id,
-      isFree: false,
-      brand: "Other",
-      sourceBackend: backendId,
-      modelFormat,
-      contextWindow: resolveContextWindow(id)
-    };
-  });
-}
-async function getModels(backend, fallbackModels) {
-  const cache = readModelsFromCache(backend.id);
-  try {
-    const apiIds = await fetchModelsFromApi(backend);
-    return { models: mergeModels(apiIds, cache, backend.id), fromCache: false };
-  } catch {
-    if (cache && cache.size > 0) {
-      return { models: [...cache.values()], fromCache: true };
-    }
-    if (fallbackModels && fallbackModels.length > 0) {
-      return { models: fallbackModels, fromCache: true };
-    }
-    throw new Error(
-      "Cannot fetch models. Check your network and https://opencode.ai status."
-    );
-  }
-}
-
 // src/apps/shared/target-compatibility.ts
 function blacklistAgentForTarget(target) {
   if (target === "claude-app") return "codex-app";
@@ -7443,200 +7781,6 @@ async function validateCustomEndpointUrl(rawUrl, opts = {}) {
   return { ok: true, normalizedUrl };
 }
 
-// src/registry/templates/fetch-template-models.ts
-var TEST_TIMEOUT_MS = 1e4;
-function modelFormatForNpm(npm) {
-  return npm === "@ai-sdk/anthropic" ? "anthropic" : "openai";
-}
-function modelsUrl(baseUrl, template) {
-  const trimmed = baseUrl.replace(/\/$/, "");
-  if (template.modelsPath) {
-    const path = template.modelsPath.startsWith("/") ? template.modelsPath : `/${template.modelsPath}`;
-    return `${trimmed}${path}`;
-  }
-  if (/\/(v\d+[a-z]*|openai|beta)$/.test(trimmed)) {
-    return `${trimmed}/models`;
-  }
-  return `${trimmed}/v1/models`;
-}
-function toNumber(value) {
-  if (value === void 0) return void 0;
-  const num = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(num) ? num : void 0;
-}
-function perMillion(value) {
-  if (value === void 0) return void 0;
-  return Number((value * 1e6).toPrecision(12));
-}
-function parseNativePricing(pricing) {
-  if (!pricing) return void 0;
-  const inputPerToken = toNumber(pricing.prompt) ?? toNumber(pricing.input) ?? toNumber(pricing.input_cost_per_token) ?? toNumber(pricing.inputCostPerToken);
-  const outputPerToken = toNumber(pricing.completion) ?? toNumber(pricing.output) ?? toNumber(pricing.output_cost_per_token) ?? toNumber(pricing.outputCostPerToken);
-  const inputPerMillion = toNumber(pricing.input_per_1m_tokens) ?? toNumber(pricing.inputPer1MTokens);
-  const outputPerMillion = toNumber(pricing.output_per_1m_tokens) ?? toNumber(pricing.outputPer1MTokens);
-  const input = perMillion(inputPerToken) ?? inputPerMillion;
-  const output = perMillion(outputPerToken) ?? outputPerMillion;
-  if (input === void 0 && output === void 0) return void 0;
-  const cost = {
-    input: input ?? 0,
-    output: output ?? 0
-  };
-  const cacheRead = perMillion(toNumber(pricing.input_cache_read) ?? toNumber(pricing.cache_read));
-  const cacheWrite = perMillion(toNumber(pricing.input_cache_write) ?? toNumber(pricing.cache_write));
-  if (cacheRead !== void 0) cost.cache_read = cacheRead;
-  if (cacheWrite !== void 0) cost.cache_write = cacheWrite;
-  return cost;
-}
-function parseModelList(body, npm) {
-  const rows = body.data ?? body.models ?? [];
-  const format = modelFormatForNpm(npm);
-  const models = [];
-  for (const row of rows) {
-    const rawId = row.id?.trim();
-    if (!rawId) continue;
-    const { id, upstreamModelId: upstreamModelId2 } = normalizeGoogleModelId(rawId, npm);
-    const family = id.split(/[-/:]/)[0] ?? id;
-    const cost = parseNativePricing(row.pricing);
-    const freeStatus = classifyFreeStatus({
-      model: { cost, isFree: row.isFree }
-    });
-    const contextWindow = row.context_length ?? row.contextWindow ?? row.context_window ?? resolveContextWindow(id);
-    models.push({
-      id,
-      name: normalizeGoogleDisplayName(row.name, id),
-      upstreamModelId: upstreamModelId2,
-      family,
-      brand: deriveBrand(family),
-      contextWindow,
-      cost,
-      isFree: isFreeStatus(freeStatus),
-      freeStatus,
-      modelFormat: format,
-      npm,
-      supportedParameters: Array.isArray(row.supported_parameters) ? row.supported_parameters : void 0,
-      useResponsesLite: typeof row.use_responses_lite === "boolean" ? row.use_responses_lite : void 0,
-      preferWebSockets: typeof row.prefer_websockets === "boolean" ? row.prefer_websockets : void 0
-    });
-  }
-  return models;
-}
-async function fetchTemplateModels(template, apiKey, baseUrlOverride, extraHeaders) {
-  const trimmedOverride = baseUrlOverride?.trim();
-  const baseUrl = (trimmedOverride || template.defaultBaseUrl)?.replace(/\/$/, "");
-  if (!baseUrl) {
-    return {
-      models: [],
-      baseUrl: "",
-      error: "This provider needs a base URL.",
-      hint: "Use anygate providers import from OpenCode for advanced setups."
-    };
-  }
-  if (template.modelSource === "static-seed") {
-    const models = (template.staticModels || []).map((sm) => {
-      const family = sm.id.split(/[-/:]/)[0] ?? sm.id;
-      return {
-        id: sm.id,
-        name: sm.name,
-        upstreamModelId: sm.id,
-        family,
-        brand: deriveBrand(family),
-        contextWindow: resolveContextWindow(sm.id),
-        modelFormat: modelFormatForNpm(template.npm),
-        npm: template.npm
-      };
-    });
-    return { models, baseUrl };
-  }
-  const url = modelsUrl(baseUrl, template);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
-  const headers = { Accept: "application/json" };
-  const trimmedApiKey = apiKey.trim();
-  if (template.npm === "@ai-sdk/anthropic") {
-    if (trimmedApiKey) headers["x-api-key"] = trimmedApiKey;
-    headers["anthropic-version"] = "2023-06-01";
-  } else if (trimmedApiKey) {
-    headers["Authorization"] = `Bearer ${trimmedApiKey}`;
-  }
-  if (template.headers) Object.assign(headers, template.headers);
-  if (extraHeaders) Object.assign(headers, extraHeaders);
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers,
-      redirect: "manual",
-      signal: controller.signal
-    });
-    if (response.status >= 300 && response.status < 400) {
-      return {
-        models: [],
-        baseUrl,
-        error: "Provider redirected the connection test.",
-        hint: "Check the base URL \xE2\u20AC\u201D redirects are blocked for security."
-      };
-    }
-    let logTrace;
-    if (process.env.ANYGATE_TRACE === "1") {
-      logTrace = makeTraceLogger(getProviderDebugLogPath());
-    }
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      if (logTrace) {
-        logTrace(`[fetchTemplateModels] HTTP ${response.status} from ${url}`);
-        logTrace(`[fetchTemplateModels] Body: ${body}`);
-      }
-      const detail = body.slice(0, 200).trim();
-      if (response.status === 401 || response.status === 403) {
-        return {
-          models: [],
-          baseUrl,
-          error: "API key was rejected.",
-          hint: template.signupUrl ? `Get or verify your key at ${template.signupUrl}` : "Double-check the key you pasted."
-        };
-      }
-      return {
-        models: [],
-        baseUrl,
-        error: `Provider returned HTTP ${response.status}.`,
-        hint: detail || "Check your API key and try again."
-      };
-    }
-    const rawBodyText = await response.text().catch(() => "");
-    if (logTrace) {
-      logTrace(`[fetchTemplateModels] HTTP ${response.status} from ${url}`);
-      logTrace(`[fetchTemplateModels] Body: ${rawBodyText}`);
-    }
-    let json = {};
-    try {
-      if (rawBodyText.trim()) {
-        json = JSON.parse(rawBodyText);
-      }
-    } catch {
-    }
-    const models = parseModelList(json, template.npm);
-    if (models.length === 0) {
-      return {
-        models: [],
-        baseUrl,
-        error: "Connected but no models were returned.",
-        hint: "The API key may be valid but model listing is unavailable for this provider."
-      };
-    }
-    return { models, baseUrl };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const timedOut = message.includes("abort") || message.includes("Abort");
-    return {
-      models: [],
-      baseUrl,
-      error: timedOut ? "Connection timed out after 10 seconds." : "Could not reach the provider.",
-      hint: timedOut ? "Check your network or try again." : "Verify the provider is online and your API key is correct."
-    };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 // src/registry/storage/custom-endpoint.ts
 function npmForKind(kind) {
   return kind === "anthropic" ? "@ai-sdk/anthropic" : "@ai-sdk/openai-compatible";
@@ -7795,108 +7939,6 @@ async function addCustomEndpointProvider(input) {
   registry.providers.push(entry);
   saveRegistry(registry);
   return { added: true, provider: entry, modelCount: fetched.models.length };
-}
-
-// src/registry/templates/add-template.ts
-async function probeTemplatePackage(template) {
-  if (!template.supported) return template.unsupportedReason ?? "Provider is not supported yet.";
-  if (!template.npm) return "Template is missing an SDK package.";
-  if (!isSdkUpgradedNpm(template.npm) && template.npm !== "@ai-sdk/anthropic") {
-    return `SDK package ${template.npm} is not available in anygate.`;
-  }
-  try {
-    await import(template.npm);
-    return null;
-  } catch {
-    return `Could not load ${template.npm}. Run npm install in your anygate checkout.`;
-  }
-}
-function filterAnonymousFreeModels(models, template) {
-  if (!template.anonymousFreeModels) return models;
-  return models.filter((model) => isFreeStatus(classifyFreeStatus({
-    model,
-    providerId: template.id,
-    templateId: template.id
-  })));
-}
-async function addProviderFromTemplate(template, apiKey, opts) {
-  const packageError = await probeTemplatePackage(template);
-  if (packageError) {
-    return { added: false, error: packageError };
-  }
-  const trimmedKey = apiKey.trim();
-  if (!trimmedKey && !template.apiKeyOptional) {
-    return { added: false, error: "API key cannot be empty." };
-  }
-  const registry = loadRegistry();
-  const existing = registry.providers.find((p7) => p7.id === template.id);
-  if (existing && !opts?.replaceExisting) {
-    return {
-      added: false,
-      error: `${template.name} is already configured.`,
-      hint: `Remove it first with: anygate providers remove ${template.id}`
-    };
-  }
-  const fetched = await fetchTemplateModels(template, trimmedKey, opts?.baseUrl);
-  if (fetched.error || fetched.models.length === 0) {
-    return {
-      added: false,
-      error: fetched.error ?? "No models returned.",
-      hint: fetched.hint
-    };
-  }
-  const usableModels = !trimmedKey && template.anonymousFreeModels ? filterAnonymousFreeModels(fetched.models, template) : fetched.models;
-  if (usableModels.length === 0) {
-    return {
-      added: false,
-      error: "No free models were returned for anonymous access.",
-      hint: template.signupUrl ? `Add a ${template.name} API key from ${template.signupUrl} to use paid models.` : void 0
-    };
-  }
-  const authRef = `keyring:provider:${template.id}`;
-  const saved = trimmedKey ? await saveProviderCredential(authRef, trimmedKey) : true;
-  if (!saved) {
-    return {
-      added: false,
-      error: "Could not save API key to Keychain.",
-      hint: "Grant Keychain access or try again."
-    };
-  }
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  const pricingCache = loadPricingCache();
-  const platform = pricingPlatformForProvider(template.id, template.id);
-  const pricedModels = enrichModelsWithPricing(
-    usableModels.map((m) => ({ ...m, apiUrl: fetched.baseUrl })),
-    buildPricingIndex(pricingCache),
-    platform
-  );
-  const entry = {
-    id: template.id,
-    templateId: template.id,
-    name: template.name,
-    enabled: true,
-    authRef,
-    authType: template.authType,
-    api: {
-      npm: template.npm,
-      url: fetched.baseUrl
-    },
-    addedAt: existing?.addedAt ?? now,
-    refreshedAt: now,
-    modelsCache: {
-      fetchedAt: now,
-      models: pricedModels
-    }
-  };
-  if (existing) {
-    const idx = registry.providers.findIndex((p7) => p7.id === template.id);
-    registry.providers[idx] = entry;
-  } else {
-    registry.providers.push(entry);
-  }
-  saveRegistry(registry);
-  enrichPricingAsync();
-  return { added: true, provider: entry, modelCount: pricedModels.length };
 }
 
 // src/registry/storage/builtins.ts
@@ -11040,6 +11082,11 @@ export {
   printImportConflictPanel,
   printProviderDetailPanel,
   printCloudProviderPanel,
+  printOnboardingPanel,
+  printProviderCategoryPanel,
+  printSetupSummaryPanel,
+  printMainMenuPanel,
+  printApiKeyProviderPanel,
   getAppHome,
   getConfigPath,
   getProvidersPath,
@@ -11074,9 +11121,6 @@ export {
   getServerListenMode,
   setServerListenMode,
   init_config,
-  findBinaryOnPath,
-  findClaudeBinary,
-  launchClaude,
   resolveContextWindow,
   claudeCodeClientModelId,
   routeLookupIds,
@@ -11104,13 +11148,6 @@ export {
   saveToCredentialStore,
   isSecretServiceAvailable,
   shouldHideModel,
-  cachedModelToLocal,
-  readBody,
-  extractApiKey,
-  sendJson,
-  gatewayProviderLabel,
-  createGatewayModelCatalog,
-  buildDedupedModelRows,
   getClaudeDebugLogPath,
   prepareClaudeTraceLog,
   getProxyDebugLogPath,
@@ -11120,6 +11157,15 @@ export {
   makeTraceLogger,
   writeSecureLogLine,
   printTraceLog,
+  fetchTemplateModels,
+  addProviderFromTemplate,
+  cachedModelToLocal,
+  readBody,
+  extractApiKey,
+  sendJson,
+  gatewayProviderLabel,
+  createGatewayModelCatalog,
+  buildDedupedModelRows,
   CredentialUnavailableError,
   formatUpstreamError,
   upstreamHttpStatus,
@@ -11147,6 +11193,9 @@ export {
   localProvidersToServerModels,
   makeRouteResolver,
   buildCatalogRoutes,
+  findBinaryOnPath,
+  findClaudeBinary,
+  launchClaude,
   findOpencodeBinary,
   fetchRawOpencodeProviders,
   zenRegistryStub,
@@ -11157,7 +11206,6 @@ export {
   buildImportProviderList,
   isOAuthImportProvider,
   listCredentialSkippedProviders,
-  fetchTemplateModels,
   validateCustomEndpointUrl,
   fetchAnthropicModels,
   addCustomEndpointProvider,
@@ -11165,7 +11213,6 @@ export {
   effectiveProviderBaseUrl,
   syntheticTemplate,
   resolveModelSource,
-  addProviderFromTemplate,
   removeProviderFromRegistry,
   toggleProviderEnabled,
   refreshProviderModels,
@@ -11198,4 +11245,4 @@ export {
   runServerCommand,
   favoriteProviderDisplayName
 };
-//# sourceMappingURL=chunk-OWYL2WR5.js.map
+//# sourceMappingURL=chunk-YVY3JQYE.js.map

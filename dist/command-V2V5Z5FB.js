@@ -66,7 +66,7 @@ import {
   summarizeServerProviders,
   validateCustomEndpointUrl,
   writeSecureLogLine
-} from "./chunk-OWYL2WR5.js";
+} from "./chunk-YVY3JQYE.js";
 import {
   BACKENDS,
   MAX_MODEL_CATALOG
@@ -692,6 +692,7 @@ async function handleGetModels(res) {
         freeLabel: freeStatusLabel(m.freeStatus),
         contextWindow: m.contextWindow,
         cost: m.cost,
+        providerId: p2.id,
         inputTypes: resolveInputTypes(m.family, p2.id, m.id)
       }))
     }));
@@ -1821,4 +1822,4 @@ export {
   resolveUiShutdownDecision,
   runUiCommand
 };
-//# sourceMappingURL=command-VPKQFXSR.js.map
+//# sourceMappingURL=command-V2V5Z5FB.js.map
