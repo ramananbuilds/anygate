@@ -11,10 +11,18 @@ import { buildGlobalFavoriteIndex } from '../apps/claude/favorites-picker.js';
 import { isFavorite } from '../apps/claude/favorites.js';
 import { addFavorite, removeFavorite } from '../apps/claude/favorites.js';
 import type { FavoriteModel, LocalProvider, LocalProviderModel, ParsedArgs } from '../types/index.js';
+import { validateModels, getValidationStatus, pruneValidationCache, loadCache } from '../registry/validation/model-validator.js';
+import { resolveProviderCredential } from '../config/env.js';
+import { loadRegistry } from '../registry/storage/io.js';
 
 const AGY_CLI_FAVORITES_CAP = 6;
 
 export async function runModelsCommand(parsed: ParsedArgs): Promise<number> {
+  // Handle validate subcommand: anygate models validate [--provider <id>] [--force]
+  if (parsed.validateSubcommand) {
+    return runValidateSubcommand(parsed);
+  }
+
   const scope = parsed.favoritesAgy ? 'agy' : 'global';
   const maxFavorites = scope === 'agy' ? AGY_CLI_FAVORITES_CAP : 20;
   const scopeName = scope === 'agy' ? 'Antigravity CLI Favorites' : 'Favorite Models';
@@ -253,4 +261,122 @@ export async function runModelsCommand(parsed: ParsedArgs): Promise<number> {
       : pc.cyan('/model menu ready on next launch'),
   );
   return 0;
+}
+
+/** Handle `anygate models validate [--provider <id>] [--force]` */
+async function runValidateSubcommand(parsed: ParsedArgs): Promise<number> {
+  gateIntro('Model Validation');
+
+  const providerId = parsed.validateProvider;
+  const force = parsed.force ?? false;
+  const ttlMs = force ? 0 : undefined;
+
+  const catalog = await fetchProviderCatalog();
+  const registry = loadRegistry();
+
+  let providersToValidate = catalog;
+  if (providerId) {
+    const found = catalog.find(p => p.id === providerId);
+    if (!found) {
+      p.log.error(`Provider not found: ${providerId}`);
+      return 1;
+    }
+    providersToValidate = [found];
+  }
+
+  if (providersToValidate.length === 0) {
+    p.log.warn('No providers configured.');
+    return 0;
+  }
+
+  // Build validation params for all models
+  const allParams: Array<{
+    modelId: string;
+    providerId: string;
+    baseUrl: string;
+    apiKey: string;
+    modelFormat: 'openai' | 'anthropic';
+    headers?: Record<string, string>;
+  }> = [];
+
+  for (const provider of providersToValidate) {
+    const regProvider = registry.providers.find(p => p.id === provider.id);
+    if (!regProvider) continue;
+
+    const apiKey = provider.apiKey || await resolveProviderCredential(provider.id, regProvider.authRef).catch(() => '');
+    if (!apiKey?.trim()) {
+      p.log.warn(`Skipping ${provider.name} — no API key available.`);
+      continue;
+    }
+
+    const baseUrl = provider.models[0]?.apiBaseUrl || provider.models[0]?.completionsUrl || '';
+    if (!baseUrl) {
+      p.log.warn(`Skipping ${provider.name} — no base URL available.`);
+      continue;
+    }
+
+    for (const model of provider.models) {
+      const completionsUrl = model.completionsUrl || model.apiBaseUrl || '';
+      if (!completionsUrl) continue;
+
+      allParams.push({
+        modelId: model.id,
+        providerId: provider.id,
+        baseUrl: completionsUrl.replace(/\/chat\/completions$/, '').replace(/\/v1\/?$/, ''),
+        apiKey,
+        modelFormat: model.modelFormat === 'anthropic' ? 'anthropic' : 'openai',
+        headers: provider.headers,
+      });
+    }
+  }
+
+  if (allParams.length === 0) {
+    p.log.warn('No models to validate.');
+    return 0;
+  }
+
+  const spinner = p.spinner();
+  spinner.start(`Validating ${allParams.length} model${allParams.length === 1 ? '' : 's'}...`);
+
+  const results = await validateModels(allParams, { ttlMs });
+  spinner.stop('');
+
+  // Summarize results
+  const available = results.filter(r => r.status === 'available').length;
+  const deprecated = results.filter(r => r.status === 'deprecated').length;
+  const errors = results.filter(r => r.status === 'error').length;
+  const unverified = results.filter(r => r.status === 'unverified').length;
+
+  if (deprecated > 0) {
+    p.log.error(`${deprecated} model${deprecated === 1 ? '' : 's'} marked as deprecated:`);
+    for (const r of results.filter(r => r.status === 'deprecated')) {
+      p.log.error(`  ${r.modelId} (${r.providerId}): ${r.error ?? 'unknown'}`);
+    }
+  }
+
+  if (errors > 0) {
+    p.log.warn(`${errors} model${errors === 1 ? '' : 's'} with errors:`);
+    for (const r of results.filter(r => r.status === 'error')) {
+      p.log.warn(`  ${r.modelId} (${r.providerId}): ${r.error ?? 'unknown'}`);
+    }
+  }
+
+  if (unverified > 0) {
+    p.log.warn(`${unverified} model${unverified === 1 ? '' : 's'} unverified (will retry later):`);
+    for (const r of results.filter(r => r.status === 'unverified')) {
+      p.log.warn(`  ${r.modelId} (${r.providerId}): ${r.error ?? 'unknown'}`);
+    }
+  }
+
+  p.log.success(
+    `${available} available, ${deprecated} deprecated, ${errors} error${errors === 1 ? '' : 's'}, ${unverified} unverified`,
+  );
+
+  // Prune stale cache entries
+  const pruned = pruneValidationCache();
+  if (pruned > 0) {
+    p.log.info(`Pruned ${pruned} stale cache entr${pruned === 1 ? 'y' : 'ies'}.`);
+  }
+
+  return deprecated > 0 ? 1 : 0;
 }

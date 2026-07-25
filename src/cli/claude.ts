@@ -42,6 +42,7 @@ import {
   wantsCleanAgentStdout,
 } from '../apps/shared/launch-target.js';
 import { gateIntro, gateOutro, providerSelectOption, fmtModel, fmtEnabledStar, formatModelLabel, printAsciiBanner } from '../apps/shared/ui.js';
+import { quickValidateModel, getValidationStatus } from '../registry/validation/model-validator.js';
 import {
   listAddableTemplates,
   getTemplateById,
@@ -294,6 +295,17 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
       return 0;
     }
 
+    // Quick validation: block if model is confirmed deprecated
+    const isAvailable = await quickValidateModel(activeProvider.id, selectedModel.id);
+    if (!isAvailable) {
+      const cached = getValidationStatus(activeProvider.id, selectedModel.id);
+      p.log.error(
+        `Model ${selectedModel.id} (${activeProvider.name}) has been marked as deprecated: ${cached?.error ?? 'unknown'}.`,
+      );
+      p.log.info(`Run ${pc.cyan('anygate providers refresh-models')} to re-check.`);
+      return 1;
+    }
+
     return launchClaudeViaCatalog(
       catalogRoutes,
       startingRoute,
@@ -331,6 +343,17 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
     p.log.error(
       new CredentialUnavailableError(activeProvider.id).userMessage,
     );
+    return 1;
+  }
+
+  // Quick validation: block if model is confirmed deprecated
+  const isAvailable = await quickValidateModel(activeProvider.id, selectedModel.id);
+  if (!isAvailable) {
+    const cached = getValidationStatus(activeProvider.id, selectedModel.id);
+    p.log.error(
+      `Model ${selectedModel.id} (${activeProvider.name}) has been marked as deprecated: ${cached?.error ?? 'unknown'}.`,
+    );
+    p.log.info(`Run ${pc.cyan('anygate providers refresh-models')} to re-check.`);
     return 1;
   }
 

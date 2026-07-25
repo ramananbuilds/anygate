@@ -44,6 +44,9 @@ export interface ParsedArgs {
   showAi?: boolean;
   aiInstall?: boolean;
   aiInstallForce?: boolean;
+  force?: boolean;
+  validateProvider?: string;
+  validateSubcommand?: boolean;
 }
 
 export interface FavoriteModel {

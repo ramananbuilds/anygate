@@ -7,6 +7,7 @@ import { normalizeGoogleDisplayName, normalizeGoogleModelId } from '../resolver/
 import type { CachedModel } from '../types.js';
 import { makeTraceLogger, getProviderDebugLogPath } from '../../apps/shared/trace-log.js';
 import { classifyFreeStatus, isFreeStatus } from '../../apps/shared/free-models.js';
+import { backgroundValidateModels } from '../validation/model-validator.js';
 
 const TEST_TIMEOUT_MS = 10_000;
 
@@ -265,6 +266,22 @@ export async function fetchTemplateModels(
         error: 'Connected but no models were returned.',
         hint: 'The API key may be valid but model listing is unavailable for this provider.',
       };
+    }
+
+    // Fire-and-forget background validation for all fetched models.
+    // This populates the validation cache so future launches can quickly
+    // check model availability without blocking.
+    if (trimmedApiKey && baseUrl) {
+      backgroundValidateModels(
+        models.map(m => ({
+          modelId: m.id,
+          providerId: template.id,
+          baseUrl,
+          apiKey: trimmedApiKey,
+          modelFormat: template.authType === 'oauth' ? 'anthropic' : 'openai',
+          headers: template.headers,
+        })),
+      );
     }
 
     return { models, baseUrl };

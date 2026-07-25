@@ -13,6 +13,7 @@ import { isSdkUpgradedNpm } from '../gateway/providers/provider-factory.js';
 import { aliasModelId } from '../gateway/proxy/anthropic-proxy.js';
 import type { ProxyRoute } from '../gateway/proxy/anthropic-proxy.js';
 import { resolveInputTypes } from './models-dev.js';
+import { getValidationStatus } from './validation/model-validator.js';
 import type { FavoriteModel, BackendConfig } from '../types/index.js';
 import { providersForTarget } from '../apps/shared/target-compatibility.js';
 import {
@@ -30,6 +31,12 @@ export async function fetchProviderCatalog(
 
 export function providersForPicker(providers: LocalProvider[]): LocalProvider[] {
   for (const p of providers) {
+    // Filter out models that have been confirmed deprecated via validation cache
+    p.models = p.models.filter(m => {
+      const cached = getValidationStatus(p.id, m.id);
+      return !cached || cached.status !== 'deprecated';
+    });
+
     p.models.sort((a, b) => {
       const nameA = a.name || a.id;
       const nameB = b.name || b.id;

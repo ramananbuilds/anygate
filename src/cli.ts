@@ -177,10 +177,23 @@ export function parseArgs(args: string[]): ParsedArgs {
 
   if (first === 'models' || first === 'favorites') {
     const parsed = emptyParsed('models');
-    for (const arg of rest) {
+    for (let i = 0; i < rest.length; i += 1) {
+      const arg = rest[i]!;
       if (arg === '--help' || arg === '-h') parsed.showHelp = true;
       else if (arg === '--version' || arg === '-v') parsed.showVersion = true;
       else if (arg === '--agy') parsed.favoritesAgy = true;
+      else if (arg === '--force') parsed.force = true;
+      else if (arg === '--provider' || arg.startsWith('--provider=')) {
+        const value = arg.startsWith('--provider=')
+          ? arg.slice('--provider='.length)
+          : rest[i + 1];
+        if (!value || value.startsWith('-')) {
+          parsed.error = 'Missing value for --provider';
+          return parsed;
+        }
+        if (!arg.startsWith('--provider=')) i += 1;
+        parsed.validateProvider = value;
+      } else if (arg === 'validate') parsed.validateSubcommand = true;
       else if (!parsed.error) parsed.error = `Unknown models option: ${arg}`;
     }
     return parsed;
@@ -470,6 +483,7 @@ ${pc.bold('Usage:')}
   anygate server [options]
   anygate ui
   anygate models
+  anygate models validate [--provider <id>] [--force]
   anygate favorites
   anygate providers
   anygate doctor
