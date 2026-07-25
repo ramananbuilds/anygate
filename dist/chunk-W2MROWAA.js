@@ -10,7 +10,7 @@ import {
   VERSION,
   VERTEX_ANTHROPIC_NPM,
   classifyModelFormat
-} from "./chunk-22Q5ILDC.js";
+} from "./chunk-SQS4KS65.js";
 import {
   getTemplateById,
   listAddableTemplates
@@ -2741,6 +2741,46 @@ var HEURISTIC_RULES = [
   [/solar-pro2/i, 65536],
   [/solar/i, 32768]
 ];
+var PROVIDER_DEFAULTS = {
+  poolside: 262112,
+  google: 1e6,
+  openai: 128e3,
+  anthropic: 2e5,
+  nvidia: 131072,
+  groq: 131072,
+  mistral: 262144,
+  deepseek: 1e6,
+  togetherai: 131072,
+  cerebras: 131072,
+  deepinfra: 131072,
+  xai: 131072,
+  perplexity: 131072,
+  cohere: 128e3,
+  alibaba: 131072,
+  openrouter: 131072,
+  venice: 131072,
+  bedrock: 2e5,
+  azure: 128e3,
+  vertex: 1e6,
+  ollama: 4096,
+  lmstudio: 4096,
+  "opencode-cloud": 2e5,
+  zen: 2e5,
+  go: 2e5,
+  antigravity: 2e5,
+  sambanova: 131072,
+  fireworks: 131072,
+  ovh: 131072,
+  scaleway: 131072,
+  moonshot: 262144,
+  "moonshot-global": 262144,
+  zhipu: 128e3,
+  "kimi-code": 262144,
+  kilo: 131072,
+  "github-copilot": 2e5,
+  "xai-oauth": 131072,
+  "openai-oauth": 128e3
+};
 var parsedCache;
 var cacheIndex;
 var heuristicCache = /* @__PURE__ */ new Map();
@@ -2785,6 +2825,33 @@ function getCacheIndex() {
   }
   return cacheIndex;
 }
+function buildModelsDevIndex() {
+  const index = /* @__PURE__ */ new Map();
+  try {
+    const cache = loadModelsDevCache();
+    for (const [providerSlug, providerData] of Object.entries(cache)) {
+      const models = providerData?.models;
+      if (!models) continue;
+      for (const [modelId, entry] of Object.entries(models)) {
+        const ctx = entry.limit?.context;
+        if (typeof ctx !== "number" || ctx <= 0) continue;
+        const existing = index.get(modelId);
+        if (existing === void 0 || ctx > existing) {
+          index.set(modelId, ctx);
+        }
+      }
+    }
+  } catch {
+  }
+  return index;
+}
+var modelsDevCacheIndex = null;
+function getModelsDevIndex() {
+  if (modelsDevCacheIndex === null) {
+    modelsDevCacheIndex = buildModelsDevIndex();
+  }
+  return modelsDevCacheIndex;
+}
 function contextWindowFromHeuristics(modelId) {
   const cached = heuristicCache.get(modelId);
   if (cached !== void 0) return cached;
@@ -2797,12 +2864,21 @@ function contextWindowFromHeuristics(modelId) {
   heuristicCache.set(modelId, DEFAULT_CONTEXT_WINDOW);
   return DEFAULT_CONTEXT_WINDOW;
 }
-function lookupContextWindow(modelId) {
-  return getCacheIndex().get(modelId) ?? contextWindowFromHeuristics(modelId);
+function lookupContextWindow(modelId, providerId) {
+  const fromCache = getCacheIndex().get(modelId);
+  if (fromCache) return fromCache;
+  const fromModelsDev = getModelsDevIndex().get(modelId);
+  if (fromModelsDev) return fromModelsDev;
+  const fromHeuristics = contextWindowFromHeuristics(modelId);
+  if (fromHeuristics !== DEFAULT_CONTEXT_WINDOW) return fromHeuristics;
+  if (providerId && PROVIDER_DEFAULTS[providerId]) {
+    return PROVIDER_DEFAULTS[providerId];
+  }
+  return DEFAULT_CONTEXT_WINDOW;
 }
-function resolveContextWindow(modelId, explicit) {
+function resolveContextWindow(modelId, explicit, providerId) {
   if (typeof explicit === "number" && explicit > 0) return explicit;
-  return lookupContextWindow(modelId);
+  return lookupContextWindow(modelId, providerId);
 }
 
 // src/auth/github.ts
@@ -6585,8 +6661,8 @@ function translateToolChoice(tc) {
   if (tc.type === "tool" && tc.name) return { type: "tool", toolName: tc.name };
   return void 0;
 }
-function resolveContextWindowFromModel(modelId) {
-  return resolveContextWindow(modelId);
+function resolveContextWindowFromModel(modelId, providerId) {
+  return resolveContextWindow(modelId, void 0, providerId);
 }
 function translateRequest2(body, npm, options) {
   let messages = body.messages ?? [];
@@ -6599,9 +6675,16 @@ function translateRequest2(body, npm, options) {
   let resolvedContextWindow = options?.contextWindow;
   if (!resolvedContextWindow || resolvedContextWindow <= 0) {
     const modelId = options?.reasoningMetadata?.upstreamModelId ?? body.model;
-    resolvedContextWindow = resolveContextWindowFromModel(modelId);
+    const providerId = options?.reasoningMetadata?.providerId;
+    resolvedContextWindow = resolveContextWindowFromModel(modelId, providerId);
   }
   if (resolvedContextWindow > 0) {
+    const modelId = options?.reasoningMetadata?.upstreamModelId ?? body.model;
+    const inputTokens = estimateContextTokens(systemText, messages);
+    const util = (inputTokens / resolvedContextWindow * 100).toFixed(1);
+    if (process.env.ANYGATE_TRACE === "1") {
+      console.error(`[ctx] ${modelId}: ${inputTokens}/${resolvedContextWindow} (${util}%)`);
+    }
     const { system: fittedSystem, messages: fittedMessages, trimmed } = fitContextWindow(
       messages,
       systemText,
@@ -6609,6 +6692,10 @@ function translateRequest2(body, npm, options) {
       typeof maxOutput === "number" ? maxOutput : 0
     );
     if (trimmed) {
+      if (process.env.ANYGATE_TRACE === "1") {
+        const fittedTokens = estimateContextTokens(fittedSystem ?? "", fittedMessages);
+        console.error(`[ctx] TRIMMED: ${inputTokens} -> ${fittedTokens} (${messages.length} -> ${fittedMessages.length} msgs)`);
+      }
       messages = fittedMessages;
       annotateToolNames(messages);
       const fittedInline = inlineSystemText(messages);
@@ -11512,4 +11599,4 @@ export {
   runServerCommand,
   favoriteProviderDisplayName
 };
-//# sourceMappingURL=chunk-D542PKGP.js.map
+//# sourceMappingURL=chunk-W2MROWAA.js.map

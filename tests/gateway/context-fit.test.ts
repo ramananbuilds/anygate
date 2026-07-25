@@ -101,6 +101,26 @@ describe('fitContextWindow — 85% safety margin', () => {
     expect(out.trimmed).toBe(false);
     expect(out.dropped).toBe(0);
   });
+
+  it('applies 85% margin so input at 90% of window gets trimmed', () => {
+    // 9 messages of ~100 tokens = ~900 tokens.
+    // Window = 1000 → 90% utilization. With 85% margin (safeWindow=850), this should trim.
+    // Without margin: usable = 1000 - 256 - 0 = 744 → 900 > 744, would also trim.
+    // But let's test with a larger window where 90% fits without margin but not with it.
+    // Window = 2000 → 90% = 1800. Without margin: usable = 2000 - 256 = 1744 → 1800 > 1744, trims.
+    // With margin: safeWindow = 1700, usable = 1700 - 256 = 1444 → 1800 > 1444, trims more.
+    // Let's use a case where 85% margin matters:
+    // 17 messages of ~100 tokens = ~1700 tokens. Window = 2000.
+    // Without margin: usable = 2000 - 256 = 1744 → 1700 ≤ 1744, NO trim.
+    // With margin: safeWindow = 1700, usable = 1700 - 256 = 1444 → 1700 > 1444, TRIM.
+    const messages: AnthropicMsg[] = [];
+    for (let i = 0; i < 17; i++) {
+      messages.push(msg('user', 'x'.repeat(400) + ` m${i}`));
+    }
+    const out = fitContextWindow(messages, 'sys', 2000, 0);
+    expect(out.trimmed).toBe(true);
+    expect(out.dropped).toBeGreaterThan(0);
+  });
 });
 
 // ── resolveContextWindowFromModel ───────────────────────────────────────────
@@ -119,6 +139,26 @@ describe('resolveContextWindowFromModel', () => {
 
   it('returns the default 200k window for unknown model ids', () => {
     expect(resolveContextWindowFromModel('totally-unknown-model-xyz')).toBe(200_000);
+  });
+
+  it('uses provider default for unknown model from known provider', () => {
+    // 'totally-unknown-model-xyz' has no heuristic, but poolside provider default is 262_112.
+    expect(resolveContextWindowFromModel('totally-unknown-model-xyz', 'poolside')).toBe(262_112);
+    expect(resolveContextWindowFromModel('totally-unknown-model-xyz', 'google')).toBe(1_000_000);
+    expect(resolveContextWindowFromModel('totally-unknown-model-xyz', 'openai')).toBe(128_000);
+  });
+
+  it('resolves poolside/laguna-s-2.1 from models.dev cache', () => {
+    // The bundled models.dev cache contains poolside models with context windows.
+    // poolside/laguna-s-2.1 has context 1_048_576 in the cache.
+    const result = resolveContextWindowFromModel('poolside/laguna-s-2.1');
+    expect(result).toBeGreaterThan(0);
+    expect(result).toBe(1_048_576);
+  });
+
+  it('gpt-oss models resolve to 131072 via heuristic', () => {
+    expect(resolveContextWindowFromModel('gpt-oss-120b')).toBe(131_072);
+    expect(resolveContextWindowFromModel('gpt-oss-20b')).toBe(131_072);
   });
 });
 

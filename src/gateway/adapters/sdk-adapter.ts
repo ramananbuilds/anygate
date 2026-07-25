@@ -248,15 +248,15 @@ export function translateToolChoice(tc: AnthropicRequest['tool_choice']): SdkCal
  * Resolve the upstream model's context window from its id.
  *
  * Delegates to the shared context-window resolver, which checks the OpenCode
- * cache first (authoritative `limit.context` values) and falls back to
- * ID-pattern heuristics (GPT-4: 128k, Claude-3: 200k, Gemini-1.5: 1M,
- * GPT-OSS: 131k, etc.). Unknown models default to 200k.
+ * cache first (authoritative `limit.context` values), then the models.dev
+ * cache, then ID-pattern heuristics (GPT-4: 128k, Claude-3: 200k, Gemini-1.5: 1M,
+ * GPT-OSS: 131k, etc.), then provider-level defaults, then 200k.
  *
  * Exported so tests and proxy call-sites can resolve a window without
  * duplicating the heuristic table.
  */
-export function resolveContextWindowFromModel(modelId: string): number {
-  return resolveContextWindow(modelId);
+export function resolveContextWindowFromModel(modelId: string, providerId?: string): number {
+  return resolveContextWindow(modelId, undefined, providerId);
 }
 
 export function translateRequest(
@@ -287,15 +287,26 @@ export function translateRequest(
   let resolvedContextWindow = options?.contextWindow;
   if (!resolvedContextWindow || resolvedContextWindow <= 0) {
     const modelId = options?.reasoningMetadata?.upstreamModelId ?? body.model;
-    resolvedContextWindow = resolveContextWindowFromModel(modelId);
+    const providerId = options?.reasoningMetadata?.providerId;
+    resolvedContextWindow = resolveContextWindowFromModel(modelId, providerId);
   }
   if (resolvedContextWindow > 0) {
+    const modelId = options?.reasoningMetadata?.upstreamModelId ?? body.model;
+    const inputTokens = estimateContextTokens(systemText, messages);
+    const util = ((inputTokens / resolvedContextWindow) * 100).toFixed(1);
+    if (process.env.ANYGATE_TRACE === '1') {
+      console.error(`[ctx] ${modelId}: ${inputTokens}/${resolvedContextWindow} (${util}%)`);
+    }
     // messages already has inline system folded out via systemText; pass systemText so
     // the system prompt is preserved and never dropped.
     const { system: fittedSystem, messages: fittedMessages, trimmed } = fitContextWindow(
       messages, systemText, resolvedContextWindow, (typeof maxOutput === 'number' ? maxOutput : 0),
     );
     if (trimmed) {
+      if (process.env.ANYGATE_TRACE === '1') {
+        const fittedTokens = estimateContextTokens(fittedSystem ?? '', fittedMessages);
+        console.error(`[ctx] TRIMMED: ${inputTokens} -> ${fittedTokens} (${messages.length} -> ${fittedMessages.length} msgs)`);
+      }
       messages = fittedMessages;
       annotateToolNames(messages);
       // Re-fold inline system parts that survived into the fitted message list.

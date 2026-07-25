@@ -50,6 +50,8 @@ var package_default = {
     "test:watch": "vitest",
     typecheck: "tsc --noEmit",
     "refresh:models-dev": "node scripts/refresh-models-dev-cache.mjs",
+    "audit:context-windows": "tsx scripts/audit-context-windows.ts",
+    "generate:context-rules": "tsx scripts/generate-context-rules.ts",
     prepublishOnly: `node -e "if (require('./package.json').version !== require('./package-lock.json').version) { console.error('Error: package.json and package-lock.json versions are out of sync! Run npm install to sync.'); process.exit(1); }" && npm run build`,
     "ui:dev": "npm --prefix src/ui/app run dev",
     "ui:build": "npm --prefix src/ui/app run build"
@@ -165,4 +167,4 @@ export {
   classifyModelFormat,
   VERSION
 };
-//# sourceMappingURL=chunk-22Q5ILDC.js.map
+//# sourceMappingURL=chunk-SQS4KS65.js.map

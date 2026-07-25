@@ -66,11 +66,11 @@ import {
   summarizeServerProviders,
   validateCustomEndpointUrl,
   writeSecureLogLine
-} from "./chunk-D542PKGP.js";
+} from "./chunk-W2MROWAA.js";
 import {
   BACKENDS,
   MAX_MODEL_CATALOG
-} from "./chunk-22Q5ILDC.js";
+} from "./chunk-SQS4KS65.js";
 import {
   getTemplateById,
   listSupportedTemplates,
@@ -1822,4 +1822,4 @@ export {
   resolveUiShutdownDecision,
   runUiCommand
 };
-//# sourceMappingURL=command-4IRAQ23D.js.map
+//# sourceMappingURL=command-VEGRJ5BI.js.map

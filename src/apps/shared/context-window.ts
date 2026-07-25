@@ -2,10 +2,13 @@
 //
 // Priority:
 //   1. OpenCode models.json cache (limit.context) — `opencode` / `opencode-go` file keys first
-//   2. ID-pattern heuristics for models not in cache
-//   3. 200K default (Claude Code's own fallback for unknown models)
+//   2. models.dev cache (limit.context) — authoritative per-model values from the bundled/user cache
+//   3. ID-pattern heuristics for models not in either cache
+//   4. Provider-level default (from PROVIDER_DEFAULTS, keyed by providerId)
+//   5. 200K default (Claude Code's own fallback for unknown models)
 import { readFileSync } from 'node:fs';
 import { OPENCODE_CACHE_PATH } from '../../../src/config/constants.js';
+import { loadModelsDevCache } from '../../registry/models-dev.js';
 
 export const DEFAULT_CONTEXT_WINDOW = 200_000;
 
@@ -27,7 +30,7 @@ export interface OpencodeCacheModel {
 export type OpencodeCacheFile = Record<string, { models?: Record<string, OpencodeCacheModel> }>;
 
 // Ordered by specificity — first match wins.
-const HEURISTIC_RULES: Array<[RegExp, number]> = [
+export const HEURISTIC_RULES: Array<[RegExp, number]> = [
   [/gemini-2\.5-pro|gemini-1\.5-pro|gemini-3-pro/i, 2_000_000],
   [/gemini/i, 1_000_000],
   [/claude-opus-4-[678]|claude-sonnet-4-[678]/i, 1_000_000],
@@ -56,6 +59,56 @@ const HEURISTIC_RULES: Array<[RegExp, number]> = [
   [/solar-pro2/i, 65_536],
   [/solar/i, 32_768],
 ];
+
+/**
+ * Provider-level default context windows.
+ *
+ * Used when no model-specific rule (heuristic or cache) matches and the
+ * caller supplies a `providerId`. Values are derived from the typical
+ * context window advertised by each provider's API (see models.dev and
+ * provider docs). These are conservative — the 85% safety margin in
+ * context-fit.ts provides additional headroom.
+ */
+export const PROVIDER_DEFAULTS: Record<string, number> = {
+  poolside: 262_112,
+  google: 1_000_000,
+  openai: 128_000,
+  anthropic: 200_000,
+  nvidia: 131_072,
+  groq: 131_072,
+  mistral: 262_144,
+  deepseek: 1_000_000,
+  togetherai: 131_072,
+  cerebras: 131_072,
+  deepinfra: 131_072,
+  xai: 131_072,
+  perplexity: 131_072,
+  cohere: 128_000,
+  alibaba: 131_072,
+  openrouter: 131_072,
+  venice: 131_072,
+  bedrock: 200_000,
+  azure: 128_000,
+  vertex: 1_000_000,
+  ollama: 4_096,
+  lmstudio: 4_096,
+  'opencode-cloud': 200_000,
+  zen: 200_000,
+  go: 200_000,
+  antigravity: 200_000,
+  sambanova: 131_072,
+  fireworks: 131_072,
+  ovh: 131_072,
+  scaleway: 131_072,
+  moonshot: 262_144,
+  'moonshot-global': 262_144,
+  zhipu: 128_000,
+  'kimi-code': 262_144,
+  kilo: 131_072,
+  'github-copilot': 200_000,
+  'xai-oauth': 131_072,
+  'openai-oauth': 128_000,
+};
 
 let parsedCache: OpencodeCacheFile | null | undefined;
 let cacheIndex: Map<string, number> | undefined;
@@ -112,6 +165,38 @@ function getCacheIndex(): Map<string, number> {
   return cacheIndex;
 }
 
+/** Build a model-id → context-window map from the models.dev cache. */
+function buildModelsDevIndex(): Map<string, number> {
+  const index = new Map<string, number>();
+  try {
+    const cache = loadModelsDevCache();
+    for (const [providerSlug, providerData] of Object.entries(cache)) {
+      const models = providerData?.models;
+      if (!models) continue;
+      for (const [modelId, entry] of Object.entries(models)) {
+        const ctx = entry.limit?.context;
+        if (typeof ctx !== 'number' || ctx <= 0) continue;
+        // Prefer the first occurrence; if already present, keep the max.
+        const existing = index.get(modelId);
+        if (existing === undefined || ctx > existing) {
+          index.set(modelId, ctx);
+        }
+      }
+    }
+  } catch {
+    // fall through — return empty index
+  }
+  return index;
+}
+
+let modelsDevCacheIndex: Map<string, number> | null = null;
+function getModelsDevIndex(): Map<string, number> {
+  if (modelsDevCacheIndex === null) {
+    modelsDevCacheIndex = buildModelsDevIndex();
+  }
+  return modelsDevCacheIndex;
+}
+
 export function contextWindowFromHeuristics(modelId: string): number {
   const cached = heuristicCache.get(modelId);
   if (cached !== undefined) return cached;
@@ -125,12 +210,40 @@ export function contextWindowFromHeuristics(modelId: string): number {
   return DEFAULT_CONTEXT_WINDOW;
 }
 
-export function lookupContextWindow(modelId: string): number {
-  return getCacheIndex().get(modelId) ?? contextWindowFromHeuristics(modelId);
+/**
+ * Resolve a model's context window.
+ *
+ * Priority:
+ *   1. OpenCode cache (limit.context)
+ *   2. models.dev cache (limit.context)
+ *   3. ID-pattern heuristics
+ *   4. Provider-level default (if `providerId` is supplied)
+ *   5. DEFAULT_CONTEXT_WINDOW (200K)
+ */
+export function lookupContextWindow(modelId: string, providerId?: string): number {
+  // 1. OpenCode cache
+  const fromCache = getCacheIndex().get(modelId);
+  if (fromCache) return fromCache;
+
+  // 2. models.dev cache
+  const fromModelsDev = getModelsDevIndex().get(modelId);
+  if (fromModelsDev) return fromModelsDev;
+
+  // 3. Heuristics
+  const fromHeuristics = contextWindowFromHeuristics(modelId);
+  if (fromHeuristics !== DEFAULT_CONTEXT_WINDOW) return fromHeuristics;
+
+  // 4. Provider-level default
+  if (providerId && PROVIDER_DEFAULTS[providerId]) {
+    return PROVIDER_DEFAULTS[providerId];
+  }
+
+  // 5. Fall back to default
+  return DEFAULT_CONTEXT_WINDOW;
 }
 
 /** Prefer an explicit limit.context (or pre-resolved value), else resolve from cache/heuristics. */
-export function resolveContextWindow(modelId: string, explicit?: number): number {
+export function resolveContextWindow(modelId: string, explicit?: number, providerId?: string): number {
   if (typeof explicit === 'number' && explicit > 0) return explicit;
-  return lookupContextWindow(modelId);
+  return lookupContextWindow(modelId, providerId);
 }

@@ -3,7 +3,9 @@ import {
   resolveContextWindow,
   contextWindowFromHeuristics,
   buildContextWindowIndex,
+  lookupContextWindow,
   DEFAULT_CONTEXT_WINDOW,
+  PROVIDER_DEFAULTS,
 } from '../../src/apps/shared/context-window.js';
 
 describe('contextWindowFromHeuristics', () => {
@@ -70,5 +72,61 @@ describe('resolveContextWindow', () => {
       opencode: { models: { 'gemini-3.5-flash': { limit: { context: 1_048_576 } } } },
     });
     expect(index.get('gemini-3.5-flash')).toBe(1_048_576);
+  });
+});
+
+// ── Provider-level defaults ────────────────────────────────────────────────────
+
+describe('PROVIDER_DEFAULTS', () => {
+  it('contains defaults for major providers', () => {
+    expect(PROVIDER_DEFAULTS.poolside).toBe(262_112);
+    expect(PROVIDER_DEFAULTS.google).toBe(1_000_000);
+    expect(PROVIDER_DEFAULTS.openai).toBe(128_000);
+    expect(PROVIDER_DEFAULTS.anthropic).toBe(200_000);
+    expect(PROVIDER_DEFAULTS.nvidia).toBe(131_072);
+    expect(PROVIDER_DEFAULTS.groq).toBe(131_072);
+  });
+});
+
+describe('lookupContextWindow — provider defaults', () => {
+  it('uses provider default when no heuristic or cache matches', () => {
+    // 'totally-unknown-model-xyz' has no heuristic match, so with a providerId
+    // it should fall back to the provider default instead of DEFAULT_CONTEXT_WINDOW.
+    expect(lookupContextWindow('totally-unknown-model-xyz', 'poolside')).toBe(262_112);
+    expect(lookupContextWindow('totally-unknown-model-xyz', 'google')).toBe(1_000_000);
+    expect(lookupContextWindow('totally-unknown-model-xyz', 'openai')).toBe(128_000);
+  });
+
+  it('still returns DEFAULT_CONTEXT_WINDOW when no providerId is given', () => {
+    expect(lookupContextWindow('totally-unknown-model-xyz')).toBe(DEFAULT_CONTEXT_WINDOW);
+  });
+
+  it('heuristic takes priority over provider default', () => {
+    // gpt-oss-120b has a heuristic of 131_072, which should win over any provider default.
+    expect(lookupContextWindow('gpt-oss-120b', 'poolside')).toBe(131_072);
+    expect(lookupContextWindow('gpt-oss-120b', 'openai')).toBe(131_072);
+  });
+
+  it('models.dev cache takes priority over heuristic and provider default', () => {
+    // The bundled models.dev cache contains 'poolside/laguna-s-2.1' with context 1_048_576.
+    // This should be returned regardless of providerId.
+    const result = lookupContextWindow('poolside/laguna-s-2.1', 'poolside');
+    expect(result).toBe(1_048_576);
+  });
+});
+
+describe('resolveContextWindow — providerId passthrough', () => {
+  it('uses explicit value when provided', () => {
+    expect(resolveContextWindow('model-x', 50_000, 'poolside')).toBe(50_000);
+  });
+
+  it('falls back to provider default when explicit is not a positive number', () => {
+    expect(resolveContextWindow('model-x', undefined, 'poolside')).toBe(262_112);
+    expect(resolveContextWindow('model-x', 0, 'poolside')).toBe(262_112);
+    expect(resolveContextWindow('model-x', -1, 'poolside')).toBe(262_112);
+  });
+
+  it('falls back to DEFAULT_CONTEXT_WINDOW when no providerId and no match', () => {
+    expect(resolveContextWindow('model-x', undefined, undefined)).toBe(DEFAULT_CONTEXT_WINDOW);
   });
 });

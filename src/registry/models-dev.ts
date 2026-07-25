@@ -31,6 +31,8 @@ export interface ModelsDevModel {
   reasoning?: boolean;
   interleaved?: { field?: string };
   modalities?: ModelsDevModalities;
+  /** models.dev reports per-model limits (context/output token counts). */
+  limit?: { context?: number; output?: number };
 }
 
 export interface ModelsDevProvider {
