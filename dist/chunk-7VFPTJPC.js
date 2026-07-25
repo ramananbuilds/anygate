@@ -10,7 +10,7 @@ import {
   VERSION,
   VERTEX_ANTHROPIC_NPM,
   classifyModelFormat
-} from "./chunk-CIKBF5Z7.js";
+} from "./chunk-22Q5ILDC.js";
 import {
   getTemplateById,
   listAddableTemplates
@@ -11245,4 +11245,4 @@ export {
   runServerCommand,
   favoriteProviderDisplayName
 };
-//# sourceMappingURL=chunk-YVY3JQYE.js.map
+//# sourceMappingURL=chunk-7VFPTJPC.js.map

@@ -169,7 +169,7 @@ import {
   validateCustomEndpointUrl,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-YVY3JQYE.js";
+} from "./chunk-7VFPTJPC.js";
 import {
   BACKENDS,
   CONFLICTING_ENV_VARS,
@@ -177,7 +177,7 @@ import {
   MAX_MODEL_CATALOG,
   VERSION,
   VERTEX_ANTHROPIC_NPM
-} from "./chunk-CIKBF5Z7.js";
+} from "./chunk-22Q5ILDC.js";
 import {
   filterTemplates,
   getTemplateById,
@@ -6031,7 +6031,7 @@ Error: ${launchPlan.error}
 // src/cli/codex.ts
 async function handleCodexCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-RBCX3OLH.js");
+    const { VERSION: VERSION2 } = await import("./constants-RGNR3SDO.js");
     console.log(VERSION2);
     return 0;
   }
@@ -7087,7 +7087,7 @@ async function runCodexAppCommand(args, opts = {}) {
 // src/cli/codex-app.ts
 async function handleCodexAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-RBCX3OLH.js");
+    const { VERSION: VERSION2 } = await import("./constants-RGNR3SDO.js");
     console.log(VERSION2);
     return 0;
   }
@@ -7590,7 +7590,7 @@ ${pc10.bold("Claude Desktop 3P Mode Active")}`);
 // src/cli/claude-app.ts
 async function handleClaudeAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-RBCX3OLH.js");
+    const { VERSION: VERSION2 } = await import("./constants-RGNR3SDO.js");
     console.log(VERSION2);
     return 0;
   }
@@ -8763,7 +8763,7 @@ Error: ${launchPlan.error}
 // src/cli/gemini.ts
 async function handleGeminiCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-RBCX3OLH.js");
+    const { VERSION: VERSION2 } = await import("./constants-RGNR3SDO.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12117,7 +12117,7 @@ Examples:
 `;
 async function handleAgyCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-RBCX3OLH.js");
+    const { VERSION: VERSION2 } = await import("./constants-RGNR3SDO.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12132,7 +12132,7 @@ async function handleAgyCommand(parsed) {
 }
 async function handleAntigravityAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-RBCX3OLH.js");
+    const { VERSION: VERSION2 } = await import("./constants-RGNR3SDO.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12147,7 +12147,7 @@ async function handleAntigravityAppCommand(parsed) {
 }
 async function handleAntigravityIdeCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-RBCX3OLH.js");
+    const { VERSION: VERSION2 } = await import("./constants-RGNR3SDO.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12252,7 +12252,7 @@ Options:
 `);
     return 0;
   }
-  const { runUiCommand } = await import("./command-V2V5Z5FB.js");
+  const { runUiCommand } = await import("./command-H4LPSVPI.js");
   return runUiCommand({ trace: parsed.trace });
 }
 
@@ -12583,7 +12583,7 @@ async function runModelsCommand(parsed) {
 // src/cli/providers.ts
 async function handleProvidersCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-RBCX3OLH.js");
+    const { VERSION: VERSION2 } = await import("./constants-RGNR3SDO.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12696,7 +12696,7 @@ async function runDoctorCommand(_dryRun) {
 // src/cli/doctor.ts
 async function handleDoctorCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-RBCX3OLH.js");
+    const { VERSION: VERSION2 } = await import("./constants-RGNR3SDO.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12833,7 +12833,7 @@ function runCompletionsCommand(shellArg) {
 // src/cli/completions.ts
 async function handleCompletionsCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-RBCX3OLH.js");
+    const { VERSION: VERSION2 } = await import("./constants-RGNR3SDO.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12920,7 +12920,7 @@ async function runUpdateCommand(dryRun) {
 // src/cli/update.ts
 async function handleUpdateCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-RBCX3OLH.js");
+    const { VERSION: VERSION2 } = await import("./constants-RGNR3SDO.js");
     console.log(VERSION2);
     return 0;
   }

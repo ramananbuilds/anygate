@@ -2,7 +2,7 @@
 
 > Active development status and recent major architecture updates.
 
-## Current Version: 0.5.10
+## Current Version: 0.5.11
 
 ### Recent Architectural Refactoring
 1. **17-Domain `src/` Restructuring**: Clean, single-responsibility domain subdirectories.
