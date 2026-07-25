@@ -24,6 +24,7 @@ export async function dispatchCommand(parsed: ParsedArgs): Promise<number> {
 export { parseArgs } from '../cli.js';
 
 // Register all command handlers
+import { handleRootCommand } from './root.js';
 import { handleClaudeCommand } from './claude.js';
 import { handleCodexCommand } from './codex.js';
 import { handleCodexAppCommand } from './codex-app.js';
@@ -38,6 +39,7 @@ import { handleDoctorCommand } from './doctor.js';
 import { handleCompletionsCommand } from './completions.js';
 import { handleUpdateCommand } from './update.js';
 
+registerCommand('root', handleRootCommand);
 registerCommand('claude', handleClaudeCommand);
 registerCommand('codex', handleCodexCommand);
 registerCommand('codex-app', handleCodexAppCommand);
