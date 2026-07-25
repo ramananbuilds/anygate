@@ -25,6 +25,7 @@ import {
   streamAnthropicResponse,
   generateAnthropicResponse,
   silenceSdkWarnings,
+  resolveContextWindowFromModel,
 } from '../adapters/sdk-adapter.js';
 import { anthropicErrorType, upstreamHttpStatus } from '../../shared/errors.js';
 import { recordUsage } from '../../storage/analytics.js';
@@ -313,7 +314,9 @@ export function startProxyCatalog(
             interleavedReasoningField: route.interleavedReasoningField,
             upstreamModelId: route.realModelId,
           },
-          contextWindow: route.contextWindow,
+          contextWindow: (route.contextWindow && route.contextWindow > 0)
+            ? route.contextWindow
+            : resolveContextWindowFromModel(route.realModelId),
         });
         plog(() =>
           `sdk: npm=${route.npm} model=${route.realModelId}, stream=${clientWantsStream}, ` +
@@ -515,6 +518,11 @@ export function startProxy(
 ): Promise<ProxyHandle> {
   const bareModelId = stripOneMContextSuffix(modelId);
   const clientModelId = claudeCodeClientModelId(modelId, contextWindow);
+  // Resolve the context window so the SDK adapter always has a concrete value
+  // to fit against — never leave it undefined and risk an upstream 400.
+  const resolvedContextWindow = (contextWindow && contextWindow > 0)
+    ? contextWindow
+    : resolveContextWindowFromModel(sdk?.upstreamModelId ?? bareModelId);
   return startProxyCatalog([{
     aliasId: clientModelId,
     realModelId: sdk?.upstreamModelId ?? bareModelId,
@@ -522,7 +530,7 @@ export function startProxy(
     upstreamUrl: completionsUrl,
     apiKey: apiKey ?? '',
     modelFormat: sdk?.modelFormat ?? 'openai',
-    contextWindow,
+    contextWindow: resolvedContextWindow,
     npm: sdk?.npm,
     baseURL: sdk?.baseURL,
     providerId: sdk?.providerId,

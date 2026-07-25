@@ -18,6 +18,8 @@ import type { AnthropicMsg, AnthropicBlock } from '../adapters/sdk-adapter.js';
 
 const CHARS_PER_TOKEN = 4;
 const RESERVE_TOKENS = 256; // breathing room for request framing / overhead
+const SAFETY_MARGIN = 0.85; // never use the full window — leave 15% headroom so token
+// estimation (chars/4) never overshoots and triggers an upstream 400
 
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN);
@@ -63,7 +65,10 @@ export interface FitContextResult {
 
 /**
  * Trim `messages` (keeping `system` always) so that
- * systemTokens + keptMessageTokens + maxOutputTokens + reserve <= contextWindow.
+ * systemTokens + keptMessageTokens + maxOutputTokens + reserve <= safeWindow,
+ * where safeWindow = floor(contextWindow * 0.85). The 15% margin absorbs
+ * token-estimation error and upstream framing overhead so the request never
+ * hits an upstream "input length exceeds maximum" 400.
  *
  * `system` is passed separately because callers fold inline role:'system'
  * messages into it before calling. We preserve the most recent messages and
@@ -75,8 +80,12 @@ export function fitContextWindow(
   contextWindow: number,
   maxOutputTokens: number,
 ): FitContextResult {
+  // Apply the 85% safety margin before any calculations so the trimmed
+  // result always leaves headroom for token-estimation error and upstream
+  // framing overhead.
+  const safeWindow = Math.floor(contextWindow * SAFETY_MARGIN);
   const systemTokens = estimateTokens(system ?? '');
-  const budget = contextWindow - maxOutputTokens - RESERVE_TOKENS;
+  const budget = safeWindow - maxOutputTokens - RESERVE_TOKENS;
   if (budget <= 0) {
     // Window is too small to fit output alone — return everything and let the
     // upstream produce its own (visible) error rather than silently dropping all.

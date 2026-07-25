@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+- **Context window exceeded (HTTP 400)**: Enforced context fitting on ALL outbound SDK requests. `translateRequest()` now always resolves a context window (explicit option or model-id lookup via `resolveContextWindowFromModel`) and trims the conversation with an 85% safety margin. Previously, fitting only triggered when `contextWindow` was explicitly passed — many code paths left it undefined, causing small-window models (GPT-3.5, Nemotron 131K, etc.) to be rejected with "Input length exceeds maximum allowed tokens". `startProxy()` and `startProxyCatalog()` now resolve `route.contextWindow` with the same fallback before passing it to `sdkTranslateRequest()`.
+
 ## 0.5.11 (2026-07-25)
 
 ### Features

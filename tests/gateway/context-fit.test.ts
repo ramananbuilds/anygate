@@ -3,6 +3,10 @@ import {
   fitContextWindow,
   estimateContextTokens,
 } from '../../src/gateway/context/context-fit.js';
+import {
+  resolveContextWindowFromModel,
+  translateRequest,
+} from '../../src/gateway/adapters/sdk-adapter.js';
 import type { AnthropicMsg } from '../../src/gateway/adapters/sdk-adapter.js';
 
 // 1 char ~=1/4 token, so ~400 chars ~= 100 tokens. Keep window tight in tests.
@@ -67,5 +71,115 @@ describe('estimateContextTokens', () => {
     const messages = [msg('user', 'x'.repeat(400)), msg('assistant', 'y'.repeat(800))];
     // system 400 chars (100) + 400 (100) + 800 (200) = 400
     expect(estimateContextTokens('x'.repeat(400), messages)).toBe(400);
+  });
+});
+
+// ── 85% safety margin ──────────────────────────────────────────────────────
+
+describe('fitContextWindow — 85% safety margin', () => {
+  it('trims when input exceeds 85% of the window (but fits without the margin)', () => {
+    // 7 messages of ~100 tokens each = ~700 tokens total.
+    // Without the 85% margin: usable ≈ 743 (1000 - 256 - 1) → all fit, no trim.
+    // With the 85% margin: usable ≈ 593 (850 - 256 - 1) → trimming kicks in.
+    const messages: AnthropicMsg[] = [];
+    for (let i = 0; i < 7; i++) {
+      messages.push(msg('user', 'x'.repeat(400) + ` msg${i}`));
+    }
+    const out = fitContextWindow(messages, 'sys', 1000, 0);
+    expect(out.trimmed).toBe(true);
+    expect(out.dropped).toBeGreaterThan(0);
+  });
+
+  it('does not trim when input is within 85% of the window', () => {
+    // 4 messages of ~100 tokens = ~400 tokens.
+    // 85% margin: usable ≈ 593 → 400 ≤ 593, no trim.
+    const messages: AnthropicMsg[] = [];
+    for (let i = 0; i < 4; i++) {
+      messages.push(msg('user', 'x'.repeat(400) + ` msg${i}`));
+    }
+    const out = fitContextWindow(messages, 'sys', 1000, 0);
+    expect(out.trimmed).toBe(false);
+    expect(out.dropped).toBe(0);
+  });
+});
+
+// ── resolveContextWindowFromModel ───────────────────────────────────────────
+
+describe('resolveContextWindowFromModel', () => {
+  it('returns a positive context window for known model ids', () => {
+    // GPT-OSS heuristic → 131 072
+    expect(resolveContextWindowFromModel('gpt-oss-120b')).toBe(131_072);
+    // GPT-4 heuristic → 128 000
+    expect(resolveContextWindowFromModel('gpt-4-turbo')).toBe(128_000);
+    // Gemini-1.5-flash heuristic → 1 000 000 (gemini-1.5-pro is 2M via a more specific rule)
+    expect(resolveContextWindowFromModel('gemini-1.5-flash')).toBe(1_000_000);
+    // Claude-3 heuristic → 200 000
+    expect(resolveContextWindowFromModel('claude-3-opus-20240229')).toBe(200_000);
+  });
+
+  it('returns the default 200k window for unknown model ids', () => {
+    expect(resolveContextWindowFromModel('totally-unknown-model-xyz')).toBe(200_000);
+  });
+});
+
+// ── integration: translateRequest → fitContextWindow ─────────────────────────
+
+describe('translateRequest — context fitting integration', () => {
+  it('trims messages to fit an explicit contextWindow with the 85% margin', () => {
+    const big = 'x'.repeat(400) + ' ';
+    const messages = [
+      { role: 'user' as const, content: big + 'old1' },
+      { role: 'assistant' as const, content: big + 'old2' },
+      { role: 'user' as const, content: big + 'mid' },
+      { role: 'assistant' as const, content: big + 'recent' },
+    ];
+    const params = translateRequest({
+      model: 'nemotron-free',
+      system: 'system prompt',
+      messages,
+      max_tokens: 4000,
+    }, '@ai-sdk/google', { contextWindow: 1000 });
+    // Most recent message survives; oldest dropped.
+    expect((params.messages.at(-1) as any).content[0].text).toContain('recent');
+    // maxOutputTokens clamped to fit the (small) window after input.
+    expect(typeof params.maxOutputTokens === 'number').toBe(true);
+    if (typeof params.maxOutputTokens === 'number') {
+      expect(params.maxOutputTokens).toBeLessThanOrEqual(4000);
+    }
+  });
+
+  it('falls back to model lookup when contextWindow is not passed', () => {
+    // gpt-oss-120b → 131 072 context window via heuristics.
+    // A tiny message should not be trimmed, but fitting must still run.
+    const params = translateRequest({
+      model: 'gpt-oss-120b',
+      system: 'be brief',
+      messages: [{ role: 'user', content: 'hi' }],
+      max_tokens: 256,
+    }, '@ai-sdk/google');
+    expect(params.system).toBe('be brief');
+    expect(params.messages).toHaveLength(1);
+    expect(params.maxOutputTokens).toBe(256);
+  });
+
+  it('uses explicit contextWindow over model lookup', () => {
+    // Pass a tiny window explicitly — should trim even though the model
+    // (gpt-oss-120b) has a 131k window. Use max_tokens=0 so the budget
+    // (850 - 0 - 256 = 594) is positive and trimming can actually occur.
+    const big = 'x'.repeat(400) + ' ';
+    const messages: AnthropicMsg[] = [];
+    for (let i = 0; i < 7; i++) {
+      messages.push({ role: 'user', content: big + `msg${i}` });
+    }
+    const params = translateRequest({
+      model: 'gpt-oss-120b',
+      system: 'sys',
+      messages,
+      max_tokens: 0,
+    }, '@ai-sdk/google', { contextWindow: 1000 });
+    // With contextWindow=1000 (safeWindow=850, usable≈593), 7 messages (~700 tokens)
+    // should be trimmed. Without the explicit window (131k), no trimming would occur.
+    expect(params.messages.length).toBeLessThan(7);
+    expect((params.messages.at(-1) as any).content[0].text).toContain('msg6');
   });
 });

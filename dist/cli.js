@@ -173,7 +173,7 @@ import {
   validateModels,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-662WNT64.js";
+} from "./chunk-D542PKGP.js";
 import {
   BACKENDS,
   CONFLICTING_ENV_VARS,
@@ -12274,7 +12274,7 @@ Options:
 `);
     return 0;
   }
-  const { runUiCommand } = await import("./command-RCJO4PHH.js");
+  const { runUiCommand } = await import("./command-4IRAQ23D.js");
   return runUiCommand({ trace: parsed.trace });
 }
 

@@ -66,7 +66,7 @@ import {
   summarizeServerProviders,
   validateCustomEndpointUrl,
   writeSecureLogLine
-} from "./chunk-662WNT64.js";
+} from "./chunk-D542PKGP.js";
 import {
   BACKENDS,
   MAX_MODEL_CATALOG
@@ -1822,4 +1822,4 @@ export {
   resolveUiShutdownDecision,
   runUiCommand
 };
-//# sourceMappingURL=command-RCJO4PHH.js.map
+//# sourceMappingURL=command-4IRAQ23D.js.map

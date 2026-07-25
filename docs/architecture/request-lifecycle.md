@@ -64,7 +64,9 @@ CLI parse → resolveOrCollectApiKey() → selectModelWithSearch()
   → launchClaude(env)
 
   Claude Code sends POST /v1/messages to proxy
-    → sdkTranslateRequest(body)        // Anthropic → SDK format
+    → sdkTranslateRequest(body, { contextWindow, upstreamModelId })
+        // Anthropic → SDK format; ALWAYS fits context to the model's window
+        // (explicit option or model-id lookup) with an 85% safety margin
     → createLanguageModel(npm, model)  // dynamic SDK provider import
     → streamText(model, messages)      // Vercel AI SDK call
     → streamAnthropicResponse(stream)  // SDK → Anthropic SSE

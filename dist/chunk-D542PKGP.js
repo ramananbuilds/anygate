@@ -6357,6 +6357,7 @@ function makeWebSearchTool(name) {
 // src/gateway/context/context-fit.ts
 var CHARS_PER_TOKEN = 4;
 var RESERVE_TOKENS = 256;
+var SAFETY_MARGIN = 0.85;
 function estimateTokens(text4) {
   return Math.ceil(text4.length / CHARS_PER_TOKEN);
 }
@@ -6385,8 +6386,9 @@ function estimateContextTokens(system, messages) {
   return total;
 }
 function fitContextWindow(messages, system, contextWindow, maxOutputTokens) {
+  const safeWindow = Math.floor(contextWindow * SAFETY_MARGIN);
   const systemTokens = estimateTokens(system ?? "");
-  const budget = contextWindow - maxOutputTokens - RESERVE_TOKENS;
+  const budget = safeWindow - maxOutputTokens - RESERVE_TOKENS;
   if (budget <= 0) {
     return { system, messages, trimmed: false, dropped: 0 };
   }
@@ -6583,6 +6585,9 @@ function translateToolChoice(tc) {
   if (tc.type === "tool" && tc.name) return { type: "tool", toolName: tc.name };
   return void 0;
 }
+function resolveContextWindowFromModel(modelId) {
+  return resolveContextWindow(modelId);
+}
 function translateRequest2(body, npm, options) {
   let messages = body.messages ?? [];
   annotateToolNames(messages);
@@ -6591,11 +6596,16 @@ function translateRequest2(body, npm, options) {
   const systemText = [baseSystem, ...inlineParts].filter((s) => s && s.trim()).join("\n\n") || (options?.openAiOAuth ? "You are a coding assistant." : void 0);
   let trimmedSystem = systemText;
   let maxOutput = options?.openAiOAuth ? void 0 : body.max_tokens;
-  if (options?.contextWindow && options.contextWindow > 0) {
+  let resolvedContextWindow = options?.contextWindow;
+  if (!resolvedContextWindow || resolvedContextWindow <= 0) {
+    const modelId = options?.reasoningMetadata?.upstreamModelId ?? body.model;
+    resolvedContextWindow = resolveContextWindowFromModel(modelId);
+  }
+  if (resolvedContextWindow > 0) {
     const { system: fittedSystem, messages: fittedMessages, trimmed } = fitContextWindow(
       messages,
       systemText,
-      options.contextWindow,
+      resolvedContextWindow,
       typeof maxOutput === "number" ? maxOutput : 0
     );
     if (trimmed) {
@@ -6605,7 +6615,7 @@ function translateRequest2(body, npm, options) {
       trimmedSystem = [fittedSystem, ...fittedInline].filter((s) => s && s.trim()).join("\n\n") || (options?.openAiOAuth ? "You are a coding assistant." : void 0);
       if (typeof maxOutput === "number") {
         const fittedInputTokens = estimateContextTokens(fittedSystem ?? "", fittedMessages);
-        const headroom = options.contextWindow - fittedInputTokens - 256;
+        const headroom = resolvedContextWindow - fittedInputTokens - 256;
         if (headroom > 0 && maxOutput > headroom) maxOutput = headroom;
       }
     }
@@ -7244,7 +7254,7 @@ function startProxyCatalog(routes, defaultAliasId, debug = false) {
             interleavedReasoningField: route.interleavedReasoningField,
             upstreamModelId: route.realModelId
           },
-          contextWindow: route.contextWindow
+          contextWindow: route.contextWindow && route.contextWindow > 0 ? route.contextWindow : resolveContextWindowFromModel(route.realModelId)
         });
         plog(
           () => `sdk: npm=${route.npm} model=${route.realModelId}, stream=${clientWantsStream}, tools=${anthropicBody.tools?.length ?? 0}, msgs=${params.messages.length}`
@@ -7405,6 +7415,7 @@ data: ${JSON.stringify({ type: "error", error: { type: errorType, message } })}
 function startProxy(completionsUrl, modelId, debug = false, contextWindow, sdk, apiKey) {
   const bareModelId = stripOneMContextSuffix(modelId);
   const clientModelId = claudeCodeClientModelId(modelId, contextWindow);
+  const resolvedContextWindow = contextWindow && contextWindow > 0 ? contextWindow : resolveContextWindowFromModel(sdk?.upstreamModelId ?? bareModelId);
   return startProxyCatalog([{
     aliasId: clientModelId,
     realModelId: sdk?.upstreamModelId ?? bareModelId,
@@ -7412,7 +7423,7 @@ function startProxy(completionsUrl, modelId, debug = false, contextWindow, sdk, 
     upstreamUrl: completionsUrl,
     apiKey: apiKey ?? "",
     modelFormat: sdk?.modelFormat ?? "openai",
-    contextWindow,
+    contextWindow: resolvedContextWindow,
     npm: sdk?.npm,
     baseURL: sdk?.baseURL,
     providerId: sdk?.providerId,
@@ -11501,4 +11512,4 @@ export {
   runServerCommand,
   favoriteProviderDisplayName
 };
-//# sourceMappingURL=chunk-662WNT64.js.map
+//# sourceMappingURL=chunk-D542PKGP.js.map

@@ -181,6 +181,18 @@ The Antigravity subsystem (`src/gateway/antigravity/`) emulates Google's Cloud C
 
 - `estimateContextTokens()` — rough token count for a message array
 - `fitContextWindow()` — truncate conversation history to fit within model's context window
+  - Applies an 85% safety margin (`safeWindow = floor(contextWindow * 0.85)`) so token-estimation
+    error and upstream framing overhead never trigger an "input length exceeds maximum" 400.
+  - Preserves the system prompt, most recent messages, and tool_use/tool_result pairs.
+
+`sdk-adapter.ts` resolves the context window for every request:
+
+- `resolveContextWindowFromModel(modelId)` — delegates to the shared context-window resolver
+  (OpenCode cache → ID-pattern heuristics → 200k default).
+- `translateRequest()` — always fits when `contextWindow > 0`, using the explicit option if
+  provided or falling back to a model-id lookup so no code path can silently skip fitting.
+- `anthropic-proxy.ts` — `startProxy()` and `startProxyCatalog()` resolve `route.contextWindow`
+  with the same fallback before passing it to `sdkTranslateRequest()`.
 
 ---
 

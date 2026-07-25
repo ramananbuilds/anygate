@@ -21,6 +21,7 @@ import { resolveUpstreamTools } from '../../apps/shared/tool-search.js';
 import { isWebSearchTool, makeWebSearchTool } from '../web-search/tool.js';
 import { MAX_WEB_SEARCH_STEPS } from '../web-search/constants.js';
 import { fitContextWindow, estimateContextTokens } from '../context/context-fit.js';
+import { resolveContextWindow } from '../../apps/shared/context-window.js';
 import type { AnthropicRequestMessage, AnthropicToolDefinition } from '../proxy/proxy-types.js';
 import { anthropicErrorType, upstreamHttpStatus } from '../../shared/errors.js';
 
@@ -243,6 +244,21 @@ export function translateToolChoice(tc: AnthropicRequest['tool_choice']): SdkCal
   return undefined;
 }
 
+/**
+ * Resolve the upstream model's context window from its id.
+ *
+ * Delegates to the shared context-window resolver, which checks the OpenCode
+ * cache first (authoritative `limit.context` values) and falls back to
+ * ID-pattern heuristics (GPT-4: 128k, Claude-3: 200k, Gemini-1.5: 1M,
+ * GPT-OSS: 131k, etc.). Unknown models default to 200k.
+ *
+ * Exported so tests and proxy call-sites can resolve a window without
+ * duplicating the heuristic table.
+ */
+export function resolveContextWindowFromModel(modelId: string): number {
+  return resolveContextWindow(modelId);
+}
+
 export function translateRequest(
   body: AnthropicRequest,
   npm: string,
@@ -262,13 +278,22 @@ export function translateRequest(
   // upstreams (e.g. Nemotron 131K) keep working in long sessions instead of
   // being rejected. Antigravity stays within Gemini's huge window without this;
   // for claude-app / Codex / Claude Code small-window routes it is required.
+  //
+  // ALWAYS fit when we know the window: use the explicit option if the caller
+  // provided one, otherwise fall back to a model-id lookup so that no code
+  // path can silently skip fitting and trigger an upstream 400.
   let trimmedSystem = systemText;
   let maxOutput = options?.openAiOAuth ? undefined : body.max_tokens;
-  if (options?.contextWindow && options.contextWindow > 0) {
+  let resolvedContextWindow = options?.contextWindow;
+  if (!resolvedContextWindow || resolvedContextWindow <= 0) {
+    const modelId = options?.reasoningMetadata?.upstreamModelId ?? body.model;
+    resolvedContextWindow = resolveContextWindowFromModel(modelId);
+  }
+  if (resolvedContextWindow > 0) {
     // messages already has inline system folded out via systemText; pass systemText so
     // the system prompt is preserved and never dropped.
     const { system: fittedSystem, messages: fittedMessages, trimmed } = fitContextWindow(
-      messages, systemText, options.contextWindow, (typeof maxOutput === 'number' ? maxOutput : 0),
+      messages, systemText, resolvedContextWindow, (typeof maxOutput === 'number' ? maxOutput : 0),
     );
     if (trimmed) {
       messages = fittedMessages;
@@ -280,7 +305,7 @@ export function translateRequest(
       // Defensive: clamp max output so input + output stays within the window.
       if (typeof maxOutput === 'number') {
         const fittedInputTokens = estimateContextTokens(fittedSystem ?? '', fittedMessages);
-        const headroom = options.contextWindow - fittedInputTokens - 256;
+        const headroom = resolvedContextWindow - fittedInputTokens - 256;
         if (headroom > 0 && maxOutput > headroom) maxOutput = headroom;
       }
     }
