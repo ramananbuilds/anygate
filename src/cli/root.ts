@@ -312,13 +312,20 @@ async function runMainMenu(): Promise<number> {
   const entries = await resolveProvidersForDisplay();
   const providerCount = entries.length;
 
+  // Only show onboarding-list providers in the hint (not subscription/OAuth providers
+  // like Antigravity, Claude Code, etc. that may have been configured via import)
+  const onboardingEntries = entries.filter(e => ONBOARDING_TEMPLATES.includes(e.id));
+  const freeHint = onboardingEntries.length > 0
+    ? `free: ${onboardingEntries.map(e => e.name).join(', ')}`
+    : providerCount > 0 ? `${providerCount} provider${providerCount === 1 ? '' : 's'} configured` : 'no providers configured';
+
   printMainMenuPanel(VERSION, providerCount);
 
   const options: Array<{ value: string; label: string; hint: string }> = [
     {
       value: 'claude',
       label: pc.cyan('Launch Claude'),
-      hint: providerCount > 0 ? `free: ${entries.map(e => e.name).join(', ')}` : 'no providers configured',
+      hint: freeHint,
     },
     {
       value: 'codex',
