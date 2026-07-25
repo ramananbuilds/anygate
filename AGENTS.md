@@ -25,6 +25,7 @@ npx vitest run tests/registry/models.test.ts
 npx vitest run tests/ui/api.test.ts
 
 # Test the CLI locally (already npm-linked)
+anygate                 # bare command: onboarding flow (first run) or main menu (subsequent)
 anygate --help
 anygate models          # manage favorite models for mid-session switching
 anygate claude --dry-run # simulate full first-run without writing anything
@@ -56,7 +57,7 @@ npm run build && anygate --version
   - `gemini/`: Google Gemini CLI & Antigravity launcher logic
   - `shared/`: Shared prompt builders, key setup, context-window calculation, free-models logic, and model compatibility filters
 - **`src/auth/`**: Authentication, PKCE, OAuth device flows, keyring adapters, & token handling (GitHub, OpenAI, xAI, Claude Code, Antigravity)
-- **`src/cli/`**: Subcommand entry points (`claude.ts`, `codex.ts`, `gemini.ts`, `antigravity.ts`, `providers-command.ts`, `models.ts`, `server.ts`, `ui.ts`, `doctor.ts`, `update.ts`)
+- **`src/cli/`**: Subcommand entry points (`root.ts`, `claude.ts`, `codex.ts`, `gemini.ts`, `antigravity.ts`, `providers-command.ts`, `models.ts`, `server.ts`, `ui.ts`, `doctor.ts`, `update.ts`)
 - **`src/config/`**: System constants, path definitions, default preferences, and environment variable resolution
 - **`src/core/`**: Domain contracts, constants (`constants/`), error hierarchy (`errors/`), lifecycle events (`events/`), and interfaces (`interfaces/`)
 - **`src/engine/`**: Core Routing & Selection Engine

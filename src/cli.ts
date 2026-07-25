@@ -510,11 +510,13 @@ ${pc.bold('Antigravity favorites:')}
   agy, antigravity, and antigravity-ide share up to six Antigravity favorites
   from anygate favorites --agy, plus the selected launch model.
 
-${pc.bold('Upgradeion:')}
-  Bare anygate prints this help instead of launching Claude Code.
-  Use anygate claude for the wizard and launcher.
+${pc.bold('Bare command:')}
+  anygate (no subcommand) runs the onboarding flow on first run, or
+  shows a main menu on subsequent runs. Use anygate claude for the
+  Claude Code wizard and launcher.
 
 ${pc.bold('Examples:')}
+  anygate
   anygate claude
   anygate models
   anygate providers

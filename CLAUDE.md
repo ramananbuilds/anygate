@@ -44,6 +44,7 @@ npx vitest run tests/registry/models.test.ts
 npx vitest run tests/ui/api.test.ts
 
 # Test the CLI locally (already npm-linked)
+anygate                 # bare command: onboarding flow (first run) or main menu (subsequent)
 anygate --help
 anygate models          # manage favorite models for mid-session switching
 anygate claude --dry-run # simulate full first-run without writing anything
