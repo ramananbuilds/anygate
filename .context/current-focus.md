@@ -2,7 +2,7 @@
 
 > Active development status and recent major architecture updates.
 
-## Current Version: 0.5.9
+## Current Version: 0.5.10
 
 ### Recent Architectural Refactoring
 1. **17-Domain `src/` Restructuring**: Clean, single-responsibility domain subdirectories.
@@ -15,9 +15,15 @@
 ## Development Checklist for New Features & UI Changes
 
 Whenever a feature is added, modified, or deleted in the codebase or UI:
-- [ ] Update `docs/architecture/` if system data flow or lifecycle changes
-- [ ] Update `docs/components/` for modified modules
-- [ ] Update `docs/reference/` if new providers, apps, config keys, or env vars are introduced
-- [ ] Update `.context/current-focus.md` with the change summary
-- [ ] Update `AGENTS.md` and `CLAUDE.md` if agent workflows are affected
-- [ ] Update `CHANGELOG.md`
+- [x] Update `docs/architecture/` if system data flow or lifecycle changes
+- [x] Update `docs/components/` for modified modules
+- [x] Update `docs/reference/` if new providers, apps, config keys, or env vars are introduced
+- [x] Update `.context/current-focus.md` with the change summary
+- [x] Update `AGENTS.md` and `CLAUDE.md` if agent workflows are affected
+- [x] Update `CHANGELOG.md`
+
+## Recent Changes (v0.5.10)
+
+1. **Bare `anygate` Command**: New `src/cli/root.ts` handler — onboarding flow on first run (3-step: categorize providers, handle selections, summary) and main menu on subsequent runs.
+2. **Provider-Aware Model Format Detection**: Rewrote `src/ui/app/src/lib/providers/modelFormat.ts` with `inferModelFormat(modelId, providerId)` that distinguishes OpenAI-compatible providers (NVIDIA, Groq, etc.) from the actual OpenAI provider. Fixes NVIDIA `openai/gpt-oss-120b` being incorrectly marked "unsupported".
+3. **Non-TTY Graceful Degradation**: Bare `anygate` in non-interactive mode falls back to help text instead of crashing.

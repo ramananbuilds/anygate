@@ -6,6 +6,7 @@
 
 ```text
 src/cli/
+├── root.ts                # `anygate` (bare) — onboarding flow + main menu
 ├── claude.ts              # `anygate claude` — main Claude Code orchestration (19KB)
 ├── claude-app.ts          # `anygate claude-app` — Claude Desktop launch
 ├── codex.ts               # `anygate codex` — Codex CLI launch
@@ -27,6 +28,7 @@ src/cli/
 
 | Command | Handler | Purpose |
 |---------|---------|---------|
+| `anygate` | `root.ts` | Bare command: onboarding flow (first run) or main menu (subsequent) |
 | `anygate claude` | `claude.ts` | Launch Claude Code with provider/model selection |
 | `anygate claude-app` | `claude-app.ts` | Launch Claude Desktop (Cowork) |
 | `anygate codex` | `codex.ts` | Launch OpenAI Codex CLI |
