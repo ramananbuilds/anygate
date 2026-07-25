@@ -307,3 +307,54 @@ export function printFavoritesOnlyPanel(): void {
     `${pc.white('Edit with ')}${pc.cyan('anygate models')}${pc.white('.')}`,
   ]);
 }
+
+// ── Onboarding flow panels ──────────────────────────────────────────
+
+export function printOnboardingPanel(): void {
+  printPanel(pc.cyan('Welcome to anygate'), [
+    `${pc.white("Let's configure free AI providers.")}`,
+    `${pc.dim('You can always add more later with ')}${fmtCommand('anygate providers')}${pc.dim('.')}`,
+  ]);
+}
+
+export function printProviderCategoryPanel(): void {
+  printPanel(pc.cyan('Provider categories'), [
+    `${pc.white('Keyless (works instantly):')}`,
+    `${pc.dim('  No API key needed — providers like Kilo Code work immediately.')}`,
+    '',
+    `${pc.white('API Key Required (free tier):')}`,
+    `${pc.dim('  NVIDIA, Groq, Mistral, Cerebras — free signup, no credit card.')}`,
+  ]);
+}
+
+export function printSetupSummaryPanel(
+  configured: Array<{ name: string; keyless: boolean }>,
+  skipped: string[],
+): void {
+  const lines: string[] = [];
+  for (const p of configured) {
+    const tag = p.keyless ? pc.dim('(keyless)') : pc.dim('(API key configured)');
+    lines.push(`  ${pc.green('✓')} ${pc.bold(p.name)} ${tag}`);
+  }
+  for (const s of skipped) {
+    lines.push(`  ${pc.yellow('⚠')} ${s} ${pc.dim('(skipped — add later with ')}${fmtCommand('anygate providers add')}${pc.dim(')')}`);
+  }
+  lines.push('');
+  lines.push(`${pc.bold(String(configured.length))} provider${configured.length === 1 ? '' : 's'} ready.`);
+  printPanel(pc.cyan('Setup complete'), lines);
+}
+
+export function printMainMenuPanel(version: string, providerCount: number): void {
+  printPanel(pc.cyan(`AnyGate v${version}`), [
+    `${pc.bold(String(providerCount))} provider${providerCount === 1 ? '' : 's'} configured`,
+    '',
+    `${pc.dim('Select an action:')}`,
+  ]);
+}
+
+export function printApiKeyProviderPanel(name: string, signupUrl: string): void {
+  printPanel(pc.cyan(`${name} API key`), [
+    `${pc.white('Requires an API key (free at:')} ${fmtUrl(signupUrl)}`,
+    `${pc.dim('AnyGate stores it securely in your system keychain.')}`,
+  ]);
+}
