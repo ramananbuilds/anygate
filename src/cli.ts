@@ -124,7 +124,7 @@ export function parseArgs(args: string[]): ParsedArgs {
     };
   }
 
-  if (args.length === 0) return { ...emptyParsed('root'), showHelp: true };
+  if (args.length === 0) return { ...emptyParsed('root'), showHelp: false };
 
   const [first, ...rest] = args;
 
@@ -779,10 +779,14 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
     }
     if (parsed.showVersion) {
       console.log(VERSION);
-    } else {
-      printHelp(rootHelpText());
+      return 0;
     }
-    return 0;
+    if (parsed.showHelp) {
+      printHelp(rootHelpText());
+      return 0;
+    }
+    // Bare `anygate` — dispatch to root command handler (onboarding/main menu)
+    return dispatchCommand(parsed);
   }
 
   if (parsed.showVersion) {
