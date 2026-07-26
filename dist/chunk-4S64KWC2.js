@@ -2736,6 +2736,7 @@ var HEURISTIC_RULES = [
   [/grok-4\.5/i, 5e5],
   [/grok-3|grok-4/i, 131072],
   [/nemotron/i, 131072],
+  [/poolside|laguna/i, 262112],
   [/glm-4/i, 128e3],
   [/solar-pro3/i, 131072],
   [/solar-pro2/i, 65536],
@@ -7341,7 +7342,7 @@ function startProxyCatalog(routes, defaultAliasId, debug = false) {
             interleavedReasoningField: route.interleavedReasoningField,
             upstreamModelId: route.realModelId
           },
-          contextWindow: route.contextWindow && route.contextWindow > 0 ? route.contextWindow : resolveContextWindowFromModel(route.realModelId)
+          contextWindow: route.contextWindow && route.contextWindow > 0 ? route.contextWindow : resolveContextWindowFromModel(route.realModelId, route.providerId)
         });
         plog(
           () => `sdk: npm=${route.npm} model=${route.realModelId}, stream=${clientWantsStream}, tools=${anthropicBody.tools?.length ?? 0}, msgs=${params.messages.length}`
@@ -7502,7 +7503,7 @@ data: ${JSON.stringify({ type: "error", error: { type: errorType, message } })}
 function startProxy(completionsUrl, modelId, debug = false, contextWindow, sdk, apiKey) {
   const bareModelId = stripOneMContextSuffix(modelId);
   const clientModelId = claudeCodeClientModelId(modelId, contextWindow);
-  const resolvedContextWindow = contextWindow && contextWindow > 0 ? contextWindow : resolveContextWindowFromModel(sdk?.upstreamModelId ?? bareModelId);
+  const resolvedContextWindow = contextWindow && contextWindow > 0 ? contextWindow : resolveContextWindowFromModel(sdk?.upstreamModelId ?? bareModelId, sdk?.providerId);
   return startProxyCatalog([{
     aliasId: clientModelId,
     realModelId: sdk?.upstreamModelId ?? bareModelId,
@@ -11599,4 +11600,4 @@ export {
   runServerCommand,
   favoriteProviderDisplayName
 };
-//# sourceMappingURL=chunk-W2MROWAA.js.map
+//# sourceMappingURL=chunk-4S64KWC2.js.map

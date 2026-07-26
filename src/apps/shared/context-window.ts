@@ -54,6 +54,7 @@ export const HEURISTIC_RULES: Array<[RegExp, number]> = [
   [/grok-4\.5/i, 500_000],
   [/grok-3|grok-4/i, 131_072],
   [/nemotron/i, 131_072],
+  [/poolside|laguna/i, 262_112],
   [/glm-4/i, 128_000],
   [/solar-pro3/i, 131_072],
   [/solar-pro2/i, 65_536],

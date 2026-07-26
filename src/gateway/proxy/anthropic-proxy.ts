@@ -316,7 +316,7 @@ export function startProxyCatalog(
           },
           contextWindow: (route.contextWindow && route.contextWindow > 0)
             ? route.contextWindow
-            : resolveContextWindowFromModel(route.realModelId),
+            : resolveContextWindowFromModel(route.realModelId, route.providerId),
         });
         plog(() =>
           `sdk: npm=${route.npm} model=${route.realModelId}, stream=${clientWantsStream}, ` +
@@ -522,7 +522,7 @@ export function startProxy(
   // to fit against — never leave it undefined and risk an upstream 400.
   const resolvedContextWindow = (contextWindow && contextWindow > 0)
     ? contextWindow
-    : resolveContextWindowFromModel(sdk?.upstreamModelId ?? bareModelId);
+    : resolveContextWindowFromModel(sdk?.upstreamModelId ?? bareModelId, sdk?.providerId);
   return startProxyCatalog([{
     aliasId: clientModelId,
     realModelId: sdk?.upstreamModelId ?? bareModelId,
