@@ -74,6 +74,7 @@ export const REGISTRY_TO_MODELS_DEV: Record<string, string> = {
   anthropic: 'anthropic',
   nvidia: 'nvidia',
   venice: 'openrouter',
+  poolside: 'poolside',
 };
 
 export function readModelsDevCacheMeta(
