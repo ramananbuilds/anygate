@@ -160,6 +160,10 @@ Also handles reasoning metadata detection (`getReasoningCapabilities()`), thinki
 - **Vendor masking**: Rewrite discovery IDs for Claude Desktop compatibility
 - **Password auth**: Optional API key requirement for network mode
 - **Listen modes**: Local (127.0.0.1) or network (0.0.0.0)
+- **Security headers**: All responses include `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store`
+- **Rate limiting**: 120 requests per minute per client (429 response with `Retry-After` header)
+- **Body size limit**: 10 MB maximum request body
+- **Safe error handling**: `AnygateError` instances use typed `sendError()`; other errors return generic "Internal server error" to prevent information leakage
 
 ## Antigravity Gateway
 
