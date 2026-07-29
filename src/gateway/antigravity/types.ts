@@ -1,3 +1,5 @@
+import type { ModelFormat } from '../../types/model.ts'
+
 /** A resolved anygate route for an Antigravity catalog entry. */
 export interface AntigravityRoute {
   /** Opaque catalog ID — `anygate__<providerId>__<encoded-modelId>`. */
@@ -8,7 +10,7 @@ export interface AntigravityRoute {
   /** Upstream model ID used for actual API calls. */
   upstreamModelId: string
   displayName: string
-  modelFormat?: 'anthropic' | 'openai' | 'cloud-code'
+  modelFormat?: ModelFormat
   /** Vercel AI SDK npm package for the provider. */
   npm: string
   /** Provider API key — never serialized into the catalog. */

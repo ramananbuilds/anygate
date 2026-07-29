@@ -1,6 +1,6 @@
 import type { FreeStatus } from '../apps/shared/free-models.js'
 
-export type ModelFormat = 'anthropic' | 'openai' | 'unsupported'
+export type ModelFormat = 'anthropic' | 'openai' | 'cloud-code' | 'unsupported'
 
 export interface ModelCost {
   input: number
@@ -28,7 +28,7 @@ export interface LocalProviderModel {
   name: string
   family: string
   brand: string
-  modelFormat: 'anthropic' | 'openai' | 'cloud-code'
+  modelFormat: ModelFormat
   upstreamModelId: string
   baseUrl?: string
   completionsUrl?: string

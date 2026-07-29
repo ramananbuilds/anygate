@@ -3,12 +3,13 @@ import { resolveContextWindow } from '../../apps/shared/context-window.js'
 import { aliasModelId } from '../proxy/anthropic-proxy.js'
 import { maskGatewayModelId } from './vendor-mask.js'
 import type { FreeStatus } from '../../apps/shared/free-models.js'
+import type { ModelFormat } from '../../types/index.js'
 
 export interface GatewayModelOptions {
   maskGatewayIds?: boolean
 }
 
-export type ServerModelFormat = 'anthropic' | 'openai' | 'cloud-code' | 'unsupported'
+export type ServerModelFormat = ModelFormat
 export type ServerBackendId = 'zen' | 'go'
 export type ServerModelSource = ServerBackendId | 'vertex' | (string & {})
 

@@ -4,6 +4,7 @@ import { createServer } from 'node:http'
 import type { ServerResponse } from 'node:http'
 import { appendFileSync, openSync, writeSync, closeSync } from 'node:fs'
 import { readBody, extractApiKey, sendJson } from '../../shared/http.js'
+import type { ModelFormat } from '../../types/model.ts'
 import { formatAnthropicModelEntry, formatAnthropicModelList } from '../server/models.js'
 import {
   claudeCodeClientModelId,
@@ -107,7 +108,7 @@ export interface ProxyRoute {
   displayName: string
   upstreamUrl: string
   apiKey: string
-  modelFormat: 'anthropic' | 'openai' | 'cloud-code'
+  modelFormat: ModelFormat
   contextWindow?: number
   npm?: string // OpenCode api.npm ΓÇö when SDK-upgraded, routes via the adapter
   baseURL?: string // base URL for openai-compatible / openrouter SDK providers
@@ -612,7 +613,7 @@ export function startProxy(
     authType?: 'api' | 'oauth' | 'none'
     oauthAccountId?: string
     providerData?: Record<string, unknown>
-    modelFormat?: 'anthropic' | 'openai' | 'cloud-code'
+    modelFormat?: ModelFormat
     supportedParameters?: string[]
     reasoning?: boolean
     interleavedReasoningField?: string

@@ -1,6 +1,7 @@
 // src/registry/types.ts — native provider registry schema (no secrets)
 
 import type { FreeStatus } from '../apps/shared/free-models.ts'
+import type { ModelFormat } from '../types/model.ts'
 
 export const REGISTRY_SCHEMA_VERSION = 1
 
@@ -16,7 +17,7 @@ export interface CachedModel {
   cost?: { input: number; output: number; cache_read?: number; cache_write?: number }
   isFree?: boolean
   freeStatus?: FreeStatus
-  modelFormat: 'anthropic' | 'openai' | 'cloud-code'
+  modelFormat: ModelFormat
   /** Per-model override — wins over provider-level api.npm */
   npm?: string
   /** Per-model override — wins over provider-level api.url */
