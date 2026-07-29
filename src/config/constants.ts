@@ -1,8 +1,8 @@
 // src/constants.ts
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-import pkg from '../../package.json' with { type: 'json' };
-import type { BackendConfig, ModelFormat } from '../types/index.js';
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+import pkg from '../../package.json' with { type: 'json' }
+import type { BackendConfig, ModelFormat } from '../types/index.js'
 
 export const BACKENDS: Record<'zen' | 'go', BackendConfig> = {
   zen: {
@@ -16,17 +16,17 @@ export const BACKENDS: Record<'zen' | 'go', BackendConfig> = {
     name: 'OpenCode Go',
     baseUrl: 'https://opencode.ai/zen/go',
   },
-};
+}
 
 // ChatGPT Codex Responses-Lite WebSocket transport (used by models the backend
 // flags with prefer_websockets, e.g. gpt-5.6-luna).
-export const CODEX_RESPONSES_LITE_WS_URL = 'wss://chatgpt.com/backend-api/codex/responses';
+export const CODEX_RESPONSES_LITE_WS_URL = 'wss://chatgpt.com/backend-api/codex/responses'
 // `version` header the Codex backend expects on Responses-Lite requests. The
 // official Codex CLI sends its own version here; OpenAI may require this to be
 // bumped over time — confirm via --trace if Luna requests start failing.
-export const CODEX_RESPONSES_LITE_VERSION = '0.144.1';
+export const CODEX_RESPONSES_LITE_VERSION = '0.144.1'
 // OpenAI-Beta opt-in for the WebSocket Responses transport.
-export const CODEX_RESPONSES_WEBSOCKETS_BETA = 'responses_websockets=2026-02-06';
+export const CODEX_RESPONSES_WEBSOCKETS_BETA = 'responses_websockets=2026-02-06'
 
 // These must be removed from the child process environment to avoid conflicts
 // with Vertex AI, Bedrock, AWS, Foundry, and any stale Anthropic config.
@@ -48,40 +48,46 @@ export const CONFLICTING_ENV_VARS = [
   'ANTHROPIC_DEFAULT_OPUS_MODEL',
   'ANTHROPIC_DEFAULT_SONNET_MODEL',
   'ANTHROPIC_DEFAULT_HAIKU_MODEL',
-] as const;
+] as const
 
-export type ConflictingEnvVar = (typeof CONFLICTING_ENV_VARS)[number];
+export type ConflictingEnvVar = (typeof CONFLICTING_ENV_VARS)[number]
 
 // Optional enrichment from OpenCode CLI (~/.cache/opencode/models.json) — not a runtime dependency.
-export const OPENCODE_CACHE_PATH = join(homedir(), '.cache', 'opencode', 'models.json');
+export const OPENCODE_CACHE_PATH = join(homedir(), '.cache', 'opencode', 'models.json')
 
 /** Max models in favorites list and mid-session /model switch catalog. */
-export const MAX_MODEL_CATALOG = 20;
+export const MAX_MODEL_CATALOG = 20
 
 // Fixed port the `anygate server` gateway binds to. The doctor command probes
 // this same port so users catch clashes before launching the server.
-export const GATEWAY_PORT = 17645;
+export const GATEWAY_PORT = 17645
+
+/** Gateway rate limiting: max requests per client per window. */
+export const RATE_LIMIT_MAX_REQUESTS = 120
+
+/** Gateway rate limiting: time window in milliseconds. */
+export const RATE_LIMIT_WINDOW_MS = 60_000
+
+/** Maximum request body size in bytes (10 MB). */
+export const MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024
 
 /** Vercel AI SDK package for Anthropic Claude models on Google Vertex AI (ADC auth). */
-export const VERTEX_ANTHROPIC_NPM = '@ai-sdk/google-vertex/anthropic';
+export const VERTEX_ANTHROPIC_NPM = '@ai-sdk/google-vertex/anthropic'
 
 // Classify a model's API format based on cache provider data or ID heuristics.
 // Used to decide whether to route directly or through the translation proxy.
-export function classifyModelFormat(
-  modelId: string,
-  providerNpm: string | undefined,
-): ModelFormat {
-  if (providerNpm === '@ai-sdk/anthropic') return 'anthropic';
-  if (providerNpm === '@ai-sdk/openai') return 'unsupported';
-  if (providerNpm === '@ai-sdk/google') return 'unsupported';
+export function classifyModelFormat(modelId: string, providerNpm: string | undefined): ModelFormat {
+  if (providerNpm === '@ai-sdk/anthropic') return 'anthropic'
+  if (providerNpm === '@ai-sdk/openai') return 'unsupported'
+  if (providerNpm === '@ai-sdk/google') return 'unsupported'
 
   // Fallback: ID-prefix heuristics for models not in cache
-  const lower = modelId.toLowerCase();
-  if (lower.startsWith('claude-')) return 'anthropic';
-  if (lower.startsWith('gpt-')) return 'unsupported';
-  if (lower.startsWith('gemini-')) return 'unsupported';
+  const lower = modelId.toLowerCase()
+  if (lower.startsWith('claude-')) return 'anthropic'
+  if (lower.startsWith('gpt-')) return 'unsupported'
+  if (lower.startsWith('gemini-')) return 'unsupported'
 
-  return 'openai';
+  return 'openai'
 }
 
-export const VERSION = pkg.version;
+export const VERSION = pkg.version

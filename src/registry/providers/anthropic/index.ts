@@ -4,4 +4,4 @@ export const anthropicProviderMeta = {
   brand: 'Anthropic',
   defaultBaseUrl: 'https://api.anthropic.com',
   npm: '@ai-sdk/anthropic',
-};
+}

@@ -3,4 +3,4 @@ export const vertexProviderMeta = {
   name: 'Google Vertex AI',
   brand: 'Google',
   npm: '@ai-sdk/google-vertex',
-};
+}

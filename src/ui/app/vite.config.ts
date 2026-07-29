@@ -1,11 +1,14 @@
-import { defineConfig } from 'vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
-import tailwindcss from '@tailwindcss/vite';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { defineConfig } from 'vite'
+import { svelte } from '@sveltejs/vite-plugin-svelte'
+import tailwindcss from '@tailwindcss/vite'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
-const pkgRaw = readFileSync(fileURLToPath(new URL('../../../package.json', import.meta.url)), 'utf8').replace(/^﻿/, '');
-const pkg = JSON.parse(pkgRaw);
+const pkgRaw = readFileSync(
+  fileURLToPath(new URL('../../../package.json', import.meta.url)),
+  'utf8'
+).replace(/^﻿/, '')
+const pkg = JSON.parse(pkgRaw)
 
 export default defineConfig({
   root: '.',
@@ -26,4 +29,4 @@ export default defineConfig({
       '/oauth': 'http://127.0.0.1:17645',
     },
   },
-});
+})

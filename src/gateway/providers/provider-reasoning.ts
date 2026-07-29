@@ -3,54 +3,54 @@
 // Extracted from provider-factory.ts to keep the core SDK factory lean.
 // The reasoning section is ~640 lines of model-id pattern matching and
 // per-provider effort-level mapping — self-contained behind getReasoningCapabilities.
-import { VERTEX_ANTHROPIC_NPM } from '../../config/constants.js';
-import { modelPrefersResponsesApi } from './provider-factory.js';
+import { VERTEX_ANTHROPIC_NPM } from '../../config/constants.js'
+import { modelPrefersResponsesApi } from './provider-factory.js'
 
-export type ReasoningMode = 'none' | 'internal-only' | 'controllable';
-export type ReasoningSource = 'provider-metadata' | 'provider-rule' | 'model-metadata' | 'none';
-export type ReasoningConfidence = 'verified' | 'documented' | 'inferred';
+export type ReasoningMode = 'none' | 'internal-only' | 'controllable'
+export type ReasoningSource = 'provider-metadata' | 'provider-rule' | 'model-metadata' | 'none'
+export type ReasoningConfidence = 'verified' | 'documented' | 'inferred'
 export type ReasoningWireFormat =
   | { kind: 'openrouter-reasoning' }
   | { kind: 'openai-reasoning-effort' }
   | { kind: 'anthropic-thinking' }
   | { kind: 'google-thinking-config' }
   | { kind: 'mistral-reasoning-effort' }
-  | { kind: 'deepseek-thinking' };
+  | { kind: 'deepseek-thinking' }
 
 export interface ReasoningMetadata {
-  providerId?: string;
-  apiBaseUrl?: string;
-  supportedParameters?: string[];
-  reasoning?: boolean;
-  interleavedReasoningField?: string;
+  providerId?: string
+  apiBaseUrl?: string
+  supportedParameters?: string[]
+  reasoning?: boolean
+  interleavedReasoningField?: string
   /**
    * Bare upstream model id (e.g. 'grok-4.5'), distinct from the request's `model`
    * field which may be a gateway alias or catalog slug (e.g. 'xai-oauth__grok-4.5').
    * Reasoning-capability id-pattern checks must match against this, not body.model.
    */
-  upstreamModelId?: string;
+  upstreamModelId?: string
 }
 
 export interface ReasoningCapabilities {
-  levels: string[];
-  defaultLevel: string;
-  supportsSummaries: boolean;
-  mode: ReasoningMode;
-  source: ReasoningSource;
-  confidence: ReasoningConfidence;
-  wireFormat?: ReasoningWireFormat;
+  levels: string[]
+  defaultLevel: string
+  supportsSummaries: boolean
+  mode: ReasoningMode
+  source: ReasoningSource
+  confidence: ReasoningConfidence
+  wireFormat?: ReasoningWireFormat
 }
 
-const ANTHROPIC_EFFORT_LEVELS = ['low', 'medium', 'high'] as const;
-const OPENAI_EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh'] as const;
-const GEMINI_EFFORT_LEVELS = ['low', 'medium', 'high'] as const;
-const MISTRAL_EFFORT_LEVELS = ['high', 'off'] as const;
-const XAI_EFFORT_LEVELS = ['none', 'low', 'medium', 'high'] as const;
-const OPENROUTER_EFFORT_LEVELS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
+const ANTHROPIC_EFFORT_LEVELS = ['low', 'medium', 'high'] as const
+const OPENAI_EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh'] as const
+const GEMINI_EFFORT_LEVELS = ['low', 'medium', 'high'] as const
+const MISTRAL_EFFORT_LEVELS = ['high', 'off'] as const
+const XAI_EFFORT_LEVELS = ['none', 'low', 'medium', 'high'] as const
+const OPENROUTER_EFFORT_LEVELS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const
 /** DeepSeek V4 wire values (low/medium map to high; xhigh maps to max). */
-const DEEPSEEK_EFFORT_LEVELS = ['high', 'max', 'off'] as const;
+const DEEPSEEK_EFFORT_LEVELS = ['high', 'max', 'off'] as const
 /** GLM-5.2 published efforts (OpenRouter metadata): high and xhigh, default high. */
-const GLM_52_EFFORT_LEVELS = ['high', 'xhigh'] as const;
+const GLM_52_EFFORT_LEVELS = ['high', 'xhigh'] as const
 
 const EMPTY_REASONING: ReasoningCapabilities = {
   levels: [],
@@ -59,7 +59,7 @@ const EMPTY_REASONING: ReasoningCapabilities = {
   mode: 'none',
   source: 'none',
   confidence: 'inferred',
-};
+}
 
 const EFFORT_DESCRIPTIONS: Record<string, string> = {
   off: 'Turn off extended reasoning',
@@ -70,7 +70,7 @@ const EFFORT_DESCRIPTIONS: Record<string, string> = {
   high: 'Deep reasoning',
   xhigh: 'Maximum reasoning',
   max: 'Maximum effort',
-};
+}
 
 const GEMINI_25_BUDGETS: Record<string, number> = {
   low: 1024,
@@ -80,38 +80,40 @@ const GEMINI_25_BUDGETS: Record<string, number> = {
   max: 16384,
   minimal: 512,
   none: 0,
-};
+}
 
 /** Claude adaptive-thinking models (opus/sonnet/haiku 4.6+, fable, mythos). */
 function isClaudeReasoningModel(modelId: string): boolean {
-  const lower = modelId.toLowerCase();
-  if (!lower.startsWith('claude-')) return false;
-  if (lower.includes('fable') || lower.includes('mythos')) return true;
-  const m = lower.match(/claude-(?:opus|sonnet|haiku)-(\d+)-(\d+)/);
-  if (!m) return false;
-  const major = Number(m[1]);
-  const minor = Number(m[2]);
-  return major > 4 || (major === 4 && minor >= 6);
+  const lower = modelId.toLowerCase()
+  if (!lower.startsWith('claude-')) return false
+  if (lower.includes('fable') || lower.includes('mythos')) return true
+  const m = lower.match(/claude-(?:opus|sonnet|haiku)-(\d+)-(\d+)/)
+  if (!m) return false
+  const major = Number(m[1])
+  const minor = Number(m[2])
+  return major > 4 || (major === 4 && minor >= 6)
 }
 
 function isGeminiReasoningModel(modelId: string): boolean {
-  const lower = modelId.toLowerCase();
-  return lower.startsWith('gemini-2.5-')
-    || lower.startsWith('gemini-3')
-    || lower.startsWith('gemini-3.');
+  const lower = modelId.toLowerCase()
+  return (
+    lower.startsWith('gemini-2.5-') || lower.startsWith('gemini-3') || lower.startsWith('gemini-3.')
+  )
 }
 
 function isGemini3Model(modelId: string): boolean {
-  const lower = modelId.toLowerCase();
-  return lower.startsWith('gemini-3') || lower.startsWith('gemini-3.');
+  const lower = modelId.toLowerCase()
+  return lower.startsWith('gemini-3') || lower.startsWith('gemini-3.')
 }
 
 function isMistralReasoningModel(modelId: string): boolean {
-  const lower = modelId.toLowerCase();
-  return lower.startsWith('mistral-')
-    || lower.startsWith('magistral-')
-    || lower.startsWith('ministral-')
-    || lower.includes('reasoning');
+  const lower = modelId.toLowerCase()
+  return (
+    lower.startsWith('mistral-') ||
+    lower.startsWith('magistral-') ||
+    lower.startsWith('ministral-') ||
+    lower.includes('reasoning')
+  )
 }
 
 /**
@@ -120,15 +122,15 @@ function isMistralReasoningModel(modelId: string): boolean {
  * but rejects reasoningEffort (HTTP 400).
  */
 function isXaiReasoningEffortModel(modelId: string): boolean {
-  const lower = modelId.toLowerCase();
-  if (lower.includes('non-reasoning')) return false;
-  if (lower.startsWith('grok-build')) return false;
-  if (lower.startsWith('grok-imagine')) return false;
-  if (modelPrefersResponsesApi(modelId)) return true;
-  if (lower === 'grok-4.3' || lower.startsWith('grok-4.3-')) return true;
-  if (lower === 'grok-4.5' || lower.startsWith('grok-4.5-')) return true;
-  if (lower.includes('-reasoning')) return true;
-  return false;
+  const lower = modelId.toLowerCase()
+  if (lower.includes('non-reasoning')) return false
+  if (lower.startsWith('grok-build')) return false
+  if (lower.startsWith('grok-imagine')) return false
+  if (modelPrefersResponsesApi(modelId)) return true
+  if (lower === 'grok-4.3' || lower.startsWith('grok-4.3-')) return true
+  if (lower === 'grok-4.5' || lower.startsWith('grok-4.5-')) return true
+  if (lower.includes('-reasoning')) return true
+  return false
 }
 
 /**
@@ -136,52 +138,58 @@ function isXaiReasoningEffortModel(modelId: string): boolean {
  * Varies by model — grok-4.3 defaults to 'low', grok-4.5 defaults to 'high'.
  */
 function xaiDefaultReasoningEffort(modelId: string): string {
-  const lower = modelId.toLowerCase();
-  if (lower === 'grok-4.5' || lower.startsWith('grok-4.5-')) return 'high';
-  return 'low';
+  const lower = modelId.toLowerCase()
+  if (lower === 'grok-4.5' || lower.startsWith('grok-4.5-')) return 'high'
+  return 'low'
 }
 
 /** DeepSeek V4 models with thinking mode + reasoning_effort (direct API). */
 function isDeepSeekReasoningModel(modelId: string): boolean {
-  const lower = modelId.toLowerCase();
-  return lower === 'deepseek-v4-flash'
-    || lower === 'deepseek-v4-pro'
-    || lower.startsWith('deepseek-v4-flash-')
-    || lower.startsWith('deepseek-v4-pro-')
-    || lower === 'deepseek-reasoner'
-    || lower === 'deepseek-chat';
+  const lower = modelId.toLowerCase()
+  return (
+    lower === 'deepseek-v4-flash' ||
+    lower === 'deepseek-v4-pro' ||
+    lower.startsWith('deepseek-v4-flash-') ||
+    lower.startsWith('deepseek-v4-pro-') ||
+    lower === 'deepseek-reasoner' ||
+    lower === 'deepseek-chat'
+  )
 }
 
 function isKimiReasoningModel(modelId: string): boolean {
-  const lower = modelId.toLowerCase();
-  return lower.startsWith('kimi-');
+  const lower = modelId.toLowerCase()
+  return lower.startsWith('kimi-')
 }
 
 // Keep exact matching. Kimi uses prefix matching, but switching GLM to prefix
 // would newly classify vendor-aliased IDs as reasoning models. That is a
 // behavior change, not duplication cleanup.
 function isGlm52ReasoningModel(modelId: string): boolean {
-  const lower = modelId.toLowerCase();
-  return lower === 'glm-5.2'
-    || lower === 'z-ai/glm-5.2'
-    || lower === 'zai/glm-5.2'
-    || lower === 'zai-org/glm-5.2'
-    || lower === 'zai-org/glm5.2'
-    || lower === 'glm5.2';
+  const lower = modelId.toLowerCase()
+  return (
+    lower === 'glm-5.2' ||
+    lower === 'z-ai/glm-5.2' ||
+    lower === 'zai/glm-5.2' ||
+    lower === 'zai-org/glm-5.2' ||
+    lower === 'zai-org/glm5.2' ||
+    lower === 'glm5.2'
+  )
 }
 
 function toCamelCase(str: string): string {
-  return str.replace(/[-_]([a-z])/g, (_, g) => g.toUpperCase());
+  return str.replace(/[-_]([a-z])/g, (_, g) => g.toUpperCase())
 }
 
 function hasSupportedParameter(metadata: ReasoningMetadata | undefined, param: string): boolean {
-  return (metadata?.supportedParameters ?? []).some(p => p === param);
+  return (metadata?.supportedParameters ?? []).some(p => p === param)
 }
 
 function isOpenRouterRoute(npm: string, metadata?: ReasoningMetadata): boolean {
-  return npm === '@openrouter/ai-sdk-provider'
-    || metadata?.providerId === 'openrouter'
-    || metadata?.apiBaseUrl?.includes('openrouter.ai') === true;
+  return (
+    npm === '@openrouter/ai-sdk-provider' ||
+    metadata?.providerId === 'openrouter' ||
+    metadata?.apiBaseUrl?.includes('openrouter.ai') === true
+  )
 }
 
 function openRouterReasoningCapabilities(metadata?: ReasoningMetadata): ReasoningCapabilities {
@@ -190,7 +198,7 @@ function openRouterReasoningCapabilities(metadata?: ReasoningMetadata): Reasonin
       ...EMPTY_REASONING,
       source: 'provider-metadata',
       confidence: 'documented',
-    };
+    }
   }
   if (hasSupportedParameter(metadata, 'reasoning')) {
     return {
@@ -201,7 +209,7 @@ function openRouterReasoningCapabilities(metadata?: ReasoningMetadata): Reasonin
       source: 'provider-metadata',
       confidence: 'documented',
       wireFormat: { kind: 'openrouter-reasoning' },
-    };
+    }
   }
   if (metadata?.reasoning) {
     return {
@@ -209,47 +217,47 @@ function openRouterReasoningCapabilities(metadata?: ReasoningMetadata): Reasonin
       mode: 'internal-only',
       source: 'model-metadata',
       confidence: 'inferred',
-    };
+    }
   }
-  return EMPTY_REASONING;
+  return EMPTY_REASONING
 }
 
 function mapCodexEffortToDeepSeek(effort: string): 'high' | 'max' | 'off' | undefined {
   switch (effort) {
     case 'off':
     case 'none':
-      return 'off';
+      return 'off'
     case 'low':
     case 'medium':
     case 'high':
-      return 'high';
+      return 'high'
     case 'xhigh':
     case 'max':
-      return 'max';
+      return 'max'
     default:
-      if (effort === 'high' || effort === 'max') return effort;
-      return undefined;
+      if (effort === 'high' || effort === 'max') return effort
+      return undefined
   }
 }
 
 /** DeepSeek thinking toggle spreads via provider id keys on @ai-sdk/openai-compatible. */
 function deepSeekEffortProviderOptions(
-  effort: string,
+  effort: string
 ): Record<string, Record<string, unknown>> | undefined {
-  const mapped = mapCodexEffortToDeepSeek(effort);
-  if (!mapped) return undefined;
-  const thinking = { type: mapped === 'off' ? 'disabled' : 'enabled' };
-  const spread = { thinking };
+  const mapped = mapCodexEffortToDeepSeek(effort)
+  if (!mapped) return undefined
+  const thinking = { type: mapped === 'off' ? 'disabled' : 'enabled' }
+  const spread = { thinking }
   if (mapped === 'off') {
     return {
       deepseek: spread,
       openaiCompatible: spread,
-    };
+    }
   }
   return {
     openaiCompatible: { reasoningEffort: mapped, ...spread },
     deepseek: spread,
-  };
+  }
 }
 
 function mapCodexEffortToAnthropic(effort: string): string | undefined {
@@ -257,36 +265,36 @@ function mapCodexEffortToAnthropic(effort: string): string | undefined {
     case 'none':
     case 'minimal':
     case 'low':
-      return 'low';
+      return 'low'
     case 'medium':
-      return 'medium';
+      return 'medium'
     case 'high':
     case 'xhigh':
     case 'max':
-      return effort === 'xhigh' ? 'high' : effort === 'max' ? 'max' : 'high';
+      return effort === 'xhigh' ? 'high' : effort === 'max' ? 'max' : 'high'
     default:
-      if (ANTHROPIC_EFFORT_LEVELS.includes(effort as typeof ANTHROPIC_EFFORT_LEVELS[number])) {
-        return effort;
+      if (ANTHROPIC_EFFORT_LEVELS.includes(effort as (typeof ANTHROPIC_EFFORT_LEVELS)[number])) {
+        return effort
       }
-      return undefined;
+      return undefined
   }
 }
 
 function mapCodexEffortToOpenAI(effort: string): string | undefined {
-  if (effort === 'xhigh') return 'high';
-  const allowed = ['low', 'medium', 'high'];
-  return allowed.includes(effort) ? effort : undefined;
+  if (effort === 'xhigh') return 'high'
+  const allowed = ['low', 'medium', 'high']
+  return allowed.includes(effort) ? effort : undefined
 }
 
 function mapCodexEffortToGlm52(effort: string): 'high' | 'max' | undefined {
   switch (effort) {
     case 'high':
-      return 'high';
+      return 'high'
     case 'xhigh':
     case 'max':
-      return 'max';
+      return 'max'
     default:
-      return undefined;
+      return undefined
   }
 }
 
@@ -294,16 +302,16 @@ function mapCodexEffortToXai(effort: string): string | undefined {
   switch (effort) {
     case 'none':
     case 'minimal':
-      return undefined;   // xAI SDK only accepts 'low'|'high'; omit param for 'none'
+      return undefined // xAI SDK only accepts 'low'|'high'; omit param for 'none'
     case 'low':
     case 'medium':
-      return 'low';       // 'medium' has no xAI equivalent — nearest valid value
+      return 'low' // 'medium' has no xAI equivalent — nearest valid value
     case 'high':
     case 'xhigh':
     case 'max':
-      return 'high';
+      return 'high'
     default:
-      return undefined;
+      return undefined
   }
 }
 
@@ -312,42 +320,42 @@ function mapCodexEffortToGeminiLevel(effort: string): 'low' | 'medium' | 'high' 
     case 'none':
     case 'minimal':
     case 'low':
-      return 'low';
+      return 'low'
     case 'medium':
-      return 'medium';
+      return 'medium'
     case 'high':
     case 'xhigh':
     case 'max':
-      return 'high';
+      return 'high'
     default:
-      return GEMINI_EFFORT_LEVELS.includes(effort as typeof GEMINI_EFFORT_LEVELS[number])
-        ? effort as 'low' | 'medium' | 'high'
-        : undefined;
+      return GEMINI_EFFORT_LEVELS.includes(effort as (typeof GEMINI_EFFORT_LEVELS)[number])
+        ? (effort as 'low' | 'medium' | 'high')
+        : undefined
   }
 }
 
 function mapCodexEffortToGeminiBudget(effort: string): number | undefined {
-  const direct = GEMINI_25_BUDGETS[effort];
-  if (direct !== undefined) return direct > 0 ? direct : undefined;
-  const level = mapCodexEffortToGeminiLevel(effort);
-  if (!level) return undefined;
-  return GEMINI_25_BUDGETS[level];
+  const direct = GEMINI_25_BUDGETS[effort]
+  if (direct !== undefined) return direct > 0 ? direct : undefined
+  const level = mapCodexEffortToGeminiLevel(effort)
+  if (!level) return undefined
+  return GEMINI_25_BUDGETS[level]
 }
 
 /** Per-model reasoning UI + wire metadata for Codex catalog and adapters. */
 export function getReasoningCapabilities(
   npm: string,
   modelId: string,
-  metadata?: ReasoningMetadata,
+  metadata?: ReasoningMetadata
 ): ReasoningCapabilities {
-  const id = modelId.toLowerCase();
+  const id = modelId.toLowerCase()
 
   if (isOpenRouterRoute(npm, metadata)) {
-    return openRouterReasoningCapabilities(metadata);
+    return openRouterReasoningCapabilities(metadata)
   }
 
   if (npm === '@ai-sdk/anthropic' || id.startsWith('claude-')) {
-    const isClaude = isClaudeReasoningModel(modelId);
+    const isClaude = isClaudeReasoningModel(modelId)
     if (isClaude || metadata?.reasoning) {
       return {
         levels: [...ANTHROPIC_EFFORT_LEVELS],
@@ -357,13 +365,13 @@ export function getReasoningCapabilities(
         source: isClaude ? 'provider-rule' : 'model-metadata',
         confidence: isClaude ? 'documented' : 'inferred',
         wireFormat: { kind: 'anthropic-thinking' },
-      };
+      }
     }
-    return EMPTY_REASONING;
+    return EMPTY_REASONING
   }
 
   if (npm === '@ai-sdk/openai' || npm === '@ai-sdk/azure') {
-    const prefersResponses = modelPrefersResponsesApi(modelId);
+    const prefersResponses = modelPrefersResponsesApi(modelId)
     if (prefersResponses || metadata?.reasoning) {
       return {
         levels: [...OPENAI_EFFORT_LEVELS],
@@ -373,9 +381,9 @@ export function getReasoningCapabilities(
         source: prefersResponses ? 'provider-rule' : 'model-metadata',
         confidence: prefersResponses ? 'documented' : 'inferred',
         wireFormat: { kind: 'openai-reasoning-effort' },
-      };
+      }
     }
-    return EMPTY_REASONING;
+    return EMPTY_REASONING
   }
 
   if (npm === '@ai-sdk/google' || id.startsWith('gemini-')) {
@@ -388,9 +396,9 @@ export function getReasoningCapabilities(
         source: 'provider-rule',
         confidence: 'documented',
         wireFormat: { kind: 'google-thinking-config' },
-      };
+      }
     }
-    return EMPTY_REASONING;
+    return EMPTY_REASONING
   }
 
   if (npm === '@ai-sdk/mistral') {
@@ -403,16 +411,16 @@ export function getReasoningCapabilities(
         source: 'provider-rule',
         confidence: 'documented',
         wireFormat: { kind: 'mistral-reasoning-effort' },
-      };
+      }
     }
-    return EMPTY_REASONING;
+    return EMPTY_REASONING
   }
 
   if (npm === '@ai-sdk/xai') {
     if (isXaiReasoningEffortModel(modelId)) {
       const levels = modelPrefersResponsesApi(modelId)
         ? ['low', 'medium', 'high', 'xhigh']
-        : [...XAI_EFFORT_LEVELS];
+        : [...XAI_EFFORT_LEVELS]
       return {
         levels,
         defaultLevel: xaiDefaultReasoningEffort(modelId),
@@ -421,9 +429,9 @@ export function getReasoningCapabilities(
         source: 'provider-rule',
         confidence: 'documented',
         wireFormat: { kind: 'openai-reasoning-effort' },
-      };
+      }
     }
-    return EMPTY_REASONING;
+    return EMPTY_REASONING
   }
 
   if (isDeepSeekReasoningModel(modelId)) {
@@ -435,7 +443,7 @@ export function getReasoningCapabilities(
       source: 'provider-rule',
       confidence: 'documented',
       wireFormat: { kind: 'deepseek-thinking' },
-    };
+    }
   }
 
   if (isKimiReasoningModel(modelId)) {
@@ -447,7 +455,7 @@ export function getReasoningCapabilities(
       source: 'provider-rule',
       confidence: 'documented',
       wireFormat: { kind: 'openai-reasoning-effort' },
-    };
+    }
   }
 
   if (isGlm52ReasoningModel(modelId)) {
@@ -459,7 +467,7 @@ export function getReasoningCapabilities(
       source: 'provider-rule',
       confidence: 'documented',
       wireFormat: { kind: 'openai-reasoning-effort' },
-    };
+    }
   }
 
   if (hasSupportedParameter(metadata, 'reasoning_effort')) {
@@ -471,7 +479,7 @@ export function getReasoningCapabilities(
       source: 'provider-metadata',
       confidence: 'documented',
       wireFormat: { kind: 'openai-reasoning-effort' },
-    };
+    }
   }
 
   if (hasSupportedParameter(metadata, 'reasoning')) {
@@ -483,7 +491,7 @@ export function getReasoningCapabilities(
       source: 'provider-metadata',
       confidence: 'documented',
       wireFormat: { kind: 'openrouter-reasoning' },
-    };
+    }
   }
 
   if (metadata?.reasoning) {
@@ -495,19 +503,19 @@ export function getReasoningCapabilities(
       source: 'model-metadata',
       confidence: 'inferred',
       wireFormat: { kind: 'openai-reasoning-effort' },
-    };
+    }
   }
 
-  return EMPTY_REASONING;
+  return EMPTY_REASONING
 }
 
 export function buildCodexReasoningLevels(
-  capabilities: Pick<ReasoningCapabilities, 'levels'>,
+  capabilities: Pick<ReasoningCapabilities, 'levels'>
 ): Array<{ effort: string; description: string }> {
   return capabilities.levels.map(effort => ({
     effort,
     description: EFFORT_DESCRIPTIONS[effort] ?? effort,
-  }));
+  }))
 }
 
 /** Per-provider providerOptions for user-selected reasoning effort. */
@@ -515,125 +523,123 @@ export function effortProviderOptions(
   npm: string,
   effort?: string,
   modelId?: string,
-  metadata?: ReasoningMetadata,
+  metadata?: ReasoningMetadata
 ): Record<string, Record<string, unknown>> | undefined {
-  if (!effort) return undefined;
+  if (!effort) return undefined
 
   if (isOpenRouterRoute(npm, metadata)) {
-    const caps = openRouterReasoningCapabilities(metadata);
-    if (caps.mode !== 'controllable') return undefined;
-    const allowed = new Set(OPENROUTER_EFFORT_LEVELS);
-    const mapped = allowed.has(effort as typeof OPENROUTER_EFFORT_LEVELS[number])
+    const caps = openRouterReasoningCapabilities(metadata)
+    if (caps.mode !== 'controllable') return undefined
+    const allowed = new Set(OPENROUTER_EFFORT_LEVELS)
+    const mapped = allowed.has(effort as (typeof OPENROUTER_EFFORT_LEVELS)[number])
       ? effort
       : effort === 'max'
         ? 'xhigh'
-        : undefined;
-    return mapped
-      ? { openrouter: { reasoning: { effort: mapped, exclude: false } } }
-      : undefined;
+        : undefined
+    return mapped ? { openrouter: { reasoning: { effort: mapped, exclude: false } } } : undefined
   }
 
   if (npm === '@ai-sdk/openai' || npm === '@ai-sdk/azure') {
-    if (!modelId || !modelPrefersResponsesApi(modelId)) return undefined;
-    const reasoningEffort = mapCodexEffortToOpenAI(effort);
-    return reasoningEffort ? { openai: { reasoningEffort } } : undefined;
+    if (!modelId || !modelPrefersResponsesApi(modelId)) return undefined
+    const reasoningEffort = mapCodexEffortToOpenAI(effort)
+    return reasoningEffort ? { openai: { reasoningEffort } } : undefined
   }
 
   if (npm === '@ai-sdk/xai') {
-    if (!modelId || !isXaiReasoningEffortModel(modelId)) return undefined;
-    const reasoningEffort = mapCodexEffortToXai(effort);
-    return reasoningEffort ? { xai: { reasoningEffort } } : undefined;
+    if (!modelId || !isXaiReasoningEffortModel(modelId)) return undefined
+    const reasoningEffort = mapCodexEffortToXai(effort)
+    return reasoningEffort ? { xai: { reasoningEffort } } : undefined
   }
 
   if (npm === '@ai-sdk/anthropic' || npm === VERTEX_ANTHROPIC_NPM) {
-    if (!modelId || !isClaudeReasoningModel(modelId)) return undefined;
-    const mapped = mapCodexEffortToAnthropic(effort);
-    return mapped
-      ? { anthropic: { thinking: { type: 'adaptive', effort: mapped } } }
-      : undefined;
+    if (!modelId || !isClaudeReasoningModel(modelId)) return undefined
+    const mapped = mapCodexEffortToAnthropic(effort)
+    return mapped ? { anthropic: { thinking: { type: 'adaptive', effort: mapped } } } : undefined
   }
 
   if (npm === '@ai-sdk/google') {
-    const id = modelId ?? '';
+    const id = modelId ?? ''
     if (isGemini3Model(id)) {
-      const thinkingLevel = mapCodexEffortToGeminiLevel(effort);
+      const thinkingLevel = mapCodexEffortToGeminiLevel(effort)
       return thinkingLevel
         ? { google: { thinkingConfig: { thinkingLevel, includeThoughts: true } } }
-        : undefined;
+        : undefined
     }
-    const thinkingBudget = mapCodexEffortToGeminiBudget(effort);
+    const thinkingBudget = mapCodexEffortToGeminiBudget(effort)
     return thinkingBudget
       ? { google: { thinkingConfig: { thinkingBudget, includeThoughts: true } } }
-      : undefined;
+      : undefined
   }
 
   if (npm === '@ai-sdk/mistral') {
-    if (!modelId || !isMistralReasoningModel(modelId)) return undefined;
-    const reasoningEffort = effort === 'off' || effort === 'none' ? 'none' : 'high';
-    return { mistral: { reasoningEffort } };
+    if (!modelId || !isMistralReasoningModel(modelId)) return undefined
+    const reasoningEffort = effort === 'off' || effort === 'none' ? 'none' : 'high'
+    return { mistral: { reasoningEffort } }
   }
 
   if (npm === '@ai-sdk/openai-compatible' || npm === '@ai-sdk/openai') {
-    if (!modelId) return undefined;
+    if (!modelId) return undefined
     if (isDeepSeekReasoningModel(modelId)) {
-      return deepSeekEffortProviderOptions(effort);
+      return deepSeekEffortProviderOptions(effort)
     }
     if (isKimiReasoningModel(modelId)) {
-      const reasoningEffort = mapCodexEffortToOpenAI(effort);
+      const reasoningEffort = mapCodexEffortToOpenAI(effort)
       if (reasoningEffort) {
-        const key = metadata?.providerId ? toCamelCase(metadata.providerId) : 'openaiCompatible';
-        return { [key]: { reasoningEffort } };
+        const key = metadata?.providerId ? toCamelCase(metadata.providerId) : 'openaiCompatible'
+        return { [key]: { reasoningEffort } }
       }
-      return undefined;
+      return undefined
     }
     if (isGlm52ReasoningModel(modelId)) {
-      const reasoningEffort = mapCodexEffortToGlm52(effort);
+      const reasoningEffort = mapCodexEffortToGlm52(effort)
       if (reasoningEffort) {
-        const key = metadata?.providerId ? toCamelCase(metadata.providerId) : 'openaiCompatible';
-        return { [key]: { reasoningEffort } };
+        const key = metadata?.providerId ? toCamelCase(metadata.providerId) : 'openaiCompatible'
+        return { [key]: { reasoningEffort } }
       }
-      return undefined;
+      return undefined
     }
     if (hasSupportedParameter(metadata, 'reasoning_effort')) {
-      const reasoningEffort = mapCodexEffortToOpenAI(effort);
+      const reasoningEffort = mapCodexEffortToOpenAI(effort)
       return reasoningEffort
         ? { openai: { reasoningEffort }, openaiCompatible: { reasoningEffort } }
-        : undefined;
+        : undefined
     }
     if (hasSupportedParameter(metadata, 'reasoning')) {
-      const allowed = new Set(OPENROUTER_EFFORT_LEVELS);
-      const mapped = allowed.has(effort as typeof OPENROUTER_EFFORT_LEVELS[number])
+      const allowed = new Set(OPENROUTER_EFFORT_LEVELS)
+      const mapped = allowed.has(effort as (typeof OPENROUTER_EFFORT_LEVELS)[number])
         ? effort
-        : effort === 'max' ? 'xhigh' : undefined;
-      return mapped
-        ? { openrouter: { reasoning: { effort: mapped, exclude: false } } }
-        : undefined;
+        : effort === 'max'
+          ? 'xhigh'
+          : undefined
+      return mapped ? { openrouter: { reasoning: { effort: mapped, exclude: false } } } : undefined
     }
-    return undefined;
+    return undefined
   }
 
-  return undefined;
+  return undefined
 }
 
 export function deepMergeProviderOptions(
   a?: Record<string, Record<string, unknown>>,
-  b?: Record<string, Record<string, unknown>>,
+  b?: Record<string, Record<string, unknown>>
 ): Record<string, Record<string, unknown>> | undefined {
-  if (!a && !b) return undefined;
-  if (!a) return b;
-  if (!b) return a;
-  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
-  const out: Record<string, Record<string, unknown>> = {};
+  if (!a && !b) return undefined
+  if (!a) return b
+  if (!b) return a
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)])
+  const out: Record<string, Record<string, unknown>> = {}
   for (const key of keys) {
-    out[key] = { ...(a[key] ?? {}), ...(b[key] ?? {}) };
+    out[key] = { ...(a[key] ?? {}), ...(b[key] ?? {}) }
   }
-  return out;
+  return out
 }
 
 /** Per-provider providerOptions to request reasoning/thinking output. */
-export function thinkingProviderOptions(npm: string): Record<string, Record<string, unknown>> | undefined {
+export function thinkingProviderOptions(
+  npm: string
+): Record<string, Record<string, unknown>> | undefined {
   if (npm === '@ai-sdk/google') {
-    return { google: { thinkingConfig: { includeThoughts: true } } };
+    return { google: { thinkingConfig: { includeThoughts: true } } }
   }
   // Responses API: request encrypted reasoning blobs for multi-turn round-trip
   // (proxy owns conversation state — store:false + echo via thinking.signature).
@@ -643,7 +649,7 @@ export function thinkingProviderOptions(npm: string): Record<string, Record<stri
         store: false,
         include: ['reasoning.encrypted_content'],
       },
-    };
+    }
   }
-  return undefined;
+  return undefined
 }

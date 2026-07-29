@@ -1,13 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-import { MAX_MODEL_CATALOG, VERSION } from '../../../src/config/constants.js';
-import { loadPreferences } from '../../../src/storage/config.js';
-import { getAppHome, getConfigPath, getProvidersPath } from '../../../src/config/paths.js';
-import { loadRegistry } from '../../../src/registry/storage/io.js';
-import type { RegistryProvider } from '../../../src/registry/types.js';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+import { MAX_MODEL_CATALOG, VERSION } from '../../../src/config/constants.js'
+import { loadPreferences } from '../../../src/storage/config.js'
+import { getAppHome, getConfigPath, getProvidersPath } from '../../../src/config/paths.js'
+import { loadRegistry } from '../../../src/registry/storage/io.js'
+import type { RegistryProvider } from '../../../src/registry/types.js'
 
-const SKILL_DIR_NAME = 'anygate-cli';
+const SKILL_DIR_NAME = 'anygate-cli'
 const SKILL_INSTALL_DIRS = [
   join(getAppHome(), 'skills'),
   join(homedir(), '.claude', 'skills'),
@@ -15,82 +15,92 @@ const SKILL_INSTALL_DIRS = [
   join(homedir(), '.codex', 'skills'),
   join(homedir(), '.cursor', 'skills'),
   join(homedir(), '.cursor', 'skills-cursor'),
-];
+]
 
 export interface AiSkillInstallResult {
-  version: string;
-  installed: string[];
-  updated: Array<{ path: string; fromVersion: string | null }>;
-  skipped: string[];
-  failed: string[];
+  version: string
+  installed: string[]
+  updated: Array<{ path: string; fromVersion: string | null }>
+  skipped: string[]
+  failed: string[]
 }
 
 export function parseSkillVersion(content: string): string | null {
-  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!match) return null;
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+  if (!match) return null
   for (const line of match[1]!.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith('version:')) continue;
-    const raw = trimmed.slice('version:'.length).trim();
-    return raw.replace(/^["']|["']$/g, '');
+    const trimmed = line.trim()
+    if (!trimmed.startsWith('version:')) continue
+    const raw = trimmed.slice('version:'.length).trim()
+    return raw.replace(/^["']|["']$/g, '')
   }
-  return null;
+  return null
 }
 
 function readInstalledSkillVersion(skillDir: string): string | null {
-  const skillPath = join(skillDir, 'SKILL.md');
-  if (!existsSync(skillPath)) return null;
+  const skillPath = join(skillDir, 'SKILL.md')
+  if (!existsSync(skillPath)) return null
   try {
-    const head = readFileSync(skillPath, 'utf-8').slice(0, 1024);
-    return parseSkillVersion(head.includes('---', 4) ? head : `${head}\n---\n`);
+    const head = readFileSync(skillPath, 'utf-8').slice(0, 1024)
+    return parseSkillVersion(head.includes('---', 4) ? head : `${head}\n---\n`)
   } catch {
-    return null;
+    return null
   }
 }
 
 function skillInstallTargets(): Array<{ skillDir: string; skillPath: string }> {
   return SKILL_INSTALL_DIRS.map(dir => {
-    const skillDir = join(dir, SKILL_DIR_NAME);
-    return { skillDir, skillPath: join(skillDir, 'SKILL.md') };
-  });
+    const skillDir = join(dir, SKILL_DIR_NAME)
+    return { skillDir, skillPath: join(skillDir, 'SKILL.md') }
+  })
 }
 
 function formatProviderModels(provider: RegistryProvider): string {
-  const models = provider.modelsCache?.models ?? [];
-  if (models.length === 0) return `  (no cached models — run: anygate providers refresh-models ${provider.id})`;
-  const lines = models.slice(0, 40).map(m => `    ${m.id}${m.name !== m.id ? `  (${m.name})` : ''}`);
-  if (models.length > 40) lines.push(`    ... and ${models.length - 40} more`);
-  return lines.join('\n');
+  const models = provider.modelsCache?.models ?? []
+  if (models.length === 0)
+    return `  (no cached models — run: anygate providers refresh-models ${provider.id})`
+  const lines = models.slice(0, 40).map(m => `    ${m.id}${m.name !== m.id ? `  (${m.name})` : ''}`)
+  if (models.length > 40) lines.push(`    ... and ${models.length - 40} more`)
+  return lines.join('\n')
 }
 
 function buildLiveStateSection(): string {
-  const prefs = loadPreferences();
-  const registry = loadRegistry();
-  const enabled = registry.providers.filter(p => p.enabled);
+  const prefs = loadPreferences()
+  const registry = loadRegistry()
+  const enabled = registry.providers.filter(p => p.enabled)
 
-  const prefLines: string[] = [];
+  const prefLines: string[] = []
   if (prefs.lastProvider || prefs.lastModel) {
-    prefLines.push(`  Claude last launch: provider=${prefs.lastProvider ?? '(none)'} model=${prefs.lastModel ?? '(none)'}`);
+    prefLines.push(
+      `  Claude last launch: provider=${prefs.lastProvider ?? '(none)'} model=${prefs.lastModel ?? '(none)'}`
+    )
   }
   if (prefs.lastCodexProvider || prefs.lastCodexModel) {
-    prefLines.push(`  Codex last launch:  provider=${prefs.lastCodexProvider ?? '(none)'} model=${prefs.lastCodexModel ?? '(none)'}`);
+    prefLines.push(
+      `  Codex last launch:  provider=${prefs.lastCodexProvider ?? '(none)'} model=${prefs.lastCodexModel ?? '(none)'}`
+    )
   }
   if (prefs.lastGeminiProvider || prefs.lastGeminiModel) {
-    prefLines.push(`  Gemini last launch: provider=${prefs.lastGeminiProvider ?? '(none)'} model=${prefs.lastGeminiModel ?? '(none)'}`);
+    prefLines.push(
+      `  Gemini last launch: provider=${prefs.lastGeminiProvider ?? '(none)'} model=${prefs.lastGeminiModel ?? '(none)'}`
+    )
   }
   if (prefs.favoriteModels?.length) {
-    prefLines.push(`  Favorites (${prefs.favoriteModels.length}/${MAX_MODEL_CATALOG}):`);
+    prefLines.push(`  Favorites (${prefs.favoriteModels.length}/${MAX_MODEL_CATALOG}):`)
     for (const f of prefs.favoriteModels) {
-      prefLines.push(`    ${f.providerId} / ${f.modelId}`);
+      prefLines.push(`    ${f.providerId} / ${f.modelId}`)
     }
   }
 
-  const providerBlocks = enabled.length === 0
-    ? ['  No registry providers configured. Built-in cloud: zen, go (OpenCode Zen/Go).']
-    : enabled.map(p => [
-      `  ${p.name} (${p.id}) — ${p.modelsCache?.models.length ?? 0} cached model(s)`,
-      formatProviderModels(p),
-    ].join('\n'));
+  const providerBlocks =
+    enabled.length === 0
+      ? ['  No registry providers configured. Built-in cloud: zen, go (OpenCode Zen/Go).']
+      : enabled.map(p =>
+          [
+            `  ${p.name} (${p.id}) — ${p.modelsCache?.models.length ?? 0} cached model(s)`,
+            formatProviderModels(p),
+          ].join('\n')
+        )
 
   return `
 ================================================================================
@@ -116,13 +126,13 @@ To refresh model lists after adding providers:
 
 Zen/Go model IDs are fetched live at launch; run anygate claude --dry-run or
 anygate codex --config to preview without starting a session.
-`.trimEnd();
+`.trimEnd()
 }
 
-let cachedStaticAiDocBody: { version: string; body: string } | null = null;
+let cachedStaticAiDocBody: { version: string; body: string } | null = null
 
 function staticAiDocBody(): string {
-  if (cachedStaticAiDocBody?.version === VERSION) return cachedStaticAiDocBody.body;
+  if (cachedStaticAiDocBody?.version === VERSION) return cachedStaticAiDocBody.body
 
   const body = `
 ================================================================================
@@ -511,10 +521,10 @@ RELATED DOCS
   docs/AI-AGENTS.md     human-readable agent guide (this repo)
   docs/CODEX.md         Codex CLI, sandbox, restore, routing
   anygate --ai         full reference + live provider state
-`.trimEnd();
+`.trimEnd()
 
-  cachedStaticAiDocBody = { version: VERSION, body };
-  return body;
+  cachedStaticAiDocBody = { version: VERSION, body }
+  return body
 }
 
 export function generateAiDoc(): string {
@@ -528,70 +538,73 @@ status: approved
 
 # anygate CLI Reference (v${VERSION})
 
-`;
+`
 
-  return frontmatter + staticAiDocBody() + '\n\n' + buildLiveStateSection() + '\n';
+  return frontmatter + staticAiDocBody() + '\n\n' + buildLiveStateSection() + '\n'
 }
 
 export function installAiDoc(opts: { force?: boolean } = {}): AiSkillInstallResult {
-  const version = VERSION;
+  const version = VERSION
   const result: AiSkillInstallResult = {
     version,
     installed: [],
     updated: [],
     skipped: [],
     failed: [],
-  };
-
-  const targets = skillInstallTargets();
-  if (!opts.force && targets.every(({ skillDir }) => readInstalledSkillVersion(skillDir) === version)) {
-    result.skipped.push(...targets.map(t => t.skillPath));
-    return result;
   }
 
-  const doc = generateAiDoc();
+  const targets = skillInstallTargets()
+  if (
+    !opts.force &&
+    targets.every(({ skillDir }) => readInstalledSkillVersion(skillDir) === version)
+  ) {
+    result.skipped.push(...targets.map(t => t.skillPath))
+    return result
+  }
+
+  const doc = generateAiDoc()
   for (const { skillDir, skillPath } of targets) {
     try {
-      const previous = readInstalledSkillVersion(skillDir);
+      const previous = readInstalledSkillVersion(skillDir)
       if (!opts.force && previous === version) {
-        result.skipped.push(skillPath);
-        continue;
+        result.skipped.push(skillPath)
+        continue
       }
-      mkdirSync(skillDir, { recursive: true });
-      writeFileSync(skillPath, doc, 'utf-8');
+      mkdirSync(skillDir, { recursive: true })
+      writeFileSync(skillPath, doc, 'utf-8')
       if (previous) {
-        result.updated.push({ path: skillPath, fromVersion: previous });
+        result.updated.push({ path: skillPath, fromVersion: previous })
       } else {
-        result.installed.push(skillPath);
+        result.installed.push(skillPath)
       }
     } catch {
-      result.failed.push(skillPath);
+      result.failed.push(skillPath)
     }
   }
 
-  return result;
+  return result
 }
 
 export function printAiInstallResult(result: AiSkillInstallResult): number {
-  console.error(`anygate agent skill target version: v${result.version}`);
+  console.error(`anygate agent skill target version: v${result.version}`)
   if (result.installed.length > 0) {
-    console.error(`Installed ${result.installed.length} new skill(s):`);
-    for (const path of result.installed) console.error(`  ✓ ${path}`);
+    console.error(`Installed ${result.installed.length} new skill(s):`)
+    for (const path of result.installed) console.error(`  ✓ ${path}`)
   }
   if (result.updated.length > 0) {
-    console.error(`Updated ${result.updated.length} skill(s):`);
+    console.error(`Updated ${result.updated.length} skill(s):`)
     for (const { path, fromVersion } of result.updated) {
-      const from = fromVersion ? `v${fromVersion}` : 'unknown';
-      console.error(`  ✓ ${path} (${from} → v${result.version})`);
+      const from = fromVersion ? `v${fromVersion}` : 'unknown'
+      console.error(`  ✓ ${path} (${from} → v${result.version})`)
     }
   }
   if (result.skipped.length > 0) {
-    console.error(`Skipped ${result.skipped.length} (already v${result.version}):`);
-    for (const path of result.skipped) console.error(`  · ${path}`);
+    console.error(`Skipped ${result.skipped.length} (already v${result.version}):`)
+    for (const path of result.skipped) console.error(`  · ${path}`)
   }
   if (result.failed.length > 0) {
-    console.error(`Failed ${result.failed.length}:`);
-    for (const path of result.failed) console.error(`  ✗ ${path}`);
+    console.error(`Failed ${result.failed.length}:`)
+    for (const path of result.failed) console.error(`  ✗ ${path}`)
   }
-  return result.failed.length > 0 ? 1 : 0;
+  return result.failed.length > 0 ? 1 : 0
 }

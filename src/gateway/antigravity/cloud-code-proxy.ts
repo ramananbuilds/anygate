@@ -1,4 +1,4 @@
-import zlib from 'node:zlib';
+import zlib from 'node:zlib'
 
 /**
  * Decode a compressed HTTP response body.
@@ -8,11 +8,11 @@ import zlib from 'node:zlib';
  * @returns The decoded body as a Buffer
  */
 export function decodeBody(buffer: Buffer, encoding: string): Buffer {
-  const enc = encoding.toLowerCase().trim();
-  if (enc === 'gzip') return zlib.gunzipSync(buffer);
-  if (enc === 'br') return zlib.brotliDecompressSync(buffer);
-  if (enc === 'deflate') return zlib.inflateSync(buffer);
-  return buffer; // identity or unknown
+  const enc = encoding.toLowerCase().trim()
+  if (enc === 'gzip') return zlib.gunzipSync(buffer)
+  if (enc === 'br') return zlib.brotliDecompressSync(buffer)
+  if (enc === 'deflate') return zlib.inflateSync(buffer)
+  return buffer // identity or unknown
 }
 
 /**
@@ -23,11 +23,11 @@ export function decodeBody(buffer: Buffer, encoding: string): Buffer {
  * @returns The encoded body as a Buffer
  */
 export function encodeBody(buffer: Buffer, encoding: string): Buffer {
-  const enc = encoding.toLowerCase().trim();
-  if (enc === 'gzip') return zlib.gzipSync(buffer);
-  if (enc === 'br') return zlib.brotliCompressSync(buffer);
-  if (enc === 'deflate') return zlib.deflateSync(buffer);
-  return buffer; // identity or unknown
+  const enc = encoding.toLowerCase().trim()
+  if (enc === 'gzip') return zlib.gzipSync(buffer)
+  if (enc === 'br') return zlib.brotliCompressSync(buffer)
+  if (enc === 'deflate') return zlib.deflateSync(buffer)
+  return buffer // identity or unknown
 }
 
 /**
@@ -47,23 +47,23 @@ export function encodeBody(buffer: Buffer, encoding: string): Buffer {
 export function normalizeResponseHeaders(
   headers: Record<string, string | string[] | undefined>,
   output: Buffer,
-  stripEncoding = false,
+  stripEncoding = false
 ): Record<string, string | string[] | undefined> {
-  const result = { ...headers };
+  const result = { ...headers }
 
   // Set correct Content-Length for the modified body
-  result['content-length'] = String(output.length);
+  result['content-length'] = String(output.length)
 
   // Remove Transfer-Encoding — must never coexist with Content-Length
-  delete result['transfer-encoding'];
+  delete result['transfer-encoding']
 
   // Remove stale ETag — it no longer matches the modified body
-  delete result.etag;
+  delete result.etag
 
   // Remove content-encoding if the body was decoded to identity
   if (stripEncoding) {
-    delete result['content-encoding'];
+    delete result['content-encoding']
   }
 
-  return result;
+  return result
 }

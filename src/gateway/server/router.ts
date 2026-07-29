@@ -1,5 +1,8 @@
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { isAuthorized } from './auth.js';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
+import { isAuthorized } from './auth.js'
+import { sendError, AnygateError } from '../../shared/errors.js'
+import { checkRateLimit } from '../../shared/http.js'
+import { MAX_REQUEST_BODY_BYTES } from '../../config/constants.js'
 import {
   formatGatewayAnthropicModels,
   formatOpenAIModels,
@@ -10,27 +13,31 @@ import {
   type ServerBackendId,
   type ServerModelInfo,
   upstreamModelId,
-} from './models.js';
+} from './models.js'
 import {
   translateOpenAiRequest,
   generateOpenAiResponse,
   streamOpenAiResponse,
   type OpenAiRequest,
-} from '../adapters/openai-adapter.js';
-import { sendJson, readBody } from '../../shared/http.js';
-import { forwardAnthropicMessages } from '../../upstream-forward.js';
-import { resolveProviderCredential } from '../../config/env.js';
-import { oauthAuthRef } from '../../registry/loader/import-build.js';
+} from '../adapters/openai-adapter.js'
+import { sendJson, readBody } from '../../shared/http.js'
+import { forwardAnthropicMessages } from '../../upstream-forward.js'
+import { resolveProviderCredential } from '../../config/env.js'
+import { oauthAuthRef } from '../../registry/loader/import-build.js'
 import {
   injectClaudeCodeBillingSystemLine,
   injectClaudeIdentity,
   selectBetaFlags,
-} from '../../auth/claude-identity.js';
-import { writeSecureLogLine, resetTraceLog } from '../../apps/shared/trace-log.js';
-import { redactTraceLine } from '../../shared/redact.js';
-import type { LanguageModel } from 'ai';
-import { createLanguageModel, isSdkUpgradedNpm, maxToolsForNpm } from '../providers/provider-factory.js';
-import { anthropicErrorType, formatUpstreamError, upstreamHttpStatus } from '../../shared/errors.js';
+} from '../../auth/claude-identity.js'
+import { writeSecureLogLine, resetTraceLog } from '../../apps/shared/trace-log.js'
+import { redactTraceLine } from '../../shared/redact.js'
+import type { LanguageModel } from 'ai'
+import {
+  createLanguageModel,
+  isSdkUpgradedNpm,
+  maxToolsForNpm,
+} from '../providers/provider-factory.js'
+import { anthropicErrorType, formatUpstreamError, upstreamHttpStatus } from '../../shared/errors.js'
 import {
   translateRequest as sdkTranslateRequest,
   streamAnthropicResponse,
@@ -38,70 +45,70 @@ import {
   silenceSdkWarnings,
   anthropicEffortFromRequest,
   type AnthropicRequest,
-} from '../adapters/sdk-adapter.js';
-import { recordUsage } from '../../storage/analytics.js';
-import { resolveContextWindow } from '../../apps/shared/context-window.js';
+} from '../adapters/sdk-adapter.js'
+import { recordUsage } from '../../storage/analytics.js'
+import { resolveContextWindow } from '../../apps/shared/context-window.js'
 
 export interface ServerBackend {
-  baseUrl: string;
+  baseUrl: string
 }
 
 export interface VertexServerConfig {
-  project: string;
-  location: string;
+  project: string
+  location: string
 }
 
 export interface ServerOptions {
-  host: string;
-  port: number;
-  apiKey: string;
-  serverPassword: string | null;
-  catalog: ModelCatalog;
-  backends: Record<ServerBackendId, ServerBackend>;
-  gateway?: GatewayModelOptions;
-  vertex?: VertexServerConfig;
+  host: string
+  port: number
+  apiKey: string
+  serverPassword: string | null
+  catalog: ModelCatalog
+  backends: Record<ServerBackendId, ServerBackend>
+  gateway?: GatewayModelOptions
+  vertex?: VertexServerConfig
   /** When set, append structured debug lines to this file path. */
-  debugLogPath?: string;
+  debugLogPath?: string
 }
 
 export interface ServerHandle {
-  host: string;
-  port: number;
-  url: string;
-  server: Server;
-  close: () => Promise<void>;
+  host: string
+  port: number
+  url: string
+  server: Server
+  close: () => Promise<void>
 }
 
-type JsonBody = Record<string, any>;
+type JsonBody = Record<string, any>
 
-type PLog = (msg: string | (() => string)) => void;
+type PLog = (msg: string | (() => string)) => void
 
 function makeServerLog(debugLogPath: string | undefined): PLog {
-  if (!debugLogPath) return () => {};
-  resetTraceLog(debugLogPath);
-  return (msg) => writeSecureLogLine(debugLogPath, typeof msg === 'function' ? msg() : msg);
+  if (!debugLogPath) return () => {}
+  resetTraceLog(debugLogPath)
+  return msg => writeSecureLogLine(debugLogPath, typeof msg === 'function' ? msg() : msg)
 }
 
 export async function startServer(options: ServerOptions): Promise<ServerHandle> {
-  silenceSdkWarnings();
-  const languageModelCache = new Map<string, LanguageModel>();
-  const plog = makeServerLog(options.debugLogPath);
+  silenceSdkWarnings()
+  const languageModelCache = new Map<string, LanguageModel>()
+  const plog = makeServerLog(options.debugLogPath)
 
   const server = createServer((req, res) => {
-    void routeRequest(req, res, options, languageModelCache, plog);
-  });
+    void routeRequest(req, res, options, languageModelCache, plog)
+  })
 
   await new Promise<void>((resolve, reject) => {
-    server.once('error', reject);
+    server.once('error', reject)
     server.listen(options.port, options.host, () => {
-      server.off('error', reject);
-      resolve();
-    });
-  });
+      server.off('error', reject)
+      resolve()
+    })
+  })
 
-  const address = server.address();
+  const address = server.address()
   if (!address || typeof address === 'string') {
-    throw new Error('Server did not bind to a TCP port');
+    throw new Error('Server did not bind to a TCP port')
   }
 
   return {
@@ -109,55 +116,87 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
     port: address.port,
     url: `http://${options.host}:${address.port}`,
     server,
-    close: () => new Promise<void>((resolve, reject) => {
-      server.close(err => (err ? reject(err) : resolve()));
-    }),
-  };
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close(err => (err ? reject(err) : resolve()))
+      }),
+  }
 }
 
-async function routeRequest(req: IncomingMessage, res: ServerResponse, options: ServerOptions, modelCache: Map<string, LanguageModel>, plog: PLog): Promise<void> {
+async function routeRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  options: ServerOptions,
+  modelCache: Map<string, LanguageModel>,
+  plog: PLog
+): Promise<void> {
   try {
-    const pathname = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`).pathname;
-    plog(`${req.method} ${pathname}`);
+    const pathname = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`).pathname
+    plog(`${req.method} ${pathname}`)
 
     if (req.method === 'GET' && pathname === '/health') {
-      sendJson(res, 200, { ok: true });
-      return;
+      sendJson(res, 200, { ok: true })
+      return
     }
 
     if (!isAuthorized(toRequest(req), options.serverPassword)) {
-      sendJson(res, 401, { error: { message: 'Unauthorized' } });
-      return;
+      sendJson(res, 401, { error: { message: 'Unauthorized' } })
+      return
+    }
+
+    // Rate limiting: 120 requests per minute per client
+    const clientId = req.headers['x-api-key'] ?? req.socket.remoteAddress ?? 'unknown'
+    const rateLimit = checkRateLimit(String(clientId))
+    if (!rateLimit.allowed) {
+      sendJson(
+        res,
+        429,
+        { error: { message: 'Rate limit exceeded' } },
+        {
+          'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)),
+        }
+      )
+      return
     }
 
     if (req.method === 'GET' && pathname === '/models') {
-      sendJson(res, 200, { models: options.catalog.list().map(({ apiKey: _apiKey, headers: _headers, ...rest }) => rest) });
-      return;
+      sendJson(res, 200, {
+        models: options.catalog
+          .list()
+          .map(({ apiKey: _apiKey, headers: _headers, ...rest }) => rest),
+      })
+      return
     }
 
     if (req.method === 'GET' && pathname === '/anthropic/v1/models') {
-      sendJson(res, 200, formatGatewayAnthropicModels(options.catalog.list(), options.gateway));
-      return;
+      sendJson(res, 200, formatGatewayAnthropicModels(options.catalog.list(), options.gateway))
+      return
     }
 
     if (req.method === 'GET' && pathname === '/openai/v1/models') {
-      sendJson(res, 200, formatOpenAIModels(options.catalog.list()));
-      return;
+      sendJson(res, 200, formatOpenAIModels(options.catalog.list()))
+      return
     }
 
     if (req.method === 'POST' && pathname === '/anthropic/v1/messages') {
-      await handleAnthropicMessages(req, res, options, modelCache, plog);
-      return;
+      await handleAnthropicMessages(req, res, options, modelCache, plog)
+      return
     }
 
     if (req.method === 'POST' && pathname === '/openai/v1/chat/completions') {
-      await handleOpenAIChatCompletions(req, res, options, modelCache, plog);
-      return;
+      await handleOpenAIChatCompletions(req, res, options, modelCache, plog)
+      return
     }
 
-    sendJson(res, 404, { error: { message: 'Not found' } });
+    sendJson(res, 404, { error: { message: 'Not found' } })
   } catch (err) {
-    sendJson(res, 500, { error: { message: err instanceof Error ? err.message : String(err) } });
+    if (err instanceof AnygateError) {
+      sendError(res, err)
+    } else {
+      // Log the full error server-side, send generic message to client
+      console.error('Unhandled gateway error:', err)
+      sendJson(res, 500, { error: { message: 'Internal server error' } })
+    }
   }
 }
 
@@ -166,78 +205,104 @@ async function handleAnthropicMessages(
   res: ServerResponse,
   options: ServerOptions,
   modelCache: Map<string, LanguageModel>,
-  plog: PLog,
+  plog: PLog
 ): Promise<void> {
-  const body = await readJson(req);
+  const body = await readJson(req)
   if (!body) {
-    sendJson(res, 400, { error: { message: 'Invalid JSON body' } });
-    return;
+    sendJson(res, 400, { error: { message: 'Invalid JSON body' } })
+    return
   }
 
-  const model = lookupModel(res, options.catalog, body.model, plog);
+  const model = lookupModel(res, options.catalog, body.model, plog)
   if (!model) {
-    plog(`model not found: ${body.model}`);
-    return;
+    plog(`model not found: ${body.model}`)
+    return
   }
 
-  plog(() => `anthropic-messages model=${body.model} format=${model.modelFormat} npm=${model.npm ?? 'none'} stream=${body.stream}`);
+  plog(
+    () =>
+      `anthropic-messages model=${body.model} format=${model.modelFormat} npm=${model.npm ?? 'none'} stream=${body.stream}`
+  )
 
   if (model.modelFormat === 'anthropic') {
     if (model.baseUrl && !/^https?:\/\//i.test(model.baseUrl)) {
-      sendJson(res, 400, { error: { message: `Invalid provider baseUrl: must be http:// or https://` } });
-      return;
+      sendJson(res, 400, {
+        error: { message: `Invalid provider baseUrl: must be http:// or https://` },
+      })
+      return
     }
     const messagesUrl = model.baseUrl
       ? `${model.baseUrl}/v1/messages`
-      : `${backendFor(options, model).baseUrl}/v1/messages`;
-    const apiKey = model.apiKey ?? options.apiKey;
-    const betaHeaderRaw = req.headers['anthropic-beta'];
-    const inboundBeta = Array.isArray(betaHeaderRaw) ? betaHeaderRaw.join(',') : betaHeaderRaw;
-    const clientWantsStream = Boolean(body.stream);
-    const forwardBody: Record<string, unknown> = { ...body, model: upstreamModelId(model) };
-    const isOAuth = model.authType === 'oauth';
+      : `${backendFor(options, model).baseUrl}/v1/messages`
+    const apiKey = model.apiKey ?? options.apiKey
+    const betaHeaderRaw = req.headers['anthropic-beta']
+    const inboundBeta = Array.isArray(betaHeaderRaw) ? betaHeaderRaw.join(',') : betaHeaderRaw
+    const clientWantsStream = Boolean(body.stream)
+    const forwardBody: Record<string, unknown> = { ...body, model: upstreamModelId(model) }
+    const isOAuth = model.authType === 'oauth'
 
-    let effectiveBeta = inboundBeta;
-    let claudeCodeSessionId: string | undefined;
+    let effectiveBeta = inboundBeta
+    let claudeCodeSessionId: string | undefined
     if (isOAuth) {
-      const seed = model.providerId ?? upstreamModelId(model);
-      const identity = injectClaudeIdentity(forwardBody, model.providerData, seed);
-      if (model.providerId === 'claude-code') injectClaudeCodeBillingSystemLine(forwardBody);
-      claudeCodeSessionId = identity.sessionId;
-      effectiveBeta = selectBetaFlags(forwardBody, upstreamModelId(model), inboundBeta);
+      const seed = model.providerId ?? upstreamModelId(model)
+      const identity = injectClaudeIdentity(forwardBody, model.providerData, seed)
+      if (model.providerId === 'claude-code') injectClaudeCodeBillingSystemLine(forwardBody)
+      claudeCodeSessionId = identity.sessionId
+      effectiveBeta = selectBetaFlags(forwardBody, upstreamModelId(model), inboundBeta)
     }
 
-    const refreshToken = isOAuth && model.providerId
-      ? () => resolveProviderCredential(model.providerId!, oauthAuthRef(model.providerId!))
-      : undefined;
+    const refreshToken =
+      isOAuth && model.providerId
+        ? () => resolveProviderCredential(model.providerId!, oauthAuthRef(model.providerId!))
+        : undefined
 
-    plog(() => `anthropic-passthrough → ${messagesUrl} oauth=${isOAuth} stream=${clientWantsStream}`);
+    plog(
+      () => `anthropic-passthrough → ${messagesUrl} oauth=${isOAuth} stream=${clientWantsStream}`
+    )
     await forwardAnthropicMessages(
-      res, messagesUrl, forwardBody, apiKey, clientWantsStream, effectiveBeta,
+      res,
+      messagesUrl,
+      forwardBody,
+      apiKey,
+      clientWantsStream,
+      effectiveBeta,
       isOAuth ? 'oauth' : 'api',
       message => plog(message),
       claudeCodeSessionId,
       model.headers,
       refreshToken,
-      refreshed => { model.apiKey = refreshed; },
-    );
-    return;
+      refreshed => {
+        model.apiKey = refreshed
+      }
+    )
+    return
   }
 
   if (model.modelFormat === 'openai') {
     if (!isSdkUpgradedNpm(model.npm)) {
-      sendJson(res, 400, { error: { message: `No SDK provider for model: ${model.id}` } });
-      return;
+      sendJson(res, 400, { error: { message: `No SDK provider for model: ${model.id}` } })
+      return
     }
-    const apiKey = model.apiKey ?? options.apiKey;
-    const languageModel = await getOrInitLanguageModel(modelCache, model, model.npm!, model.apiBaseUrl, apiKey, options.vertex);
-    const npmMaxTools = maxToolsForNpm(model.npm);
-    const toolCount = Array.isArray((body as Record<string, unknown>).tools) ? ((body as Record<string, unknown>).tools as unknown[]).length : 0;
+    const apiKey = model.apiKey ?? options.apiKey
+    const languageModel = await getOrInitLanguageModel(
+      modelCache,
+      model,
+      model.npm!,
+      model.apiBaseUrl,
+      apiKey,
+      options.vertex
+    )
+    const npmMaxTools = maxToolsForNpm(model.npm)
+    const toolCount = Array.isArray((body as Record<string, unknown>).tools)
+      ? ((body as Record<string, unknown>).tools as unknown[]).length
+      : 0
     if (npmMaxTools !== undefined && toolCount > npmMaxTools) {
-      plog(`tools truncated: ${toolCount} → ${npmMaxTools} (provider limit)`);
+      plog(`tools truncated: ${toolCount} → ${npmMaxTools} (provider limit)`)
     }
     const params = sdkTranslateRequest(body as unknown as AnthropicRequest, model.npm!, {
-      defaultEffort: anthropicEffortFromRequest(body as AnthropicRequest) ? undefined : model.defaultEffort,
+      defaultEffort: anthropicEffortFromRequest(body as AnthropicRequest)
+        ? undefined
+        : model.defaultEffort,
       openAiOAuth: model.npm === '@ai-sdk/openai' && model.authType === 'oauth',
       reasoningMetadata: {
         providerId: model.providerId,
@@ -249,23 +314,28 @@ async function handleAnthropicMessages(
       },
       maxTools: npmMaxTools,
       contextWindow: model.contextWindow ?? resolveContextWindow(model.id),
-    });
-    const clientWantsStream = Boolean(body.stream);
+    })
+    const clientWantsStream = Boolean(body.stream)
     // Use the display name in the response model field when masking is on — Claude
     // Desktop shows the response model field in its status bar chip, so this surfaces
     // human-readable names ("Grok 4.3 (xAI)") instead of the reversed gateway IDs.
-    const responseModelId = getResponseModelId(body.model, model, options);
+    const responseModelId = getResponseModelId(body.model, model, options)
 
-    plog(() => `sdk npm=${model.npm} upstream=${upstreamModelId(model)} responseModel=${responseModelId} stream=${clientWantsStream}`);
+    plog(
+      () =>
+        `sdk npm=${model.npm} upstream=${upstreamModelId(model)} responseModel=${responseModelId} stream=${clientWantsStream}`
+    )
 
     try {
       if (clientWantsStream) {
         res.writeHead(200, {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        });
-        const usage = await streamAnthropicResponse(languageModel, params, responseModelId, chunk => res.write(chunk));
+          Connection: 'keep-alive',
+        })
+        const usage = await streamAnthropicResponse(languageModel, params, responseModelId, chunk =>
+          res.write(chunk)
+        )
         recordUsage({
           ts: new Date().toISOString(),
           modelId: responseModelId,
@@ -274,10 +344,14 @@ async function handleAnthropicMessages(
           app: 'gateway',
           inputTokens: usage.inputTokens,
           outputTokens: usage.outputTokens,
-        });
-        res.end();
+        })
+        res.end()
       } else {
-        const anthropicResponse = await generateAnthropicResponse(languageModel, params, responseModelId);
+        const anthropicResponse = await generateAnthropicResponse(
+          languageModel,
+          params,
+          responseModelId
+        )
         recordUsage({
           ts: new Date().toISOString(),
           modelId: responseModelId,
@@ -286,28 +360,30 @@ async function handleAnthropicMessages(
           app: 'gateway',
           inputTokens: (anthropicResponse as Record<string, any>)._usage?.inputTokens ?? 0,
           outputTokens: (anthropicResponse as Record<string, any>)._usage?.outputTokens ?? 0,
-        });
-        sendJson(res, 200, anthropicResponse);
+        })
+        sendJson(res, 200, anthropicResponse)
       }
     } catch (err) {
-      const message = formatUpstreamError(err);
-      plog(`sdk error npm=${model.npm} upstream=${upstreamModelId(model)}: ${message}`);
+      const message = formatUpstreamError(err)
+      plog(`sdk error npm=${model.npm} upstream=${upstreamModelId(model)}: ${message}`)
       if (!res.headersSent) {
-        const status = upstreamHttpStatus(err);
-        sendJson(res, status === 500 ? 502 : status, { error: { message } });
+        const status = upstreamHttpStatus(err)
+        sendJson(res, status === 500 ? 502 : status, { error: { message } })
       } else {
         // Stream already started but the upstream failed (e.g. context overflow once
         // the conversation grows). Emit a proper Anthropic error event instead of an
         // empty stream, otherwise Claude Desktop shows nothing and appears frozen.
-        const errorType = anthropicErrorType(upstreamHttpStatus(err));
-        res.write(`event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: errorType, message } })}\n\n`);
-        res.end();
+        const errorType = anthropicErrorType(upstreamHttpStatus(err))
+        res.write(
+          `event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: errorType, message } })}\n\n`
+        )
+        res.end()
       }
     }
-    return;
+    return
   }
 
-  sendJson(res, 400, { error: { message: `Unsupported model format: ${model.modelFormat}` } });
+  sendJson(res, 400, { error: { message: `Unsupported model format: ${model.modelFormat}` } })
 }
 
 async function handleOpenAIChatCompletions(
@@ -315,54 +391,68 @@ async function handleOpenAIChatCompletions(
   res: ServerResponse,
   options: ServerOptions,
   modelCache: Map<string, LanguageModel>,
-  plog: PLog,
+  plog: PLog
 ): Promise<void> {
-  const body = await readJson(req);
+  const body = await readJson(req)
   if (!body) {
-    sendJson(res, 400, { error: { message: 'Invalid JSON body' } });
-    return;
+    sendJson(res, 400, { error: { message: 'Invalid JSON body' } })
+    return
   }
 
-  const model = lookupModel(res, options.catalog, body.model, plog);
-  if (!model) return;
+  const model = lookupModel(res, options.catalog, body.model, plog)
+  if (!model) return
 
   if (supportsDirectOpenAIChatCompletions(model)) {
     if (model.completionsUrl && !/^https?:\/\//i.test(model.completionsUrl)) {
-      sendJson(res, 400, { error: { message: `Invalid provider completionsUrl: must be http:// or https://` } });
-      return;
+      sendJson(res, 400, {
+        error: { message: `Invalid provider completionsUrl: must be http:// or https://` },
+      })
+      return
     }
     const completionsUrl = model.completionsUrl
       ? model.completionsUrl
-      : `${backendFor(options, model).baseUrl}/v1/chat/completions`;
-    const apiKey = model.apiKey ?? options.apiKey;
-    await forwardAnthropicMessages(res, completionsUrl, body, apiKey, Boolean(body.stream));
-    return;
+      : `${backendFor(options, model).baseUrl}/v1/chat/completions`
+    const apiKey = model.apiKey ?? options.apiKey
+    await forwardAnthropicMessages(res, completionsUrl, body, apiKey, Boolean(body.stream))
+    return
   }
 
   // SDK Translation Path
-  const npm = model.npm || (model.modelFormat === 'anthropic' ? '@ai-sdk/anthropic' : undefined);
+  const npm = model.npm || (model.modelFormat === 'anthropic' ? '@ai-sdk/anthropic' : undefined)
   if (!npm) {
-    sendJson(res, 400, { error: { message: `No SDK provider for model: ${model.id}` } });
-    return;
+    sendJson(res, 400, { error: { message: `No SDK provider for model: ${model.id}` } })
+    return
   }
 
-  const apiKey = model.apiKey ?? options.apiKey;
-  const baseURL = model.modelFormat === 'anthropic' ? model.baseUrl : model.apiBaseUrl;
-  const languageModel = await getOrInitLanguageModel(modelCache, model, npm, baseURL, apiKey, options.vertex);
-  const params = translateOpenAiRequest(body as unknown as OpenAiRequest);
-  const clientWantsStream = Boolean(body.stream);
-  const responseModelId = getResponseModelId(body.model, model, options);
+  const apiKey = model.apiKey ?? options.apiKey
+  const baseURL = model.modelFormat === 'anthropic' ? model.baseUrl : model.apiBaseUrl
+  const languageModel = await getOrInitLanguageModel(
+    modelCache,
+    model,
+    npm,
+    baseURL,
+    apiKey,
+    options.vertex
+  )
+  const params = translateOpenAiRequest(body as unknown as OpenAiRequest)
+  const clientWantsStream = Boolean(body.stream)
+  const responseModelId = getResponseModelId(body.model, model, options)
 
-  plog(() => `sdk-openai npm=${npm} upstream=${upstreamModelId(model)} responseModel=${responseModelId} stream=${clientWantsStream}`);
+  plog(
+    () =>
+      `sdk-openai npm=${npm} upstream=${upstreamModelId(model)} responseModel=${responseModelId} stream=${clientWantsStream}`
+  )
 
   try {
     if (clientWantsStream) {
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      });
-      const usage = await streamOpenAiResponse(languageModel, params, responseModelId, chunk => res.write(chunk));
+        Connection: 'keep-alive',
+      })
+      const usage = await streamOpenAiResponse(languageModel, params, responseModelId, chunk =>
+        res.write(chunk)
+      )
       recordUsage({
         ts: new Date().toISOString(),
         modelId: responseModelId,
@@ -371,10 +461,14 @@ async function handleOpenAIChatCompletions(
         app: 'gateway',
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
-      });
-      res.end();
+      })
+      res.end()
     } else {
-      const { response, usage } = await generateOpenAiResponse(languageModel, params, responseModelId);
+      const { response, usage } = await generateOpenAiResponse(
+        languageModel,
+        params,
+        responseModelId
+      )
       recordUsage({
         ts: new Date().toISOString(),
         modelId: responseModelId,
@@ -383,54 +477,63 @@ async function handleOpenAIChatCompletions(
         app: 'gateway',
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
-      });
-      sendJson(res, 200, response);
+      })
+      sendJson(res, 200, response)
     }
   } catch (err) {
-    const message = formatUpstreamError(err);
-    plog(`sdk error npm=${model.npm} upstream=${upstreamModelId(model)}: ${message}`);
+    const message = formatUpstreamError(err)
+    plog(`sdk error npm=${model.npm} upstream=${upstreamModelId(model)}: ${message}`)
     if (!res.headersSent) {
-      const status = upstreamHttpStatus(err);
-      sendJson(res, status === 500 ? 502 : status, { error: { message } });
+      const status = upstreamHttpStatus(err)
+      sendJson(res, status === 500 ? 502 : status, { error: { message } })
     } else {
-      const errorType = anthropicErrorType(upstreamHttpStatus(err));
-      res.write(`event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: errorType, message } })}\n\n`);
-      res.end();
+      const errorType = anthropicErrorType(upstreamHttpStatus(err))
+      res.write(
+        `event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: errorType, message } })}\n\n`
+      )
+      res.end()
     }
   }
 }
 
-function lookupModel(res: ServerResponse, catalog: ModelCatalog, modelId: unknown, plog: PLog): ServerModelInfo | null {
+function lookupModel(
+  res: ServerResponse,
+  catalog: ModelCatalog,
+  modelId: unknown,
+  plog: PLog
+): ServerModelInfo | null {
   if (typeof modelId !== 'string') {
-    sendJson(res, 400, { error: { message: 'Request body must include a model string' } });
-    return null;
+    sendJson(res, 400, { error: { message: 'Request body must include a model string' } })
+    return null
   }
 
-  let model = catalog.get(modelId);
+  let model = catalog.get(modelId)
   if (!model) {
     // Unknown id (e.g. subagent default). Fall back to the catalog's first/default model.
-    const defaultModel = catalog.list()[0];
+    const defaultModel = catalog.list()[0]
     if (defaultModel) {
-      plog(`model '${modelId}' unknown — remapping to default '${defaultModel.id}'`);
-      model = defaultModel;
+      plog(`model '${modelId}' unknown — remapping to default '${defaultModel.id}'`)
+      model = defaultModel
     }
   }
 
   if (!model) {
-    sendJson(res, 400, { error: { message: `Unknown model: ${modelId}` } });
-    return null;
+    sendJson(res, 400, { error: { message: `Unknown model: ${modelId}` } })
+    return null
   }
 
-  return model;
+  return model
 }
 
 function backendFor(options: ServerOptions, model: ServerModelInfo): ServerBackend {
   if (model.sourceBackend === 'vertex') {
-    throw new Error(`Vertex models route through the SDK adapter, not cloud backends: ${model.id}`);
+    throw new Error(`Vertex models route through the SDK adapter, not cloud backends: ${model.id}`)
   }
-  if (model.sourceBackend === 'zen') return options.backends.zen;
-  if (model.sourceBackend === 'go') return options.backends.go;
-  throw new Error(`Provider ${model.sourceBackend} is not a cloud backend — model must set baseUrl/completionsUrl`);
+  if (model.sourceBackend === 'zen') return options.backends.zen
+  if (model.sourceBackend === 'go') return options.backends.go
+  throw new Error(
+    `Provider ${model.sourceBackend} is not a cloud backend — model must set baseUrl/completionsUrl`
+  )
 }
 
 async function getOrInitLanguageModel(
@@ -439,7 +542,7 @@ async function getOrInitLanguageModel(
   npm: string,
   baseURL: string | undefined,
   apiKey: string,
-  vertex: VertexServerConfig | undefined,
+  vertex: VertexServerConfig | undefined
 ): Promise<LanguageModel> {
   const cacheKey = [
     model.providerId ?? model.sourceBackend,
@@ -447,8 +550,8 @@ async function getOrInitLanguageModel(
     upstreamModelId(model),
     npm,
     baseURL ?? '',
-  ].join('\x1f');
-  let languageModel = modelCache.get(cacheKey);
+  ].join('\x1f')
+  let languageModel = modelCache.get(cacheKey)
   if (!languageModel) {
     languageModel = await createLanguageModel({
       npm,
@@ -462,41 +565,50 @@ async function getOrInitLanguageModel(
       headers: model.headers,
       useResponsesLite: model.useResponsesLite,
       preferWebSockets: model.preferWebSockets,
-    });
-    modelCache.set(cacheKey, languageModel);
+    })
+    modelCache.set(cacheKey, languageModel)
   }
-  return languageModel;
+  return languageModel
 }
 
-function getResponseModelId(bodyModel: unknown, model: ServerModelInfo, options: ServerOptions): string {
+function getResponseModelId(
+  bodyModel: unknown,
+  model: ServerModelInfo,
+  options: ServerOptions
+): string {
   return options.gateway?.maskGatewayIds
     ? gatewayDisplayName(model, options.gateway)
-    : (typeof bodyModel === 'string' ? bodyModel : model.id);
+    : typeof bodyModel === 'string'
+      ? bodyModel
+      : model.id
 }
 
 async function readJson(req: IncomingMessage): Promise<JsonBody | null> {
   try {
-    const raw = await readBody(req);
-    return raw ? JSON.parse(raw) : {};
+    const raw = await readBody(req)
+    if (raw.length > MAX_REQUEST_BODY_BYTES) {
+      return null
+    }
+    return raw ? JSON.parse(raw) : {}
   } catch {
-    return null;
+    return null
   }
 }
 
 function toRequest(req: IncomingMessage): Request {
-  const headers = new Headers();
+  const headers = new Headers()
   for (const [name, value] of Object.entries(req.headers)) {
     if (Array.isArray(value)) {
-      for (const item of value) headers.append(name, sanitizeIncomingHeaderValue(item));
+      for (const item of value) headers.append(name, sanitizeIncomingHeaderValue(item))
     } else if (value !== undefined) {
-      headers.set(name, sanitizeIncomingHeaderValue(value));
+      headers.set(name, sanitizeIncomingHeaderValue(value))
     }
   }
 
-  return new Request('http://localhost/', { headers });
+  return new Request('http://localhost/', { headers })
 }
 
 /** HTTP headers cannot contain CR/LF — common when a multi-line secret is pasted into a client. */
 function sanitizeIncomingHeaderValue(value: string): string {
-  return value.replace(/\r?\n/g, ' ').trim();
+  return value.replace(/\r?\n/g, ' ').trim()
 }

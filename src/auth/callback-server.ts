@@ -2,19 +2,19 @@
 // Primary path: the GUI server handles /auth/callback when the UI is open.
 // This is only used when running `anygate providers auth <provider>` without the GUI.
 
-import http from 'node:http';
+import http from 'node:http'
 
 export interface CallbackParams {
-  code: string;
-  state: string;
-  error?: string;
+  code: string
+  state: string
+  error?: string
 }
 
 export interface CallbackServer {
-  port: number;
-  redirectUri: string;
-  waitForCallback(timeoutMs?: number): Promise<CallbackParams>;
-  close(): void;
+  port: number
+  redirectUri: string
+  waitForCallback(timeoutMs?: number): Promise<CallbackParams>
+  close(): void
 }
 
 const SUCCESS_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Authorized</title></head>
@@ -23,46 +23,51 @@ const SUCCESS_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Au
 <div style="color:#22c55e;font-size:2.5rem">&#10003;</div>
 <h1 style="margin:.5rem 0">Authentication successful</h1>
 <p style="color:#666">You can close this tab and return to the terminal.</p>
-</div></body></html>`;
+</div></body></html>`
 
 export function startCallbackServer(): Promise<CallbackServer> {
   return new Promise((resolve, reject) => {
-    let codeResolve: ((p: CallbackParams) => void) | undefined;
-    let codeReject: ((e: Error) => void) | undefined;
+    let codeResolve: ((p: CallbackParams) => void) | undefined
+    let codeReject: ((e: Error) => void) | undefined
 
     const server = http.createServer((req, res) => {
-      const u = new URL(req.url ?? '/', 'http://localhost');
+      const u = new URL(req.url ?? '/', 'http://localhost')
       if (u.pathname !== '/callback' && u.pathname !== '/auth/callback') {
-        res.writeHead(404); res.end(); return;
+        res.writeHead(404)
+        res.end()
+        return
       }
-      const code = u.searchParams.get('code') ?? '';
-      const state = u.searchParams.get('state') ?? '';
-      const error = u.searchParams.get('error') ?? '';
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(SUCCESS_HTML);
-      codeResolve?.({ code, state, error: error || undefined });
-    });
+      const code = u.searchParams.get('code') ?? ''
+      const state = u.searchParams.get('state') ?? ''
+      const error = u.searchParams.get('error') ?? ''
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+      res.end(SUCCESS_HTML)
+      codeResolve?.({ code, state, error: error || undefined })
+    })
 
     server.listen(0, '127.0.0.1', () => {
-      const addr = server.address() as { port: number };
-      const port = addr.port;
+      const addr = server.address() as { port: number }
+      const port = addr.port
       resolve({
         port,
         redirectUri: `http://127.0.0.1:${port}/callback`,
         waitForCallback(timeoutMs = 300_000) {
           return new Promise<CallbackParams>((res, rej) => {
-            codeResolve = res;
-            codeReject = rej;
+            codeResolve = res
+            codeReject = rej
             setTimeout(
               () => rej(new Error('OAuth timeout — browser closed without completing sign-in')),
-              timeoutMs,
-            );
-          });
+              timeoutMs
+            )
+          })
         },
-        close() { server.close(); codeReject?.(new Error('Server closed')); },
-      });
-    });
+        close() {
+          server.close()
+          codeReject?.(new Error('Server closed'))
+        },
+      })
+    })
 
-    server.on('error', reject);
-  });
+    server.on('error', reject)
+  })
 }

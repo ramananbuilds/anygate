@@ -1,6 +1,10 @@
 // src/cli/antigravity.ts — anygate agy / antigravity / antigravity-ide commands
-import type { ParsedArgs } from '../types/index.js';
-import { runAgyCommand, runAntigravityAppCommand, runAntigravityIdeCommand } from '../apps/gemini/antigravity.js';
+import type { ParsedArgs } from '../types/index.js'
+import {
+  runAgyCommand,
+  runAntigravityAppCommand,
+  runAntigravityIdeCommand,
+} from '../apps/gemini/antigravity.js'
 
 const AGY_HELP_TEXT = `
 anygate agy — Antigravity CLI
@@ -26,7 +30,7 @@ Examples:
   anygate agy
   anygate agy --provider zen --model deepseek-v4-flash-free
   anygate agy -p "fix this bug"
-`;
+`
 
 const ANTIGRAVITY_APP_HELP_TEXT = `
 anygate antigravity — Antigravity app
@@ -58,7 +62,7 @@ Platform:
 Examples:
   anygate antigravity
   anygate antigravity --provider zen --model deepseek-v4-flash-free
-`;
+`
 
 const ANTIGRAVITY_IDE_HELP_TEXT = `
 anygate antigravity-ide — Antigravity IDE
@@ -86,52 +90,52 @@ Platform:
 Examples:
   anygate antigravity-ide
   anygate antigravity-ide --provider zen --model deepseek-v4-flash-free
-`;
+`
 
 export async function handleAgyCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    const { VERSION } = await import('../config/constants.js');
-    console.log(VERSION);
-    return 0;
+    const { VERSION } = await import('../config/constants.js')
+    console.log(VERSION)
+    return 0
   }
   if (parsed.showHelp) {
-    console.log(AGY_HELP_TEXT);
-    return 0;
+    console.log(AGY_HELP_TEXT)
+    return 0
   }
   return runAgyCommand(parsed.claudeArgs ?? [], parsed.trace ?? false, {
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
-  });
+  })
 }
 
 export async function handleAntigravityAppCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    const { VERSION } = await import('../config/constants.js');
-    console.log(VERSION);
-    return 0;
+    const { VERSION } = await import('../config/constants.js')
+    console.log(VERSION)
+    return 0
   }
   if (parsed.showHelp) {
-    console.log(ANTIGRAVITY_APP_HELP_TEXT);
-    return 0;
+    console.log(ANTIGRAVITY_APP_HELP_TEXT)
+    return 0
   }
   return runAntigravityAppCommand(parsed.claudeArgs ?? [], parsed.trace ?? false, {
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
-  });
+  })
 }
 
 export async function handleAntigravityIdeCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    const { VERSION } = await import('../config/constants.js');
-    console.log(VERSION);
-    return 0;
+    const { VERSION } = await import('../config/constants.js')
+    console.log(VERSION)
+    return 0
   }
   if (parsed.showHelp) {
-    console.log(ANTIGRAVITY_IDE_HELP_TEXT);
-    return 0;
+    console.log(ANTIGRAVITY_IDE_HELP_TEXT)
+    return 0
   }
   return runAntigravityIdeCommand(parsed.claudeArgs ?? [], parsed.trace ?? false, {
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
-  });
+  })
 }

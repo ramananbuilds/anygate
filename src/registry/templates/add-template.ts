@@ -1,117 +1,127 @@
 // src/registry/add-template.ts — add a provider from a builtin template
 
-import { saveProviderCredential } from '../../config/env.js';
-import { isSdkUpgradedNpm } from '../../gateway/providers/provider-factory.js';
-import type { ProviderTemplate } from './provider-templates.js';
-import { classifyFreeStatus, isFreeStatus } from '../../apps/shared/free-models.js';
-import { fetchTemplateModels } from './fetch-template-models.js';
-import { loadRegistry, saveRegistry } from '../storage/io.js';
+import { saveProviderCredential } from '../../config/env.js'
+import { isSdkUpgradedNpm } from '../../gateway/providers/provider-factory.js'
+import type { ProviderTemplate } from './provider-templates.js'
+import { classifyFreeStatus, isFreeStatus } from '../../apps/shared/free-models.js'
+import { fetchTemplateModels } from './fetch-template-models.js'
+import { loadRegistry, saveRegistry } from '../storage/io.js'
 import {
   buildPricingIndex,
   enrichModelsWithPricing,
   enrichPricingAsync,
   loadPricingCache,
   pricingPlatformForProvider,
-} from '../pricing.js';
-import type { RegistryProvider } from '../types.js';
+} from '../pricing.js'
+import type { RegistryProvider } from '../types.js'
 
 export interface AddTemplateResult {
-  added: boolean;
-  provider?: RegistryProvider;
-  modelCount?: number;
-  error?: string;
-  hint?: string;
+  added: boolean
+  provider?: RegistryProvider
+  modelCount?: number
+  error?: string
+  hint?: string
 }
 
 async function probeTemplatePackage(template: ProviderTemplate): Promise<string | null> {
-  if (!template.supported) return template.unsupportedReason ?? 'Provider is not supported yet.';
-  if (!template.npm) return 'Template is missing an SDK package.';
+  if (!template.supported) return template.unsupportedReason ?? 'Provider is not supported yet.'
+  if (!template.npm) return 'Template is missing an SDK package.'
   if (!isSdkUpgradedNpm(template.npm) && template.npm !== '@ai-sdk/anthropic') {
-    return `SDK package ${template.npm} is not available in anygate.`;
+    return `SDK package ${template.npm} is not available in anygate.`
   }
   try {
-    await import(template.npm);
-    return null;
+    await import(template.npm)
+    return null
   } catch {
-    return `Could not load ${template.npm}. Run npm install in your anygate checkout.`;
+    return `Could not load ${template.npm}. Run npm install in your anygate checkout.`
   }
 }
 
-function filterAnonymousFreeModels<T extends { cost?: { input: number; output: number }; isFree?: boolean; freeStatus?: ReturnType<typeof classifyFreeStatus> }>(
-  models: T[],
-  template: ProviderTemplate,
-): T[] {
-  if (!template.anonymousFreeModels) return models;
-  return models.filter(model => isFreeStatus(classifyFreeStatus({
-    model,
-    providerId: template.id,
-    templateId: template.id,
-  })));
+function filterAnonymousFreeModels<
+  T extends {
+    cost?: { input: number; output: number }
+    isFree?: boolean
+    freeStatus?: ReturnType<typeof classifyFreeStatus>
+  },
+>(models: T[], template: ProviderTemplate): T[] {
+  if (!template.anonymousFreeModels) return models
+  return models.filter(model =>
+    isFreeStatus(
+      classifyFreeStatus({
+        model,
+        providerId: template.id,
+        templateId: template.id,
+      })
+    )
+  )
 }
 
 /** Test API key, persist credential + registry entry. */
 export async function addProviderFromTemplate(
   template: ProviderTemplate,
   apiKey: string,
-  opts?: { replaceExisting?: boolean; baseUrl?: string },
+  opts?: { replaceExisting?: boolean; baseUrl?: string }
 ): Promise<AddTemplateResult> {
-  const packageError = await probeTemplatePackage(template);
+  const packageError = await probeTemplatePackage(template)
   if (packageError) {
-    return { added: false, error: packageError };
+    return { added: false, error: packageError }
   }
 
-  const trimmedKey = apiKey.trim();
+  const trimmedKey = apiKey.trim()
   if (!trimmedKey && !template.apiKeyOptional) {
-    return { added: false, error: 'API key cannot be empty.' };
+    return { added: false, error: 'API key cannot be empty.' }
   }
 
-  const registry = loadRegistry();
-  const existing = registry.providers.find(p => p.id === template.id);
+  const registry = loadRegistry()
+  const existing = registry.providers.find(p => p.id === template.id)
   if (existing && !opts?.replaceExisting) {
     return {
       added: false,
       error: `${template.name} is already configured.`,
       hint: `Remove it first with: anygate providers remove ${template.id}`,
-    };
+    }
   }
 
-  const fetched = await fetchTemplateModels(template, trimmedKey, opts?.baseUrl);
+  const fetched = await fetchTemplateModels(template, trimmedKey, opts?.baseUrl)
   if (fetched.error || fetched.models.length === 0) {
     return {
       added: false,
       error: fetched.error ?? 'No models returned.',
       hint: fetched.hint,
-    };
+    }
   }
-  const usableModels = !trimmedKey && template.anonymousFreeModels
-    ? filterAnonymousFreeModels(fetched.models, template)
-    : fetched.models;
+  const usableModels =
+    !trimmedKey && template.anonymousFreeModels
+      ? filterAnonymousFreeModels(fetched.models, template)
+      : fetched.models
   if (usableModels.length === 0) {
     return {
       added: false,
       error: 'No free models were returned for anonymous access.',
-      hint: template.signupUrl ? `Add a ${template.name} API key from ${template.signupUrl} to use paid models.` : undefined,
-    };
+      hint: template.signupUrl
+        ? `Add a ${template.name} API key from ${template.signupUrl} to use paid models.`
+        : undefined,
+    }
   }
 
-  const authRef = `keyring:provider:${template.id}`;
-  const saved = trimmedKey ? await saveProviderCredential(authRef, trimmedKey) : true;
+  const authRef = `keyring:provider:${template.id}`
+  const saved = trimmedKey ? await saveProviderCredential(authRef, trimmedKey) : true
   if (!saved) {
     return {
       added: false,
       error: 'Could not save API key to Keychain.',
       hint: 'Grant Keychain access or try again.',
-    };
+    }
   }
 
-  const now = new Date().toISOString();
-  const pricingCache = loadPricingCache();
-  const platform = pricingPlatformForProvider(template.id, template.id);
+  const now = new Date().toISOString()
+  const pricingCache = loadPricingCache()
+  const platform = pricingPlatformForProvider(template.id, template.id)
   const pricedModels = enrichModelsWithPricing(
     usableModels.map(m => ({ ...m, apiUrl: fetched.baseUrl })),
     buildPricingIndex(pricingCache),
-    platform,
-  );
+    platform
+  )
   const entry: RegistryProvider = {
     id: template.id,
     templateId: template.id,
@@ -129,16 +139,16 @@ export async function addProviderFromTemplate(
       fetchedAt: now,
       models: pricedModels,
     },
-  };
+  }
 
   if (existing) {
-    const idx = registry.providers.findIndex(p => p.id === template.id);
-    registry.providers[idx] = entry;
+    const idx = registry.providers.findIndex(p => p.id === template.id)
+    registry.providers[idx] = entry
   } else {
-    registry.providers.push(entry);
+    registry.providers.push(entry)
   }
-  saveRegistry(registry);
-  enrichPricingAsync();
+  saveRegistry(registry)
+  enrichPricingAsync()
 
-  return { added: true, provider: entry, modelCount: pricedModels.length };
+  return { added: true, provider: entry, modelCount: pricedModels.length }
 }

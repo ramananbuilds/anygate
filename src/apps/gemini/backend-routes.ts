@@ -3,25 +3,25 @@ import {
   partitionAndStartCloudCodeBackend,
   type BackendPartitionInput,
   type CloudCodeBackend,
-} from '../shared/cloud-code-backend.js';
-import type { ProxyRoute } from '../../../src/gateway/proxy/anthropic-proxy.js';
-import type { LocalProviderModel } from '../../../src/types/index.js';
+} from '../shared/cloud-code-backend.js'
+import type { ProxyRoute } from '../../../src/gateway/proxy/anthropic-proxy.js'
+import type { LocalProviderModel } from '../../../src/types/index.js'
 
 interface GeminiBackendInput extends BackendPartitionInput {
-  originalAliasId: string;
+  originalAliasId: string
 }
 
 interface GeminiBackendRoute {
-  originalAliasId: string;
-  aliasId: string;
-  backendUrl: string;
-  apiKey: string;
+  originalAliasId: string
+  aliasId: string
+  backendUrl: string
+  apiKey: string
 }
 
 export interface GeminiBackendRoutesResult {
-  routes: ProxyRoute[];
-  launchModelId: string;
-  backend: CloudCodeBackend | null;
+  routes: ProxyRoute[]
+  launchModelId: string
+  backend: CloudCodeBackend | null
 }
 
 function routeToModel(route: ProxyRoute): LocalProviderModel {
@@ -39,27 +39,25 @@ function routeToModel(route: ProxyRoute): LocalProviderModel {
     supportedParameters: route.supportedParameters,
     reasoning: route.reasoning,
     interleavedReasoningField: route.interleavedReasoningField,
-  };
+  }
 }
 
 function routeNeedsBackend(route: ProxyRoute): boolean {
-  return needsCloudCodeBackend(routeToModel(route), route.authType);
+  return needsCloudCodeBackend(routeToModel(route), route.authType)
 }
 
 export async function rewriteGeminiBackendRoutes(
   routes: ProxyRoute[],
   launchModelId: string,
-  trace?: boolean,
+  trace?: boolean
 ): Promise<GeminiBackendRoutesResult> {
-  const backendInputs: GeminiBackendInput[] = routes
-    .filter(routeNeedsBackend)
-    .map(route => ({
-      originalAliasId: route.aliasId,
-      providerId: route.providerId ?? '',
-      model: routeToModel(route),
-      apiKey: route.apiKey,
-      providerData: route.providerData,
-    }));
+  const backendInputs: GeminiBackendInput[] = routes.filter(routeNeedsBackend).map(route => ({
+    originalAliasId: route.aliasId,
+    providerId: route.providerId ?? '',
+    model: routeToModel(route),
+    apiKey: route.apiKey,
+    providerData: route.providerData,
+  }))
 
   const partitioned = await partitionAndStartCloudCodeBackend(
     backendInputs,
@@ -69,23 +67,23 @@ export async function rewriteGeminiBackendRoutes(
       backendUrl: `http://127.0.0.1:${backend.port}`,
       apiKey: backend.token,
     }),
-    trace,
-  );
+    trace
+  )
 
   if (!partitioned.backend) {
-    return { routes, launchModelId, backend: null };
+    return { routes, launchModelId, backend: null }
   }
 
   const backendAliasMap = new Map(
-    partitioned.backendItems.map(item => [item.originalAliasId, item]),
-  );
+    partitioned.backendItems.map(item => [item.originalAliasId, item])
+  )
 
   return {
     backend: partitioned.backend,
     launchModelId: backendAliasMap.get(launchModelId)?.aliasId ?? launchModelId,
     routes: routes.map(route => {
-      const backendRoute = backendAliasMap.get(route.aliasId);
-      if (!backendRoute) return route;
+      const backendRoute = backendAliasMap.get(route.aliasId)
+      if (!backendRoute) return route
 
       return {
         ...route,
@@ -97,7 +95,7 @@ export async function rewriteGeminiBackendRoutes(
         npm: '@ai-sdk/anthropic',
         baseURL: backendRoute.backendUrl,
         authType: undefined,
-      };
+      }
     }),
-  };
+  }
 }

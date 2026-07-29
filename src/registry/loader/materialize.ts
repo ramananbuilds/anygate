@@ -1,36 +1,36 @@
 // src/registry/materialize.ts — registry entries → LocalProvider runtime shape
 
-import { shouldHideModel, type CompatibilityAgent } from '../../apps/shared/model-compatibility.js';
-import { deriveBrand } from '../../apps/shared/model-compatibility.js';
-import { resolveEndpoint } from '../provider-catalog.js';
-import { resolveContextWindow } from '../../apps/shared/context-window.js';
-import type { LocalProvider, LocalProviderModel } from '../../types/index.js';
-import { normalizeGoogleDisplayName, normalizeGoogleModelId } from '../resolver/google-model-id.js';
-import { findModelsDevModel } from '../models-dev.js';
-import type { CachedModel, ProviderRegistry, RegistryProvider } from '../types.js';
-import { isValidProviderId } from '../validation/validate.js';
-import { getTemplateById } from '../templates/provider-templates.js';
-import { classifyFreeStatus, isFreeStatus } from '../../apps/shared/free-models.js';
+import { shouldHideModel, type CompatibilityAgent } from '../../apps/shared/model-compatibility.js'
+import { deriveBrand } from '../../apps/shared/model-compatibility.js'
+import { resolveEndpoint } from '../provider-catalog.js'
+import { resolveContextWindow } from '../../apps/shared/context-window.js'
+import type { LocalProvider, LocalProviderModel } from '../../types/index.js'
+import { normalizeGoogleDisplayName, normalizeGoogleModelId } from '../resolver/google-model-id.js'
+import { findModelsDevModel } from '../models-dev.js'
+import type { CachedModel, ProviderRegistry, RegistryProvider } from '../types.js'
+import { isValidProviderId } from '../validation/validate.js'
+import { getTemplateById } from '../templates/provider-templates.js'
+import { classifyFreeStatus, isFreeStatus } from '../../apps/shared/free-models.js'
 
-export type CredentialResolver = (provider: RegistryProvider) => string | null;
+export type CredentialResolver = (provider: RegistryProvider) => string | null
 
 export interface MaterializeOptions {
-  agent?: CompatibilityAgent;
+  agent?: CompatibilityAgent
 }
 
 export function cachedModelToLocal(
   cached: CachedModel,
-  provider: RegistryProvider,
+  provider: RegistryProvider
 ): LocalProviderModel | null {
   const freeStatus = classifyFreeStatus({
     model: cached,
     providerId: provider.id,
     templateId: provider.templateId,
-  });
+  })
 
   // Cloud Code models route through the cloud-code proxy — no SDK endpoint needed.
   if (cached.modelFormat === 'cloud-code') {
-    const { id } = normalizeGoogleModelId(cached.id, '');
+    const { id } = normalizeGoogleModelId(cached.id, '')
     return {
       id,
       name: cached.name,
@@ -43,24 +43,30 @@ export function cachedModelToLocal(
       freeStatus,
       reasoning: cached.reasoning,
       interleavedReasoningField: cached.interleavedReasoningField,
-    };
+    }
   }
 
-  const npm = cached.npm ?? provider.api.npm ?? '';
-  const apiUrl = cached.apiUrl ?? provider.api.url ?? '';
-  const endpoint = resolveEndpoint(npm, apiUrl);
-  if (endpoint === null) return null;
+  const npm = cached.npm ?? provider.api.npm ?? ''
+  const apiUrl = cached.apiUrl ?? provider.api.url ?? ''
+  const endpoint = resolveEndpoint(npm, apiUrl)
+  if (endpoint === null) return null
 
-  const modelsDev = findModelsDevModel(provider.id, cached.id);
-  const { id, upstreamModelId } = normalizeGoogleModelId(cached.id, npm);
-  const normalizedUpstream = normalizeGoogleModelId(cached.upstreamModelId ?? cached.id, npm).upstreamModelId;
-  const family = npm === '@ai-sdk/google' ? (id.split(/[-/:]/)[0] ?? id) : (cached.family ?? '');
+  const modelsDev = findModelsDevModel(provider.id, cached.id)
+  const { id, upstreamModelId } = normalizeGoogleModelId(cached.id, npm)
+  const normalizedUpstream = normalizeGoogleModelId(
+    cached.upstreamModelId ?? cached.id,
+    npm
+  ).upstreamModelId
+  const family = npm === '@ai-sdk/google' ? (id.split(/[-/:]/)[0] ?? id) : (cached.family ?? '')
 
   return {
     id,
     name: npm === '@ai-sdk/google' ? normalizeGoogleDisplayName(cached.name, id) : cached.name,
     family,
-    brand: npm === '@ai-sdk/google' ? deriveBrand(family) : (cached.brand ?? deriveBrand(cached.family ?? '')),
+    brand:
+      npm === '@ai-sdk/google'
+        ? deriveBrand(family)
+        : (cached.brand ?? deriveBrand(cached.family ?? '')),
     modelFormat: cached.modelFormat ?? endpoint.format,
     upstreamModelId: normalizedUpstream,
     baseUrl: endpoint.baseUrl,
@@ -76,41 +82,41 @@ export function cachedModelToLocal(
     interleavedReasoningField: cached.interleavedReasoningField ?? modelsDev?.interleaved?.field,
     useResponsesLite: cached.useResponsesLite,
     preferWebSockets: cached.preferWebSockets,
-  };
+  }
 }
 
 function providerAllowsAnonymousFreeModels(provider: RegistryProvider): boolean {
-  const template = getTemplateById(provider.templateId) ?? getTemplateById(provider.id);
-  return template?.anonymousFreeModels === true;
+  const template = getTemplateById(provider.templateId) ?? getTemplateById(provider.id)
+  return template?.anonymousFreeModels === true
 }
 
 function materializeOne(
   provider: RegistryProvider,
   resolveCredential: CredentialResolver,
-  agent: CompatibilityAgent,
+  agent: CompatibilityAgent
 ): LocalProvider | null {
-  if (!provider.enabled) return null;
-  if (!isValidProviderId(provider.id)) return null;
+  if (!provider.enabled) return null
+  if (!isValidProviderId(provider.id)) return null
 
-  const freeOnly = provider.subscriptionFilter === 'free';
-  const apiKey = resolveCredential(provider) ?? '';
-  const anonymousFreeOnly = !apiKey.trim() && providerAllowsAnonymousFreeModels(provider);
-  const models: LocalProviderModel[] = [];
+  const freeOnly = provider.subscriptionFilter === 'free'
+  const apiKey = resolveCredential(provider) ?? ''
+  const anonymousFreeOnly = !apiKey.trim() && providerAllowsAnonymousFreeModels(provider)
+  const models: LocalProviderModel[] = []
   for (const cached of provider.modelsCache?.models ?? []) {
     const freeStatus = classifyFreeStatus({
       model: cached,
       providerId: provider.id,
       templateId: provider.templateId,
-    });
-    if ((freeOnly || anonymousFreeOnly) && !isFreeStatus(freeStatus)) continue;
-    const model = cachedModelToLocal(cached, provider);
-    if (!model) continue;
-    if (shouldHideModel({ providerId: provider.id, modelId: model.id, agent })) continue;
-    models.push(model);
+    })
+    if ((freeOnly || anonymousFreeOnly) && !isFreeStatus(freeStatus)) continue
+    const model = cachedModelToLocal(cached, provider)
+    if (!model) continue
+    if (shouldHideModel({ providerId: provider.id, modelId: model.id, agent })) continue
+    models.push(model)
   }
-  if (models.length === 0) return null;
+  if (models.length === 0) return null
 
-  if (!apiKey.trim() && !anonymousFreeOnly) return null;
+  if (!apiKey.trim() && !anonymousFreeOnly) return null
 
   return {
     id: provider.id,
@@ -119,20 +125,20 @@ function materializeOne(
     authType: provider.authType,
     headers: provider.api.headers,
     models,
-  };
+  }
 }
 
 /** Convert enabled registry providers with credentials into launch-time LocalProvider[]. */
 export function materializeRegistry(
   registry: ProviderRegistry,
   resolveCredential: CredentialResolver,
-  opts?: MaterializeOptions,
+  opts?: MaterializeOptions
 ): LocalProvider[] {
-  const agent = opts?.agent ?? 'claude';
-  const result: LocalProvider[] = [];
+  const agent = opts?.agent ?? 'claude'
+  const result: LocalProvider[] = []
   for (const provider of registry.providers) {
-    const local = materializeOne(provider, resolveCredential, agent);
-    if (local) result.push(local);
+    const local = materializeOne(provider, resolveCredential, agent)
+    if (local) result.push(local)
   }
-  return result;
+  return result
 }

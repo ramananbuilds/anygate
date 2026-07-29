@@ -29,3 +29,11 @@ Whenever a feature is added, modified, or deleted in the codebase or UI:
 3. **Non-TTY Graceful Degradation**: Bare `anygate` in non-interactive mode falls back to help text instead of crashing.
 4. **Self-Healing Model Validation**: New `src/registry/validation/` module with `model-validator.ts` and `config.ts`. Automatically checks model availability via provider APIs, caches results (24h TTL), and integrates into `fetch-template-models.ts` (background validation), `provider-catalog.ts` (filter deprecated), `cli/claude.ts` (block deprecated at launch), and `cli/models.ts` (`validate` subcommand).
 5. **Context Window Safety Margin**: Enforced context fitting on ALL outbound SDK requests. `translateRequest()` now always resolves a context window (explicit option or model-id lookup via `resolveContextWindowFromModel`) and trims with an 85% safety margin. `startProxy()` and `startProxyCatalog()` resolve `route.contextWindow` with the same fallback. Fixes HTTP 400 "Input length exceeds maximum allowed tokens" on small-window models.
+
+## Phase 1 Changes (v0.5.12)
+
+1. **Dead Code Removal**: Removed 30+ dead files across `src/engine/` (10 files), `src/providers/` (8 files), `src/protocols/` (3 files), `src/core/` (4 directories), `src/launchers/` (8 files), and `tests/engine/` (2 files). Only `src/engine/routing/health.ts` and `src/providers/opencode-serve.ts` were retained as they are actively imported.
+2. **Bare `anygate` Main Menu Dispatch**: Fixed `src/cli/root.ts` `runMainMenu()` to dispatch to actual command handlers via `dispatchCommand()` instead of printing messages and returning 0.
+3. **Gateway Server Security Hardening**: Added security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Cache-Control`), rate limiting (120 req/min), and `Content-Length` to all JSON responses in `src/shared/http.ts`.
+4. **Gateway Server Error Handling**: Fixed `src/gateway/server/router.ts` catch block to use `sendError()` for `AnygateError` instances and send generic "Internal server error" for other errors.
+5. **ESLint + Prettier**: Added linting and formatting configuration with pre-commit hooks.

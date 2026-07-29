@@ -1,7 +1,7 @@
 // src/cli/server.ts — anygate server command
-import type { ParsedArgs } from '../types/index.js';
-import { runServerCommand } from '../gateway/server/server.js';
-import { VERSION } from '../config/constants.js';
+import type { ParsedArgs } from '../types/index.js'
+import { runServerCommand } from '../gateway/server/server.js'
+import { VERSION } from '../config/constants.js'
 
 const SERVER_HELP_TEXT = `
 anygate server — OpenCode/Registry API Gateway
@@ -51,16 +51,16 @@ Endpoints:
   Anthropic-compatible:  ANTHROPIC_BASE_URL=http://127.0.0.1:17645/anthropic
   OpenAI-compatible:     OPENAI_BASE_URL=http://127.0.0.1:17645/openai/v1
   API key: use anything locally; use the server password in network mode.
-`;
+`
 
 export async function handleServerCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    console.log(VERSION);
-    return 0;
+    console.log(VERSION)
+    return 0
   }
   if (parsed.showHelp) {
-    console.log(SERVER_HELP_TEXT);
-    return 0;
+    console.log(SERVER_HELP_TEXT)
+    return 0
   }
   return runServerCommand({
     vertex: parsed.vertex,
@@ -71,5 +71,5 @@ export async function handleServerCommand(parsed: ParsedArgs): Promise<number> {
     freeOnly: parsed.serverFreeOnly,
     maskGatewayIds: parsed.serverMaskGatewayIds,
     password: parsed.serverPassword,
-  });
+  })
 }

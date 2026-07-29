@@ -1,12 +1,12 @@
 export interface ModelSchema {
-  id: string;
-  name: string;
-  contextWindow?: number;
+  id: string
+  name: string
+  contextWindow?: number
 }
 
 export interface ProviderSchema {
-  id: string;
-  name: string;
-  authType: 'api' | 'oauth' | 'none';
-  models: ModelSchema[];
+  id: string
+  name: string
+  authType: 'api' | 'oauth' | 'none'
+  models: ModelSchema[]
 }

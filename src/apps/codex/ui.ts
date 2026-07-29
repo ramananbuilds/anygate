@@ -1,5 +1,5 @@
 // Codex-specific terminal panels (shared primitives in ../../apps/shared/ui.ts).
-import pc from 'picocolors';
+import pc from 'picocolors'
 import {
   fmtCommand,
   fmtModel,
@@ -9,7 +9,7 @@ import {
   printPanel,
   gateIntro,
   gateOutro,
-} from '../../apps/shared/ui.js';
+} from '../../apps/shared/ui.js'
 
 export {
   fmtModel as formatCodexModelRef,
@@ -17,21 +17,21 @@ export {
   logActiveModel as logCodexActiveModel,
   logProxy as logCodexProxy,
   printPanel,
-} from '../../apps/shared/ui.js';
+} from '../../apps/shared/ui.js'
 
 export function codexAppIntro(): void {
-  gateIntro('Codex App');
+  gateIntro('Codex App')
 }
 
 export function codexCliIntro(): void {
-  gateIntro('Codex');
+  gateIntro('Codex')
 }
 
 export function printCodexAppSessionPanel(opts: {
-  modelLabel: string;
-  modelId: string;
-  providerName: string;
-  restoreCommand: string;
+  modelLabel: string
+  modelId: string
+  providerName: string
+  restoreCommand: string
 }): void {
   printPanel(pc.cyan('Foreground session'), [
     `${pc.bold('Model')}     ${fmtModel(opts.modelLabel, opts.modelId)}`,
@@ -42,7 +42,7 @@ export function printCodexAppSessionPanel(opts: {
     `${pc.dim('Codex may show ')}${pc.yellow('"Custom"')}${pc.dim(' if the desktop picker cannot resolve registry models — check the terminal line above. After restart, pick your model from the picker if it appears.')}`,
     `${pc.dim('If Codex asks you to sign in after restart: choose API key and enter any character — that unlocks the model picker for registry providers.')}`,
     `${pc.dim('Stuck? Run ')}${fmtCommand(opts.restoreCommand)}${pc.dim('.')}`,
-  ]);
+  ])
 }
 
 export function printCodexCliCleanupPanel(restoreCommand: string): void {
@@ -50,16 +50,16 @@ export function printCodexCliCleanupPanel(restoreCommand: string): void {
     `${pc.white('Temporary profile: ')}${fmtCommand('~/.codex/anygate-launch.config.toml')}`,
     `${pc.white('Removed automatically when Codex exits.')}`,
     `${pc.dim('After a crash: ')}${fmtCommand(restoreCommand)}${pc.dim('.')}`,
-  ]);
+  ])
 }
 
 export function codexAppOutro(modelLabel: string): void {
-  gateOutro('Codex App', fmtModel(modelLabel));
+  gateOutro('Codex App', fmtModel(modelLabel))
 }
 
 export function codexCliOutro(providerName: string, modelLabel: string, modelId: string): void {
   gateOutro(
     'Launching Codex',
-    `${fmtProvider(providerName)} ${pc.dim('/')} ${fmtModel(modelLabel, modelId)}`,
-  );
+    `${fmtProvider(providerName)} ${pc.dim('/')} ${fmtModel(modelLabel, modelId)}`
+  )
 }

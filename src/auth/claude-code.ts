@@ -1,35 +1,37 @@
 // src/auth/claude-code.ts — Authorization Code + PKCE flow for Claude Code OAuth.
 // Client ID is the public PKCE credential shipped in the Claude Code CLI binary.
 
-import { randomBytes } from 'node:crypto';
-import open from 'open';
-import { generatePkce, generateOAuthState } from './pkce.js';
-import type { OAuthTokenResponse } from './types.js';
-import { postOAuthRefresh } from './refresh-http.js';
+import { randomBytes } from 'node:crypto'
+import open from 'open'
+import { generatePkce, generateOAuthState } from './pkce.js'
+import type { OAuthTokenResponse } from './types.js'
+import { postOAuthRefresh } from './refresh-http.js'
 
 export const CLAUDE_CODE_CLIENT_ID =
-  process.env.CLAUDE_OAUTH_CLIENT_ID ?? '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
+  process.env.CLAUDE_OAUTH_CLIENT_ID ?? '9d1c250a-e61b-44d9-88ed-5944d1962f5e'
 
-const AUTHORIZE_URL = 'https://claude.ai/auth/authorize';
-const TOKEN_URL = 'https://api.anthropic.com/v1/auth/token';
+const AUTHORIZE_URL = 'https://claude.ai/auth/authorize'
+const TOKEN_URL = 'https://api.anthropic.com/v1/auth/token'
 const REDIRECT_URI =
-  process.env.CLAUDE_CODE_REDIRECT_URI ?? 'https://platform.claude.com/auth/code/callback';
+  process.env.CLAUDE_CODE_REDIRECT_URI ?? 'https://platform.claude.com/auth/code/callback'
 const SCOPES =
-  'org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers';
+  'org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers'
 
 // Pinned to a captured claude-cli release — bump when Anthropic updates.
-export const CLAUDE_CODE_CLI_VERSION = '2.1.195';
+export const CLAUDE_CODE_CLI_VERSION = '2.1.195'
 
 export interface ClaudeCodePkceParams {
-  authUrl: string;
-  codeVerifier: string;
-  oauthState: string;
-  redirectUri: string;
+  authUrl: string
+  codeVerifier: string
+  oauthState: string
+  redirectUri: string
 }
 
-export async function buildClaudeCodeAuthUrl(redirectUri = REDIRECT_URI): Promise<ClaudeCodePkceParams> {
-  const { verifier, challenge } = await generatePkce();
-  const state = generateOAuthState();
+export async function buildClaudeCodeAuthUrl(
+  redirectUri = REDIRECT_URI
+): Promise<ClaudeCodePkceParams> {
+  const { verifier, challenge } = await generatePkce()
+  const state = generateOAuthState()
   const params = new URLSearchParams({
     code: 'true',
     client_id: CLAUDE_CODE_CLIENT_ID,
@@ -41,23 +43,28 @@ export async function buildClaudeCodeAuthUrl(redirectUri = REDIRECT_URI): Promis
     state,
     // Forces fresh auth — prevents session takeover that invalidates previous refresh tokens.
     prompt: 'login',
-  });
-  return { authUrl: `${AUTHORIZE_URL}?${params}`, codeVerifier: verifier, oauthState: state, redirectUri };
+  })
+  return {
+    authUrl: `${AUTHORIZE_URL}?${params}`,
+    codeVerifier: verifier,
+    oauthState: state,
+    redirectUri,
+  }
 }
 
 export async function exchangeClaudeCodeToken(
   code: string,
   codeVerifier: string,
   redirectUri: string,
-  state: string,
+  state: string
 ): Promise<OAuthTokenResponse> {
   // Anthropic may return code as `authCode#stateValue` — split if needed.
-  let authCode = extractClaudeAuthCode(code);
-  let codeState = state;
+  let authCode = extractClaudeAuthCode(code)
+  let codeState = state
   if (authCode.includes('#')) {
-    const idx = authCode.indexOf('#');
-    codeState = authCode.slice(idx + 1) || state;
-    authCode = authCode.slice(0, idx);
+    const idx = authCode.indexOf('#')
+    codeState = authCode.slice(idx + 1) || state
+    authCode = authCode.slice(0, idx)
   }
 
   const res = await fetch(TOKEN_URL, {
@@ -71,22 +78,22 @@ export async function exchangeClaudeCodeToken(
       redirect_uri: redirectUri,
       code_verifier: codeVerifier,
     }),
-  });
-  if (!res.ok) throw new Error(`Claude Code token exchange failed: ${await res.text()}`);
-  return res.json() as Promise<OAuthTokenResponse>;
+  })
+  if (!res.ok) throw new Error(`Claude Code token exchange failed: ${await res.text()}`)
+  return res.json() as Promise<OAuthTokenResponse>
 }
 
 export function extractClaudeAuthCode(input: string): string {
-  const trimmed = input.trim();
+  const trimmed = input.trim()
   try {
-    const parsed = new URL(trimmed);
-    return parsed.searchParams.get('code') ?? trimmed;
+    const parsed = new URL(trimmed)
+    return parsed.searchParams.get('code') ?? trimmed
   } catch {
     if (trimmed.startsWith('?') || trimmed.includes('code=')) {
-      const query = trimmed.startsWith('?') ? trimmed.slice(1) : trimmed;
-      return new URLSearchParams(query).get('code') ?? trimmed;
+      const query = trimmed.startsWith('?') ? trimmed.slice(1) : trimmed
+      return new URLSearchParams(query).get('code') ?? trimmed
     }
-    return trimmed;
+    return trimmed
   }
 }
 
@@ -102,16 +109,16 @@ export async function refreshClaudeCodeToken(refreshToken: string): Promise<OAut
       contentType: 'json',
       errorPrefix: 'Claude Code token refresh failed',
       includeBody: true,
-    },
-  );
+    }
+  )
 }
 
 export interface ClaudeBootstrapInfo {
-  accountId?: string;
-  email?: string;
-  organizationId?: string;
-  organizationName?: string;
-  plan?: string;
+  accountId?: string
+  email?: string
+  organizationId?: string
+  organizationName?: string
+  plan?: string
 }
 
 export async function fetchClaudeBootstrap(accessToken: string): Promise<ClaudeBootstrapInfo> {
@@ -125,48 +132,53 @@ export async function fetchClaudeBootstrap(accessToken: string): Promise<ClaudeB
         'anthropic-beta': 'oauth-2025-04-20',
       },
       signal: AbortSignal.timeout(10_000),
-    });
-    if (!res.ok) return {};
-    const data = (await res.json()) as Record<string, unknown>;
-    const acct = data.oauth_account as Record<string, unknown> | undefined;
-    if (!acct) return {};
+    })
+    if (!res.ok) return {}
+    const data = (await res.json()) as Record<string, unknown>
+    const acct = data.oauth_account as Record<string, unknown> | undefined
+    if (!acct) return {}
     return {
       accountId: typeof acct.account_uuid === 'string' ? acct.account_uuid : undefined,
       email: typeof acct.account_email === 'string' ? acct.account_email : undefined,
-      organizationId: typeof acct.organization_uuid === 'string' ? acct.organization_uuid : undefined,
-      organizationName: typeof acct.organization_name === 'string' ? acct.organization_name : undefined,
-      plan: typeof acct.organization_rate_limit_tier === 'string' ? acct.organization_rate_limit_tier : undefined,
-    };
+      organizationId:
+        typeof acct.organization_uuid === 'string' ? acct.organization_uuid : undefined,
+      organizationName:
+        typeof acct.organization_name === 'string' ? acct.organization_name : undefined,
+      plan:
+        typeof acct.organization_rate_limit_tier === 'string'
+          ? acct.organization_rate_limit_tier
+          : undefined,
+    }
   } catch {
-    return {};
+    return {}
   }
 }
 
 /** Generate a new cliUserID — created once at provisioning and persisted in providerData. */
 export function generateCliUserID(): string {
-  return randomBytes(32).toString('hex');
+  return randomBytes(32).toString('hex')
 }
 
 /** Full CLI PKCE flow: opens browser, accepts Anthropic's returned code, exchanges it. */
 export async function runClaudeCodeOAuthFlow(
   onAuthUrl: (url: string) => void,
-  readAuthCode: () => Promise<string>,
+  readAuthCode: () => Promise<string>
 ): Promise<{ tokens: OAuthTokenResponse; bootstrap: ClaudeBootstrapInfo }> {
-  const { authUrl, codeVerifier, oauthState, redirectUri } = await buildClaudeCodeAuthUrl();
-  onAuthUrl(authUrl);
-  open(authUrl).catch(() => {});
-  const code = (await readAuthCode()).trim();
-  if (!code) throw new Error('No authorization code received from Anthropic');
-  const tokens = await exchangeClaudeCodeToken(code, codeVerifier, redirectUri, oauthState);
-  const bootstrap = await fetchClaudeBootstrap(tokens.access_token);
-  return { tokens, bootstrap };
+  const { authUrl, codeVerifier, oauthState, redirectUri } = await buildClaudeCodeAuthUrl()
+  onAuthUrl(authUrl)
+  open(authUrl).catch(() => {})
+  const code = (await readAuthCode()).trim()
+  if (!code) throw new Error('No authorization code received from Anthropic')
+  const tokens = await exchangeClaudeCodeToken(code, codeVerifier, redirectUri, oauthState)
+  const bootstrap = await fetchClaudeBootstrap(tokens.access_token)
+  return { tokens, bootstrap }
 }
 
 export interface ClaudeCodeModelEntry {
-  id: string;
-  displayName: string;
-  maxInputTokens?: number;
-  maxTokens?: number;
+  id: string
+  displayName: string
+  maxInputTokens?: number
+  maxTokens?: number
 }
 
 export async function fetchClaudeCodeModels(accessToken: string): Promise<ClaudeCodeModelEntry[]> {
@@ -179,24 +191,28 @@ export async function fetchClaudeCodeModels(accessToken: string): Promise<Claude
       'User-Agent': `claude-cli/${CLAUDE_CODE_CLI_VERSION} (external, cli)`,
     },
     signal: AbortSignal.timeout(10_000),
-  });
+  })
   if (!res.ok) {
-    throw new Error(`Claude Code model discovery failed (HTTP ${res.status}): ${await res.text().catch(() => '')}`);
+    throw new Error(
+      `Claude Code model discovery failed (HTTP ${res.status}): ${await res.text().catch(() => '')}`
+    )
   }
-  const body = (await res.json()) as { data?: Array<Record<string, unknown>> };
+  const body = (await res.json()) as { data?: Array<Record<string, unknown>> }
   const entries = (body.data ?? [])
-    .filter((m): m is Record<string, unknown> & { id: string } =>
-      typeof m.id === 'string' && m.id.length > 0)
+    .filter(
+      (m): m is Record<string, unknown> & { id: string } =>
+        typeof m.id === 'string' && m.id.length > 0
+    )
     .map(m => ({
       id: m.id as string,
       displayName: (typeof m.display_name === 'string' ? m.display_name : m.id) as string,
       maxInputTokens: typeof m.max_input_tokens === 'number' ? m.max_input_tokens : undefined,
       maxTokens: typeof m.max_tokens === 'number' ? m.max_tokens : undefined,
-    }));
+    }))
   if (entries.length === 0) {
-    throw new Error('Claude Code model discovery returned no models');
+    throw new Error('Claude Code model discovery returned no models')
   }
-  return entries;
+  return entries
 }
 
 /** For the GUI: complete token exchange given code received via /auth/callback. */
@@ -204,14 +220,14 @@ export async function completeClaudeCodeExchange(
   code: string,
   codeVerifier: string,
   oauthState: string,
-  redirectUri: string,
+  redirectUri: string
 ): Promise<{ tokens: OAuthTokenResponse; bootstrap: ClaudeBootstrapInfo }> {
-  const tokens = await exchangeClaudeCodeToken(code, codeVerifier, redirectUri, oauthState);
-  const bootstrap = await fetchClaudeBootstrap(tokens.access_token);
-  return { tokens, bootstrap };
+  const tokens = await exchangeClaudeCodeToken(code, codeVerifier, redirectUri, oauthState)
+  const bootstrap = await fetchClaudeBootstrap(tokens.access_token)
+  return { tokens, bootstrap }
 }
 
 /** Redirect URI for the GUI callback (port extracted from Host header). */
 export function guiCallbackRedirectUri(host: string): string {
-  return `http://${host}/auth/callback`;
+  return `http://${host}/auth/callback`
 }

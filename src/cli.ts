@@ -1,63 +1,82 @@
 // src/cli.ts
-import pc from 'picocolors';
-import { printAsciiBanner, fmtEnabledStar, fmtModel, providerSelectOption, gateIntro, gateOutro } from './apps/shared/ui.js';
-import { favoriteProviderDisplayName } from './apps/claude/favorites-provider-display.js';
-import * as p from '@clack/prompts';
-import { realpathSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { checkForUpdates, formatUpdateNotification } from './apps/shared/update-check.js';
-import type { ParsedArgs } from './types/index.js';
-import { refreshModelsDevCacheAsync } from './registry/models-dev.js';
-import { generateAiDoc, installAiDoc, printAiInstallResult } from './apps/shared/ai-doc.js';
-import { dispatchCommand } from './cli/index.js';
-import { VERSION, MAX_MODEL_CATALOG } from './config/constants.js';
-import { codexHelpText } from './apps/codex/cli.js';
-import { geminiHelpText } from './apps/gemini/cli.js';
-import { codexAppHelpText } from './apps/codex/app.js';
-import { claudeAppHelpText } from './apps/claude/desktop.js';
+import pc from 'picocolors'
+import {
+  printAsciiBanner,
+  fmtEnabledStar,
+  fmtModel,
+  providerSelectOption,
+  gateIntro,
+  gateOutro,
+} from './apps/shared/ui.js'
+import { favoriteProviderDisplayName } from './apps/claude/favorites-provider-display.js'
+import * as p from '@clack/prompts'
+import { realpathSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { checkForUpdates, formatUpdateNotification } from './apps/shared/update-check.js'
+import type { ParsedArgs } from './types/index.js'
+import { refreshModelsDevCacheAsync } from './registry/models-dev.js'
+import { generateAiDoc, installAiDoc, printAiInstallResult } from './apps/shared/ai-doc.js'
+import { dispatchCommand } from './cli/index.js'
+import { VERSION, MAX_MODEL_CATALOG } from './config/constants.js'
+import { codexHelpText } from './apps/codex/cli.js'
+import { geminiHelpText } from './apps/gemini/cli.js'
+import { codexAppHelpText } from './apps/codex/app.js'
+import { claudeAppHelpText } from './apps/claude/desktop.js'
 
-const STARTER_CLAUDE_FLAGS = new Set(['--dry-run', '--setup', '--trace', '--help', '-h', '--version', '-v']);
-const GATEWAY_LAUNCH_FLAGS = new Set(['--provider', '--model']);
+const STARTER_CLAUDE_FLAGS = new Set([
+  '--dry-run',
+  '--setup',
+  '--trace',
+  '--help',
+  '-h',
+  '--version',
+  '-v',
+])
+const GATEWAY_LAUNCH_FLAGS = new Set(['--provider', '--model'])
 
 function parseGatewayLaunchFlag(
   arg: string,
   rest: string[],
   index: number,
-  parsed: ParsedArgs,
+  parsed: ParsedArgs
 ): number | 'error' {
   if (arg === '--provider' || arg === '--model') {
-    const value = rest[index + 1];
+    const value = rest[index + 1]
     if (!value || value.startsWith('-')) {
-      parsed.error = `Missing value for ${arg}`;
-      return 'error';
+      parsed.error = `Missing value for ${arg}`
+      return 'error'
     }
-    if (arg === '--provider') parsed.launchProvider = value;
-    else parsed.launchModel = value;
-    return index + 1;
+    if (arg === '--provider') parsed.launchProvider = value
+    else parsed.launchModel = value
+    return index + 1
   }
   if (arg.startsWith('--provider=')) {
-    parsed.launchProvider = arg.slice('--provider='.length);
-    return index;
+    parsed.launchProvider = arg.slice('--provider='.length)
+    return index
   }
   if (arg.startsWith('--model=')) {
-    parsed.launchModel = arg.slice('--model='.length);
-    return index;
+    parsed.launchModel = arg.slice('--model='.length)
+    return index
   }
-  return index;
+  return index
 }
 
 function tryConsumeGatewayLaunchFlag(
   arg: string,
   rest: string[],
   index: number,
-  parsed: ParsedArgs,
+  parsed: ParsedArgs
 ): { next: number } | { error: true } | null {
-  if (!GATEWAY_LAUNCH_FLAGS.has(arg) && !arg.startsWith('--provider=') && !arg.startsWith('--model=')) {
-    return null;
+  if (
+    !GATEWAY_LAUNCH_FLAGS.has(arg) &&
+    !arg.startsWith('--provider=') &&
+    !arg.startsWith('--model=')
+  ) {
+    return null
   }
-  const next = parseGatewayLaunchFlag(arg, rest, index, parsed);
-  if (next === 'error') return { error: true };
-  return { next };
+  const next = parseGatewayLaunchFlag(arg, rest, index, parsed)
+  if (next === 'error') return { error: true }
+  return { next }
 }
 
 function consumeServerOptionValue(
@@ -65,40 +84,43 @@ function consumeServerOptionValue(
   rest: string[],
   index: number,
   flag: string,
-  parsed: ParsedArgs,
+  parsed: ParsedArgs
 ): { value: string; next: number } | null {
   if (arg.startsWith(`${flag}=`)) {
-    return { value: arg.slice(flag.length + 1), next: index };
+    return { value: arg.slice(flag.length + 1), next: index }
   }
-  if (arg !== flag) return null;
-  const value = rest[index + 1];
+  if (arg !== flag) return null
+  const value = rest[index + 1]
   if (!value || value.startsWith('--')) {
-    parsed.error = `Missing value for ${flag}`;
-    return null;
+    parsed.error = `Missing value for ${flag}`
+    return null
   }
-  return { value, next: index + 1 };
+  return { value, next: index + 1 }
 }
 
 function applyServerProvidersOption(value: string, parsed: ParsedArgs): void {
-  const trimmed = value.trim();
+  const trimmed = value.trim()
   if (trimmed === 'all') {
-    parsed.serverProvidersMode = 'all';
-    parsed.serverProviderIds = undefined;
-    return;
+    parsed.serverProvidersMode = 'all'
+    parsed.serverProviderIds = undefined
+    return
   }
   if (trimmed === 'favorites') {
-    parsed.serverProvidersMode = 'favorites';
-    parsed.serverProviderIds = undefined;
-    return;
+    parsed.serverProvidersMode = 'favorites'
+    parsed.serverProviderIds = undefined
+    return
   }
 
-  const ids = trimmed.split(',').map(id => id.trim()).filter(Boolean);
+  const ids = trimmed
+    .split(',')
+    .map(id => id.trim())
+    .filter(Boolean)
   if (ids.length === 0) {
-    parsed.error = 'Missing provider ids for --providers';
-    return;
+    parsed.error = 'Missing provider ids for --providers'
+    return
   }
-  parsed.serverProvidersMode = 'specific';
-  parsed.serverProviderIds = ids;
+  parsed.serverProvidersMode = 'specific'
+  parsed.serverProviderIds = ids
 }
 
 function emptyParsed(command: ParsedArgs['command']): ParsedArgs {
@@ -111,7 +133,7 @@ function emptyParsed(command: ParsedArgs['command']): ParsedArgs {
     trace: false,
     vertex: false,
     claudeArgs: [],
-  };
+  }
 }
 
 export function parseArgs(args: string[]): ParsedArgs {
@@ -121,347 +143,363 @@ export function parseArgs(args: string[]): ParsedArgs {
       showAi: true,
       aiInstall: args.includes('--install'),
       aiInstallForce: args.includes('--force'),
-    };
+    }
   }
 
-  if (args.length === 0) return { ...emptyParsed('root'), showHelp: false };
+  if (args.length === 0) return { ...emptyParsed('root'), showHelp: false }
 
-  const [first, ...rest] = args;
+  const [first, ...rest] = args
 
   if (first === '--help' || first === '-h') {
-    return { ...emptyParsed('root'), showHelp: true };
+    return { ...emptyParsed('root'), showHelp: true }
   }
   if (first === '--version' || first === '-v') {
-    return { ...emptyParsed('root'), showVersion: true };
+    return { ...emptyParsed('root'), showVersion: true }
   }
 
   if (first === 'server') {
-    const parsed = emptyParsed('server');
+    const parsed = emptyParsed('server')
     for (let i = 0; i < rest.length; i += 1) {
-      const arg = rest[i]!;
-      if (arg === '--help' || arg === '-h') parsed.showHelp = true;
-      else if (arg === '--version' || arg === '-v') parsed.showVersion = true;
-      else if (arg === '--vertex') parsed.vertex = true;
-      else if (arg === '--quick' || arg === '--saved') parsed.serverQuick = true;
-      else if (arg === '--free-only') parsed.serverFreeOnly = true;
-      else if (arg === '--no-free-only') parsed.serverFreeOnly = false;
-      else if (arg === '--mask-gateway-ids') parsed.serverMaskGatewayIds = true;
-      else if (arg === '--no-mask-gateway-ids') parsed.serverMaskGatewayIds = false;
+      const arg = rest[i]!
+      if (arg === '--help' || arg === '-h') parsed.showHelp = true
+      else if (arg === '--version' || arg === '-v') parsed.showVersion = true
+      else if (arg === '--vertex') parsed.vertex = true
+      else if (arg === '--quick' || arg === '--saved') parsed.serverQuick = true
+      else if (arg === '--free-only') parsed.serverFreeOnly = true
+      else if (arg === '--no-free-only') parsed.serverFreeOnly = false
+      else if (arg === '--mask-gateway-ids') parsed.serverMaskGatewayIds = true
+      else if (arg === '--no-mask-gateway-ids') parsed.serverMaskGatewayIds = false
       else if (arg === '--listen' || arg.startsWith('--listen=')) {
-        const consumed = consumeServerOptionValue(arg, rest, i, '--listen', parsed);
-        if (!consumed) return parsed;
+        const consumed = consumeServerOptionValue(arg, rest, i, '--listen', parsed)
+        if (!consumed) return parsed
         if (consumed.value !== 'local' && consumed.value !== 'network') {
-          parsed.error = '--listen must be "local" or "network"';
-          return parsed;
+          parsed.error = '--listen must be "local" or "network"'
+          return parsed
         }
-        parsed.serverListenMode = consumed.value;
-        i = consumed.next;
-      }
-      else if (arg === '--providers' || arg.startsWith('--providers=')) {
-        const consumed = consumeServerOptionValue(arg, rest, i, '--providers', parsed);
-        if (!consumed) return parsed;
-        applyServerProvidersOption(consumed.value, parsed);
-        if (parsed.error) return parsed;
-        i = consumed.next;
-      }
-      else if (arg === '--password' || arg.startsWith('--password=')) {
-        const consumed = consumeServerOptionValue(arg, rest, i, '--password', parsed);
-        if (!consumed) return parsed;
-        parsed.serverPassword = consumed.value;
-        i = consumed.next;
-      }
-      else if (!parsed.error) parsed.error = `Unknown server option: ${arg}`;
+        parsed.serverListenMode = consumed.value
+        i = consumed.next
+      } else if (arg === '--providers' || arg.startsWith('--providers=')) {
+        const consumed = consumeServerOptionValue(arg, rest, i, '--providers', parsed)
+        if (!consumed) return parsed
+        applyServerProvidersOption(consumed.value, parsed)
+        if (parsed.error) return parsed
+        i = consumed.next
+      } else if (arg === '--password' || arg.startsWith('--password=')) {
+        const consumed = consumeServerOptionValue(arg, rest, i, '--password', parsed)
+        if (!consumed) return parsed
+        parsed.serverPassword = consumed.value
+        i = consumed.next
+      } else if (!parsed.error) parsed.error = `Unknown server option: ${arg}`
     }
-    return parsed;
+    return parsed
   }
 
   if (first === 'models' || first === 'favorites') {
-    const parsed = emptyParsed('models');
+    const parsed = emptyParsed('models')
     for (let i = 0; i < rest.length; i += 1) {
-      const arg = rest[i]!;
-      if (arg === '--help' || arg === '-h') parsed.showHelp = true;
-      else if (arg === '--version' || arg === '-v') parsed.showVersion = true;
-      else if (arg === '--agy') parsed.favoritesAgy = true;
-      else if (arg === '--force') parsed.force = true;
+      const arg = rest[i]!
+      if (arg === '--help' || arg === '-h') parsed.showHelp = true
+      else if (arg === '--version' || arg === '-v') parsed.showVersion = true
+      else if (arg === '--agy') parsed.favoritesAgy = true
+      else if (arg === '--force') parsed.force = true
       else if (arg === '--provider' || arg.startsWith('--provider=')) {
-        const value = arg.startsWith('--provider=')
-          ? arg.slice('--provider='.length)
-          : rest[i + 1];
+        const value = arg.startsWith('--provider=') ? arg.slice('--provider='.length) : rest[i + 1]
         if (!value || value.startsWith('-')) {
-          parsed.error = 'Missing value for --provider';
-          return parsed;
+          parsed.error = 'Missing value for --provider'
+          return parsed
         }
-        if (!arg.startsWith('--provider=')) i += 1;
-        parsed.validateProvider = value;
-      } else if (arg === 'validate') parsed.validateSubcommand = true;
-      else if (!parsed.error) parsed.error = `Unknown models option: ${arg}`;
+        if (!arg.startsWith('--provider=')) i += 1
+        parsed.validateProvider = value
+      } else if (arg === 'validate') parsed.validateSubcommand = true
+      else if (!parsed.error) parsed.error = `Unknown models option: ${arg}`
     }
-    return parsed;
+    return parsed
   }
 
   if (first === 'providers') {
-    const parsed = emptyParsed('providers');
-    parsed.claudeArgs = [];
+    const parsed = emptyParsed('providers')
+    parsed.claudeArgs = []
     for (const arg of rest) {
-      if (arg === '--trace') parsed.trace = true;
-      else if (arg === '--help' || arg === '-h') parsed.showHelp = true;
-      else if (arg === '--version' || arg === '-v') parsed.showVersion = true;
-      else parsed.claudeArgs.push(arg);
+      if (arg === '--trace') parsed.trace = true
+      else if (arg === '--help' || arg === '-h') parsed.showHelp = true
+      else if (arg === '--version' || arg === '-v') parsed.showVersion = true
+      else parsed.claudeArgs.push(arg)
     }
-    return parsed;
+    return parsed
   }
 
   if (first === 'ui') {
-    const parsed = emptyParsed('ui');
+    const parsed = emptyParsed('ui')
     for (const arg of rest) {
-      if (arg === '--trace') parsed.trace = true;
-      else if (arg === '--help' || arg === '-h') parsed.showHelp = true;
-      else if (arg === '--version' || arg === '-v') parsed.showVersion = true;
-      else if (!parsed.error) parsed.error = `Unknown ui option: ${arg}`;
+      if (arg === '--trace') parsed.trace = true
+      else if (arg === '--help' || arg === '-h') parsed.showHelp = true
+      else if (arg === '--version' || arg === '-v') parsed.showVersion = true
+      else if (!parsed.error) parsed.error = `Unknown ui option: ${arg}`
     }
-    return parsed;
+    return parsed
   }
 
   if (first === 'codex-app' || first === 'chatgpt') {
-    const parsed = emptyParsed('codex-app');
+    const parsed = emptyParsed('codex-app')
     for (let i = 0; i < rest.length; i += 1) {
-      const arg = rest[i]!;
-      if (arg === '--help' || arg === '-h') { parsed.showHelp = true; continue; }
-      if (arg === '--version' || arg === '-v') { parsed.showVersion = true; continue; }
-      if (arg === '--vertex') { parsed.vertex = true; continue; }
-      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
-      if (consumed !== null) {
-        if ('error' in consumed) return parsed;
-        i = consumed.next;
-        continue;
+      const arg = rest[i]!
+      if (arg === '--help' || arg === '-h') {
+        parsed.showHelp = true
+        continue
       }
-      parsed.claudeArgs.push(arg);
+      if (arg === '--version' || arg === '-v') {
+        parsed.showVersion = true
+        continue
+      }
+      if (arg === '--vertex') {
+        parsed.vertex = true
+        continue
+      }
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed)
+      if (consumed !== null) {
+        if ('error' in consumed) return parsed
+        i = consumed.next
+        continue
+      }
+      parsed.claudeArgs.push(arg)
     }
-    return parsed;
+    return parsed
   }
 
   if (first === 'claude-app') {
-    const parsed = emptyParsed('claude-app');
+    const parsed = emptyParsed('claude-app')
     for (let i = 0; i < rest.length; i += 1) {
-      const arg = rest[i]!;
-      if (arg === '--help' || arg === '-h') { parsed.showHelp = true; continue; }
-      if (arg === '--version' || arg === '-v') { parsed.showVersion = true; continue; }
-      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
-      if (consumed !== null) {
-        if ('error' in consumed) return parsed;
-        i = consumed.next;
-        continue;
+      const arg = rest[i]!
+      if (arg === '--help' || arg === '-h') {
+        parsed.showHelp = true
+        continue
       }
-      parsed.claudeArgs.push(arg);
+      if (arg === '--version' || arg === '-v') {
+        parsed.showVersion = true
+        continue
+      }
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed)
+      if (consumed !== null) {
+        if ('error' in consumed) return parsed
+        i = consumed.next
+        continue
+      }
+      parsed.claudeArgs.push(arg)
     }
-    return parsed;
+    return parsed
   }
 
   if (first === 'codex') {
-    const parsed = emptyParsed('codex');
+    const parsed = emptyParsed('codex')
     for (let i = 0; i < rest.length; i += 1) {
-      const arg = rest[i]!;
+      const arg = rest[i]!
       if (arg === '--trace') {
-        parsed.trace = true;
-        continue;
+        parsed.trace = true
+        continue
       }
       if (arg === '--vertex') {
-        parsed.vertex = true;
-        continue;
+        parsed.vertex = true
+        continue
       }
       if (arg === '--help' || arg === '-h') {
-        parsed.showHelp = true;
-        continue;
+        parsed.showHelp = true
+        continue
       }
       if (arg === '--version' || arg === '-v') {
-        parsed.showVersion = true;
-        continue;
+        parsed.showVersion = true
+        continue
       }
-      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed)
       if (consumed !== null) {
-        if ('error' in consumed) return parsed;
-        i = consumed.next;
-        continue;
+        if ('error' in consumed) return parsed
+        i = consumed.next
+        continue
       }
-      parsed.claudeArgs.push(arg);
+      parsed.claudeArgs.push(arg)
     }
-    return parsed;
+    return parsed
   }
 
   if (first === 'gemini') {
-    const parsed = emptyParsed('gemini');
+    const parsed = emptyParsed('gemini')
     for (let i = 0; i < rest.length; i += 1) {
-      const arg = rest[i]!;
+      const arg = rest[i]!
       if (arg === '--trace') {
-        parsed.trace = true;
-        continue;
+        parsed.trace = true
+        continue
       }
       if (arg === '--help' || arg === '-h') {
-        parsed.showHelp = true;
-        continue;
+        parsed.showHelp = true
+        continue
       }
       if (arg === '--version' || arg === '-v') {
-        parsed.showVersion = true;
-        continue;
+        parsed.showVersion = true
+        continue
       }
-      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed)
       if (consumed !== null) {
-        if ('error' in consumed) return parsed;
-        i = consumed.next;
-        continue;
+        if ('error' in consumed) return parsed
+        i = consumed.next
+        continue
       }
-      parsed.claudeArgs.push(arg);
+      parsed.claudeArgs.push(arg)
     }
-    return parsed;
+    return parsed
   }
 
   if (first === 'agy') {
-    const parsed = emptyParsed('agy');
+    const parsed = emptyParsed('agy')
     for (let i = 0; i < rest.length; i += 1) {
-      const arg = rest[i]!;
+      const arg = rest[i]!
       if (arg === '--') {
-        parsed.claudeArgs.push(...rest.slice(i + 1));
-        break;
+        parsed.claudeArgs.push(...rest.slice(i + 1))
+        break
       }
       if (arg === '--trace') {
-        parsed.trace = true;
-        continue;
+        parsed.trace = true
+        continue
       }
       if (arg === '--help' || arg === '-h') {
-        parsed.showHelp = true;
-        continue;
+        parsed.showHelp = true
+        continue
       }
       if (arg === '--version' || arg === '-v') {
-        parsed.showVersion = true;
-        continue;
+        parsed.showVersion = true
+        continue
       }
-      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed)
       if (consumed !== null) {
-        if ('error' in consumed) return parsed;
-        i = consumed.next;
-        continue;
+        if ('error' in consumed) return parsed
+        i = consumed.next
+        continue
       }
-      parsed.claudeArgs.push(arg);
+      parsed.claudeArgs.push(arg)
     }
-    return parsed;
+    return parsed
   }
 
   if (first === 'antigravity' || first === 'antigravity-ide') {
-    const parsed = emptyParsed(first);
+    const parsed = emptyParsed(first)
     for (let i = 0; i < rest.length; i += 1) {
-      const arg = rest[i]!;
+      const arg = rest[i]!
       if (arg === '--') {
-        parsed.claudeArgs.push(...rest.slice(i + 1));
-        break;
+        parsed.claudeArgs.push(...rest.slice(i + 1))
+        break
       }
       if (arg === '--trace') {
-        parsed.trace = true;
-        continue;
+        parsed.trace = true
+        continue
       }
       if (arg === '--help' || arg === '-h') {
-        parsed.showHelp = true;
-        continue;
+        parsed.showHelp = true
+        continue
       }
       if (arg === '--version' || arg === '-v') {
-        parsed.showVersion = true;
-        continue;
+        parsed.showVersion = true
+        continue
       }
-      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
+      const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed)
       if (consumed !== null) {
-        if ('error' in consumed) return parsed;
-        i = consumed.next;
-        continue;
+        if ('error' in consumed) return parsed
+        i = consumed.next
+        continue
       }
-      parsed.claudeArgs.push(arg);
+      parsed.claudeArgs.push(arg)
     }
-    return parsed;
+    return parsed
   }
 
   if (first === 'doctor') {
-    const parsed = emptyParsed('doctor');
+    const parsed = emptyParsed('doctor')
     for (const arg of rest) {
-      if (arg === '--help' || arg === '-h') parsed.showHelp = true;
-      else if (arg === '--version' || arg === '-v') parsed.showVersion = true;
-      else if (!parsed.error) parsed.error = `Unknown doctor option: ${arg}`;
+      if (arg === '--help' || arg === '-h') parsed.showHelp = true
+      else if (arg === '--version' || arg === '-v') parsed.showVersion = true
+      else if (!parsed.error) parsed.error = `Unknown doctor option: ${arg}`
     }
-    return parsed;
+    return parsed
   }
 
   if (first === 'completions') {
-    const parsed = emptyParsed('completions');
+    const parsed = emptyParsed('completions')
     for (let i = 0; i < rest.length; i += 1) {
-      const arg = rest[i]!;
-      if (arg === '--help' || arg === '-h') { parsed.showHelp = true; continue; }
-      if (arg === '--version' || arg === '-v') { parsed.showVersion = true; continue; }
+      const arg = rest[i]!
+      if (arg === '--help' || arg === '-h') {
+        parsed.showHelp = true
+        continue
+      }
+      if (arg === '--version' || arg === '-v') {
+        parsed.showVersion = true
+        continue
+      }
       if (arg.startsWith('--shell=')) {
-        parsed.completionsShell = arg.slice('--shell='.length);
-        continue;
+        parsed.completionsShell = arg.slice('--shell='.length)
+        continue
       }
       if (arg === '--shell') {
-        const value = rest[i + 1];
+        const value = rest[i + 1]
         if (!value || value.startsWith('-')) {
-          parsed.error = 'Missing value for --shell';
-          return parsed;
+          parsed.error = 'Missing value for --shell'
+          return parsed
         }
-        parsed.completionsShell = value;
-        i += 1;
-        continue;
+        parsed.completionsShell = value
+        i += 1
+        continue
       }
-      if (!parsed.error) parsed.error = `Unknown completions option: ${arg}`;
+      if (!parsed.error) parsed.error = `Unknown completions option: ${arg}`
     }
-    return parsed;
+    return parsed
   }
 
   if (first === 'update') {
-    const parsed = emptyParsed('update');
+    const parsed = emptyParsed('update')
     for (const arg of rest) {
-      if (arg === '--help' || arg === '-h') parsed.showHelp = true;
-      else if (arg === '--version' || arg === '-v') parsed.showVersion = true;
-      else if (arg === '--dry-run') parsed.dryRun = true;
-      else if (!parsed.error) parsed.error = `Unknown update option: ${arg}`;
+      if (arg === '--help' || arg === '-h') parsed.showHelp = true
+      else if (arg === '--version' || arg === '-v') parsed.showVersion = true
+      else if (arg === '--dry-run') parsed.dryRun = true
+      else if (!parsed.error) parsed.error = `Unknown update option: ${arg}`
     }
-    return parsed;
+    return parsed
   }
 
   if (first !== 'claude') {
     return {
       ...emptyParsed('root'),
       error: first.startsWith('-') ? `Unknown root option: ${first}` : `Unknown command: ${first}`,
-    };
+    }
   }
 
-  const parsed = emptyParsed('claude');
+  const parsed = emptyParsed('claude')
   for (let i = 0; i < rest.length; i += 1) {
-    const arg = rest[i]!;
+    const arg = rest[i]!
     if (arg === '--') {
-      parsed.claudeArgs.push(...rest.slice(i + 1));
-      break;
+      parsed.claudeArgs.push(...rest.slice(i + 1))
+      break
     }
 
-    const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed);
+    const consumed = tryConsumeGatewayLaunchFlag(arg, rest, i, parsed)
     if (consumed !== null) {
-      if ('error' in consumed) return parsed;
-      i = consumed.next;
-      continue;
+      if ('error' in consumed) return parsed
+      i = consumed.next
+      continue
     }
 
     if (!STARTER_CLAUDE_FLAGS.has(arg)) {
-      parsed.claudeArgs.push(arg);
-      continue;
+      parsed.claudeArgs.push(arg)
+      continue
     }
 
-    if (arg === '--dry-run') parsed.dryRun = true;
-    if (arg === '--setup') parsed.setup = true;
-    if (arg === '--trace') parsed.trace = true;
-    if (arg === '--help' || arg === '-h') parsed.showHelp = true;
-    if (arg === '--version' || arg === '-v') parsed.showVersion = true;
+    if (arg === '--dry-run') parsed.dryRun = true
+    if (arg === '--setup') parsed.setup = true
+    if (arg === '--trace') parsed.trace = true
+    if (arg === '--help' || arg === '-h') parsed.showHelp = true
+    if (arg === '--version' || arg === '-v') parsed.showVersion = true
   }
 
-  return parsed;
+  return parsed
 }
 
 export function printHelp(text: string): void {
-  console.log(`\n${text}\n`);
+  console.log(`\n${text}\n`)
 }
 
 // Help text functions - exported for use by command handlers
@@ -544,7 +582,7 @@ ${pc.bold('Examples:')}
   anygate server
   anygate claude -c
   anygate claude --resume abc-123
-  anygate claude -- --print "hello"`;
+  anygate claude -- --print "hello"`
 }
 
 export function claudeHelpText(): string {
@@ -591,7 +629,7 @@ ${pc.bold('Examples:')}
   anygate claude --provider groq --model llama-3.3-70b-versatile
   anygate claude --provider groq --model llama-3.3-70b-versatile -p "review this file"
   anygate claude -- --print "hello"
-  anygate claude -- --dangerously-skip-permissions`;
+  anygate claude -- --dangerously-skip-permissions`
 }
 
 export function serverHelpText(): string {
@@ -635,7 +673,7 @@ ${pc.bold('Vertex env:')}
 ${pc.bold('Endpoints:')}
   Anthropic-compatible:  ANTHROPIC_BASE_URL=http://127.0.0.1:17645/anthropic
   OpenAI-compatible:     OPENAI_BASE_URL=http://127.0.0.1:17645/openai/v1
-  API key: use anything locally; use the server password in network mode.`;
+  API key: use anything locally; use the server password in network mode.`
 }
 
 export function modelsHelpText(): string {
@@ -666,7 +704,7 @@ ${pc.bold('How it works:')}
 ${pc.bold('Examples:')}
   anygate favorites
   anygate favorites --agy
-  anygate claude    # switch menu active when favorites are set`;
+  anygate claude    # switch menu active when favorites are set`
 }
 
 export function antigravityCliHelpText(): string {
@@ -693,7 +731,7 @@ ${pc.bold('How it works:')}
 ${pc.bold('Examples:')}
   anygate agy
   anygate agy --provider zen --model deepseek-v4-flash-free
-  anygate agy -p "fix this bug"`;
+  anygate agy -p "fix this bug"`
 }
 
 export function antigravityIdeHelpText(): string {
@@ -722,7 +760,7 @@ ${pc.bold('Platform:')}
 
 ${pc.bold('Examples:')}
   anygate antigravity-ide
-  anygate antigravity-ide --provider zen --model deepseek-v4-flash-free`;
+  anygate antigravity-ide --provider zen --model deepseek-v4-flash-free`
 }
 
 export function antigravityAppHelpText(): string {
@@ -755,59 +793,59 @@ ${pc.bold('Platform:')}
 
 ${pc.bold('Examples:')}
   anygate antigravity
-  anygate antigravity --provider zen --model deepseek-v4-flash-free`;
+  anygate antigravity --provider zen --model deepseek-v4-flash-free`
 }
 
 export async function main(args: string[] = process.argv.slice(2)): Promise<number> {
-  const parsed = parseArgs(args);
+  const parsed = parseArgs(args)
 
   if (process.stdout.isTTY) {
-    printAsciiBanner();
+    printAsciiBanner()
   }
 
   // Always surface an update signal for lower-version users, regardless of TTY.
   // When output is piped/non-interactive we write to stderr so we don't corrupt
   // any machine-readable stdout the caller may be parsing.
-  const update = await checkForUpdates();
+  const update = await checkForUpdates()
   if (update.updateAvailable && update.latestVersion) {
-    const notice = `\n${formatUpdateNotification(update.currentVersion, update.latestVersion)}\n`;
-    if (process.stdout.isTTY) console.log(notice);
-    else console.error(notice);
+    const notice = `\n${formatUpdateNotification(update.currentVersion, update.latestVersion)}\n`
+    if (process.stdout.isTTY) console.log(notice)
+    else console.error(notice)
   }
 
   if (parsed.error) {
-    console.error(pc.red(`\nError: ${parsed.error}\n`));
-    printHelp(rootHelpText());
-    return 1;
+    console.error(pc.red(`\nError: ${parsed.error}\n`))
+    printHelp(rootHelpText())
+    return 1
   }
 
   if (!parsed.showVersion && !parsed.showAi) {
-    refreshModelsDevCacheAsync();
+    refreshModelsDevCacheAsync()
   }
 
   if (parsed.command === 'root') {
     if (parsed.showAi) {
       if (parsed.aiInstall) {
-        return printAiInstallResult(installAiDoc({ force: parsed.aiInstallForce }));
+        return printAiInstallResult(installAiDoc({ force: parsed.aiInstallForce }))
       }
-      console.log(generateAiDoc());
-      return 0;
+      console.log(generateAiDoc())
+      return 0
     }
     if (parsed.showVersion) {
-      console.log(VERSION);
-      return 0;
+      console.log(VERSION)
+      return 0
     }
     if (parsed.showHelp) {
-      printHelp(rootHelpText());
-      return 0;
+      printHelp(rootHelpText())
+      return 0
     }
     // Bare `anygate` — dispatch to root command handler (onboarding/main menu)
-    return dispatchCommand(parsed);
+    return dispatchCommand(parsed)
   }
 
   if (parsed.showVersion) {
-    console.log(VERSION);
-    return 0;
+    console.log(VERSION)
+    return 0
   }
 
   if (parsed.showHelp) {
@@ -822,41 +860,43 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
       'codex-app': codexAppHelpText,
       chatgpt: codexAppHelpText,
       'claude-app': claudeAppHelpText,
-    };
-    const helpFn = helpTexts[parsed.command];
-    if (helpFn) {
-      printHelp(helpFn());
-    } else if (parsed.command === 'codex') {
-      console.log(codexHelpText());
-    } else if (parsed.command === 'gemini') {
-      console.log(geminiHelpText());
-    } else {
-      printHelp(rootHelpText());
     }
-    return 0;
+    const helpFn = helpTexts[parsed.command]
+    if (helpFn) {
+      printHelp(helpFn())
+    } else if (parsed.command === 'codex') {
+      console.log(codexHelpText())
+    } else if (parsed.command === 'gemini') {
+      console.log(geminiHelpText())
+    } else {
+      printHelp(rootHelpText())
+    }
+    return 0
   }
 
   // Dispatch to command handlers
-  return dispatchCommand(parsed);
+  return dispatchCommand(parsed)
 }
 
 function isCliEntryPoint(): boolean {
-  if (!process.argv[1]) return false;
+  if (!process.argv[1]) return false
   try {
-    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]);
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])
   } catch {
-    return false;
+    return false
   }
 }
 
 if (isCliEntryPoint()) {
-  main().then((exitCode) => {
-    process.exit(exitCode);
-  }).catch((err: unknown) => {
-    if (err === Symbol.for('clack:cancel')) {
-      process.exit(0);
-    }
-    console.error(pc.red('\nUnexpected error:'), err);
-    process.exit(1);
-  });
+  main()
+    .then(exitCode => {
+      process.exit(exitCode)
+    })
+    .catch((err: unknown) => {
+      if (err === Symbol.for('clack:cancel')) {
+        process.exit(0)
+      }
+      console.error(pc.red('\nUnexpected error:'), err)
+      process.exit(1)
+    })
 }

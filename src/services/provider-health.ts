@@ -1,9 +1,13 @@
-import { isProviderHealthy, getProviderHealth, updateProviderHealth } from '../engine/routing/health.js';
+import {
+  isProviderHealthy,
+  getProviderHealth,
+  updateProviderHealth,
+} from '../engine/routing/health.js'
 
 export function checkProviderHealth(providerId: string) {
-  const status = getProviderHealth(providerId);
-  if (!status) return { healthy: true, status: 'unknown' };
-  return status;
+  const status = getProviderHealth(providerId)
+  if (!status) return { healthy: true, status: 'unknown' }
+  return status
 }
 
-export { isProviderHealthy, updateProviderHealth };
+export { isProviderHealthy, updateProviderHealth }

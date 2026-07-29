@@ -1,9 +1,9 @@
 // src/registry/import-opencode.ts — one-shot import from OpenCode serve API
 
-import { resolveProviderCredential, saveProviderCredential } from '../../config/env.js';
-import { fetchRawOpencodeProviders } from '../../providers/opencode-serve.js';
-import type { LocalProvider } from '../../types/index.js';
-import { localProviderToRegistry } from '../storage/convert.js';
+import { resolveProviderCredential, saveProviderCredential } from '../../config/env.js'
+import { fetchRawOpencodeProviders } from '../../providers/opencode-serve.js'
+import type { LocalProvider } from '../../types/index.js'
+import { localProviderToRegistry } from '../storage/convert.js'
 import {
   buildImportProviderList,
   isOAuthImportProvider,
@@ -11,16 +11,13 @@ import {
   type CredentialGapReason,
   oauthAuthRef,
   type OAuthImportContext,
-} from './import-build.js';
-import { loadRegistry, saveRegistry } from '../storage/io.js';
-import { upgradeLegacyCloudProviders } from '../upgrade.js';
-import { readOpencodeAuthFile, oauthCredentialToKeychainJson } from '../opencode-auth.js';
-import type { RegistryProvider } from '../types.js';
-import { isValidProviderId } from '../validation/validate.js';
-import {
-  type ImportKeySkipReason,
-  validateImportKey,
-} from '../validation/validate-import-key.js';
+} from './import-build.js'
+import { loadRegistry, saveRegistry } from '../storage/io.js'
+import { upgradeLegacyCloudProviders } from '../upgrade.js'
+import { readOpencodeAuthFile, oauthCredentialToKeychainJson } from '../opencode-auth.js'
+import type { RegistryProvider } from '../types.js'
+import { isValidProviderId } from '../validation/validate.js'
+import { type ImportKeySkipReason, validateImportKey } from '../validation/validate-import-key.js'
 
 export type ImportSkipReason =
   | 'invalid-id'
@@ -31,74 +28,74 @@ export type ImportSkipReason =
   | 'invalid-key'
   | 'placeholder-key'
   | 'credential-save-failed'
-  | CredentialGapReason;
+  | CredentialGapReason
 
 export interface ImportKeySkipped {
-  id: string;
-  name: string;
-  reason: ImportKeySkipReason;
-  detail?: string;
+  id: string
+  name: string
+  reason: ImportKeySkipReason
+  detail?: string
 }
 
 export interface ImportConflictContext {
-  existing: RegistryProvider;
-  incoming: RegistryProvider;
-  incomingProvider: LocalProvider;
-  existingKeyHint: string;
-  incomingKeyHint: string;
+  existing: RegistryProvider
+  incoming: RegistryProvider
+  incomingProvider: LocalProvider
+  existingKeyHint: string
+  incomingKeyHint: string
 }
 
-export type ImportConflictChoice = 'keep' | 'import' | 'skip';
+export type ImportConflictChoice = 'keep' | 'import' | 'skip'
 
 export interface ImportOpencodeResult {
-  imported: RegistryProvider[];
-  skipped: Array<{ id: string; name: string; reason: ImportSkipReason }>;
-  keysSkipped: ImportKeySkipped[];
-  keysSaved: number;
-  oauthImported: number;
-  authFileWarning?: string;
-  error?: string;
+  imported: RegistryProvider[]
+  skipped: Array<{ id: string; name: string; reason: ImportSkipReason }>
+  keysSkipped: ImportKeySkipped[]
+  keysSaved: number
+  oauthImported: number
+  authFileWarning?: string
+  error?: string
 }
 
 export interface ImportOpencodeOptions {
-  resolveConflict?: (ctx: ImportConflictContext) => Promise<ImportConflictChoice>;
+  resolveConflict?: (ctx: ImportConflictContext) => Promise<ImportConflictChoice>
 }
 
 async function saveProviderKey(provider: LocalProvider): Promise<boolean> {
-  if (!provider.apiKey?.trim()) return false;
-  return saveProviderCredential(`keyring:provider:${provider.id}`, provider.apiKey);
+  if (!provider.apiKey?.trim()) return false
+  return saveProviderCredential(`keyring:provider:${provider.id}`, provider.apiKey)
 }
 
 async function saveOAuthKey(providerId: string, oauth: OAuthImportContext): Promise<boolean> {
-  const cred = oauth.oauthByProviderId.get(providerId);
-  if (!cred) return false;
-  return saveProviderCredential(oauthAuthRef(providerId), oauthCredentialToKeychainJson(cred));
+  const cred = oauth.oauthByProviderId.get(providerId)
+  if (!cred) return false
+  return saveProviderCredential(oauthAuthRef(providerId), oauthCredentialToKeychainJson(cred))
 }
 
-function importValidationSkipReason(
-  reason: ImportKeySkipReason | undefined,
-): ImportSkipReason {
-  if (reason === 'untested-manual') return 'manual-only';
-  if (reason === 'placeholder-key') return 'placeholder-key';
-  if (reason === 'invalid-key') return 'invalid-key';
-  return 'no-api-key';
+function importValidationSkipReason(reason: ImportKeySkipReason | undefined): ImportSkipReason {
+  if (reason === 'untested-manual') return 'manual-only'
+  if (reason === 'placeholder-key') return 'placeholder-key'
+  if (reason === 'invalid-key') return 'invalid-key'
+  return 'no-api-key'
 }
 
 async function keyHint(
   providerId: string,
   authRef: string,
-  opts?: { fallbackKey?: string; oauth?: boolean },
+  opts?: { fallbackKey?: string; oauth?: boolean }
 ): Promise<string> {
-  if (opts?.oauth) return 'Signed in via OAuth (OpenCode)';
-  const fromStore = await resolveProviderCredential(providerId, authRef);
-  const key = fromStore ?? opts?.fallbackKey ?? '';
-  if (!key) return 'no key';
-  if (key.length <= 5) return '····' + key;
-  return '····' + key.slice(-5);
+  if (opts?.oauth) return 'Signed in via OAuth (OpenCode)'
+  const fromStore = await resolveProviderCredential(providerId, authRef)
+  const key = fromStore ?? opts?.fallbackKey ?? ''
+  if (!key) return 'no key'
+  if (key.length <= 5) return '····' + key
+  return '····' + key.slice(-5)
 }
 
-export async function importFromOpencode(options: ImportOpencodeOptions = {}): Promise<ImportOpencodeResult> {
-  const raw = await fetchRawOpencodeProviders();
+export async function importFromOpencode(
+  options: ImportOpencodeOptions = {}
+): Promise<ImportOpencodeResult> {
+  const raw = await fetchRawOpencodeProviders()
   if (raw === null) {
     return {
       imported: [],
@@ -107,117 +104,121 @@ export async function importFromOpencode(options: ImportOpencodeOptions = {}): P
       keysSaved: 0,
       oauthImported: 0,
       error: 'OpenCode CLI not found or failed to start. Install from https://opencode.ai',
-    };
+    }
   }
 
-  const authFile = readOpencodeAuthFile();
-  const authEntries = authFile?.entries ?? {};
-  const { providers: fetched, oauth } = buildImportProviderList(raw, authEntries);
+  const authFile = readOpencodeAuthFile()
+  const authEntries = authFile?.entries ?? {}
+  const { providers: fetched, oauth } = buildImportProviderList(raw, authEntries)
 
-  const registry = loadRegistry();
-  upgradeLegacyCloudProviders(registry);
-  const imported: RegistryProvider[] = [];
-  const skipped: ImportOpencodeResult['skipped'] = [];
-  const keysSkipped: ImportKeySkipped[] = [];
-  let keysSaved = 0;
-  let oauthImported = 0;
-  const importedIds = new Set<string>();
+  const registry = loadRegistry()
+  upgradeLegacyCloudProviders(registry)
+  const imported: RegistryProvider[] = []
+  const skipped: ImportOpencodeResult['skipped'] = []
+  const keysSkipped: ImportKeySkipped[] = []
+  let keysSaved = 0
+  let oauthImported = 0
+  const importedIds = new Set<string>()
 
   for (const lp of fetched) {
     if (!lp.models.length) {
-      skipped.push({ id: lp.id, name: lp.name, reason: 'no-models' });
-      continue;
+      skipped.push({ id: lp.id, name: lp.name, reason: 'no-models' })
+      continue
     }
 
-    const isOAuth = isOAuthImportProvider(lp.id, oauth);
-    const entry = localProviderToRegistry(lp, isOAuth
-      ? { authType: 'oauth', authRef: oauthAuthRef(lp.id) }
-      : undefined);
+    const isOAuth = isOAuthImportProvider(lp.id, oauth)
+    const entry = localProviderToRegistry(
+      lp,
+      isOAuth ? { authType: 'oauth', authRef: oauthAuthRef(lp.id) } : undefined
+    )
     if (!entry) {
       skipped.push({
         id: lp.id,
         name: lp.name,
         reason: isValidProviderId(lp.id) ? 'convert-failed' : 'invalid-id',
-      });
-      continue;
+      })
+      continue
     }
 
-    const keyCheck = await validateImportKey(lp, entry);
+    const keyCheck = await validateImportKey(lp, entry)
     if (!keyCheck.canImport) {
       skipped.push({
         id: lp.id,
         name: lp.name,
         reason: importValidationSkipReason(keyCheck.reason),
-      });
+      })
       if (keyCheck.detail) {
         keysSkipped.push({
           id: lp.id,
           name: lp.name,
           reason: keyCheck.reason ?? 'invalid-key',
           detail: keyCheck.detail,
-        });
+        })
       }
-      continue;
+      continue
     }
 
-    const existingIdx = registry.providers.findIndex(p => p.id === entry.id);
-    const existing = existingIdx >= 0 ? registry.providers[existingIdx]! : undefined;
+    const existingIdx = registry.providers.findIndex(p => p.id === entry.id)
+    const existing = existingIdx >= 0 ? registry.providers[existingIdx]! : undefined
 
     if (existing && options.resolveConflict) {
       const choice = await options.resolveConflict({
         existing,
         incoming: entry,
         incomingProvider: lp,
-        existingKeyHint: await keyHint(existing.id, existing.authRef, { oauth: existing.authType === 'oauth' }),
+        existingKeyHint: await keyHint(existing.id, existing.authRef, {
+          oauth: existing.authType === 'oauth',
+        }),
         incomingKeyHint: await keyHint(entry.id, entry.authRef, {
           fallbackKey: lp.apiKey,
           oauth: isOAuth,
         }),
-      });
+      })
 
       if (choice === 'skip') {
-        skipped.push({ id: lp.id, name: lp.name, reason: 'user-skipped' });
-        continue;
+        skipped.push({ id: lp.id, name: lp.name, reason: 'user-skipped' })
+        continue
       }
       if (choice === 'keep') {
-        skipped.push({ id: lp.id, name: lp.name, reason: 'conflict-kept' });
-        continue;
+        skipped.push({ id: lp.id, name: lp.name, reason: 'conflict-kept' })
+        continue
       }
     }
 
-    const saved = isOAuth
-      ? await saveOAuthKey(lp.id, oauth)
-      : await saveProviderKey(lp);
+    const saved = isOAuth ? await saveOAuthKey(lp.id, oauth) : await saveProviderKey(lp)
     if (!saved) {
-      skipped.push({ id: lp.id, name: lp.name, reason: 'credential-save-failed' });
-      continue;
+      skipped.push({ id: lp.id, name: lp.name, reason: 'credential-save-failed' })
+      continue
     }
 
     if (existingIdx >= 0) {
-      registry.providers[existingIdx] = { ...entry, addedAt: registry.providers[existingIdx]!.addedAt };
+      registry.providers[existingIdx] = {
+        ...entry,
+        addedAt: registry.providers[existingIdx]!.addedAt,
+      }
     } else {
-      registry.providers.push(entry);
+      registry.providers.push(entry)
     }
-    imported.push(entry);
-    importedIds.add(lp.id);
-    keysSaved += 1;
-    if (isOAuth) oauthImported += 1;
+    imported.push(entry)
+    importedIds.add(lp.id)
+    keysSaved += 1
+    if (isOAuth) oauthImported += 1
   }
 
-  const alreadyReportedIds = new Set(skipped.map(s => s.id));
-  const registryProviderIds = new Set(registry.providers.map(p => p.id));
+  const alreadyReportedIds = new Set(skipped.map(s => s.id))
+  const registryProviderIds = new Set(registry.providers.map(p => p.id))
   for (const provider of listCredentialSkippedProviders(
     raw,
     authEntries,
     importedIds,
     alreadyReportedIds,
-    registryProviderIds,
+    registryProviderIds
   )) {
-    skipped.push({ id: provider.id, name: provider.name, reason: provider.reason });
+    skipped.push({ id: provider.id, name: provider.name, reason: provider.reason })
   }
 
-  registry.importedAt = new Date().toISOString();
-  saveRegistry(registry);
+  registry.importedAt = new Date().toISOString()
+  saveRegistry(registry)
 
   return {
     imported,
@@ -226,5 +227,5 @@ export async function importFromOpencode(options: ImportOpencodeOptions = {}): P
     keysSaved,
     oauthImported,
     authFileWarning: authFile?.permissionWarning,
-  };
+  }
 }

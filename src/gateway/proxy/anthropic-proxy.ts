@@ -1,68 +1,82 @@
 // src/proxy.ts ΓÇö Local Anthropic-to-OpenAI translation proxy
 // Adapted from cucoleadan/opencode-cowork-proxy (MIT)
-import { createServer } from 'node:http';
-import type { ServerResponse } from 'node:http';
-import { appendFileSync, openSync, writeSync, closeSync } from 'node:fs';
-import { readBody, extractApiKey, sendJson } from '../../shared/http.js';
-import { formatAnthropicModelEntry, formatAnthropicModelList } from '../server/models.js';
-import { claudeCodeClientModelId, routeLookupIds, stripOneMContextSuffix } from '../../apps/shared/context-model-id.js';
-import { getProxyDebugLogPath, resetTraceLog } from '../../apps/shared/trace-log.js';
-import { redactTraceLine } from '../../shared/redact.js';
-import { fetchWithOAuthRetry, forwardAnthropicMessages } from '../../upstream-forward.js';
-import { UpstreamUnreachableError } from '../../shared/errors.js';
+import { createServer } from 'node:http'
+import type { ServerResponse } from 'node:http'
+import { appendFileSync, openSync, writeSync, closeSync } from 'node:fs'
+import { readBody, extractApiKey, sendJson } from '../../shared/http.js'
+import type { ModelFormat } from '../../types/model.ts'
+import { formatAnthropicModelEntry, formatAnthropicModelList } from '../server/models.js'
+import {
+  claudeCodeClientModelId,
+  routeLookupIds,
+  stripOneMContextSuffix,
+} from '../../apps/shared/context-model-id.js'
+import { getProxyDebugLogPath, resetTraceLog } from '../../apps/shared/trace-log.js'
+import { redactTraceLine } from '../../shared/redact.js'
+import { fetchWithOAuthRetry, forwardAnthropicMessages } from '../../upstream-forward.js'
+import { UpstreamUnreachableError } from '../../shared/errors.js'
 import {
   CLAUDE_CODE_CLI_VERSION,
   injectClaudeCodeBillingSystemLine,
   injectClaudeIdentity,
   selectBetaFlags,
-} from '../../auth/claude-identity.js';
-import { anthropicToCloudCode } from '../antigravity/anthropic-to-cloudcode.js';
-import { streamCloudCodeToAnthropic, collectCloudCodeToAnthropic } from '../antigravity/cloudcode-to-anthropic.js';
-import { createLanguageModel, isSdkUpgradedNpm, maxToolsForNpm } from '../providers/provider-factory.js';
-import { randomUUID } from 'node:crypto';
+} from '../../auth/claude-identity.js'
+import { anthropicToCloudCode } from '../antigravity/anthropic-to-cloudcode.js'
+import {
+  streamCloudCodeToAnthropic,
+  collectCloudCodeToAnthropic,
+} from '../antigravity/cloudcode-to-anthropic.js'
+import {
+  createLanguageModel,
+  isSdkUpgradedNpm,
+  maxToolsForNpm,
+} from '../providers/provider-factory.js'
+import { randomUUID } from 'node:crypto'
 import {
   translateRequest as sdkTranslateRequest,
   streamAnthropicResponse,
   generateAnthropicResponse,
   silenceSdkWarnings,
   resolveContextWindowFromModel,
-} from '../adapters/sdk-adapter.js';
-import { anthropicErrorType, upstreamHttpStatus } from '../../shared/errors.js';
-import { recordUsage } from '../../storage/analytics.js';
+} from '../adapters/sdk-adapter.js'
+import { anthropicErrorType, upstreamHttpStatus } from '../../shared/errors.js'
+import { recordUsage } from '../../storage/analytics.js'
 
-type ProxyLog = (message: string | (() => string)) => void;
+type ProxyLog = (message: string | (() => string)) => void
 
 function appendSecureLog(logPath: string, line: string): void {
-  const redacted = redactTraceLine(line);
+  const redacted = redactTraceLine(line)
   try {
-    const fd = openSync(logPath, 'a', 0o600);
+    const fd = openSync(logPath, 'a', 0o600)
     try {
-      writeSync(fd, `${new Date().toISOString()} ${redacted}\n`);
+      writeSync(fd, `${new Date().toISOString()} ${redacted}\n`)
     } finally {
-      closeSync(fd);
+      closeSync(fd)
     }
   } catch {
     try {
-      appendFileSync(logPath, `${new Date().toISOString()} ${redacted}\n`);
-    } catch { /* ignore */ }
+      appendFileSync(logPath, `${new Date().toISOString()} ${redacted}\n`)
+    } catch {
+      /* ignore */
+    }
   }
 }
 
 function makeProxyLog(debug: boolean, logPath?: string): ProxyLog {
-  if (!debug) return () => {};
-  const path = logPath ?? getProxyDebugLogPath();
-  resetTraceLog(path);
-  return (message) => {
-    const line = typeof message === 'function' ? message() : message;
-    appendSecureLog(path, line);
-  };
+  if (!debug) return () => {}
+  const path = logPath ?? getProxyDebugLogPath()
+  resetTraceLog(path)
+  return message => {
+    const line = typeof message === 'function' ? message() : message
+    appendSecureLog(path, line)
+  }
 }
 
 // Always-on quiet error logger: writes model-resolution / access failures to the
 // proxy debug log without ever printing to the terminal.
-const quietErrorLogPath = getProxyDebugLogPath();
+const quietErrorLogPath = getProxyDebugLogPath()
 function quietErrorLog(line: string): void {
-  appendSecureLog(quietErrorLogPath, `[quiet-error] ${line}`);
+  appendSecureLog(quietErrorLogPath, `[quiet-error] ${line}`)
 }
 
 // ΓöÇΓöÇ HTTP server ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
@@ -71,13 +85,13 @@ function anthropicError(res: ServerResponse, status: number, message: string) {
   sendJson(res, status, {
     type: 'error',
     error: { type: anthropicErrorType(status), message },
-  });
+  })
 }
 
 export interface ProxyHandle {
-  port: number;
-  token: string;
-  close: () => void;
+  port: number
+  token: string
+  close: () => void
 }
 
 /**
@@ -89,34 +103,34 @@ export interface ProxyHandle {
  * anonymous free providers; passthrough and Cloud Code routes still require it.
  */
 export interface ProxyRoute {
-  aliasId: string;
-  realModelId: string;
-  displayName: string;
-  upstreamUrl: string;
-  apiKey: string;
-  modelFormat: 'anthropic' | 'openai' | 'cloud-code';
-  contextWindow?: number;
-  npm?: string;      // OpenCode api.npm ΓÇö when SDK-upgraded, routes via the adapter
-  baseURL?: string;  // base URL for openai-compatible / openrouter SDK providers
-  providerId?: string;
-  authType?: 'api' | 'oauth' | 'none';
-  oauthAccountId?: string;
-  providerData?: Record<string, unknown>;
+  aliasId: string
+  realModelId: string
+  displayName: string
+  upstreamUrl: string
+  apiKey: string
+  modelFormat: ModelFormat
+  contextWindow?: number
+  npm?: string // OpenCode api.npm ΓÇö when SDK-upgraded, routes via the adapter
+  baseURL?: string // base URL for openai-compatible / openrouter SDK providers
+  providerId?: string
+  authType?: 'api' | 'oauth' | 'none'
+  oauthAccountId?: string
+  providerData?: Record<string, unknown>
   /** Called once on upstream HTTP 401 to get a refreshed OAuth token. Retry happens only if token differs from current apiKey. */
-  refreshToken?: () => Promise<string | null>;
-  supportedParameters?: string[];
-  reasoning?: boolean;
-  interleavedReasoningField?: string;
+  refreshToken?: () => Promise<string | null>
+  supportedParameters?: string[]
+  reasoning?: boolean
+  interleavedReasoningField?: string
   /** Backend capability: model requires the Responses-Lite request shape (x-openai-internal-codex-responses-lite). */
-  useResponsesLite?: boolean;
+  useResponsesLite?: boolean
   /** Backend capability: model must use the WebSocket Responses transport instead of HTTP. */
-  preferWebSockets?: boolean;
+  preferWebSockets?: boolean
   /** Backend capability: input types supported by the model (e.g. text, image). Advertised to agents for multimodal support. */
-  inputTypes?: string[];
+  inputTypes?: string[]
   /** Static headers sent on every upstream request (e.g. a plan/auth-tracking header a custom endpoint requires). */
-  headers?: Record<string, string>;
+  headers?: Record<string, string>
   /** App label for analytics (Claude | Codex | Antigravity | gateway). Defaults to 'gateway' when unset. */
-  app?: string;
+  app?: string
 }
 
 /**
@@ -126,10 +140,13 @@ export interface ProxyRoute {
  * Uses stable provider id (slug), not display name — renaming a provider does not break aliases.
  */
 export function aliasModelId(realId: string, providerId: string): string {
-  if (realId.startsWith('claude-')) return realId;
-  const sanitized = providerId.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  const safeRealId = realId.replace(/[\/\s:()]+/g, '-');
-  return `anthropic-${sanitized}__${safeRealId}`;
+  if (realId.startsWith('claude-')) return realId
+  const sanitized = providerId
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  const safeRealId = realId.replace(/[\/\s:()]+/g, '-')
+  return `anthropic-${sanitized}__${safeRealId}`
 }
 
 /**
@@ -138,171 +155,215 @@ export function aliasModelId(realId: string, providerId: string): string {
  * - Option C: fuzzy remap, so unknown subagent models (e.g. claude-opus-4-8) are
  *   transparently routed to the active favorite and catalog validation never 404s.
  */
-function resolveRoute(byAlias: Map<string, ProxyRoute>, id: string, defaultRoute: ProxyRoute, plog: ProxyLog): ProxyRoute {
-  const direct = lookupRoute(byAlias, id);
-  if (direct) return direct;
+function resolveRoute(
+  byAlias: Map<string, ProxyRoute>,
+  id: string,
+  defaultRoute: ProxyRoute,
+  plog: ProxyLog
+): ProxyRoute {
+  const direct = lookupRoute(byAlias, id)
+  if (direct) return direct
   // Option C: fuzzy remap — unknown model id (any prefix) remapped to default favorite.
-  quietErrorLog(`resolveRoute: model '${id}' not in catalog, remapping to default route '${defaultRoute.aliasId}'`);
-  plog(() => `resolveRoute: model '${id}' not in catalog, remapping to default route '${defaultRoute.aliasId}'`);
-  return defaultRoute;
+  quietErrorLog(
+    `resolveRoute: model '${id}' not in catalog, remapping to default route '${defaultRoute.aliasId}'`
+  )
+  plog(
+    () =>
+      `resolveRoute: model '${id}' not in catalog, remapping to default route '${defaultRoute.aliasId}'`
+  )
+  return defaultRoute
 }
 
 /** Resolve catalog alias when Claude Code or legacy registry ids differ by prefix/suffix. */
 function lookupRoute(byAlias: Map<string, ProxyRoute>, id: string): ProxyRoute | undefined {
   for (const key of routeLookupIds(id)) {
-    const route = byAlias.get(key);
-    if (route) return route;
+    const route = byAlias.get(key)
+    if (route) return route
   }
-  return undefined;
+  return undefined
 }
 
 /** Multi-model proxy: routes each request by body.model to the correct upstream. */
 export function startProxyCatalog(
   routes: ProxyRoute[],
   defaultAliasId: string,
-  debug = false,
+  debug = false
 ): Promise<ProxyHandle> {
-  const proxyToken = randomUUID();
-  silenceSdkWarnings();
+  const proxyToken = randomUUID()
+  silenceSdkWarnings()
 
   if (routes.length === 0) {
-    return Promise.reject(new Error('Proxy catalog requires at least one route'));
+    return Promise.reject(new Error('Proxy catalog requires at least one route'))
   }
 
-  const byAlias = new Map(routes.map(r => [r.aliasId, r]));
-  const defaultRoute = byAlias.get(defaultAliasId) ?? routes[0]!;
+  const byAlias = new Map(routes.map(r => [r.aliasId, r]))
+  const defaultRoute = byAlias.get(defaultAliasId) ?? routes[0]!
 
-  const plog = makeProxyLog(debug);
+  const plog = makeProxyLog(debug)
 
   const onRejection = (reason: unknown) => {
-    plog(() => `Unhandled Rejection: ${reason instanceof Error ? reason.stack || reason.message : String(reason)}`);
-  };
+    plog(
+      () =>
+        `Unhandled Rejection: ${reason instanceof Error ? reason.stack || reason.message : String(reason)}`
+    )
+  }
   const onException = (error: Error) => {
-    plog(() => `Uncaught Exception: ${error.stack || error.message}`);
-  };
-  process.on('unhandledRejection', onRejection);
-  process.on('uncaughtException', onException);
+    plog(() => `Uncaught Exception: ${error.stack || error.message}`)
+  }
+  process.on('unhandledRejection', onRejection)
+  process.on('uncaughtException', onException)
 
   const modelsPayload = JSON.stringify(
     formatAnthropicModelList(
-      routes.map(r => ({ id: r.aliasId, name: r.displayName, contextWindow: r.contextWindow, inputTypes: r.inputTypes })),
-    ),
-  );
+      routes.map(r => ({
+        id: r.aliasId,
+        name: r.displayName,
+        contextWindow: r.contextWindow,
+        inputTypes: r.inputTypes,
+      }))
+    )
+  )
 
   const server = createServer(async (req, res) => {
-    plog(() => `${req.method} ${req.url}`);
+    plog(() => `${req.method} ${req.url}`)
 
     // HEAD / ΓÇö health check ping from Claude Code
     if (req.method === 'HEAD') {
-      res.writeHead(200);
-      res.end();
-      return;
+      res.writeHead(200)
+      res.end()
+      return
     }
 
     // GET /v1/models ΓÇö Claude Code validates the model on startup and populates /model picker
     if (req.method === 'GET' && req.url?.startsWith('/v1/models')) {
-      const modelPathMatch = req.url.match(/^\/v1\/models\/([^?]+)/);
+      const modelPathMatch = req.url.match(/^\/v1\/models\/([^?]+)/)
       if (modelPathMatch) {
-        const id = decodeURIComponent(modelPathMatch[1]);
-        const route = resolveRoute(byAlias, id, defaultRoute, plog);
+        const id = decodeURIComponent(modelPathMatch[1])
+        const route = resolveRoute(byAlias, id, defaultRoute, plog)
         if (route === defaultRoute && id !== defaultRoute.aliasId) {
-          quietErrorLog(`GET /v1/models/${id} - model not found, returning default route '${defaultRoute.aliasId}'`);
+          quietErrorLog(
+            `GET /v1/models/${id} - model not found, returning default route '${defaultRoute.aliasId}'`
+          )
         }
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(formatAnthropicModelEntry(route.aliasId, route.displayName, route.contextWindow, route.inputTypes)));
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(
+          JSON.stringify(
+            formatAnthropicModelEntry(
+              route.aliasId,
+              route.displayName,
+              route.contextWindow,
+              route.inputTypes
+            )
+          )
+        )
       } else {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(modelsPayload);
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(modelsPayload)
       }
-      return;
+      return
     }
 
     // POST /v1/messages ΓÇö the main translation path (Claude Code appends ?beta=true or similar)
     if (req.method === 'POST' && req.url?.startsWith('/v1/messages')) {
-      const inboundKey = extractApiKey(req);
+      const inboundKey = extractApiKey(req)
       if (inboundKey !== proxyToken) {
-        anthropicError(res, 401, 'Invalid proxy token');
-        return;
+        anthropicError(res, 401, 'Invalid proxy token')
+        return
       }
 
-      let anthropicBody: any;
+      let anthropicBody: any
       try {
-        const raw = await readBody(req);
-        anthropicBody = JSON.parse(raw);
+        const raw = await readBody(req)
+        anthropicBody = JSON.parse(raw)
       } catch {
-        anthropicError(res, 400, 'Invalid JSON body');
-        return;
+        anthropicError(res, 400, 'Invalid JSON body')
+        return
       }
 
-      const originalModel = anthropicBody.model;
-      const clientWantsStream = Boolean(anthropicBody.stream);
+      const originalModel = anthropicBody.model
+      const clientWantsStream = Boolean(anthropicBody.stream)
 
       // Per-request route resolution: look up the alias, fall back to default (Option A + C)
-      const route = resolveRoute(byAlias, originalModel, defaultRoute, plog);
+      const route = resolveRoute(byAlias, originalModel, defaultRoute, plog)
       if (route === defaultRoute && originalModel !== defaultRoute.aliasId) {
-        quietErrorLog(`POST /v1/messages - model alias '${originalModel}' not found, falling back to default route '${defaultRoute.aliasId}'`);
+        quietErrorLog(
+          `POST /v1/messages - model alias '${originalModel}' not found, falling back to default route '${defaultRoute.aliasId}'`
+        )
       }
-      const apiKey = route.apiKey;
-      const upstreamUrl = route.upstreamUrl;
+      const apiKey = route.apiKey
+      const upstreamUrl = route.upstreamUrl
 
-      plog(() =>
-        `POST /v1/messages - alias=${originalModel} route=${route.realModelId} format=${route.modelFormat} key=${apiKey ? `len:${apiKey.length}` : 'MISSING'}`,
-      );
+      plog(
+        () =>
+          `POST /v1/messages - alias=${originalModel} route=${route.realModelId} format=${route.modelFormat} key=${apiKey ? `len:${apiKey.length}` : 'MISSING'}`
+      )
 
-      const usesSdkAdapter = isSdkUpgradedNpm(route.npm);
+      const usesSdkAdapter = isSdkUpgradedNpm(route.npm)
       if (!apiKey && !usesSdkAdapter) {
-        anthropicError(res, 401, 'Missing API key');
-        return;
+        anthropicError(res, 401, 'Missing API key')
+        return
       }
 
       // ΓöÇΓöÇ Anthropic passthrough ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
       // Forward raw Anthropic body (with real model id) directly to the upstream.
       // No translation needed ΓÇö the upstream speaks Anthropic natively.
       if (route.modelFormat === 'anthropic') {
-        const betaHeaderRaw = req.headers['anthropic-beta'];
-        const inboundBeta = Array.isArray(betaHeaderRaw) ? betaHeaderRaw.join(',') : betaHeaderRaw;
-        const forwardBody = { ...anthropicBody, model: route.realModelId };
-        const targetUrl = `${upstreamUrl}/v1/messages`;
-        const isOAuth = route.authType === 'oauth';
+        const betaHeaderRaw = req.headers['anthropic-beta']
+        const inboundBeta = Array.isArray(betaHeaderRaw) ? betaHeaderRaw.join(',') : betaHeaderRaw
+        const forwardBody = { ...anthropicBody, model: route.realModelId }
+        const targetUrl = `${upstreamUrl}/v1/messages`
+        const isOAuth = route.authType === 'oauth'
 
-        let effectiveBeta = inboundBeta;
-        let claudeCodeSessionId: string | undefined;
+        let effectiveBeta = inboundBeta
+        let claudeCodeSessionId: string | undefined
         if (isOAuth) {
           // Identity injection and beta selection for Claude Code OAuth.
-          const seed = route.providerId ?? route.realModelId;
-          const identity = injectClaudeIdentity(forwardBody, route.providerData, seed);
-          if (route.providerId === 'claude-code') injectClaudeCodeBillingSystemLine(forwardBody);
-          claudeCodeSessionId = identity.sessionId;
-          effectiveBeta = selectBetaFlags(forwardBody, route.realModelId, inboundBeta);
-          plog(() => `anthropic-oauth: model=${route.realModelId}, beta=${effectiveBeta}`);
-          plog(() => `anthropic-oauth headers: user-agent=claude-cli/${CLAUDE_CODE_CLI_VERSION} x-app=cli session-header=${claudeCodeSessionId ? 'set' : 'missing'}`);
+          const seed = route.providerId ?? route.realModelId
+          const identity = injectClaudeIdentity(forwardBody, route.providerData, seed)
+          if (route.providerId === 'claude-code') injectClaudeCodeBillingSystemLine(forwardBody)
+          claudeCodeSessionId = identity.sessionId
+          effectiveBeta = selectBetaFlags(forwardBody, route.realModelId, inboundBeta)
+          plog(() => `anthropic-oauth: model=${route.realModelId}, beta=${effectiveBeta}`)
+          plog(
+            () =>
+              `anthropic-oauth headers: user-agent=claude-cli/${CLAUDE_CODE_CLI_VERSION} x-app=cli session-header=${claudeCodeSessionId ? 'set' : 'missing'}`
+          )
         } else {
-          plog(() => `anthropic-passthrough: model=${route.realModelId}, stream=${clientWantsStream}`);
+          plog(
+            () => `anthropic-passthrough: model=${route.realModelId}, stream=${clientWantsStream}`
+          )
         }
 
         try {
           await forwardAnthropicMessages(
-            res, targetUrl, forwardBody, apiKey, clientWantsStream, effectiveBeta,
+            res,
+            targetUrl,
+            forwardBody,
+            apiKey,
+            clientWantsStream,
+            effectiveBeta,
             isOAuth ? 'oauth' : 'api',
             message => plog(message),
             claudeCodeSessionId,
             route.headers,
             route.refreshToken,
-            refreshed => { route.apiKey = refreshed; },
-          );
+            refreshed => {
+              route.apiKey = refreshed
+            }
+          )
         } catch (err) {
-          const message = err instanceof UpstreamUnreachableError ? err.message : String(err);
-          plog(() => `anthropic-passthrough error: ${message}`);
-          anthropicError(res, 502, message);
+          const message = err instanceof UpstreamUnreachableError ? err.message : String(err)
+          plog(() => `anthropic-passthrough error: ${message}`)
+          anthropicError(res, 502, message)
         }
-        return;
+        return
       }
 
       // ΓöÇΓöÇ SDK-backed providers (Vercel AI SDK) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
       // OpenCode-assigned npm packages route through the SDK, which owns wire
       // format, endpoint selection, and provider quirks.
       if (usesSdkAdapter) {
-        const openAiOAuth = route.npm === '@ai-sdk/openai' && route.authType === 'oauth';
+        const openAiOAuth = route.npm === '@ai-sdk/openai' && route.authType === 'oauth'
         const params = sdkTranslateRequest(anthropicBody, route.npm!, {
           openAiOAuth,
           maxTools: maxToolsForNpm(route.npm),
@@ -314,14 +375,16 @@ export function startProxyCatalog(
             interleavedReasoningField: route.interleavedReasoningField,
             upstreamModelId: route.realModelId,
           },
-          contextWindow: (route.contextWindow && route.contextWindow > 0)
-            ? route.contextWindow
-            : resolveContextWindowFromModel(route.realModelId),
-        });
-        plog(() =>
-          `sdk: npm=${route.npm} model=${route.realModelId}, stream=${clientWantsStream}, ` +
-          `tools=${anthropicBody.tools?.length ?? 0}, msgs=${params.messages.length}`,
-        );
+          contextWindow:
+            route.contextWindow && route.contextWindow > 0
+              ? route.contextWindow
+              : resolveContextWindowFromModel(route.realModelId),
+        })
+        plog(
+          () =>
+            `sdk: npm=${route.npm} model=${route.realModelId}, stream=${clientWantsStream}, ` +
+            `tools=${anthropicBody.tools?.length ?? 0}, msgs=${params.messages.length}`
+        )
         try {
           const model = await createLanguageModel({
             npm: route.npm!,
@@ -336,14 +399,20 @@ export function startProxyCatalog(
             useResponsesLite: route.useResponsesLite,
             preferWebSockets: route.preferWebSockets,
             onDebug: (msg: string) => plog(() => msg),
-          });
+          })
           if (clientWantsStream) {
             res.writeHead(200, {
               'Content-Type': 'text/event-stream',
               'Cache-Control': 'no-cache',
-              'Connection': 'keep-alive',
-            });
-            const usage = await streamAnthropicResponse(model, params, originalModel, (c) => res.write(c), plog);
+              Connection: 'keep-alive',
+            })
+            const usage = await streamAnthropicResponse(
+              model,
+              params,
+              originalModel,
+              c => res.write(c),
+              plog
+            )
             recordUsage({
               ts: new Date().toISOString(),
               modelId: route.realModelId,
@@ -352,16 +421,19 @@ export function startProxyCatalog(
               app: route.app ?? 'gateway',
               inputTokens: usage.inputTokens,
               outputTokens: usage.outputTokens,
-            });
-            res.end();
+            })
+            res.end()
           } else {
             // ChatGPT's Codex backend (OpenAI OAuth) rejects non-streaming requests
             // outright ("Stream must be set to true"), so always stream internally
             // for it and collect the result, regardless of what the client asked for.
-            const anthropicResponse = await generateAnthropicResponse(
-              model, params, originalModel, { forceStream: openAiOAuth },
-            ) as Record<string, any>;
-            const u = anthropicResponse._usage;
+            const anthropicResponse = (await generateAnthropicResponse(
+              model,
+              params,
+              originalModel,
+              { forceStream: openAiOAuth }
+            )) as Record<string, any>
+            const u = anthropicResponse._usage
             recordUsage({
               ts: new Date().toISOString(),
               modelId: route.realModelId,
@@ -370,47 +442,69 @@ export function startProxyCatalog(
               app: route.app ?? 'gateway',
               inputTokens: u?.inputTokens ?? 0,
               outputTokens: u?.outputTokens ?? 0,
-            });
-            sendJson(res, 200, anthropicResponse);
+            })
+            sendJson(res, 200, anthropicResponse)
           }
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          const body = err && typeof err === 'object' && 'responseBody' in err
-            ? (err as { responseBody?: string }).responseBody
-            : undefined;
-          plog(() => `sdk error: ${message}${body ? ` ΓÇö body: ${body}` : ''}`);
+          const message = err instanceof Error ? err.message : String(err)
+          const body =
+            err && typeof err === 'object' && 'responseBody' in err
+              ? (err as { responseBody?: string }).responseBody
+              : undefined
+          plog(() => `sdk error: ${message}${body ? ` ΓÇö body: ${body}` : ''}`)
           if (!res.headersSent) {
-            const status = upstreamHttpStatus(err);
-            anthropicError(res, status === 500 ? 502 : status, message);
+            const status = upstreamHttpStatus(err)
+            anthropicError(res, status === 500 ? 502 : status, message)
           } else {
-            const errorType = anthropicErrorType(upstreamHttpStatus(err));
-            res.write(`event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: errorType, message } })}\n\n`);
-            res.end();
+            const errorType = anthropicErrorType(upstreamHttpStatus(err))
+            res.write(
+              `event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: errorType, message } })}\n\n`
+            )
+            res.end()
           }
         }
-        return;
+        return
       }
 
       // ΓöÇΓöÇ Cloud Code Assist (Antigravity OAuth) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
       if (route.modelFormat === 'cloud-code') {
-        const projectId = (route.providerData?.projectId as string | undefined) ?? '';
+        const projectId = (route.providerData?.projectId as string | undefined) ?? ''
         if (!projectId) {
-          anthropicError(res, 500, 'Antigravity provider missing projectId ΓÇö re-authenticate with anygate providers auth antigravity');
-          return;
+          anthropicError(
+            res,
+            500,
+            'Antigravity provider missing projectId ΓÇö re-authenticate with anygate providers auth antigravity'
+          )
+          return
         }
-        const envelope = anthropicToCloudCode(anthropicBody, route.realModelId, projectId);
-        const cloudContents = (envelope.request.contents as Array<{ role?: string; parts?: unknown[] }> | undefined) ?? [];
-        const cloudToolResults = cloudContents.reduce((count, msg) => (
-          count + ((msg.parts ?? []) as Array<Record<string, unknown>>).filter(p => p.functionResponse).length
-        ), 0);
-        const cloudToolCalls = cloudContents.reduce((count, msg) => (
-          count + ((msg.parts ?? []) as Array<Record<string, unknown>>).filter(p => p.functionCall).length
-        ), 0);
-        const cloudTools = (envelope.request.tools as unknown[] | undefined)?.length ?? 0;
-        const cloudMaxOutput = (envelope.request.generationConfig as Record<string, unknown> | undefined)?.maxOutputTokens;
-        const baseUrl = upstreamUrl.replace(/\/+$/, '');
-        const cloudCodeUrl = `${baseUrl}/v1internal:streamGenerateContent?alt=sse`;
-        plog(() => `cloud-code: model=${route.realModelId}, project=${projectId.slice(0, 8)}ΓÇª msgs=${cloudContents.length} toolCalls=${cloudToolCalls} toolResults=${cloudToolResults} tools=${cloudTools} maxOutput=${cloudMaxOutput ?? 'unset'} stream=${clientWantsStream}`);
+        const envelope = anthropicToCloudCode(anthropicBody, route.realModelId, projectId)
+        const cloudContents =
+          (envelope.request.contents as Array<{ role?: string; parts?: unknown[] }> | undefined) ??
+          []
+        const cloudToolResults = cloudContents.reduce(
+          (count, msg) =>
+            count +
+            ((msg.parts ?? []) as Array<Record<string, unknown>>).filter(p => p.functionResponse)
+              .length,
+          0
+        )
+        const cloudToolCalls = cloudContents.reduce(
+          (count, msg) =>
+            count +
+            ((msg.parts ?? []) as Array<Record<string, unknown>>).filter(p => p.functionCall)
+              .length,
+          0
+        )
+        const cloudTools = (envelope.request.tools as unknown[] | undefined)?.length ?? 0
+        const cloudMaxOutput = (
+          envelope.request.generationConfig as Record<string, unknown> | undefined
+        )?.maxOutputTokens
+        const baseUrl = upstreamUrl.replace(/\/+$/, '')
+        const cloudCodeUrl = `${baseUrl}/v1internal:streamGenerateContent?alt=sse`
+        plog(
+          () =>
+            `cloud-code: model=${route.realModelId}, project=${projectId.slice(0, 8)}ΓÇª msgs=${cloudContents.length} toolCalls=${cloudToolCalls} toolResults=${cloudToolResults} tools=${cloudTools} maxOutput=${cloudMaxOutput ?? 'unset'} stream=${clientWantsStream}`
+        )
         const fetchCloudCode = (token: string) =>
           fetch(cloudCodeUrl, {
             method: 'POST',
@@ -420,26 +514,33 @@ export function startProxyCatalog(
               'User-Agent': 'vscode/1.X.X (Antigravity/4.2.0)',
             },
             body: JSON.stringify(envelope),
-          });
+          })
 
         try {
-          const retryResult = await fetchWithOAuthRetry(apiKey, fetchCloudCode, route.refreshToken);
-          const upstream = retryResult.response;
-          if (retryResult.refreshed) route.apiKey = retryResult.apiKey;
+          const retryResult = await fetchWithOAuthRetry(apiKey, fetchCloudCode, route.refreshToken)
+          const upstream = retryResult.response
+          if (retryResult.refreshed) route.apiKey = retryResult.apiKey
 
           if (!upstream.ok) {
-            const errBody = await upstream.text();
-            plog(() => `cloud-code error ${upstream.status}: ${errBody}`);
-            anthropicError(res, upstream.status >= 500 ? 502 : upstream.status, errBody);
-            return;
+            const errBody = await upstream.text()
+            plog(() => `cloud-code error ${upstream.status}: ${errBody}`)
+            anthropicError(res, upstream.status >= 500 ? 502 : upstream.status, errBody)
+            return
           }
-          let usage = { inputTokens: 0, outputTokens: 0 };
+          let usage = { inputTokens: 0, outputTokens: 0 }
           if (clientWantsStream) {
-            usage = await streamCloudCodeToAnthropic(res, upstream, route.realModelId, plog);
+            usage = await streamCloudCodeToAnthropic(res, upstream, route.realModelId, plog)
           } else {
-            const response = await collectCloudCodeToAnthropic(upstream, route.realModelId, plog) as Record<string, any>;
-            usage = { inputTokens: response.inputTokens ?? 0, outputTokens: response.outputTokens ?? 0 };
-            sendJson(res, 200, response);
+            const response = (await collectCloudCodeToAnthropic(
+              upstream,
+              route.realModelId,
+              plog
+            )) as Record<string, any>
+            usage = {
+              inputTokens: response.inputTokens ?? 0,
+              outputTokens: response.outputTokens ?? 0,
+            }
+            sendJson(res, 200, response)
           }
           // Antigravity's direct Gemini usage was previously never logged. Record it
           // here so the dashboard counts it (attributed to the Antigravity app).
@@ -450,45 +551,52 @@ export function startProxyCatalog(
             app: route.app ?? 'Antigravity',
             inputTokens: usage.inputTokens,
             outputTokens: usage.outputTokens,
-          });
+          })
         } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          plog(() => `cloud-code fetch error: ${message}`);
-          if (!res.headersSent) anthropicError(res, 502, message);
-          else res.end();
+          const message = err instanceof Error ? err.message : String(err)
+          plog(() => `cloud-code fetch error: ${message}`)
+          if (!res.headersSent) anthropicError(res, 502, message)
+          else res.end()
         }
-        return;
+        return
       }
 
       // Non-anthropic route without a registered SDK npm ΓÇö misconfigured route.
-      anthropicError(res, 500, `No SDK provider configured for model ${originalModel} (npm=${route.npm ?? 'none'})`);
-      return;
+      anthropicError(
+        res,
+        500,
+        `No SDK provider configured for model ${originalModel} (npm=${route.npm ?? 'none'})`
+      )
+      return
     }
 
     // Everything else ΓåÆ 404
-    anthropicError(res, 404, `Unknown endpoint: ${req.method} ${req.url}`);
-  });
+    anthropicError(res, 404, `Unknown endpoint: ${req.method} ${req.url}`)
+  })
 
   return new Promise((resolve, reject) => {
-    server.on('error', reject);
+    server.on('error', reject)
     server.listen(0, '127.0.0.1', () => {
-      const addr = server.address();
+      const addr = server.address()
       if (!addr || typeof addr === 'string') {
-        reject(new Error('Failed to bind proxy'));
-        return;
+        reject(new Error('Failed to bind proxy'))
+        return
       }
-      plog(() => `started on port ${addr.port}, catalog=${routes.length} model(s), default=${defaultRoute.aliasId}`);
+      plog(
+        () =>
+          `started on port ${addr.port}, catalog=${routes.length} model(s), default=${defaultRoute.aliasId}`
+      )
       resolve({
         port: addr.port,
         token: proxyToken,
         close: () => {
-          process.off('unhandledRejection', onRejection);
-          process.off('uncaughtException', onException);
-          server.close();
+          process.off('unhandledRejection', onRejection)
+          process.off('uncaughtException', onException)
+          server.close()
         },
-      });
-    });
-  });
+      })
+    })
+  })
 }
 
 /** Single-model proxy ΓÇö backward-compatible wrapper around startProxyCatalog. */
@@ -498,50 +606,57 @@ export function startProxy(
   debug = false,
   contextWindow?: number,
   sdk?: {
-    npm?: string;
-    baseURL?: string;
-    upstreamModelId?: string;
-    providerId?: string;
-    authType?: 'api' | 'oauth' | 'none';
-    oauthAccountId?: string;
-    providerData?: Record<string, unknown>;
-    modelFormat?: 'anthropic' | 'openai' | 'cloud-code';
-    supportedParameters?: string[];
-    reasoning?: boolean;
-    interleavedReasoningField?: string;
-    useResponsesLite?: boolean;
-    preferWebSockets?: boolean;
+    npm?: string
+    baseURL?: string
+    upstreamModelId?: string
+    providerId?: string
+    authType?: 'api' | 'oauth' | 'none'
+    oauthAccountId?: string
+    providerData?: Record<string, unknown>
+    modelFormat?: ModelFormat
+    supportedParameters?: string[]
+    reasoning?: boolean
+    interleavedReasoningField?: string
+    useResponsesLite?: boolean
+    preferWebSockets?: boolean
     /** App label for analytics (Claude | Codex | Antigravity | gateway). */
-    app?: string;
+    app?: string
   },
-  apiKey?: string,
+  apiKey?: string
 ): Promise<ProxyHandle> {
-  const bareModelId = stripOneMContextSuffix(modelId);
-  const clientModelId = claudeCodeClientModelId(modelId, contextWindow);
+  const bareModelId = stripOneMContextSuffix(modelId)
+  const clientModelId = claudeCodeClientModelId(modelId, contextWindow)
   // Resolve the context window so the SDK adapter always has a concrete value
   // to fit against — never leave it undefined and risk an upstream 400.
-  const resolvedContextWindow = (contextWindow && contextWindow > 0)
-    ? contextWindow
-    : resolveContextWindowFromModel(sdk?.upstreamModelId ?? bareModelId);
-  return startProxyCatalog([{
-    aliasId: clientModelId,
-    realModelId: sdk?.upstreamModelId ?? bareModelId,
-    displayName: bareModelId,
-    upstreamUrl: completionsUrl,
-    apiKey: apiKey ?? '',
-    modelFormat: sdk?.modelFormat ?? 'openai',
-    contextWindow: resolvedContextWindow,
-    npm: sdk?.npm,
-    baseURL: sdk?.baseURL,
-    providerId: sdk?.providerId,
-    authType: sdk?.authType,
-    oauthAccountId: sdk?.oauthAccountId,
-    providerData: sdk?.providerData,
-    supportedParameters: sdk?.supportedParameters,
-    reasoning: sdk?.reasoning,
-    interleavedReasoningField: sdk?.interleavedReasoningField,
-    useResponsesLite: sdk?.useResponsesLite,
-    preferWebSockets: sdk?.preferWebSockets,
-    app: sdk?.app,
-  }], clientModelId, debug);
+  const resolvedContextWindow =
+    contextWindow && contextWindow > 0
+      ? contextWindow
+      : resolveContextWindowFromModel(sdk?.upstreamModelId ?? bareModelId)
+  return startProxyCatalog(
+    [
+      {
+        aliasId: clientModelId,
+        realModelId: sdk?.upstreamModelId ?? bareModelId,
+        displayName: bareModelId,
+        upstreamUrl: completionsUrl,
+        apiKey: apiKey ?? '',
+        modelFormat: sdk?.modelFormat ?? 'openai',
+        contextWindow: resolvedContextWindow,
+        npm: sdk?.npm,
+        baseURL: sdk?.baseURL,
+        providerId: sdk?.providerId,
+        authType: sdk?.authType,
+        oauthAccountId: sdk?.oauthAccountId,
+        providerData: sdk?.providerData,
+        supportedParameters: sdk?.supportedParameters,
+        reasoning: sdk?.reasoning,
+        interleavedReasoningField: sdk?.interleavedReasoningField,
+        useResponsesLite: sdk?.useResponsesLite,
+        preferWebSockets: sdk?.preferWebSockets,
+        app: sdk?.app,
+      },
+    ],
+    clientModelId,
+    debug
+  )
 }

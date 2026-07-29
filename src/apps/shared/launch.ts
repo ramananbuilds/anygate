@@ -1,12 +1,12 @@
 // src/launch.ts
-import { execSync, spawn } from 'node:child_process';
-import { existsSync, appendFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-import { getAppPathOverride } from '../../../src/storage/config.js';
-import { findBinaryOnPath } from '../shared/binary-lookup.js';
+import { execSync, spawn } from 'node:child_process'
+import { existsSync, appendFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+import { getAppPathOverride } from '../../../src/storage/config.js'
+import { findBinaryOnPath } from '../shared/binary-lookup.js'
 
-const isWindows = process.platform === 'win32';
+const isWindows = process.platform === 'win32'
 
 const FALLBACK_PATHS = isWindows
   ? [
@@ -19,95 +19,96 @@ const FALLBACK_PATHS = isWindows
       join(homedir(), '.npm', 'bin', 'claude'),
       '/usr/local/bin/claude',
       '/opt/homebrew/bin/claude',
-    ];
+    ]
 
 export function findClaudeBinary(): string | null {
-  const override = getAppPathOverride('claude');
-  if (override) return existsSync(override) ? override : null;
+  const override = getAppPathOverride('claude')
+  if (override) return existsSync(override) ? override : null
 
-  return findBinaryOnPath('claude', FALLBACK_PATHS);
+  return findBinaryOnPath('claude', FALLBACK_PATHS)
 }
 
 export function getInstalledClaudeVersion(): string {
   try {
-    const claudePath = findClaudeBinary();
-    if (!claudePath) return '2.1.183';
+    const claudePath = findClaudeBinary()
+    if (!claudePath) return '2.1.183'
     const result = execSync(`${isWindows ? `"${claudePath}"` : claudePath} --version`, {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    const match = result.match(/(\d+\.\d+\.\d+)/);
-    if (match) return match[1];
+    })
+    const match = result.match(/(\d+\.\d+\.\d+)/)
+    if (match) return match[1]
   } catch {
     // fallback
   }
-  return '2.1.183'; // default fallback version known to work
+  return '2.1.183' // default fallback version known to work
 }
 
 export function buildClaudeArgs(model: string, extraArgs: string[]): string[] {
-  return ['--model', model, ...extraArgs];
+  return ['--model', model, ...extraArgs]
 }
 
 export function launchClaude(
   env: NodeJS.ProcessEnv,
   model: string,
-  extraArgs: string[],
+  extraArgs: string[]
 ): Promise<number> {
-  return new Promise((resolve) => {
-    const claudePath = findClaudeBinary()!;
-    const args = buildClaudeArgs(model, extraArgs);
+  return new Promise(resolve => {
+    const claudePath = findClaudeBinary()!
+    const args = buildClaudeArgs(model, extraArgs)
 
-    const debugFileIdx = extraArgs.indexOf('--debug-file');
-    const debugLogPath = debugFileIdx !== -1 && extraArgs[debugFileIdx + 1] ? extraArgs[debugFileIdx + 1] : undefined;
+    const debugFileIdx = extraArgs.indexOf('--debug-file')
+    const debugLogPath =
+      debugFileIdx !== -1 && extraArgs[debugFileIdx + 1] ? extraArgs[debugFileIdx + 1] : undefined
 
-    const originalStdoutWrite = process.stdout.write;
-    const originalStderrWrite = process.stderr.write;
+    const originalStdoutWrite = process.stdout.write
+    const originalStderrWrite = process.stderr.write
 
     const muteWrite = (chunk: string | Uint8Array, encoding?: any, callback?: any) => {
       if (typeof encoding === 'function') {
-        callback = encoding;
+        callback = encoding
       }
       if (debugLogPath) {
         try {
-          const str = typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk);
-          appendFileSync(debugLogPath, `[parent] ${str}`);
+          const str = typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk)
+          appendFileSync(debugLogPath, `[parent] ${str}`)
         } catch {
           // ignore
         }
       }
-      if (callback) callback();
-      return true;
-    };
+      if (callback) callback()
+      return true
+    }
 
-    process.stdout.write = muteWrite as any;
-    process.stderr.write = muteWrite as any;
+    process.stdout.write = muteWrite as any
+    process.stderr.write = muteWrite as any
 
     const restore = () => {
-      process.stdout.write = originalStdoutWrite;
-      process.stderr.write = originalStderrWrite;
-    };
+      process.stdout.write = originalStdoutWrite
+      process.stderr.write = originalStderrWrite
+    }
 
     const child = spawn(claudePath, args, {
       stdio: 'inherit',
       env,
       shell: isWindows,
-    });
+    })
 
     const forward = (signal: NodeJS.Signals): void => {
-      child.kill(signal);
-    };
+      child.kill(signal)
+    }
 
-    process.once('SIGINT', () => forward('SIGINT'));
-    process.once('SIGTERM', () => forward('SIGTERM'));
+    process.once('SIGINT', () => forward('SIGINT'))
+    process.once('SIGTERM', () => forward('SIGTERM'))
 
-    child.on('exit', (code) => {
-      restore();
-      resolve(code ?? 0);
-    });
+    child.on('exit', code => {
+      restore()
+      resolve(code ?? 0)
+    })
 
-    child.on('error', (err) => {
-      restore();
-      resolve(1);
-    });
-  });
+    child.on('error', err => {
+      restore()
+      resolve(1)
+    })
+  })
 }

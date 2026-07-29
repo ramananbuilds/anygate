@@ -1,12 +1,12 @@
 // src/cli/doctor.ts — anygate doctor command
-import type { ParsedArgs } from '../types/index.js';
-import { runDoctorCommand } from '../apps/shared/doctor.js';
+import type { ParsedArgs } from '../types/index.js'
+import { runDoctorCommand } from '../apps/shared/doctor.js'
 
 export async function handleDoctorCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    const { VERSION } = await import('../config/constants.js');
-    console.log(VERSION);
-    return 0;
+    const { VERSION } = await import('../config/constants.js')
+    console.log(VERSION)
+    return 0
   }
   if (parsed.showHelp) {
     console.log(`
@@ -26,8 +26,8 @@ Checks:
   - API key configuration
   - Port availability
   - Environment variable conflicts
-`);
-    return 0;
+`)
+    return 0
   }
-  return runDoctorCommand(Boolean(parsed.dryRun));
+  return runDoctorCommand(Boolean(parsed.dryRun))
 }

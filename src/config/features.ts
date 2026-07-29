@@ -3,4 +3,4 @@ export const FEATURE_FLAGS = {
   enableCustomRegistryProviders: true,
   enableWebSearchTools: true,
   enableMultiRouteCatalog: true,
-};
+}

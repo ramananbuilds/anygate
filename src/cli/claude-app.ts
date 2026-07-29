@@ -1,12 +1,12 @@
 // src/cli/claude-app.ts — anygate claude-app command
-import type { ParsedArgs } from '../types/index.js';
-import { runClaudeAppCommand } from '../apps/claude/desktop.js';
+import type { ParsedArgs } from '../types/index.js'
+import { runClaudeAppCommand } from '../apps/claude/desktop.js'
 
 export async function handleClaudeAppCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    const { VERSION } = await import('../config/constants.js');
-    console.log(VERSION);
-    return 0;
+    const { VERSION } = await import('../config/constants.js')
+    console.log(VERSION)
+    return 0
   }
   if (parsed.showHelp) {
     console.log(`
@@ -24,11 +24,11 @@ Options:
   -v, --version      Show version
 
 This command launches the Claude Desktop app with anygate's provider registry.
-`);
-    return 0;
+`)
+    return 0
   }
   return runClaudeAppCommand(parsed.claudeArgs ?? [], {
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
-  });
+  })
 }
