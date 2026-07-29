@@ -41,6 +41,7 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "refresh:models-dev": "node scripts/refresh-models-dev-cache.mjs",
     "audit:context-windows": "tsx scripts/audit-context-windows.ts",

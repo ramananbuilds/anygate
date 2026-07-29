@@ -1,5 +1,6 @@
 import pc from 'picocolors'
 import { networkInterfaces } from 'node:os'
+import { logger } from '../../shared/logger.js'
 import * as p from '@clack/prompts'
 import { gateIntro } from '../../apps/shared/ui.js'
 import { resolveApiKey, readFromCredentialStore } from '../../config/env.js'
@@ -568,7 +569,9 @@ export async function runServerCommand(options: ServerCommandOptions = {}): Prom
     if (summary) p.log.info(summary)
   } catch (err) {
     spinner.stop(pc.red('Failed to load models'))
-    console.error(pc.red(String(err instanceof Error ? err.message : err)))
+    logger.error('Failed to load models', err instanceof Error ? err : undefined, {
+      err: String(err),
+    })
     return 1
   }
 

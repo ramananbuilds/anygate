@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { isAuthorized } from './auth.js'
 import { sendError, AnygateError } from '../../shared/errors.js'
+import { logger } from '../../shared/logger.js'
 import { checkRateLimit } from '../../shared/http.js'
 import { MAX_REQUEST_BODY_BYTES } from '../../config/constants.js'
 import {
@@ -194,7 +195,9 @@ async function routeRequest(
       sendError(res, err)
     } else {
       // Log the full error server-side, send generic message to client
-      console.error('Unhandled gateway error:', err)
+      logger.error('Unhandled gateway error', err instanceof Error ? err : undefined, {
+        err: String(err),
+      })
       sendJson(res, 500, { error: { message: 'Internal server error' } })
     }
   }
