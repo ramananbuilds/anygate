@@ -29,6 +29,7 @@ import { addProviderFromTemplate } from '../registry/templates/add-template.js';
 import { loadRegistry } from '../registry/storage/io.js';
 import { resolveProvidersForDisplay } from '../registry/provider-catalog.js';
 import { VERSION } from '../config/constants.js';
+import { dispatchCommand } from './index.js';
 import type { ParsedArgs } from '../types/index.js';
 
 /** Templates shown in the onboarding flow, in display order. */
@@ -383,27 +384,28 @@ async function runMainMenu(): Promise<number> {
   switch (choice) {
     case 'claude':
       gateOutro('Launching Claude Code...');
-      return 0; // The actual launch is handled by the claude command
+      return dispatchCommand({ command: 'claude', claudeArgs: [] });
     case 'codex':
       gateOutro('Launching Codex...');
-      return 0;
+      return dispatchCommand({ command: 'codex', claudeArgs: [] });
     case 'providers':
       gateOutro('Opening provider manager...');
-      return 0;
+      return dispatchCommand({ command: 'providers', claudeArgs: [] });
     case 'onboarding':
       return runOnboardingFlow();
     case 'doctor':
       gateOutro('Running diagnostics...');
-      return 0;
+      return dispatchCommand({ command: 'doctor', claudeArgs: [] });
     case 'server':
       gateOutro('Starting server...');
-      return 0;
+      return dispatchCommand({ command: 'server', claudeArgs: [] });
     case 'ui':
       gateOutro('Opening dashboard...');
-      return 0;
+      return dispatchCommand({ command: 'ui', claudeArgs: [] });
     case 'settings':
       gateOutro('Opening settings...');
-      return 0;
+      // No dedicated settings command — providers is the closest configuration entry point
+      return dispatchCommand({ command: 'providers', claudeArgs: [] });
     default:
       return 0;
   }
