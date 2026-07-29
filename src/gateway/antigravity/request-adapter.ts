@@ -1,62 +1,62 @@
-import { randomUUID } from 'node:crypto';
-import { tool, jsonSchema, type ModelMessage } from 'ai';
-import { serializeToolResultContent } from '../proxy/proxy-shared.js';
+import { randomUUID } from 'node:crypto'
+import { tool, jsonSchema, type JSONSchema7, type ModelMessage } from 'ai'
+import { serializeToolResultContent } from '../proxy/proxy-shared.js'
 
 export interface CloudCodePart {
-  text?: string;
-  thought?: boolean;
+  text?: string
+  thought?: boolean
   inlineData?: {
-    mimeType: string;
-    data: string;
-  };
+    mimeType: string
+    data: string
+  }
   functionCall?: {
-    name: string;
-    args: Record<string, unknown>;
-  };
+    name: string
+    args: Record<string, unknown>
+  }
   functionResponse?: {
-    name: string;
-    response: Record<string, unknown>;
-  };
+    name: string
+    response: Record<string, unknown>
+  }
 }
 
 export interface CloudCodeMessage {
-  role: 'user' | 'model' | 'system';
-  parts: CloudCodePart[];
+  role: 'user' | 'model' | 'system'
+  parts: CloudCodePart[]
 }
 
 export interface CloudCodeGenerateRequest {
-  model: string;
+  model: string
   request: {
-    contents?: CloudCodeMessage[];
+    contents?: CloudCodeMessage[]
     systemInstruction?: {
-      parts: CloudCodePart[];
-    };
+      parts: CloudCodePart[]
+    }
     tools?: Array<{
       functionDeclarations?: Array<{
-        name: string;
-        description?: string;
-        parameters?: Record<string, unknown>;
-      }>;
-    }>;
+        name: string
+        description?: string
+        parameters?: Record<string, unknown>
+      }>
+    }>
     toolConfig?: {
       functionCallingConfig?: {
-        mode?: string;
-      };
-    };
-  };
+        mode?: string
+      }
+    }
+  }
 }
 
 export interface SdkRequest {
-  system?: string;
-  messages: ModelMessage[];
-  tools?: Record<string, ReturnType<typeof tool>>;
-  toolChoice?: 'auto' | 'required';
-  providerOptions?: Record<string, Record<string, unknown>>;
+  system?: string
+  messages: ModelMessage[]
+  tools?: Record<string, ReturnType<typeof tool>>
+  toolChoice?: 'auto' | 'required'
+  providerOptions?: Record<string, Record<string, unknown>>
 }
 
 export interface TranslateRequestOptions {
-  fallbackAssistantReasoning?: string[];
-  maxTools?: number;
+  fallbackAssistantReasoning?: string[]
+  maxTools?: number
 }
 
 const JSON_SCHEMA_TYPES = new Map([
@@ -67,47 +67,49 @@ const JSON_SCHEMA_TYPES = new Map([
   ['NUMBER', 'number'],
   ['OBJECT', 'object'],
   ['STRING', 'string'],
-]);
+])
 
 /** Split Cloud Code text that embeds `<thinking>...</thinking>` into SDK reasoning/text parts. */
-export function expandTextWithThinking(text: string): Array<{ type: 'text' | 'reasoning'; text: string }> {
+export function expandTextWithThinking(
+  text: string
+): Array<{ type: 'text' | 'reasoning'; text: string }> {
   if (!text.includes('<thinking>')) {
-    return [{ type: 'text', text }];
+    return [{ type: 'text', text }]
   }
-  const out: Array<{ type: 'text' | 'reasoning'; text: string }> = [];
-  const tokens = text.split(/<thinking>([\s\S]*?)<\/thinking>/);
+  const out: Array<{ type: 'text' | 'reasoning'; text: string }> = []
+  const tokens = text.split(/<thinking>([\s\S]*?)<\/thinking>/)
   for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i] ?? '';
-    if (!token.trim()) continue;
-    out.push({ type: i % 2 === 1 ? 'reasoning' : 'text', text: token });
+    const token = tokens[i] ?? ''
+    if (!token.trim()) continue
+    out.push({ type: i % 2 === 1 ? 'reasoning' : 'text', text: token })
   }
-  return out.length > 0 ? out : [{ type: 'text', text }];
+  return out.length > 0 ? out : [{ type: 'text', text }]
 }
 
 function normalizeSchemaType(value: unknown): unknown {
   if (typeof value === 'string') {
-    return JSON_SCHEMA_TYPES.get(value) ?? value;
+    return JSON_SCHEMA_TYPES.get(value) ?? value
   }
   if (Array.isArray(value)) {
-    return value.map(normalizeSchemaType);
+    return value.map(normalizeSchemaType)
   }
-  return value;
+  return value
 }
 
 export function normalizeJsonSchema(value: unknown): unknown {
   if (Array.isArray(value)) {
-    return value.map(normalizeJsonSchema);
+    return value.map(normalizeJsonSchema)
   }
   if (!value || typeof value !== 'object') {
-    return value;
+    return value
   }
 
   return Object.fromEntries(
     Object.entries(value).map(([key, child]) => [
       key,
       key === 'type' ? normalizeSchemaType(child) : normalizeJsonSchema(child),
-    ]),
-  );
+    ])
+  )
 }
 
 /**
@@ -115,26 +117,26 @@ export function normalizeJsonSchema(value: unknown): unknown {
  */
 function translateTools(
   ccTools?: CloudCodeGenerateRequest['request']['tools'],
-  options: TranslateRequestOptions = {},
+  options: TranslateRequestOptions = {}
 ): Record<string, ReturnType<typeof tool>> | undefined {
-  if (!ccTools?.length) return undefined;
-  const tools: Record<string, ReturnType<typeof tool>> = {};
-  let toolCount = 0;
+  if (!ccTools?.length) return undefined
+  const tools: Record<string, ReturnType<typeof tool>> = {}
+  let toolCount = 0
   for (const t of ccTools) {
     if (t.functionDeclarations) {
       for (const fd of t.functionDeclarations) {
-        if (options.maxTools !== undefined && toolCount >= options.maxTools) break;
+        if (options.maxTools !== undefined && toolCount >= options.maxTools) break
         tools[fd.name] = tool({
           description: fd.description || '',
           inputSchema: jsonSchema(
-            normalizeJsonSchema(fd.parameters || { type: 'object', properties: {} }),
+            normalizeJsonSchema(fd.parameters || { type: 'object', properties: {} }) as JSONSchema7
           ),
-        });
-        toolCount++;
+        })
+        toolCount++
       }
     }
   }
-  return Object.keys(tools).length > 0 ? tools : undefined;
+  return Object.keys(tools).length > 0 ? tools : undefined
 }
 
 /**
@@ -145,70 +147,73 @@ function translateTools(
  */
 export function translateRequest(
   ccReq: CloudCodeGenerateRequest,
-  options: TranslateRequestOptions = {},
+  options: TranslateRequestOptions = {}
 ): SdkRequest {
-  const systemInstructions: string[] = [];
-  const sdkMessages: ModelMessage[] = [];
-  const nameToIdList = new Map<string, string[]>();
-  const fallbackAssistantReasoning = [...(options.fallbackAssistantReasoning ?? [])];
+  const systemInstructions: string[] = []
+  const sdkMessages: ModelMessage[] = []
+  const nameToIdList = new Map<string, string[]>()
+  const fallbackAssistantReasoning = [...(options.fallbackAssistantReasoning ?? [])]
 
-  const request = ccReq.request || {};
+  const request = ccReq.request || {}
 
   // 1. Extract system instructions from request.systemInstruction
   if (request.systemInstruction?.parts) {
     for (const part of request.systemInstruction.parts) {
       if (part.text) {
-        systemInstructions.push(part.text);
+        systemInstructions.push(part.text)
       }
     }
   }
 
   // 2. Process contents messages
-  const contents = request.contents || [];
+  const contents = request.contents || []
   for (const msg of contents) {
-    const role = msg.role;
+    const role = msg.role
 
     if (role === 'system') {
       for (const part of msg.parts) {
         if (part.text) {
-          systemInstructions.push(part.text);
+          systemInstructions.push(part.text)
         }
       }
-      continue;
+      continue
     }
 
-    const sdkRole = role === 'model' ? 'assistant' : 'user';
+    const sdkRole = role === 'model' ? 'assistant' : 'user'
 
     // Check if the message is a simple single-text message (most common case)
-    const hasFunctionCall = msg.parts.some(p => p.functionCall);
-    const hasAssistantReasoning = role === 'model' && msg.parts.some(p => p.thought || p.text?.includes('<thinking>'));
-    const hasComplexParts = msg.parts.some(p => p.thought || p.inlineData || p.functionCall || p.functionResponse);
-    const singleText = msg.parts.length === 1 ? msg.parts[0]?.text : undefined;
+    const hasFunctionCall = msg.parts.some(p => p.functionCall)
+    const hasAssistantReasoning =
+      role === 'model' && msg.parts.some(p => p.thought || p.text?.includes('<thinking>'))
+    const hasComplexParts = msg.parts.some(
+      p => p.thought || p.inlineData || p.functionCall || p.functionResponse
+    )
+    const singleText = msg.parts.length === 1 ? msg.parts[0]?.text : undefined
     if (!hasComplexParts && singleText !== undefined && !singleText.includes('<thinking>')) {
       sdkMessages.push({
         role: sdkRole,
         content: singleText,
-      } as ModelMessage);
-      continue;
+      } as ModelMessage)
+      continue
     }
 
-    const contentParts: any[] = [];
-    const toolResults: any[] = [];
+    const contentParts: any[] = []
+    const toolResults: any[] = []
 
     if (role === 'model' && hasFunctionCall && !hasAssistantReasoning) {
-      const fallback = fallbackAssistantReasoning.shift();
+      const fallback = fallbackAssistantReasoning.shift()
       if (fallback?.trim()) {
-        contentParts.push({ type: 'reasoning', text: fallback });
+        contentParts.push({ type: 'reasoning', text: fallback })
       }
     }
 
     for (const part of msg.parts) {
       if (part.text !== undefined) {
         if (part.thought) {
-          contentParts.push({ type: 'reasoning', text: part.text });
+          contentParts.push({ type: 'reasoning', text: part.text })
         } else {
           for (const piece of expandTextWithThinking(part.text)) {
-            contentParts.push(piece);
+            contentParts.push(piece)
           }
         }
       } else if (part.inlineData) {
@@ -216,28 +221,31 @@ export function translateRequest(
           type: 'image',
           image: part.inlineData.data,
           mimeType: part.inlineData.mimeType,
-        });
+        })
       } else if (part.functionCall) {
-        const id = 'call_' + randomUUID().replace(/-/g, '');
-        const name = part.functionCall.name;
-        if (!nameToIdList.has(name)) nameToIdList.set(name, []);
-        nameToIdList.get(name)!.push(id);
+        const id = 'call_' + randomUUID().replace(/-/g, '')
+        const name = part.functionCall.name
+        if (!nameToIdList.has(name)) nameToIdList.set(name, [])
+        nameToIdList.get(name)!.push(id)
         contentParts.push({
           type: 'tool-call',
           toolCallId: id,
           toolName: name,
           input: part.functionCall.args || {},
-        });
+        })
       } else if (part.functionResponse) {
-        const name = part.functionResponse.name;
-        const idList = nameToIdList.get(name) || [];
-        const id = idList.shift() || ('call_' + randomUUID().replace(/-/g, ''));
+        const name = part.functionResponse.name
+        const idList = nameToIdList.get(name) || []
+        const id = idList.shift() || 'call_' + randomUUID().replace(/-/g, '')
         toolResults.push({
           type: 'tool-result',
           toolCallId: id,
           toolName: name,
-          output: { type: 'text', value: serializeToolResultContent(part.functionResponse.response) },
-        });
+          output: {
+            type: 'text',
+            value: serializeToolResultContent(part.functionResponse.response),
+          },
+        })
       }
     }
 
@@ -245,28 +253,28 @@ export function translateRequest(
       sdkMessages.push({
         role: 'tool',
         content: toolResults,
-      } as unknown as ModelMessage);
+      } as unknown as ModelMessage)
     }
     if (contentParts.length > 0) {
       sdkMessages.push({
         role: sdkRole,
         content: contentParts,
-      } as ModelMessage);
+      } as ModelMessage)
     }
   }
 
-  const system = systemInstructions.length > 0 ? systemInstructions.join('\n\n') : undefined;
+  const system = systemInstructions.length > 0 ? systemInstructions.join('\n\n') : undefined
 
   // 3. Tools translation
-  const tools = translateTools(request.tools, options);
+  const tools = translateTools(request.tools, options)
 
   // 4. Tool choice
-  let toolChoice: 'auto' | 'required' | undefined;
-  const mode = request.toolConfig?.functionCallingConfig?.mode;
+  let toolChoice: 'auto' | 'required' | undefined
+  const mode = request.toolConfig?.functionCallingConfig?.mode
   if (mode === 'ANY') {
-    toolChoice = 'required';
+    toolChoice = 'required'
   } else if (mode === 'AUTO' || tools) {
-    toolChoice = 'auto';
+    toolChoice = 'auto'
   }
 
   return {
@@ -274,5 +282,5 @@ export function translateRequest(
     messages: sdkMessages,
     tools,
     toolChoice,
-  };
+  }
 }

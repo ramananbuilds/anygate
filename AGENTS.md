@@ -17,6 +17,10 @@ This file provides guidance to Codex (Codex.ai/code) and other AI coding agents 
 npm run build       # compile TypeScript → dist/cli.js (via tsup, ESM, shebang injected) + build UI SPA
 npm test            # run all tests with vitest across tests/ subdirectories
 npm run typecheck   # type-check without emitting (tsc --noEmit)
+npm run lint        # run ESLint on src/ (TypeScript)
+npm run lint:fix    # auto-fix ESLint issues
+npm run format      # format src/ with Prettier
+npm run format:check # check formatting without writing
 npm run dev         # watch mode build
 
 # Run a single test file or domain
