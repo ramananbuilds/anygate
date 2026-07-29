@@ -1,43 +1,43 @@
 // Shared anygate CLI styling — @clack/prompts + picocolors.
 // Use printPanel for important callouts (p.note dims all body text).
-import pc from 'picocolors';
-import * as p from '@clack/prompts';
-import type { ConflictInfo, LocalProvider, LocalProviderModel } from '../../../src/types/index.js';
-import { formatCodexModelLabel } from '../codex/catalog.js';
+import pc from 'picocolors'
+import * as p from '@clack/prompts'
+import type { ConflictInfo, LocalProvider, LocalProviderModel } from '../../../src/types/index.js'
+import { formatCodexModelLabel } from '../codex/catalog.js'
 
-export { formatCodexModelLabel as formatModelLabel } from '../codex/catalog.js';
+export { formatCodexModelLabel as formatModelLabel } from '../codex/catalog.js'
 
-const bar = pc.gray('│');
-const hline = pc.gray('─');
+const bar = pc.gray('│')
+const hline = pc.gray('─')
 
 function stripAnsi(s: string): string {
-  return s.replace(/\u001b\[[0-9;]*m/g, '');
+  return s.replace(/\u001b\[[0-9;]*m/g, '')
 }
 
 function panelWidth(lines: string[], title: string): number {
-  const maxLine = lines.reduce((max, line) => Math.max(max, stripAnsi(line).length), 0);
-  return Math.max(maxLine, stripAnsi(title).length) + 2;
+  const maxLine = lines.reduce((max, line) => Math.max(max, stripAnsi(line).length), 0)
+  return Math.max(maxLine, stripAnsi(title).length) + 2
 }
 
 /** Colored panel — clack note shape without dimmed body. */
 export function printPanel(title: string, lines: string[]): void {
-  const width = panelWidth(lines, title);
-  const topRule = hline.repeat(Math.max(width - stripAnsi(title).length - 1, 1));
-  process.stdout.write(`${bar}\n`);
-  process.stdout.write(`${pc.green('◇')}  ${pc.bold(title)} ${pc.gray(topRule + '╮')}\n`);
+  const width = panelWidth(lines, title)
+  const topRule = hline.repeat(Math.max(width - stripAnsi(title).length - 1, 1))
+  process.stdout.write(`${bar}\n`)
+  process.stdout.write(`${pc.green('◇')}  ${pc.bold(title)} ${pc.gray(topRule + '╮')}\n`)
   for (const line of lines) {
     if (line.trim() === '') {
-      process.stdout.write(`${bar}  ${bar}\n`);
-      continue;
+      process.stdout.write(`${bar}  ${bar}\n`)
+      continue
     }
-    const pad = ' '.repeat(Math.max(width - stripAnsi(line).length, 0));
-    process.stdout.write(`${bar}  ${line}${pad}${bar}\n`);
+    const pad = ' '.repeat(Math.max(width - stripAnsi(line).length, 0))
+    process.stdout.write(`${bar}  ${line}${pad}${bar}\n`)
   }
-  process.stdout.write(`${pc.gray('├' + '─'.repeat(width + 2) + '╯')}\n`);
+  process.stdout.write(`${pc.gray('├' + '─'.repeat(width + 2) + '╯')}\n`)
 }
 
 export function gateIntro(section: string): void {
-  p.intro(`${pc.bold(pc.cyan('anygate'))}${pc.bold(` — ${section}`)}`);
+  p.intro(`${pc.bold(pc.cyan('anygate'))}${pc.bold(` — ${section}`)}`)
 }
 
 /** Prints the anygate ASCII banner (ANSI Shadow) to stdout. */
@@ -49,87 +49,87 @@ export function printAsciiBanner(): void {
     '██╔══██║██║╚██╗██║  ╚██╔╝  ██║   ██║██╔══██║   ██║   ██╔══╝  ',
     '██║  ██║██║ ╚████║   ██║   ╚██████╔╝██║  ██║   ██║   ███████╗',
     '╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝',
-  ].join('\n');
-  process.stdout.write(pc.cyanBright(banner) + '\n');
+  ].join('\n')
+  process.stdout.write(pc.cyanBright(banner) + '\n')
 }
 
 export function gateOutro(status: string, detail?: string): void {
-  p.outro(detail
-    ? `${pc.green(status)} ${pc.dim('—')} ${detail}`
-    : pc.green(status));
+  p.outro(detail ? `${pc.green(status)} ${pc.dim('—')} ${detail}` : pc.green(status))
 }
 
 export function fmtModel(label: string, id?: string): string {
-  return id
-    ? `${pc.cyan(pc.bold(label))} ${pc.dim(`(${id})`)}`
-    : pc.cyan(pc.bold(label));
+  return id ? `${pc.cyan(pc.bold(label))} ${pc.dim(`(${id})`)}` : pc.cyan(pc.bold(label))
 }
 
 export function fmtProvider(name: string): string {
-  return pc.cyanBright(pc.bold(name));
+  return pc.cyanBright(pc.bold(name))
 }
 
 /** Bracketed provider tag for global favorites search — bright, color per provider id. */
-export function fmtProviderBracket(providerId: string, providerName: string, isFree?: boolean): string {
-  const color = providerTagColor(providerId);
-  const text = isFree ? `${providerName} · free` : providerName;
-  return color(pc.bold(`(${text})`));
+export function fmtProviderBracket(
+  providerId: string,
+  providerName: string,
+  isFree?: boolean
+): string {
+  const color = providerTagColor(providerId)
+  const text = isFree ? `${providerName} · free` : providerName
+  return color(pc.bold(`(${text})`))
 }
 
 function providerTagColor(providerId: string): (text: string) => string {
   switch (providerId) {
     case 'zen':
-      return pc.yellow;
+      return pc.yellow
     case 'go':
-      return pc.green;
+      return pc.green
     case 'openrouter':
-      return pc.blue;
+      return pc.blue
     case 'deepseek':
-      return pc.magenta;
+      return pc.magenta
     case 'anthropic':
-      return pc.yellow;
+      return pc.yellow
     case 'google':
-      return pc.cyan;
+      return pc.cyan
     case 'openai':
-      return pc.white;
+      return pc.white
     case 'xai':
     case 'xai-oauth':
-      return pc.white;
+      return pc.white
     case 'groq':
-      return pc.red;
+      return pc.red
     case 'mistral':
-      return pc.red;
+      return pc.red
     case 'togetherai':
-      return pc.blue;
+      return pc.blue
     case 'nvidia':
-      return pc.green;
+      return pc.green
     default:
-      return pc.yellow;
+      return pc.yellow
   }
 }
 
 export function fmtCommand(cmd: string): string {
-  return pc.cyan(cmd);
+  return pc.cyan(cmd)
 }
 
 export function fmtPath(path: string): string {
-  return pc.cyan(path);
+  return pc.cyan(path)
 }
 
 export function fmtUrl(url: string): string {
-  return pc.cyan(url);
+  return pc.cyan(url)
 }
 
 export function fmtCount(n: number, noun: string): string {
-  return `${pc.bold(String(n))} ${noun}${n === 1 ? '' : 's'}`;
+  return `${pc.bold(String(n))} ${noun}${n === 1 ? '' : 's'}`
 }
 
 export function fmtRecentHint(): string {
-  return pc.yellow('recent');
+  return pc.yellow('recent')
 }
 
 export function fmtEnabledStar(enabled: boolean): string {
-  return enabled ? pc.yellow('★') : pc.dim('○');
+  return enabled ? pc.yellow('★') : pc.dim('○')
 }
 
 export function providerSelectOption(provider: Pick<LocalProvider, 'id' | 'name' | 'models'>) {
@@ -137,22 +137,22 @@ export function providerSelectOption(provider: Pick<LocalProvider, 'id' | 'name'
     value: provider.id,
     label: fmtProvider(provider.name),
     hint: `${provider.models.length} model${provider.models.length !== 1 ? 's' : ''}`,
-  };
+  }
 }
 
 export function modelSelectOption(model: LocalProviderModel, hint?: string) {
-  const label = formatCodexModelLabel(model);
-  const defaultHint = hint
-    ?? (model.name !== model.id ? model.id : model.brand || model.family || '');
+  const label = formatCodexModelLabel(model)
+  const defaultHint =
+    hint ?? (model.name !== model.id ? model.id : model.brand || model.family || '')
   return {
     value: model.id,
     label: fmtModel(label),
     hint: hint === 'recent' ? fmtRecentHint() : defaultHint,
-  };
+  }
 }
 
 export function navOption(value: string, label: string, hint = '') {
-  return { value, label: pc.cyan(label), hint };
+  return { value, label: pc.cyan(label), hint }
 }
 
 export function confirmLaunchMessage(
@@ -160,82 +160,82 @@ export function confirmLaunchMessage(
   modelLabel: string,
   modelId: string,
   providerName: string,
-  via?: string,
+  via?: string
 ): string {
-  const viaSuffix = via ? ` ${pc.dim('(')}${via}${pc.dim(')')}` : '';
-  return `Launch ${pc.bold(target)} · ${fmtModel(modelLabel, modelId)} ${pc.dim('via')} ${fmtProvider(providerName)}?${viaSuffix}`;
+  const viaSuffix = via ? ` ${pc.dim('(')}${via}${pc.dim(')')}` : ''
+  return `Launch ${pc.bold(target)} · ${fmtModel(modelLabel, modelId)} ${pc.dim('via')} ${fmtProvider(providerName)}?${viaSuffix}`
 }
 
 export function logActiveModel(modelLabel: string, modelId: string): void {
-  p.log.success(`${pc.bold('Active model:')} ${fmtModel(modelLabel, modelId)}`);
+  p.log.success(`${pc.bold('Active model:')} ${fmtModel(modelLabel, modelId)}`)
 }
 
 export function logProxy(port: number): void {
-  p.log.info(`${pc.dim('Proxy')} ${pc.cyan(pc.bold(`127.0.0.1:${port}`))}`);
+  p.log.info(`${pc.dim('Proxy')} ${pc.cyan(pc.bold(`127.0.0.1:${port}`))}`)
 }
 
 export function logConnected(name: string, modelCount: number): void {
   p.log.success(
-    `${pc.bold('Connected')} ${pc.dim('·')} ${fmtCount(modelCount, 'model')} ${pc.dim('—')} ${fmtProvider(name)}`,
-  );
+    `${pc.bold('Connected')} ${pc.dim('·')} ${fmtCount(modelCount, 'model')} ${pc.dim('—')} ${fmtProvider(name)}`
+  )
 }
 
 export function printWelcomePanel(): void {
   printPanel(pc.cyan('Welcome to anygate'), [
     `${pc.white("Let's get you set up.")}`,
     `${pc.dim('Pick a path below — you can always add more providers later with ')}${fmtCommand('anygate providers')}${pc.dim('.')}`,
-  ]);
+  ])
 }
 
 export function printEnvConflictPanel(conflicts: ConflictInfo[]): void {
-  if (conflicts.length === 0) return;
+  if (conflicts.length === 0) return
   printPanel(pc.yellow('Env overrides'), [
     `${pc.white('These variables will be ')}${pc.yellow(pc.bold('temporarily removed'))}${pc.white(' for the Claude Code child process:')}`,
     '',
     ...conflicts.map(c => `  ${pc.dim(c.name)}${pc.white('=')}${pc.yellow(c.value)}`),
-  ]);
+  ])
 }
 
 export function printApiKeyPanel(url: string): void {
   printPanel(pc.cyan('OpenCode API key'), [
     `${pc.white('Get a free key at:')} ${fmtUrl(url)}`,
     `${pc.dim('Paste it below — anygate stores it in your system keychain when possible.')}`,
-  ]);
+  ])
 }
 
 export function printDryRunPanel(): void {
   printPanel(pc.yellow('Dry run'), [
     `${pc.white('Simulating first-run — ')}${pc.yellow(pc.bold('no keys read or written'))}${pc.white('.')}`,
-  ]);
+  ])
 }
 
 export function printImportConflictPanel(
   providerName: string,
   existingHint: string,
-  incomingHint: string,
+  incomingHint: string
 ): void {
   printPanel(pc.yellow(`Provider "${providerName}" already configured`), [
     `${pc.bold('Existing')}  ${pc.white(existingHint)}`,
     `${pc.bold('Imported')}  ${pc.white(incomingHint)}`,
-  ]);
+  ])
 }
 
 export function printProviderDetailPanel(
   name: string,
   modelCount: number,
-  authLabel: string,
+  authLabel: string
 ): void {
   printPanel(fmtProvider(name), [
     `${pc.bold('Models')}  ${pc.cyan(String(modelCount))} cached`,
     `${pc.bold('Auth')}    ${pc.white(authLabel)}`,
-  ]);
+  ])
 }
 
 export function printCloudProviderPanel(name: string): void {
   printPanel(pc.cyan('Cloud provider'), [
     `${fmtProvider(name)} ${pc.white('is active via your saved OpenCode API key.')}`,
     `${pc.dim('Models are fetched live — no separate setup needed.')}`,
-  ]);
+  ])
 }
 
 export function printOAuthStepsPanel(title: string, providerLabel: string): void {
@@ -243,36 +243,36 @@ export function printOAuthStepsPanel(title: string, providerLabel: string): void
     `${pc.white('1. Open the URL below in your browser')}`,
     `${pc.white('2. Enter the code when prompted')}`,
     `${pc.white('3. Approve access for ')}${fmtProvider(providerLabel)}`,
-  ]);
+  ])
 }
 
 export function printGatewayMaskPanel(): void {
   printPanel(pc.cyan('Claude Desktop / Cowork'), [
     `${pc.white('Gateway discovery filters competitor model names in ids.')}`,
     `${pc.white('Masking keeps discovery working while display names stay readable.')}`,
-  ]);
+  ])
 }
 
 export async function confirmSubscriptionOAuthRisk(
-  providerId: 'claude-code' | 'antigravity',
+  providerId: 'claude-code' | 'antigravity'
 ): Promise<boolean> {
-  const isGoogle = providerId === 'antigravity';
-  const providerLabel = isGoogle ? 'Antigravity / Google' : 'Claude Code';
+  const isGoogle = providerId === 'antigravity'
+  const providerLabel = isGoogle ? 'Antigravity / Google' : 'Claude Code'
   const service = isGoogle
     ? 'Google account (Gmail, Drive, YouTube, Workspace, and all tied services)'
-    : 'Anthropic account (Claude Pro / Max subscription)';
+    : 'Anthropic account (Claude Pro / Max subscription)'
   const enforcementNote = isGoogle
     ? 'Community reports: Google has issued account bans for this usage.'
-    : 'Anthropic actively enforces this — validating request shape and has taken legal action against other projects.';
+    : 'Anthropic actively enforces this — validating request shape and has taken legal action against other projects.'
   const compatibilityNote = isGoogle
     ? undefined
-    : 'For compatibility, anygate may reproduce Claude Code-style request metadata and attribution so Anthropic classifies traffic as Claude Code.';
+    : 'For compatibility, anygate may reproduce Claude Code-style request metadata and attribution so Anthropic classifies traffic as Claude Code.'
 
   printPanel(pc.red(`⚠  Account Risk — ${providerLabel} OAuth`), [
     `${pc.white('This extracts OAuth tokens from your')} ${pc.bold(service)}.`,
     '',
     `${pc.white('Routing subscription tokens through anygate to power other tools')}`,
-    `${pc.white('may violate the provider\'s Terms of Service.')}`,
+    `${pc.white("may violate the provider's Terms of Service.")}`,
     '',
     `${pc.yellow(enforcementNote)}`,
     ...(compatibilityNote ? [`${pc.yellow(compatibilityNote)}`] : []),
@@ -280,24 +280,30 @@ export async function confirmSubscriptionOAuthRisk(
     `${pc.white('Possible consequences:')}`,
     `  ${pc.dim('•')} ${pc.white('Token revocation')}`,
     `  ${pc.dim('•')} ${pc.white('Account suspension or permanent ban')}`,
-    ...(isGoogle ? [`  ${pc.dim('•')} ${pc.red(pc.bold('Loss of ALL services tied to this Google account'))}`] : []),
+    ...(isGoogle
+      ? [`  ${pc.dim('•')} ${pc.red(pc.bold('Loss of ALL services tied to this Google account'))}`]
+      : []),
     '',
-    ...(isGoogle ? [`${pc.red(pc.bold('Do not use your primary Google account.'))} ${pc.white('Use a throwaway account.')}`] : []),
+    ...(isGoogle
+      ? [
+          `${pc.red(pc.bold('Do not use your primary Google account.'))} ${pc.white('Use a throwaway account.')}`,
+        ]
+      : []),
     `${pc.dim(`anygate is not affiliated with ${isGoogle ? 'Google' : 'Anthropic'} and cannot protect you.`)}`,
-  ]);
+  ])
 
   const answer = await p.text({
     message: 'Type "yes" to accept the risk and proceed, or Ctrl+C to cancel:',
-    validate: (v) => v === 'yes' ? undefined : 'Type exactly "yes" to confirm',
-  });
+    validate: v => (v === 'yes' ? undefined : 'Type exactly "yes" to confirm'),
+  })
 
-  return !p.isCancel(answer) && answer === 'yes';
+  return !p.isCancel(answer) && answer === 'yes'
 }
 
 export function printNetworkWarningPanel(): void {
   printPanel(pc.yellow('Network mode'), [
     `${pc.yellow(pc.bold('Anyone on your network'))}${pc.white(' who knows the password can use this server through your account.')}`,
-  ]);
+  ])
 }
 
 export function printFavoritesOnlyPanel(): void {
@@ -305,7 +311,7 @@ export function printFavoritesOnlyPanel(): void {
     `${pc.white('Limits ')}${pc.cyan('GET /anthropic/v1/models')}${pc.white(' to your curated favorites.')}`,
     `${pc.white('Registry models not in your favorites will not appear in the Desktop / Cowork picker.')}`,
     `${pc.white('Edit with ')}${pc.cyan('anygate models')}${pc.white('.')}`,
-  ]);
+  ])
 }
 
 // ── Onboarding flow panels ──────────────────────────────────────────
@@ -314,7 +320,7 @@ export function printOnboardingPanel(): void {
   printPanel(pc.cyan('Welcome to anygate'), [
     `${pc.white("Let's configure free AI providers.")}`,
     `${pc.dim('You can always add more later with ')}${fmtCommand('anygate providers')}${pc.dim('.')}`,
-  ]);
+  ])
 }
 
 export function printProviderCategoryPanel(): void {
@@ -324,24 +330,28 @@ export function printProviderCategoryPanel(): void {
     '',
     `${pc.white('API Key Required (free tier):')}`,
     `${pc.dim('  NVIDIA, Groq, Mistral, Cerebras — free signup, no credit card.')}`,
-  ]);
+  ])
 }
 
 export function printSetupSummaryPanel(
   configured: Array<{ name: string; keyless: boolean }>,
-  skipped: string[],
+  skipped: string[]
 ): void {
-  const lines: string[] = [];
+  const lines: string[] = []
   for (const p of configured) {
-    const tag = p.keyless ? pc.dim('(keyless)') : pc.dim('(API key configured)');
-    lines.push(`  ${pc.green('✓')} ${pc.bold(p.name)} ${tag}`);
+    const tag = p.keyless ? pc.dim('(keyless)') : pc.dim('(API key configured)')
+    lines.push(`  ${pc.green('✓')} ${pc.bold(p.name)} ${tag}`)
   }
   for (const s of skipped) {
-    lines.push(`  ${pc.yellow('⚠')} ${s} ${pc.dim('(skipped — add later with ')}${fmtCommand('anygate providers add')}${pc.dim(')')}`);
+    lines.push(
+      `  ${pc.yellow('⚠')} ${s} ${pc.dim('(skipped — add later with ')}${fmtCommand('anygate providers add')}${pc.dim(')')}`
+    )
   }
-  lines.push('');
-  lines.push(`${pc.bold(String(configured.length))} provider${configured.length === 1 ? '' : 's'} ready.`);
-  printPanel(pc.cyan('Setup complete'), lines);
+  lines.push('')
+  lines.push(
+    `${pc.bold(String(configured.length))} provider${configured.length === 1 ? '' : 's'} ready.`
+  )
+  printPanel(pc.cyan('Setup complete'), lines)
 }
 
 export function printMainMenuPanel(version: string, providerCount: number): void {
@@ -349,12 +359,12 @@ export function printMainMenuPanel(version: string, providerCount: number): void
     `${pc.bold(String(providerCount))} provider${providerCount === 1 ? '' : 's'} configured`,
     '',
     `${pc.dim('Select an action:')}`,
-  ]);
+  ])
 }
 
 export function printApiKeyProviderPanel(name: string, signupUrl: string): void {
   printPanel(pc.cyan(`${name} API key`), [
     `${pc.white('Requires an API key (free at:')} ${fmtUrl(signupUrl)}`,
     `${pc.dim('AnyGate stores it securely in your system keychain.')}`,
-  ]);
+  ])
 }

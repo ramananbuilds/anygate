@@ -1,113 +1,133 @@
 // src/cli/models.ts — anygate models command
-import pc from 'picocolors';
-import * as p from '@clack/prompts';
-import { loadPreferences, savePreferences } from '../storage/config.js';
-import { fetchProviderCatalog, providersForPicker } from '../registry/provider-catalog.js';
-import { providersForTarget } from '../apps/shared/target-compatibility.js';
-import { pickGlobalFavoriteModel, browseByProviderChoice } from '../apps/claude/favorites-picker.js';
-import { providerSelectOption, formatModelLabel, gateIntro, gateOutro, fmtEnabledStar, fmtModel } from '../apps/shared/ui.js';
-import { favoriteProviderDisplayName } from '../apps/claude/favorites-provider-display.js';
-import { buildGlobalFavoriteIndex } from '../apps/claude/favorites-picker.js';
-import { isFavorite } from '../apps/claude/favorites.js';
-import { addFavorite, removeFavorite } from '../apps/claude/favorites.js';
-import type { FavoriteModel, LocalProvider, LocalProviderModel, ParsedArgs } from '../types/index.js';
-import { validateModels, getValidationStatus, pruneValidationCache, loadCache } from '../registry/validation/model-validator.js';
-import { resolveProviderCredential } from '../config/env.js';
-import { loadRegistry } from '../registry/storage/io.js';
+import pc from 'picocolors'
+import * as p from '@clack/prompts'
+import { loadPreferences, savePreferences } from '../storage/config.js'
+import { fetchProviderCatalog, providersForPicker } from '../registry/provider-catalog.js'
+import { providersForTarget } from '../apps/shared/target-compatibility.js'
+import { pickGlobalFavoriteModel, browseByProviderChoice } from '../apps/claude/favorites-picker.js'
+import {
+  providerSelectOption,
+  formatModelLabel,
+  gateIntro,
+  gateOutro,
+  fmtEnabledStar,
+  fmtModel,
+} from '../apps/shared/ui.js'
+import { favoriteProviderDisplayName } from '../apps/claude/favorites-provider-display.js'
+import { buildGlobalFavoriteIndex } from '../apps/claude/favorites-picker.js'
+import { isFavorite } from '../apps/claude/favorites.js'
+import { addFavorite, removeFavorite } from '../apps/claude/favorites.js'
+import type {
+  FavoriteModel,
+  LocalProvider,
+  LocalProviderModel,
+  ParsedArgs,
+} from '../types/index.js'
+import {
+  validateModels,
+  getValidationStatus,
+  pruneValidationCache,
+  loadCache,
+} from '../registry/validation/model-validator.js'
+import { resolveProviderCredential } from '../config/env.js'
+import { loadRegistry } from '../registry/storage/io.js'
 
-const AGY_CLI_FAVORITES_CAP = 6;
+const AGY_CLI_FAVORITES_CAP = 6
 
 export async function runModelsCommand(parsed: ParsedArgs): Promise<number> {
   // Handle validate subcommand: anygate models validate [--provider <id>] [--force]
   if (parsed.validateSubcommand) {
-    return runValidateSubcommand(parsed);
+    return runValidateSubcommand(parsed)
   }
 
-  const scope = parsed.favoritesAgy ? 'agy' : 'global';
-  const maxFavorites = scope === 'agy' ? AGY_CLI_FAVORITES_CAP : 20;
-  const scopeName = scope === 'agy' ? 'Antigravity CLI Favorites' : 'Favorite Models';
-  const configKey = scope === 'agy' ? 'antigravityCliFavoriteModels' : 'favoriteModels';
-  gateIntro(scopeName);
+  const scope = parsed.favoritesAgy ? 'agy' : 'global'
+  const maxFavorites = scope === 'agy' ? AGY_CLI_FAVORITES_CAP : 20
+  const scopeName = scope === 'agy' ? 'Antigravity CLI Favorites' : 'Favorite Models'
+  const configKey = scope === 'agy' ? 'antigravityCliFavoriteModels' : 'favoriteModels'
+  gateIntro(scopeName)
 
-  const spinner = p.spinner();
-  spinner.start('Loading providers...');
+  const spinner = p.spinner()
+  spinner.start('Loading providers...')
 
-  const catalog = await fetchProviderCatalog();
-  spinner.stop('');
+  const catalog = await fetchProviderCatalog()
+  spinner.stop('')
 
-  const allProviders = scope === 'agy'
-    ? providersForTarget(providersForPicker(catalog), 'antigravity')
-    : providersForPicker(catalog);
+  const allProviders =
+    scope === 'agy'
+      ? providersForTarget(providersForPicker(catalog), 'antigravity')
+      : providersForPicker(catalog)
   const favoriteProviders = allProviders.map(provider => ({
     ...provider,
     name: favoriteProviderDisplayName(provider),
-  }));
+  }))
 
   if (favoriteProviders.length === 0) {
-    p.log.warn('No providers found.');
-    p.log.info(`OpenCode Zen/Go is always available. Add providers with ${pc.cyan('anygate providers')}.`);
-    gateOutro('Done');
-    return 0;
+    p.log.warn('No providers found.')
+    p.log.info(
+      `OpenCode Zen/Go is always available. Add providers with ${pc.cyan('anygate providers')}.`
+    )
+    gateOutro('Done')
+    return 0
   }
 
   // Build a flat name lookup: "providerId:modelId" → display label
-  const modelLookup = new Map<string, { modelName: string; providerName: string }>();
+  const modelLookup = new Map<string, { modelName: string; providerName: string }>()
   for (const ap of favoriteProviders) {
     for (const m of ap.models) {
-      modelLookup.set(`${ap.id}:${m.id}`, { modelName: m.name || m.id, providerName: ap.name });
+      modelLookup.set(`${ap.id}:${m.id}`, { modelName: m.name || m.id, providerName: ap.name })
     }
   }
 
-  const prefs = loadPreferences();
-  let favorites = scope === 'agy'
-    ? prefs.antigravityCliFavoriteModels ?? []
-    : prefs.favoriteModels ?? [];
-  let favoritesDirty = false;
+  const prefs = loadPreferences()
+  let favorites =
+    scope === 'agy' ? (prefs.antigravityCliFavoriteModels ?? []) : (prefs.favoriteModels ?? [])
+  let favoritesDirty = false
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    type MenuChoice = string;
-    const options: Array<{ value: MenuChoice; label: string; hint: string }> = [];
+    type MenuChoice = string
+    const options: Array<{ value: MenuChoice; label: string; hint: string }> = []
 
     // One entry per saved favorite; selecting it removes it
     for (let i = 0; i < favorites.length; i++) {
-      const fav = favorites[i]!;
-      const entry = modelLookup.get(`${fav.providerId}:${fav.modelId}`);
+      const fav = favorites[i]!
+      const entry = modelLookup.get(`${fav.providerId}:${fav.modelId}`)
       const label = entry
         ? `${fmtEnabledStar(true)} ${fmtModel(entry.modelName)} ${pc.dim(`(${entry.providerName})`)}`
-        : pc.dim(`★ ${fav.modelId} — provider gone`);
-      options.push({ value: `fav-${i}`, label, hint: 'select to remove' });
+        : pc.dim(`★ ${fav.modelId} — provider gone`)
+      options.push({ value: `fav-${i}`, label, hint: 'select to remove' })
     }
 
-    const atCap = favorites.length >= 20;
+    const atCap = favorites.length >= 20
     options.push({
       value: '__add__',
       label: atCap ? pc.dim(`+ Add a model → (limit of 20 reached)`) : pc.cyan('+ Add a model →'),
       hint: atCap
         ? 'Remove a favorite first to make room'
         : `${favoriteProviders.length} provider${favoriteProviders.length !== 1 ? 's' : ''} available`,
-    });
-    options.push({ value: '__done__', label: 'Done', hint: '' });
+    })
+    options.push({ value: '__done__', label: 'Done', hint: '' })
 
-    const header = favorites.length === 0
-      ? `${scopeName} (0/20)`
-      : `${scopeName} (${favorites.length}/20) — select to remove`;
+    const header =
+      favorites.length === 0
+        ? `${scopeName} (0/20)`
+        : `${scopeName} (${favorites.length}/20) — select to remove`
 
     const choice = await p.select<string>({
       message: header,
       options,
       initialValue: '__done__',
-    });
+    })
 
-    if (p.isCancel(choice) || choice === '__done__') break;
+    if (p.isCancel(choice) || choice === '__done__') break
 
     if (choice === '__add__') {
       if (atCap) {
-        p.log.warn('Limit of 20 favorites reached — remove one first.');
-        continue;
+        p.log.warn('Limit of 20 favorites reached — remove one first.')
+        continue
       }
 
-      const globalCount = buildGlobalFavoriteIndex(favoriteProviders).length;
+      const globalCount = buildGlobalFavoriteIndex(favoriteProviders).length
       const addPath = await p.select<string>({
         message: 'Add a favorite',
         options: [
@@ -127,197 +147,201 @@ export async function runModelsCommand(parsed: ParsedArgs): Promise<number> {
             hint: 'Pick one provider first',
           },
         ],
-      });
-      if (p.isCancel(addPath)) continue;
+      })
+      if (p.isCancel(addPath)) continue
 
-      let provider: { id: string; name: string; models: any[] } | undefined;
-      let browsedMultiple: any[] = [];
+      let provider: { id: string; name: string; models: any[] } | undefined
+      let browsedMultiple: any[] = []
 
       if (addPath === 'global') {
-        const globalPick = await pickGlobalFavoriteModel(favoriteProviders, favorites);
-        if (globalPick === null) continue;
+        const globalPick = await pickGlobalFavoriteModel(favoriteProviders, favorites)
+        if (globalPick === null) continue
         if (globalPick !== browseByProviderChoice) {
-          provider = favoriteProviders.find(ap => ap.id === globalPick.providerId);
-          browsedMultiple = [globalPick.model];
+          provider = favoriteProviders.find(ap => ap.id === globalPick.providerId)
+          browsedMultiple = [globalPick.model]
         }
       }
       if (addPath === 'free') {
-        const globalPick = await pickGlobalFavoriteModel(favoriteProviders, favorites, { freeOnly: true });
-        if (globalPick === null) continue;
+        const globalPick = await pickGlobalFavoriteModel(favoriteProviders, favorites, {
+          freeOnly: true,
+        })
+        if (globalPick === null) continue
         if (globalPick !== browseByProviderChoice) {
-          provider = favoriteProviders.find(ap => ap.id === globalPick.providerId);
-          browsedMultiple = [globalPick.model];
+          provider = favoriteProviders.find(ap => ap.id === globalPick.providerId)
+          browsedMultiple = [globalPick.model]
         }
       }
 
       if (browsedMultiple.length === 0) {
-        let currentInitialProvider: string | undefined = undefined;
+        let currentInitialProvider: string | undefined = undefined
         while (true) {
           const providerOptions = favoriteProviders.map(ap => ({
             value: ap.id,
             label: ap.name,
             hint: `${ap.models.length} models`,
-          }));
+          }))
           const pickedProviderId: string | symbol = await p.select<string>({
             message: 'Which provider?',
             options: providerOptions,
             initialValue: currentInitialProvider,
-          });
-          if (p.isCancel(pickedProviderId)) break;
+          })
+          if (p.isCancel(pickedProviderId)) break
 
-          provider = favoriteProviders.find(ap => ap.id === pickedProviderId)!;
+          provider = favoriteProviders.find(ap => ap.id === pickedProviderId)!
 
           const options = provider.models.map(m => {
-            const favorited = isFavorite(favorites, { providerId: provider!.id, modelId: m.id });
-            const label = formatModelLabel(m);
+            const favorited = isFavorite(favorites, { providerId: provider!.id, modelId: m.id })
+            const label = formatModelLabel(m)
             return {
               value: m.id,
               label: `${favorited ? '★ ' : ''}${fmtModel(label, m.id)}`,
               hint: favorited ? pc.yellow('★ already favorite') : '',
-            };
-          });
+            }
+          })
 
           const pickedModelIds = await p.multiselect<string>({
             message: `Select models to add from ${provider.name} ${pc.dim('(Space to select, Enter to confirm)')}`,
             options,
             required: false,
-          });
+          })
 
           if (p.isCancel(pickedModelIds)) {
-            currentInitialProvider = provider.id;
-            continue;
+            currentInitialProvider = provider.id
+            continue
           }
 
           if (pickedModelIds.length === 0) {
-            currentInitialProvider = provider.id;
-            continue;
+            currentInitialProvider = provider.id
+            continue
           }
 
-          browsedMultiple = provider.models.filter(m => (pickedModelIds as string[]).includes(m.id));
-          break;
+          browsedMultiple = provider.models.filter(m => (pickedModelIds as string[]).includes(m.id))
+          break
         }
-        if (browsedMultiple.length === 0) continue;
+        if (browsedMultiple.length === 0) continue
       }
 
-      const addedModels: any[] = [];
-      let duplicateCount = 0;
-      let limitReached = false;
+      const addedModels: any[] = []
+      let duplicateCount = 0
+      let limitReached = false
 
       for (const model of browsedMultiple) {
-        const fav = { providerId: provider!.id, modelId: model.id };
-        const result = addFavorite(favorites, fav, 20);
+        const fav = { providerId: provider!.id, modelId: model.id }
+        const result = addFavorite(favorites, fav, 20)
         if (!result.ok) {
           if (result.reason === 'duplicate') {
-            duplicateCount++;
+            duplicateCount++
           } else {
-            limitReached = true;
-            break;
+            limitReached = true
+            break
           }
         } else {
-          favorites = result.list;
-          favoritesDirty = true;
-          addedModels.push(model);
+          favorites = result.list
+          favoritesDirty = true
+          addedModels.push(model)
         }
       }
 
       if (addedModels.length > 0) {
         if (addedModels.length === 1) {
-          const modelName = addedModels[0].name || addedModels[0].id;
-          p.log.success(`Added ${modelName} (${provider!.name}) to favorites.`);
+          const modelName = addedModels[0].name || addedModels[0].id
+          p.log.success(`Added ${modelName} (${provider!.name}) to favorites.`)
         } else {
-          p.log.success(`Added ${addedModels.length} models from ${provider!.name} to favorites.`);
+          p.log.success(`Added ${addedModels.length} models from ${provider!.name} to favorites.`)
         }
       }
       if (duplicateCount > 0) {
-        p.log.warn(`${duplicateCount} selected model(s) were already in your favorites.`);
+        p.log.warn(`${duplicateCount} selected model(s) were already in your favorites.`)
       }
       if (limitReached) {
-        p.log.warn(`Limit of 20 favorites reached — some selected models could not be added.`);
+        p.log.warn(`Limit of 20 favorites reached — some selected models could not be added.`)
       }
     } else if (choice.startsWith('fav-')) {
-      const idx = parseInt(choice.slice(4), 10);
-      const fav = favorites[idx]!;
-      const entry = modelLookup.get(`${fav.providerId}:${fav.modelId}`);
-      const label = entry ? `${entry.modelName} (${entry.providerName})` : fav.modelId;
-      const confirmed = await p.confirm({ message: `Remove ${label} from favorites?` });
-      if (p.isCancel(confirmed) || !confirmed) continue;
-      favorites = removeFavorite(favorites, fav);
-      favoritesDirty = true;
-      p.log.success(`Removed ${label} from favorites.`);
+      const idx = parseInt(choice.slice(4), 10)
+      const fav = favorites[idx]!
+      const entry = modelLookup.get(`${fav.providerId}:${fav.modelId}`)
+      const label = entry ? `${entry.modelName} (${entry.providerName})` : fav.modelId
+      const confirmed = await p.confirm({ message: `Remove ${label} from favorites?` })
+      if (p.isCancel(confirmed) || !confirmed) continue
+      favorites = removeFavorite(favorites, fav)
+      favoritesDirty = true
+      p.log.success(`Removed ${label} from favorites.`)
     }
   }
 
   if (favoritesDirty) {
-    savePreferences({ [configKey]: favorites });
+    savePreferences({ [configKey]: favorites })
   }
 
-  const favLabel = scope === 'agy' ? 'Antigravity CLI ' : '';
+  const favLabel = scope === 'agy' ? 'Antigravity CLI ' : ''
   gateOutro(
     favorites.length === 0
       ? `No ${favLabel}favorites saved`
       : `${favorites.length} ${favLabel}favorite${favorites.length !== 1 ? 's' : ''} saved`,
     favorites.length === 0
       ? pc.dim('Launch uses single-model mode')
-      : pc.cyan('/model menu ready on next launch'),
-  );
-  return 0;
+      : pc.cyan('/model menu ready on next launch')
+  )
+  return 0
 }
 
 /** Handle `anygate models validate [--provider <id>] [--force]` */
 async function runValidateSubcommand(parsed: ParsedArgs): Promise<number> {
-  gateIntro('Model Validation');
+  gateIntro('Model Validation')
 
-  const providerId = parsed.validateProvider;
-  const force = parsed.force ?? false;
-  const ttlMs = force ? 0 : undefined;
+  const providerId = parsed.validateProvider
+  const force = parsed.force ?? false
+  const ttlMs = force ? 0 : undefined
 
-  const catalog = await fetchProviderCatalog();
-  const registry = loadRegistry();
+  const catalog = await fetchProviderCatalog()
+  const registry = loadRegistry()
 
-  let providersToValidate = catalog;
+  let providersToValidate = catalog
   if (providerId) {
-    const found = catalog.find(p => p.id === providerId);
+    const found = catalog.find(p => p.id === providerId)
     if (!found) {
-      p.log.error(`Provider not found: ${providerId}`);
-      return 1;
+      p.log.error(`Provider not found: ${providerId}`)
+      return 1
     }
-    providersToValidate = [found];
+    providersToValidate = [found]
   }
 
   if (providersToValidate.length === 0) {
-    p.log.warn('No providers configured.');
-    return 0;
+    p.log.warn('No providers configured.')
+    return 0
   }
 
   // Build validation params for all models
   const allParams: Array<{
-    modelId: string;
-    providerId: string;
-    baseUrl: string;
-    apiKey: string;
-    modelFormat: 'openai' | 'anthropic';
-    headers?: Record<string, string>;
-  }> = [];
+    modelId: string
+    providerId: string
+    baseUrl: string
+    apiKey: string
+    modelFormat: 'openai' | 'anthropic'
+    headers?: Record<string, string>
+  }> = []
 
   for (const provider of providersToValidate) {
-    const regProvider = registry.providers.find(p => p.id === provider.id);
-    if (!regProvider) continue;
+    const regProvider = registry.providers.find(p => p.id === provider.id)
+    if (!regProvider) continue
 
-    const apiKey = provider.apiKey || await resolveProviderCredential(provider.id, regProvider.authRef).catch(() => '');
+    const apiKey =
+      provider.apiKey ||
+      (await resolveProviderCredential(provider.id, regProvider.authRef).catch(() => ''))
     if (!apiKey?.trim()) {
-      p.log.warn(`Skipping ${provider.name} — no API key available.`);
-      continue;
+      p.log.warn(`Skipping ${provider.name} — no API key available.`)
+      continue
     }
 
-    const baseUrl = provider.models[0]?.apiBaseUrl || provider.models[0]?.completionsUrl || '';
+    const baseUrl = provider.models[0]?.apiBaseUrl || provider.models[0]?.completionsUrl || ''
     if (!baseUrl) {
-      p.log.warn(`Skipping ${provider.name} — no base URL available.`);
-      continue;
+      p.log.warn(`Skipping ${provider.name} — no base URL available.`)
+      continue
     }
 
     for (const model of provider.models) {
-      const completionsUrl = model.completionsUrl || model.apiBaseUrl || '';
-      if (!completionsUrl) continue;
+      const completionsUrl = model.completionsUrl || model.apiBaseUrl || ''
+      if (!completionsUrl) continue
 
       allParams.push({
         modelId: model.id,
@@ -326,57 +350,57 @@ async function runValidateSubcommand(parsed: ParsedArgs): Promise<number> {
         apiKey,
         modelFormat: model.modelFormat === 'anthropic' ? 'anthropic' : 'openai',
         headers: provider.headers,
-      });
+      })
     }
   }
 
   if (allParams.length === 0) {
-    p.log.warn('No models to validate.');
-    return 0;
+    p.log.warn('No models to validate.')
+    return 0
   }
 
-  const spinner = p.spinner();
-  spinner.start(`Validating ${allParams.length} model${allParams.length === 1 ? '' : 's'}...`);
+  const spinner = p.spinner()
+  spinner.start(`Validating ${allParams.length} model${allParams.length === 1 ? '' : 's'}...`)
 
-  const results = await validateModels(allParams, { ttlMs });
-  spinner.stop('');
+  const results = await validateModels(allParams, { ttlMs })
+  spinner.stop('')
 
   // Summarize results
-  const available = results.filter(r => r.status === 'available').length;
-  const deprecated = results.filter(r => r.status === 'deprecated').length;
-  const errors = results.filter(r => r.status === 'error').length;
-  const unverified = results.filter(r => r.status === 'unverified').length;
+  const available = results.filter(r => r.status === 'available').length
+  const deprecated = results.filter(r => r.status === 'deprecated').length
+  const errors = results.filter(r => r.status === 'error').length
+  const unverified = results.filter(r => r.status === 'unverified').length
 
   if (deprecated > 0) {
-    p.log.error(`${deprecated} model${deprecated === 1 ? '' : 's'} marked as deprecated:`);
+    p.log.error(`${deprecated} model${deprecated === 1 ? '' : 's'} marked as deprecated:`)
     for (const r of results.filter(r => r.status === 'deprecated')) {
-      p.log.error(`  ${r.modelId} (${r.providerId}): ${r.error ?? 'unknown'}`);
+      p.log.error(`  ${r.modelId} (${r.providerId}): ${r.error ?? 'unknown'}`)
     }
   }
 
   if (errors > 0) {
-    p.log.warn(`${errors} model${errors === 1 ? '' : 's'} with errors:`);
+    p.log.warn(`${errors} model${errors === 1 ? '' : 's'} with errors:`)
     for (const r of results.filter(r => r.status === 'error')) {
-      p.log.warn(`  ${r.modelId} (${r.providerId}): ${r.error ?? 'unknown'}`);
+      p.log.warn(`  ${r.modelId} (${r.providerId}): ${r.error ?? 'unknown'}`)
     }
   }
 
   if (unverified > 0) {
-    p.log.warn(`${unverified} model${unverified === 1 ? '' : 's'} unverified (will retry later):`);
+    p.log.warn(`${unverified} model${unverified === 1 ? '' : 's'} unverified (will retry later):`)
     for (const r of results.filter(r => r.status === 'unverified')) {
-      p.log.warn(`  ${r.modelId} (${r.providerId}): ${r.error ?? 'unknown'}`);
+      p.log.warn(`  ${r.modelId} (${r.providerId}): ${r.error ?? 'unknown'}`)
     }
   }
 
   p.log.success(
-    `${available} available, ${deprecated} deprecated, ${errors} error${errors === 1 ? '' : 's'}, ${unverified} unverified`,
-  );
+    `${available} available, ${deprecated} deprecated, ${errors} error${errors === 1 ? '' : 's'}, ${unverified} unverified`
+  )
 
   // Prune stale cache entries
-  const pruned = pruneValidationCache();
+  const pruned = pruneValidationCache()
   if (pruned > 0) {
-    p.log.info(`Pruned ${pruned} stale cache entr${pruned === 1 ? 'y' : 'ies'}.`);
+    p.log.info(`Pruned ${pruned} stale cache entr${pruned === 1 ? 'y' : 'ies'}.`)
   }
 
-  return deprecated > 0 ? 1 : 0;
+  return deprecated > 0 ? 1 : 0
 }

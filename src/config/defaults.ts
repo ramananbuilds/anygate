@@ -4,4 +4,4 @@ export const DEFAULT_CONFIG = {
   gatewayPort: 17645,
   telemetryEnabled: false,
   logLevel: 'info' as const,
-};
+}

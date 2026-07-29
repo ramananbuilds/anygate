@@ -1,33 +1,52 @@
-import pc from 'picocolors';
-import * as p from '@clack/prompts';
-import { fetchProviderCatalog, providersForPicker, localProvidersToServerModels } from '../../registry/provider-catalog.js';
-import { resolveLocalProviderApiKey } from '../../../src/storage/credentials.js';
-import { CredentialUnavailableError } from '../../../src/shared/errors.js';
-import { loadPreferences, savePreferences } from '../../../src/storage/config.js';
-import { resolveApiKey, readFromCredentialStore } from '../../../src/config/env.js';
-import { resolveOrCollectApiKey } from '../../apps/shared/key-setup.js';
-import { pickCodexProvider, pickCodexModel } from '../codex/prompts.js';
-import { resolveBootSelection } from '../codex/favorites-launch.js';
+import pc from 'picocolors'
+import * as p from '@clack/prompts'
 import {
-  codexCompatibleProviders,
-  routableModelsForProvider,
-} from '../codex/routing.js';
-import { providersForTarget } from '../../apps/shared/target-compatibility.js';
-import { startServer, type ServerHandle } from '../../../src/gateway/server/router.js';
-import { createGatewayModelCatalog, type ServerModelInfo } from '../../../src/gateway/server/models.js';
-import { BACKENDS } from '../../../src/config/constants.js';
-import { filterServerModelsByFavorites } from '../../../src/gateway/server/catalog-filter.js';
-import { writeAnygateIConfig, getClaudeDesktopHome } from './desktop-app.js';
-import { getProxyDebugLogPath } from '../../apps/shared/trace-log.js';
-import { readSessionLock, recoverSession, hasStaleSession, writeSessionLock, setupExitCleanup, cleanupSession, backupMetaJson, isConcurrentLiveSession, waitForShutdown } from './desktop-session.js';
-import { launchOrRestartClaudeApp, claudeAppSupported, isClaudeAppRunning, quitClaudeAppGracefully } from './desktop-launch.js';
-import type { LocalProvider, LocalProviderModel, FavoriteModel } from '../../../src/types/index.js';
+  fetchProviderCatalog,
+  providersForPicker,
+  localProvidersToServerModels,
+} from '../../registry/provider-catalog.js'
+import { resolveLocalProviderApiKey } from '../../../src/storage/credentials.js'
+import { CredentialUnavailableError } from '../../../src/shared/errors.js'
+import { loadPreferences, savePreferences } from '../../../src/storage/config.js'
+import { resolveApiKey, readFromCredentialStore } from '../../../src/config/env.js'
+import { resolveOrCollectApiKey } from '../../apps/shared/key-setup.js'
+import { pickCodexProvider, pickCodexModel } from '../codex/prompts.js'
+import { resolveBootSelection } from '../codex/favorites-launch.js'
+import { codexCompatibleProviders, routableModelsForProvider } from '../codex/routing.js'
+import { providersForTarget } from '../../apps/shared/target-compatibility.js'
+import { startServer, type ServerHandle } from '../../../src/gateway/server/router.js'
+import {
+  createGatewayModelCatalog,
+  type ServerModelInfo,
+} from '../../../src/gateway/server/models.js'
+import { BACKENDS } from '../../../src/config/constants.js'
+import { filterServerModelsByFavorites } from '../../../src/gateway/server/catalog-filter.js'
+import { writeAnygateIConfig, getClaudeDesktopHome } from './desktop-app.js'
+import { getProxyDebugLogPath } from '../../apps/shared/trace-log.js'
+import {
+  readSessionLock,
+  recoverSession,
+  hasStaleSession,
+  writeSessionLock,
+  setupExitCleanup,
+  cleanupSession,
+  backupMetaJson,
+  isConcurrentLiveSession,
+  waitForShutdown,
+} from './desktop-session.js'
+import {
+  launchOrRestartClaudeApp,
+  claudeAppSupported,
+  isClaudeAppRunning,
+  quitClaudeAppGracefully,
+} from './desktop-launch.js'
+import type { LocalProvider, LocalProviderModel, FavoriteModel } from '../../../src/types/index.js'
 import {
   buildCloudCodeProxyRoute,
   startCloudCodeCatalogBackend,
   type CloudCodeBackend,
-} from '../shared/cloud-code-backend.js';
-import type { ProxyRoute } from '../../../src/gateway/proxy/anthropic-proxy.js';
+} from '../shared/cloud-code-backend.js'
+import type { ProxyRoute } from '../../../src/gateway/proxy/anthropic-proxy.js'
 
 export function claudeAppHelpText(): string {
   return `${pc.bold('anygate claude-app')} — launch Claude Desktop app in 3P mode with your registry providers
@@ -56,17 +75,17 @@ ${pc.bold('Platforms:')}
 ${pc.bold('Cleanup:')}
   Ctrl+C stops the proxy and restores your previous Claude config.
   After a crash: anygate claude-app --restore
-`;
+`
 }
 
 function providerForClaudePicker(provider: LocalProvider): LocalProvider {
-  return { ...provider, models: routableModelsForProvider(provider, 'claude-app') };
+  return { ...provider, models: routableModelsForProvider(provider, 'claude-app') }
 }
 
 export function modelToServerModelInfo(
   model: LocalProviderModel,
   provider: LocalProvider,
-  overrides: Partial<ServerModelInfo> = {},
+  overrides: Partial<ServerModelInfo> = {}
 ): ServerModelInfo {
   return {
     id: model.id,
@@ -92,214 +111,230 @@ export function modelToServerModelInfo(
     interleavedReasoningField: model.interleavedReasoningField,
     headers: provider.headers,
     ...overrides,
-  };
+  }
 }
 
-export async function runClaudeAppCommand(args: string[], boot?: { launchProvider?: string; launchModel?: string }): Promise<number> {
+export async function runClaudeAppCommand(
+  args: string[],
+  boot?: { launchProvider?: string; launchModel?: string }
+): Promise<number> {
   if (args.includes('--help') || args.includes('-h')) {
-    console.log(claudeAppHelpText());
-    return 0;
+    console.log(claudeAppHelpText())
+    return 0
   }
 
   if (args.includes('--restore')) {
-    recoverSession();
-    console.log('Restored Claude Desktop anygate config.');
-    return 0;
+    recoverSession()
+    console.log('Restored Claude Desktop anygate config.')
+    return 0
   }
 
-  const trace = args.includes('--trace');
-  const useFavoritesCatalog = args.includes('--favorites');
-  const debugLogPath = trace ? getProxyDebugLogPath() : undefined;
-  if (trace) console.log(`Debug log: ${debugLogPath}`);
+  const trace = args.includes('--trace')
+  const useFavoritesCatalog = args.includes('--favorites')
+  const debugLogPath = trace ? getProxyDebugLogPath() : undefined
+  if (trace) console.log(`Debug log: ${debugLogPath}`)
 
   try {
-    claudeAppSupported();
+    claudeAppSupported()
   } catch (err) {
-    console.error(pc.red(String(err instanceof Error ? err.message : err)));
-    return 1;
+    console.error(pc.red(String(err instanceof Error ? err.message : err)))
+    return 1
   }
 
-  const isTty = Boolean(process.stdin.isTTY);
+  const isTty = Boolean(process.stdin.isTTY)
   if (!isTty) {
-    console.error(pc.red('anygate claude-app requires an interactive terminal.'));
-    return 1;
+    console.error(pc.red('anygate claude-app requires an interactive terminal.'))
+    return 1
   }
 
   if (isConcurrentLiveSession()) {
-    console.error(pc.yellow(`Another anygate claude-app session may be running.`));
-    console.error('Stop it with Ctrl+C in that terminal.');
-    return 1;
+    console.error(pc.yellow(`Another anygate claude-app session may be running.`))
+    console.error('Stop it with Ctrl+C in that terminal.')
+    return 1
   }
 
   if (hasStaleSession()) {
-    p.log.warn('Recovered from an interrupted claude-app session.');
-    recoverSession();
+    p.log.warn('Recovered from an interrupted claude-app session.')
+    recoverSession()
   }
 
-  const catalogSpinner = p.spinner();
-  catalogSpinner.start('Loading your providers...');
-  let catalog;
+  const catalogSpinner = p.spinner()
+  catalogSpinner.start('Loading your providers...')
+  let catalog
   try {
-    catalog = await fetchProviderCatalog({ agent: 'codex-app' });
+    catalog = await fetchProviderCatalog({ agent: 'codex-app' })
   } catch (err) {
-    catalogSpinner.stop('');
-    console.error(pc.red(String(err instanceof Error ? err.message : err)));
-    return 1;
+    catalogSpinner.stop('')
+    console.error(pc.red(String(err instanceof Error ? err.message : err)))
+    return 1
   }
-  catalogSpinner.stop('');
+  catalogSpinner.stop('')
 
-  const compatible = codexCompatibleProviders(providersForPicker(catalog), 'claude-app');
+  const compatible = codexCompatibleProviders(providersForPicker(catalog), 'claude-app')
   if (compatible.length === 0) {
-    p.log.warn('No compatible providers in your registry.');
-    return 0;
+    p.log.warn('No compatible providers in your registry.')
+    return 0
   }
 
-  const prefs = loadPreferences();
-  const favorites = prefs.favoriteModels ?? [];
-  const hasFavorites = favorites.length > 0;
+  const prefs = loadPreferences()
+  const favorites = prefs.favoriteModels ?? []
+  const hasFavorites = favorites.length > 0
 
-  let activeProvider: LocalProvider | null = null;
-  let selectedModel: any = null;
-  let useFavorites = false;
+  let activeProvider: LocalProvider | null = null
+  let selectedModel: any = null
+  let useFavorites = false
 
   if (boot?.launchProvider && boot?.launchModel) {
     const bootSelection = resolveBootSelection(
       compatible,
       boot.launchProvider,
       boot.launchModel,
-      providerForClaudePicker,
-    );
+      providerForClaudePicker
+    )
     if ('error' in bootSelection) {
-      p.log.error(bootSelection.error);
-      return 1;
+      p.log.error(bootSelection.error)
+      return 1
     }
-    activeProvider = bootSelection.provider;
-    selectedModel = bootSelection.model;
+    activeProvider = bootSelection.provider
+    selectedModel = bootSelection.model
   } else if (useFavoritesCatalog && hasFavorites) {
     // Non-interactive favorites launch: skip the provider/model picker and go
     // straight into the multi-route catalog so the app's model switcher shows
     // every favorite. Triggered by `anygate claude-app --favorites` (e.g. from the UI).
-    useFavorites = true;
+    useFavorites = true
   } else {
-    const pickedProvider = await pickCodexProvider(compatible, prefs, hasFavorites, undefined, 'Claude');
-    if (!pickedProvider) return 0;
+    const pickedProvider = await pickCodexProvider(
+      compatible,
+      prefs,
+      hasFavorites,
+      undefined,
+      'Claude'
+    )
+    if (!pickedProvider) return 0
 
     if (pickedProvider === '__favorites__') {
-      useFavorites = true;
+      useFavorites = true
     } else {
-      activeProvider = providerForClaudePicker(pickedProvider);
-      const pickedModel = await pickCodexModel(activeProvider, prefs);
-      if (!pickedModel) return 0;
-      selectedModel = pickedModel;
+      activeProvider = providerForClaudePicker(pickedProvider)
+      const pickedModel = await pickCodexModel(activeProvider, prefs)
+      if (!pickedModel) return 0
+      selectedModel = pickedModel
     }
   }
 
   if (activeProvider) {
-    const apiKey = await resolveLocalProviderApiKey(activeProvider);
+    const apiKey = await resolveLocalProviderApiKey(activeProvider)
     if (!apiKey) {
-      p.log.error(new CredentialUnavailableError(activeProvider.id).userMessage);
-      return 1;
+      p.log.error(new CredentialUnavailableError(activeProvider.id).userMessage)
+      return 1
     }
 
-    activeProvider.apiKey = apiKey;
+    activeProvider.apiKey = apiKey
   }
 
-  let serverModels: ServerModelInfo[] = [];
-  let cloudCodeBackend: CloudCodeBackend | null = null;
-  let cloudCodeFavBackend: CloudCodeBackend | null = null;
+  let serverModels: ServerModelInfo[] = []
+  let cloudCodeBackend: CloudCodeBackend | null = null
+  let cloudCodeFavBackend: CloudCodeBackend | null = null
 
   if (useFavorites) {
     // Identify cloud-code favorites from the already-fetched catalog
-    const antigravityProvider = catalog.find((lp: LocalProvider) => lp.id === 'antigravity');
+    const antigravityProvider = catalog.find((lp: LocalProvider) => lp.id === 'antigravity')
     const cloudCodeFavoriteModels = favorites
       .map((fav: FavoriteModel) => {
-        if (fav.providerId !== 'antigravity') return null;
-        const model = antigravityProvider?.models.find((m: LocalProviderModel) => m.id === fav.modelId);
-        return model?.modelFormat === 'cloud-code' ? model : null;
+        if (fav.providerId !== 'antigravity') return null
+        const model = antigravityProvider?.models.find(
+          (m: LocalProviderModel) => m.id === fav.modelId
+        )
+        return model?.modelFormat === 'cloud-code' ? model : null
       })
-      .filter((m): m is import('../../types/index.js').LocalProviderModel => m !== null);
+      .filter((m): m is import('../../types/index.js').LocalProviderModel => m !== null)
 
     const regularFavorites = favorites.filter(
-      fav => !cloudCodeFavoriteModels.some(m => m.id === fav.modelId && fav.providerId === 'antigravity'),
-    );
+      fav =>
+        !cloudCodeFavoriteModels.some(m => m.id === fav.modelId && fav.providerId === 'antigravity')
+    )
 
     // Start cloud-code backend if any cloud-code favorites
-    let cloudCodeServerModels: ServerModelInfo[] = [];
+    let cloudCodeServerModels: ServerModelInfo[] = []
 
     if (cloudCodeFavoriteModels.length > 0 && antigravityProvider?.apiKey) {
       const cloudRoutes: ProxyRoute[] = cloudCodeFavoriteModels.map(model =>
         buildCloudCodeProxyRoute(
           model,
           antigravityProvider.apiKey,
-          (antigravityProvider.providerData ?? {}) as Record<string, unknown>,
-        ),
-      );
-      const startingAlias = cloudRoutes[0]!.aliasId;
-      cloudCodeFavBackend = await startCloudCodeCatalogBackend(cloudRoutes, startingAlias, trace);
-      const favBackend = cloudCodeFavBackend;
-      cloudCodeServerModels = cloudCodeFavoriteModels.map(model => modelToServerModelInfo(model, antigravityProvider, {
-        isFree: false,
-        providerId: 'antigravity',
-        sourceBackend: 'antigravity',
-        modelFormat: 'anthropic' as const,
-        cost: undefined,
-        baseUrl: `http://127.0.0.1:${favBackend.port}`,
-        completionsUrl: undefined,
-        npm: undefined,
-        apiBaseUrl: undefined,
-        apiKey: favBackend.token,
-        authType: undefined,
-        oauthAccountId: undefined,
-        headers: undefined,
-      }));
+          (antigravityProvider.providerData ?? {}) as Record<string, unknown>
+        )
+      )
+      const startingAlias = cloudRoutes[0]!.aliasId
+      cloudCodeFavBackend = await startCloudCodeCatalogBackend(cloudRoutes, startingAlias, trace)
+      const favBackend = cloudCodeFavBackend
+      cloudCodeServerModels = cloudCodeFavoriteModels.map(model =>
+        modelToServerModelInfo(model, antigravityProvider, {
+          isFree: false,
+          providerId: 'antigravity',
+          sourceBackend: 'antigravity',
+          modelFormat: 'anthropic' as const,
+          cost: undefined,
+          baseUrl: `http://127.0.0.1:${favBackend.port}`,
+          completionsUrl: undefined,
+          npm: undefined,
+          apiBaseUrl: undefined,
+          apiKey: favBackend.token,
+          authType: undefined,
+          oauthAccountId: undefined,
+          headers: undefined,
+        })
+      )
     }
 
     // Load remaining (non-cloud-code) favorites via the same catalog/agent used by
     // the picker (claude-app), NOT the server agent — the server target drops some
     // model formats and can normalize provider ids differently, which silently
     // shrinks the favorites catalog to a single model.
-    const regularLocalProviders = providersForTarget(catalog, 'claude-app');
+    const regularLocalProviders = providersForTarget(catalog, 'claude-app')
     const regularAllModels: ServerModelInfo[] = regularLocalProviders.flatMap(provider =>
-      localProvidersToServerModels([provider]),
-    );
-    const regularServerModels = filterServerModelsByFavorites(regularAllModels, regularFavorites);
-    serverModels = [...cloudCodeServerModels, ...regularServerModels];
+      localProvidersToServerModels([provider])
+    )
+    const regularServerModels = filterServerModelsByFavorites(regularAllModels, regularFavorites)
+    serverModels = [...cloudCodeServerModels, ...regularServerModels]
 
     // Drop duplicate (providerId, id) entries — some registries list a model
     // twice, which would otherwise surface as a repeated discovery id and can
     // make the client picker collapse to fewer rows than expected.
-    const seen = new Set<string>();
+    const seen = new Set<string>()
     serverModels = serverModels.filter(m => {
-      const key = `${m.providerId}:${m.id}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+      const key = `${m.providerId}:${m.id}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
   } else if (selectedModel.modelFormat === 'cloud-code') {
-    const providerData = (activeProvider!.providerData ?? {}) as Record<string, unknown>;
-    const cloudRoute = buildCloudCodeProxyRoute(selectedModel, activeProvider!.apiKey, providerData);
-    cloudCodeBackend = await startCloudCodeCatalogBackend([cloudRoute], cloudRoute.aliasId, trace);
-    serverModels = [modelToServerModelInfo(selectedModel, activeProvider!, {
-      modelFormat: 'anthropic',
-      baseUrl: `http://127.0.0.1:${cloudCodeBackend.port}`,
-      completionsUrl: undefined,
-      npm: undefined,
-      apiBaseUrl: undefined,
-      apiKey: cloudCodeBackend.token,
-      authType: undefined,
-      oauthAccountId: undefined,
-      headers: undefined,
-    })];
+    const providerData = (activeProvider!.providerData ?? {}) as Record<string, unknown>
+    const cloudRoute = buildCloudCodeProxyRoute(selectedModel, activeProvider!.apiKey, providerData)
+    cloudCodeBackend = await startCloudCodeCatalogBackend([cloudRoute], cloudRoute.aliasId, trace)
+    serverModels = [
+      modelToServerModelInfo(selectedModel, activeProvider!, {
+        modelFormat: 'anthropic',
+        baseUrl: `http://127.0.0.1:${cloudCodeBackend.port}`,
+        completionsUrl: undefined,
+        npm: undefined,
+        apiBaseUrl: undefined,
+        apiKey: cloudCodeBackend.token,
+        authType: undefined,
+        oauthAccountId: undefined,
+        headers: undefined,
+      }),
+    ]
   } else {
-    serverModels = [modelToServerModelInfo(selectedModel, activeProvider!)];
+    serverModels = [modelToServerModelInfo(selectedModel, activeProvider!)]
   }
 
-  let proxyHandle: ServerHandle | null = null;
-  let sessionActive = false;
-  let uuid = '';
+  let proxyHandle: ServerHandle | null = null
+  let sessionActive = false
+  let uuid = ''
 
   try {
-    backupMetaJson();
+    backupMetaJson()
 
     proxyHandle = await startServer({
       host: '127.0.0.1',
@@ -310,71 +345,76 @@ export async function runClaudeAppCommand(args: string[], boot?: { launchProvide
       backends: BACKENDS,
       gateway: { maskGatewayIds: true },
       debugLogPath,
-    });
+    })
 
-    uuid = writeAnygateIConfig(proxyHandle.port);
+    uuid = writeAnygateIConfig(proxyHandle.port)
 
     writeSessionLock({
       pid: process.pid,
       startedAt: new Date().toISOString(),
       uuid,
-      proxyPort: proxyHandle.port
-    });
-    sessionActive = true;
-    setupExitCleanup(uuid);
+      proxyPort: proxyHandle.port,
+    })
+    sessionActive = true
+    setupExitCleanup(uuid)
 
     if (!useFavorites) {
-      const prevRecent = prefs.recentModelsByProvider?.[activeProvider!.id] ?? [];
-      const updatedRecent = [selectedModel.id, ...prevRecent.filter((id: string) => id !== selectedModel.id)].slice(0, 3);
+      const prevRecent = prefs.recentModelsByProvider?.[activeProvider!.id] ?? []
+      const updatedRecent = [
+        selectedModel.id,
+        ...prevRecent.filter((id: string) => id !== selectedModel.id),
+      ].slice(0, 3)
       savePreferences({
         lastCodexProvider: activeProvider!.id,
         lastCodexModel: selectedModel.id,
-        recentModelsByProvider: { ...prefs.recentModelsByProvider, [activeProvider!.id]: updatedRecent },
-      });
+        recentModelsByProvider: {
+          ...prefs.recentModelsByProvider,
+          [activeProvider!.id]: updatedRecent,
+        },
+      })
     }
 
-    console.log(`\n${pc.green('✔')} Proxy started on port ${proxyHandle.port}`);
+    console.log(`\n${pc.green('✔')} Proxy started on port ${proxyHandle.port}`)
 
     try {
-      await launchOrRestartClaudeApp();
+      await launchOrRestartClaudeApp()
     } catch (err) {
-      p.log.warn(String(err instanceof Error ? err.message : err));
+      p.log.warn(String(err instanceof Error ? err.message : err))
     }
 
-    console.log(`\n${pc.bold('Claude Desktop 3P Mode Active')}`);
+    console.log(`\n${pc.bold('Claude Desktop 3P Mode Active')}`)
     if (useFavorites) {
-      console.log(`${pc.dim('Catalog:')}  Favorite models only`);
+      console.log(`${pc.dim('Catalog:')}  Favorite models only`)
     } else {
-      console.log(`${pc.dim('Model:')}    ${selectedModel.id}`);
-      console.log(`${pc.dim('Provider:')} ${activeProvider!.name}`);
+      console.log(`${pc.dim('Model:')}    ${selectedModel.id}`)
+      console.log(`${pc.dim('Provider:')} ${activeProvider!.name}`)
     }
-    console.log(`${pc.cyan('Press Ctrl+C to stop and restore config.')}`);
+    console.log(`${pc.cyan('Press Ctrl+C to stop and restore config.')}`)
 
-    await waitForShutdown();
-    console.log('');
-    
+    await waitForShutdown()
+    console.log('')
+
     // We do cleanup before prompting so that Claude gets restored ASAP
     // and if the user hits Ctrl+C again during the prompt, it's already restored.
-    cleanupSession(uuid);
-    sessionActive = false;
-    if (cloudCodeBackend) cloudCodeBackend.handle.close();
-    if (cloudCodeFavBackend) cloudCodeFavBackend.handle.close();
+    cleanupSession(uuid)
+    sessionActive = false
+    if (cloudCodeBackend) cloudCodeBackend.handle.close()
+    if (cloudCodeFavBackend) cloudCodeFavBackend.handle.close()
 
     if (isClaudeAppRunning()) {
-      const shouldClose = await p.confirm({ message: 'Claude Desktop is still running. Close it?' });
+      const shouldClose = await p.confirm({ message: 'Claude Desktop is still running. Close it?' })
       if (shouldClose && !p.isCancel(shouldClose)) {
-        quitClaudeAppGracefully();
+        quitClaudeAppGracefully()
       }
     }
-    return 0;
-
+    return 0
   } catch (err) {
-    if (proxyHandle) await proxyHandle.close();
+    if (proxyHandle) await proxyHandle.close()
     if (sessionActive && uuid) {
-      cleanupSession(uuid);
+      cleanupSession(uuid)
     }
-    if (cloudCodeBackend) cloudCodeBackend.handle.close();
-    if (cloudCodeFavBackend) cloudCodeFavBackend.handle.close();
-    return 1;
+    if (cloudCodeBackend) cloudCodeBackend.handle.close()
+    if (cloudCodeFavBackend) cloudCodeFavBackend.handle.close()
+    return 1
   }
 }

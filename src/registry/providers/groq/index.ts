@@ -4,4 +4,4 @@ export const groqProviderMeta = {
   brand: 'Groq',
   defaultBaseUrl: 'https://api.groq.com/openai/v1',
   npm: '@ai-sdk/openai-compatible',
-};
+}

@@ -4,4 +4,4 @@ export const ollamaProviderMeta = {
   brand: 'Ollama',
   defaultBaseUrl: 'http://localhost:11434',
   npm: 'ollama-ai-provider',
-};
+}

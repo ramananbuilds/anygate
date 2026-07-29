@@ -1,60 +1,53 @@
 // src/registry/models-dev.ts — models.dev capability cache (bundled + optional user refresh)
 
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
-import { dirname, join } from 'node:path';
-import bundledCache from './data/models-dev-cache.json' with { type: 'json' };
-import { getAppHome } from '../config/paths.ts';
-import { normalizeModelIdCandidates } from './pricing.js';
+import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import bundledCache from './data/models-dev-cache.json' with { type: 'json' }
+import { getAppHome } from '../config/paths.ts'
+import { normalizeModelIdCandidates } from './pricing.js'
 
-export const MODELS_DEV_API_URL = 'https://models.dev/api.json';
-const FETCH_TIMEOUT_MS = 15_000;
-const FILE_MODE = 0o600;
+export const MODELS_DEV_API_URL = 'https://models.dev/api.json'
+const FETCH_TIMEOUT_MS = 15_000
+const FILE_MODE = 0o600
 
 export interface ModelsDevModalities {
-  input?: string[];
-  output?: string[];
+  input?: string[]
+  output?: string[]
 }
 
 export interface ModelsDevModel {
-  id?: string;
-  name?: string;
-  tool_call?: boolean;
-  chat?: boolean;
-  interactions?: boolean;
-  reasoning?: boolean;
-  interleaved?: { field?: string };
-  modalities?: ModelsDevModalities;
+  id?: string
+  name?: string
+  tool_call?: boolean
+  chat?: boolean
+  interactions?: boolean
+  reasoning?: boolean
+  interleaved?: { field?: string }
+  modalities?: ModelsDevModalities
   /** models.dev reports per-model limits (context/output token counts). */
-  limit?: { context?: number; output?: number };
+  limit?: { context?: number; output?: number }
 }
 
 export interface ModelsDevProvider {
-  id?: string;
-  name?: string;
-  models?: Record<string, ModelsDevModel>;
+  id?: string
+  name?: string
+  models?: Record<string, ModelsDevModel>
 }
 
-export type ModelsDevCacheFile = Record<string, ModelsDevProvider>;
+export type ModelsDevCacheFile = Record<string, ModelsDevProvider>
 
 export interface ModelsDevCacheMeta {
-  schema_version?: string;
-  fetched_at?: string;
-  source?: string;
-  provider_count?: number;
+  schema_version?: string
+  fetched_at?: string
+  source?: string
+  provider_count?: number
 }
 
-const META_KEY = '_gateway_meta';
+const META_KEY = '_gateway_meta'
 
-let memoryCache: ModelsDevCacheFile | null = null;
-let memoryCachePath: string | null = null;
-let memoryCacheMtime = 0;
+let memoryCache: ModelsDevCacheFile | null = null
+let memoryCachePath: string | null = null
+let memoryCacheMtime = 0
 
 /** Registry / OpenCode provider id → models.dev top-level key */
 export const REGISTRY_TO_MODELS_DEV: Record<string, string> = {
@@ -74,52 +67,50 @@ export const REGISTRY_TO_MODELS_DEV: Record<string, string> = {
   anthropic: 'anthropic',
   nvidia: 'nvidia',
   venice: 'openrouter',
-};
+}
 
-export function readModelsDevCacheMeta(
-  cache: ModelsDevCacheFile,
-): ModelsDevCacheMeta | null {
-  const raw = cache[META_KEY] as unknown as ModelsDevCacheMeta | undefined;
-  if (!raw || typeof raw !== 'object') return null;
-  return raw;
+export function readModelsDevCacheMeta(cache: ModelsDevCacheFile): ModelsDevCacheMeta | null {
+  const raw = cache[META_KEY] as unknown as ModelsDevCacheMeta | undefined
+  if (!raw || typeof raw !== 'object') return null
+  return raw
 }
 
 export function stripModelsDevCacheMeta(cache: ModelsDevCacheFile): ModelsDevCacheFile {
-  const { [META_KEY]: _meta, ...providers } = cache;
-  return providers;
+  const { [META_KEY]: _meta, ...providers } = cache
+  return providers
 }
 
 export function loadBundledModelsDevCache(): ModelsDevCacheFile {
-  return bundledCache as unknown as ModelsDevCacheFile;
+  return bundledCache as unknown as ModelsDevCacheFile
 }
 
 export function invalidateModelsDevCache(): void {
-  memoryCache = null;
-  memoryCachePath = null;
-  memoryCacheMtime = 0;
+  memoryCache = null
+  memoryCachePath = null
+  memoryCacheMtime = 0
 }
 
 function readModelsDevFile(path: string): ModelsDevCacheFile | null {
-  if (!existsSync(path)) return null;
+  if (!existsSync(path)) return null
   try {
-    return JSON.parse(readFileSync(path, 'utf8')) as ModelsDevCacheFile;
+    return JSON.parse(readFileSync(path, 'utf8')) as ModelsDevCacheFile
   } catch {
-    return null;
+    return null
   }
 }
 
 function mkdirSafe(dir: string): void {
   try {
-    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    mkdirSync(dir, { recursive: true, mode: 0o700 })
   } catch {
     // ignore
   }
 }
 
 function attachModelsDevCacheMeta(
-  providers: Record<string, ModelsDevProvider>,
+  providers: Record<string, ModelsDevProvider>
 ): ModelsDevCacheFile {
-  const providerCount = Object.keys(providers).filter(k => !k.startsWith('_')).length;
+  const providerCount = Object.keys(providers).filter(k => !k.startsWith('_')).length
   return {
     [META_KEY]: {
       schema_version: '1',
@@ -128,101 +119,101 @@ function attachModelsDevCacheMeta(
       provider_count: providerCount,
     },
     ...providers,
-  } as ModelsDevCacheFile;
+  } as ModelsDevCacheFile
 }
 
 function writeModelsDevCache(path: string, data: ModelsDevCacheFile): void {
-  mkdirSafe(dirname(path));
-  writeFileSync(path, `${JSON.stringify(data)}\n`, { mode: FILE_MODE });
+  mkdirSafe(dirname(path))
+  writeFileSync(path, `${JSON.stringify(data)}\n`, { mode: FILE_MODE })
   try {
-    chmodSync(path, FILE_MODE);
+    chmodSync(path, FILE_MODE)
   } catch {
     // best-effort
   }
-  invalidateModelsDevCache();
+  invalidateModelsDevCache()
 }
 
 export function getUserModelsDevCachePath(): string {
-  return join(getAppHome(), 'models-dev-cache.json');
+  return join(getAppHome(), 'models-dev-cache.json')
 }
 
 function rememberModelsDevCache(path: string, data: ModelsDevCacheFile): ModelsDevCacheFile {
-  memoryCache = data;
-  memoryCachePath = path;
+  memoryCache = data
+  memoryCachePath = path
   try {
-    memoryCacheMtime = statSync(path).mtimeMs;
+    memoryCacheMtime = statSync(path).mtimeMs
   } catch {
-    memoryCacheMtime = 0;
+    memoryCacheMtime = 0
   }
-  return data;
+  return data
 }
 
 export function loadModelsDevCache(): ModelsDevCacheFile {
-  const userPath = getUserModelsDevCachePath();
+  const userPath = getUserModelsDevCachePath()
   if (existsSync(userPath)) {
     try {
-      const mtime = statSync(userPath).mtimeMs;
+      const mtime = statSync(userPath).mtimeMs
       if (memoryCache && memoryCachePath === userPath && memoryCacheMtime === mtime) {
-        return memoryCache;
+        return memoryCache
       }
-      const data = readModelsDevFile(userPath);
-      if (data) return rememberModelsDevCache(userPath, data);
+      const data = readModelsDevFile(userPath)
+      if (data) return rememberModelsDevCache(userPath, data)
     } catch {
       // fall through to bundled
     }
   }
 
-  if (memoryCache && memoryCachePath === 'bundled') return memoryCache;
-  return rememberModelsDevCache('bundled', loadBundledModelsDevCache());
+  if (memoryCache && memoryCachePath === 'bundled') return memoryCache
+  return rememberModelsDevCache('bundled', loadBundledModelsDevCache())
 }
 
 export async function fetchModelsDevCache(): Promise<ModelsDevCacheFile | null> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
   try {
     const response = await fetch(MODELS_DEV_API_URL, {
       signal: controller.signal,
       headers: { Accept: 'application/json' },
-    });
-    if (!response.ok) return null;
-    const data = (await response.json()) as Record<string, ModelsDevProvider>;
-    if (!data || typeof data !== 'object') return null;
-    const withMeta = attachModelsDevCacheMeta(data);
-    writeModelsDevCache(getUserModelsDevCachePath(), withMeta);
-    return withMeta;
+    })
+    if (!response.ok) return null
+    const data = (await response.json()) as Record<string, ModelsDevProvider>
+    if (!data || typeof data !== 'object') return null
+    const withMeta = attachModelsDevCacheMeta(data)
+    writeModelsDevCache(getUserModelsDevCachePath(), withMeta)
+    return withMeta
   } catch {
-    return null;
+    return null
   } finally {
-    clearTimeout(timer);
+    clearTimeout(timer)
   }
 }
 
 export function resolveModelsDevSlug(providerId: string): string {
-  return REGISTRY_TO_MODELS_DEV[providerId] ?? providerId;
+  return REGISTRY_TO_MODELS_DEV[providerId] ?? providerId
 }
 
 /** Fetch latest models.dev catalog in the background; falls back to bundled snapshot offline. */
 export function refreshModelsDevCacheAsync(onComplete?: (updated: boolean) => void): void {
   void (async () => {
-    const updated = (await fetchModelsDevCache()) !== null;
-    onComplete?.(updated);
-  })();
+    const updated = (await fetchModelsDevCache()) !== null
+    onComplete?.(updated)
+  })()
 }
 
 export function findModelsDevModel(
   providerId: string,
   modelId: string,
-  cache: ModelsDevCacheFile = loadModelsDevCache(),
+  cache: ModelsDevCacheFile = loadModelsDevCache()
 ): ModelsDevModel | null {
-  const slug = resolveModelsDevSlug(providerId);
-  const models = stripModelsDevCacheMeta(cache)[slug]?.models;
-  if (!models) return null;
+  const slug = resolveModelsDevSlug(providerId)
+  const models = stripModelsDevCacheMeta(cache)[slug]?.models
+  if (!models) return null
 
   for (const candidate of normalizeModelIdCandidates(modelId)) {
-    const entry = models[candidate];
-    if (entry) return entry;
+    const entry = models[candidate]
+    if (entry) return entry
   }
-  return null;
+  return null
 }
 
 /**
@@ -234,7 +225,7 @@ export function findModelsDevModel(
 const MULTIMODAL_FAMILIES: RegExp[] = [
   /nvidia.*nemotron/i,
   /^gpt-/i,
-  /^o[0-9]/i,            // o1, o3, o4, o-series
+  /^o[0-9]/i, // o1, o3, o4, o-series
   /gpt-5/i,
   /gemini/i,
   /claude/i,
@@ -250,11 +241,11 @@ const MULTIMODAL_FAMILIES: RegExp[] = [
   /pixtral/i,
   /grok.*vision/i,
   /(command|cohere).*vision/i,
-];
+]
 
 function familyMatchesMultimodal(family: string, modelId: string): boolean {
-  const hay = `${family} ${modelId}`;
-  return MULTIMODAL_FAMILIES.some(re => re.test(hay));
+  const hay = `${family} ${modelId}`
+  return MULTIMODAL_FAMILIES.some(re => re.test(hay))
 }
 
 /**
@@ -274,29 +265,34 @@ export function resolveInputTypes(
   family: string,
   providerId: string,
   modelId: string,
-  cache: ModelsDevCacheFile = loadModelsDevCache(),
+  cache: ModelsDevCacheFile = loadModelsDevCache()
 ): string[] {
-  const entry = findModelsDevModel(providerId, modelId, cache);
-  const baseInput = entry?.modalities?.input && entry.modalities.input.length > 0
-    ? [...entry.modalities.input]
-    : null;
+  const entry = findModelsDevModel(providerId, modelId, cache)
+  const baseInput =
+    entry?.modalities?.input && entry.modalities.input.length > 0
+      ? [...entry.modalities.input]
+      : null
 
   // models.dev explicit text-only: respect it UNLESS a known multimodal family
   // overrides (the NVIDIA Nemotron 3 Ultra case).
-  if (baseInput && baseInput.every(t => t === 'text') && !familyMatchesMultimodal(family, modelId)) {
-    return ['text'];
+  if (
+    baseInput &&
+    baseInput.every(t => t === 'text') &&
+    !familyMatchesMultimodal(family, modelId)
+  ) {
+    return ['text']
   }
 
-  const result = new Set<string>(baseInput ?? ['text']);
-  if (familyMatchesMultimodal(family, modelId)) result.add('image');
-  return [...result];
+  const result = new Set<string>(baseInput ?? ['text'])
+  if (familyMatchesMultimodal(family, modelId)) result.add('image')
+  return [...result]
 }
 
 /** Conservative auto-hide rules — only when models.dev row exists and fields are explicit. */
 export function shouldHideByModelsDevCapabilities(entry: ModelsDevModel): boolean {
-  const output = entry.modalities?.output;
-  if (output && output.length > 0 && !output.includes('text')) return true;
-  if (entry.tool_call === false) return true;
-  if (entry.interactions === true && entry.chat === false) return true;
-  return false;
+  const output = entry.modalities?.output
+  if (output && output.length > 0 && !output.includes('text')) return true
+  if (entry.tool_call === false) return true
+  if (entry.interactions === true && entry.chat === false) return true
+  return false
 }

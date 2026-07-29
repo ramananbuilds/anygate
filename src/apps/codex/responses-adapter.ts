@@ -1,6 +1,6 @@
 // OpenAI Responses API (/v1/responses) ↔ Vercel AI SDK. One turn per request; Codex owns the tool loop.
-import { streamText, generateText, tool, jsonSchema } from 'ai';
-import type { LanguageModel, ModelMessage, ToolSet } from 'ai';
+import { streamText, generateText, tool, jsonSchema } from 'ai'
+import type { LanguageModel, ModelMessage, ToolSet } from 'ai'
 import {
   sseChunk,
   encodeToolUseId,
@@ -11,52 +11,57 @@ import {
   grabRoundTripSignature,
   parseDsmlToolCalls,
   type FullStreamPart,
-} from '../../../src/gateway/proxy/proxy-shared.js';
+} from '../../../src/gateway/proxy/proxy-shared.js'
 import {
   deepMergeProviderOptions,
   effortProviderOptions,
   thinkingProviderOptions,
   type ReasoningMetadata,
-} from '../../../src/gateway/providers/provider-factory.js';
-import { formatUpstreamError } from '../../../src/shared/errors.js';
+} from '../../../src/gateway/providers/provider-factory.js'
+import { formatUpstreamError } from '../../../src/shared/errors.js'
 
-export { silenceSdkWarnings };
+export { silenceSdkWarnings }
 
 // ── Responses request shapes ─────────────────────────────────────────────────
 
 export interface ResponsesFunctionCallItem {
-  type: 'function_call';
-  id?: string;
-  call_id: string;
-  name: string;
-  arguments?: string;
+  type: 'function_call'
+  id?: string
+  call_id: string
+  name: string
+  arguments?: string
 }
 
 export interface ResponsesFunctionCallOutputItem {
-  type: 'function_call_output';
-  call_id: string;
-  output: string | unknown;
+  type: 'function_call_output'
+  call_id: string
+  output: string | unknown
 }
 
 export interface ResponsesMessageItem {
-  type?: 'message';
-  id?: string;
-  status?: string;
-  role: 'user' | 'assistant' | 'developer';
-  content: string | Array<{ type: string; text?: string }>;
+  type?: 'message'
+  id?: string
+  status?: string
+  role: 'user' | 'assistant' | 'developer'
+  content: string | Array<{ type: string; text?: string }>
 }
 
 export interface ResponsesReasoningItem {
-  type: 'reasoning';
-  id?: string;
-  summary?: Array<{ type: string; text?: string }>;
+  type: 'reasoning'
+  id?: string
+  summary?: Array<{ type: string; text?: string }>
 }
 
 /** tool_search_output carries deferred MCP/namespace tool definitions. */
 export interface ResponsesToolSearchOutputItem {
-  type: 'tool_search_output';
-  call_id?: string;
-  tools?: Array<{ type?: string; name?: string; tools?: ResponsesFunctionTool[]; parameters?: unknown }>;
+  type: 'tool_search_output'
+  call_id?: string
+  tools?: Array<{
+    type?: string
+    name?: string
+    tools?: ResponsesFunctionTool[]
+    parameters?: unknown
+  }>
 }
 
 export type ResponsesInputItem =
@@ -64,13 +69,13 @@ export type ResponsesInputItem =
   | ResponsesFunctionCallItem
   | ResponsesFunctionCallOutputItem
   | ResponsesReasoningItem
-  | ResponsesToolSearchOutputItem;
+  | ResponsesToolSearchOutputItem
 
 export interface ResponsesFunctionTool {
-  type: 'function';
-  name: string;
-  description?: string;
-  parameters?: Record<string, unknown>;
+  type: 'function'
+  name: string
+  description?: string
+  parameters?: Record<string, unknown>
 }
 
 /**
@@ -86,19 +91,19 @@ export interface ResponsesFunctionTool {
  * tools (so the model can invoke them) and record `custom` tool names so the
  * response path can re-wrap them as `custom_tool_call` items.
  */
-export type ResponsesManagedToolType = 'tool_search' | 'additional_tools' | 'custom';
+export type ResponsesManagedToolType = 'tool_search' | 'additional_tools' | 'custom'
 
 export interface ResponsesManagedTool {
-  type: ResponsesManagedToolType;
-  name: string;
-  description?: string;
-  parameters?: Record<string, unknown>;
+  type: ResponsesManagedToolType
+  name: string
+  description?: string
+  parameters?: Record<string, unknown>
 }
 
 export interface ResponsesCustomTool {
-  type: 'custom';
-  name: string;
-  description?: string;
+  type: 'custom'
+  name: string
+  description?: string
 }
 
 /**
@@ -109,12 +114,12 @@ export interface ResponsesCustomTool {
  * bharat2808/codex-ollama-proxy for the canonical flatten/split approach.
  */
 export interface NamespaceInfo {
-  namespace: string;
-  name: string;
-  parameters?: Record<string, unknown>;
+  namespace: string
+  name: string
+  parameters?: Record<string, unknown>
 }
 
-export type NamespaceMap = Map<string, NamespaceInfo>;
+export type NamespaceMap = Map<string, NamespaceInfo>
 
 /**
  * Codex App's proprietary wrapper for MCP server tools. The real ChatGPT backend
@@ -123,122 +128,136 @@ export type NamespaceMap = Map<string, NamespaceInfo>;
  * never sees any usable MCP tools. See translateResponsesTools.
  */
 export interface ResponsesNamespaceTool {
-  type: 'namespace';
-  name: string;
-  description?: string;
-  tools: ResponsesFunctionTool[];
+  type: 'namespace'
+  name: string
+  description?: string
+  tools: ResponsesFunctionTool[]
 }
 
-export type ResponsesTool = ResponsesFunctionTool | ResponsesNamespaceTool | ResponsesManagedTool | ResponsesCustomTool;
+export type ResponsesTool =
+  ResponsesFunctionTool | ResponsesNamespaceTool | ResponsesManagedTool | ResponsesCustomTool
 
 export interface ResponsesRequest {
-  model: string;
-  input: string | ResponsesInputItem[];
-  stream?: boolean;
-  tools?: ResponsesTool[];
-  instructions?: string;
-  max_output_tokens?: number;
-  temperature?: number;
-  previous_response_id?: string;
-  reasoning?: { effort?: string; summary?: string };
+  model: string
+  input: string | ResponsesInputItem[]
+  stream?: boolean
+  tools?: ResponsesTool[]
+  instructions?: string
+  max_output_tokens?: number
+  temperature?: number
+  previous_response_id?: string
+  reasoning?: { effort?: string; summary?: string }
 }
 
 export interface CodexSdkCallParams {
-  system?: string;
-  messages: ModelMessage[];
-  tools?: ToolSet;
-  maxOutputTokens?: number;
-  temperature?: number;
-  providerOptions?: Record<string, Record<string, unknown>>;
+  system?: string
+  messages: ModelMessage[]
+  tools?: ToolSet
+  maxOutputTokens?: number
+  temperature?: number
+  providerOptions?: Record<string, Record<string, unknown>>
   /**
    * Split-back knowledge for Codex App's proprietary `namespace` (MCP) tools: maps
    * the flat function-call name the model emits to the `{namespace, name}` shape
    * Codex's dispatcher requires. Built from the request's `namespace` tools and
    * `tool_search_output` input items; consumed on the response path.
    */
-  namespaceMap?: NamespaceMap;
+  namespaceMap?: NamespaceMap
   /**
    * Names of `type:"custom"` tools (e.g. `apply_patch`) declared in the request,
    * so the response path can re-wrap their `function_call` output as a native
    * `custom_tool_call` item Codex will execute.
    */
-  customToolNames?: Set<string>;
+  customToolNames?: Set<string>
   /** When true, the response is a compacted-context summary: emit exactly one `compaction` item. */
-  isCompaction?: boolean;
+  isCompaction?: boolean
 }
 
 export interface TranslateToolOptions {
-  maxTools?: number;
+  maxTools?: number
 }
 
-type WriteFn = (chunk: string) => void;
+type WriteFn = (chunk: string) => void
 
 function messageText(content: ResponsesMessageItem['content']): string {
-  if (typeof content === 'string') return content;
+  if (typeof content === 'string') return content
   return (content ?? [])
-    .map(p => (p.type === 'output_text' || p.type === 'input_text' || p.type === 'text' ? p.text ?? '' : ''))
-    .join('');
+    .map(p =>
+      p.type === 'output_text' || p.type === 'input_text' || p.type === 'text' ? (p.text ?? '') : ''
+    )
+    .join('')
 }
 
 function extractDeveloperAndInstructions(
   items: ResponsesInputItem[],
-  instructions?: string,
+  instructions?: string
 ): { system?: string; remaining: ResponsesInputItem[] } {
-  const developerParts: string[] = [];
-  const remaining: ResponsesInputItem[] = [];
+  const developerParts: string[] = []
+  const remaining: ResponsesInputItem[] = []
   for (const item of items) {
     if ('role' in item && item.role === 'developer') {
-      const text = messageText(item.content);
-      if (text.trim()) developerParts.push(text.trim());
+      const text = messageText(item.content)
+      if (text.trim()) developerParts.push(text.trim())
     } else {
-      remaining.push(item);
+      remaining.push(item)
     }
   }
-  const parts = [...developerParts];
-  if (instructions?.trim()) parts.push(instructions.trim());
-  const system = parts.length ? parts.join('\n') : undefined;
-  return { system, remaining };
+  const parts = [...developerParts]
+  if (instructions?.trim()) parts.push(instructions.trim())
+  const system = parts.length ? parts.join('\n') : undefined
+  return { system, remaining }
 }
 
 function annotateToolNamesFromCalls(items: ResponsesInputItem[]): Map<string, string> {
-  const nameByCallId = new Map<string, string>();
+  const nameByCallId = new Map<string, string>()
   for (const item of items) {
     if (item.type === 'function_call') {
-      const { rawId } = splitToolUseId(item.call_id);
-      nameByCallId.set(rawId, item.name);
+      const { rawId } = splitToolUseId(item.call_id)
+      nameByCallId.set(rawId, item.name)
     }
   }
-  return nameByCallId;
+  return nameByCallId
 }
 
 function mergeConsecutiveMessages(messages: ModelMessage[]): ModelMessage[] {
-  if (messages.length <= 1) return messages;
-  const out: ModelMessage[] = [];
+  if (messages.length <= 1) return messages
+  const out: ModelMessage[] = []
   for (const msg of messages) {
-    const prev = out[out.length - 1];
+    const prev = out[out.length - 1]
     if (prev && prev.role === msg.role) {
-      const prevContent = Array.isArray(prev.content) ? prev.content : [{ type: 'text', text: String(prev.content ?? '') }];
-      const msgContent = Array.isArray(msg.content) ? msg.content : [{ type: 'text', text: String(msg.content ?? '') }];
-      prev.content = [...prevContent, ...msgContent] as typeof prev.content;
+      const prevContent = Array.isArray(prev.content)
+        ? prev.content
+        : [{ type: 'text', text: String(prev.content ?? '') }]
+      const msgContent = Array.isArray(msg.content)
+        ? msg.content
+        : [{ type: 'text', text: String(msg.content ?? '') }]
+      prev.content = [...prevContent, ...msgContent] as typeof prev.content
     } else {
-      out.push(msg);
+      out.push(msg)
     }
   }
-  return out;
+  return out
 }
 
 function ensureUserFirst(messages: ModelMessage[]): ModelMessage[] {
-  if (messages.length === 0) return [{ role: 'user', content: [{ type: 'text', text: '(empty input)' }] } as ModelMessage];
+  if (messages.length === 0)
+    return [{ role: 'user', content: [{ type: 'text', text: '(empty input)' }] } as ModelMessage]
   if (messages[0]!.role === 'assistant') {
-    return [{ role: 'user', content: [{ type: 'text', text: '(conversation continued)' }] } as ModelMessage, ...messages];
+    return [
+      {
+        role: 'user',
+        content: [{ type: 'text', text: '(conversation continued)' }],
+      } as ModelMessage,
+      ...messages,
+    ]
   }
-  return messages;
+  return messages
 }
 
 function reasoningSummaryText(item: ResponsesReasoningItem): string {
   return (item.summary ?? [])
-    .map(part => (part.type === 'summary_text' ? part.text ?? '' : ''))
-    .join('');
+    .map(part => (part.type === 'summary_text' ? (part.text ?? '') : ''))
+    .join('')
 }
 
 function makeReasoningOutputItem(id: string, text: string): ResponsesReasoningItem {
@@ -246,7 +265,7 @@ function makeReasoningOutputItem(id: string, text: string): ResponsesReasoningIt
     id,
     type: 'reasoning',
     summary: text.trim() ? [{ type: 'summary_text', text }] : [],
-  };
+  }
 }
 
 /**
@@ -256,11 +275,18 @@ function makeReasoningOutputItem(id: string, text: string): ResponsesReasoningIt
  * item unchanged when no split/wrap applies (plain built-in function tool).
  */
 function splitBackFunctionCall(
-  item: { type: 'function_call'; id: string; call_id: string; name: string; arguments: string; status?: string },
+  item: {
+    type: 'function_call'
+    id: string
+    call_id: string
+    name: string
+    arguments: string
+    status?: string
+  },
   namespaceMap: NamespaceMap | undefined,
-  customNames: Set<string> | undefined,
+  customNames: Set<string> | undefined
 ): Record<string, unknown> {
-  const ns = namespaceMap?.get(item.name);
+  const ns = namespaceMap?.get(item.name)
   if (ns) {
     return {
       type: 'function_call',
@@ -270,7 +296,7 @@ function splitBackFunctionCall(
       arguments: item.arguments,
       ...(item.id ? { id: item.id } : {}),
       ...(item.status ? { status: item.status } : {}),
-    };
+    }
   }
   if (customNames?.has(item.name)) {
     return {
@@ -280,72 +306,79 @@ function splitBackFunctionCall(
       input: item.arguments,
       ...(item.id ? { id: item.id } : {}),
       ...(item.status ? { status: item.status } : {}),
-    };
+    }
   }
-  return item;
+  return item
 }
 
 export function translateResponsesInput(
   input: string | ResponsesInputItem[],
   instructions: string | undefined,
-  npm: string,
-): { system?: string; messages: ModelMessage[]; namespaceMap?: NamespaceMap; customToolNames?: Set<string> } {
+  npm: string
+): {
+  system?: string
+  messages: ModelMessage[]
+  namespaceMap?: NamespaceMap
+  customToolNames?: Set<string>
+} {
   if (typeof input === 'string') {
     return {
       system: instructions?.trim() || undefined,
       messages: [{ role: 'user', content: [{ type: 'text', text: input }] } as ModelMessage],
-    };
+    }
   }
 
-  const { system, remaining } = extractDeveloperAndInstructions(input, instructions);
-  const toolNames = annotateToolNamesFromCalls(remaining);
-  const messages: ModelMessage[] = [];
-  let pendingReasoning = '';
+  const { system, remaining } = extractDeveloperAndInstructions(input, instructions)
+  const toolNames = annotateToolNamesFromCalls(remaining)
+  const messages: ModelMessage[] = []
+  let pendingReasoning = ''
   // Deferred MCP tools surfaced via tool_search_output carry their real
   // namespace split, which never appears in the request tools array — learn it
   // now so the response path can split their flat calls back correctly.
-  const namespaceMap: NamespaceMap = new Map();
-  const customToolNames = new Set<string>();
-  ingestNamespacesFromSearchOutput(remaining, namespaceMap, customToolNames);
+  const namespaceMap: NamespaceMap = new Map()
+  const customToolNames = new Set<string>()
+  ingestNamespacesFromSearchOutput(remaining, namespaceMap, customToolNames)
 
   for (const item of remaining) {
     if (item.type === 'reasoning') {
-      pendingReasoning += reasoningSummaryText(item as ResponsesReasoningItem);
-      continue;
+      pendingReasoning += reasoningSummaryText(item as ResponsesReasoningItem)
+      continue
     }
     if (item.type === 'function_call') {
-      const { rawId, thoughtSignature } = splitToolUseId(item.call_id);
-      const parts: Record<string, unknown>[] = [];
+      const { rawId, thoughtSignature } = splitToolUseId(item.call_id)
+      const parts: Record<string, unknown>[] = []
       if (pendingReasoning.trim()) {
-        parts.push({ type: 'reasoning', text: pendingReasoning });
-        pendingReasoning = '';
+        parts.push({ type: 'reasoning', text: pendingReasoning })
+        pendingReasoning = ''
       }
       const toolPart: Record<string, unknown> = {
         type: 'tool-call',
         toolCallId: rawId,
         toolName: item.name,
         input: parseToolArguments(item.arguments),
-      };
-      if (thoughtSignature && npm === '@ai-sdk/google') {
-        toolPart.providerOptions = { google: { thoughtSignature } };
       }
-      parts.push(toolPart);
-      messages.push({ role: 'assistant', content: parts } as ModelMessage);
+      if (thoughtSignature && npm === '@ai-sdk/google') {
+        toolPart.providerOptions = { google: { thoughtSignature } }
+      }
+      parts.push(toolPart)
+      messages.push({ role: 'assistant', content: parts } as ModelMessage)
     } else if (item.type === 'function_call_output') {
-      const { rawId } = splitToolUseId(item.call_id);
+      const { rawId } = splitToolUseId(item.call_id)
       messages.push({
         role: 'tool',
-        content: [{
-          type: 'tool-result',
-          toolCallId: rawId,
-          toolName: toolNames.get(rawId) ?? 'unknown',
-          output: { type: 'text', value: serializeToolResultContent(item.output) },
-        }],
-      } as ModelMessage);
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: rawId,
+            toolName: toolNames.get(rawId) ?? 'unknown',
+            output: { type: 'text', value: serializeToolResultContent(item.output) },
+          },
+        ],
+      } as ModelMessage)
     } else if ('role' in item) {
-      const role = item.role === 'assistant' ? 'assistant' : 'user';
-      const text = messageText(item.content);
-      messages.push({ role, content: [{ type: 'text', text }] } as ModelMessage);
+      const role = item.role === 'assistant' ? 'assistant' : 'user'
+      const text = messageText(item.content)
+      messages.push({ role, content: [{ type: 'text', text }] } as ModelMessage)
     }
   }
 
@@ -354,23 +387,30 @@ export function translateResponsesInput(
     messages: ensureUserFirst(mergeConsecutiveMessages(messages)),
     namespaceMap,
     customToolNames,
-  };
+  }
 }
 
 const TOOL_SEARCH_FLAT = {
   type: 'function' as const,
   name: 'tool_search',
-  description: 'Search the available deferred Codex tools, plugin tools, MCP namespaces, and connectors by query. Use this when a needed tool is not already present in the current tool list. Returns matching tool definitions for a follow-up call.',
+  description:
+    'Search the available deferred Codex tools, plugin tools, MCP namespaces, and connectors by query. Use this when a needed tool is not already present in the current tool list. Returns matching tool definitions for a follow-up call.',
   parameters: {
     type: 'object',
     properties: {
-      query: { type: 'string', description: 'Search query describing the tool or capability needed.' },
-      limit: { type: 'number', description: 'Maximum number of matching tools to return. Defaults to 8.' },
+      query: {
+        type: 'string',
+        description: 'Search query describing the tool or capability needed.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum number of matching tools to return. Defaults to 8.',
+      },
     },
     required: ['query'],
     additionalProperties: false,
   },
-};
+}
 
 /**
  * Build the namespace split-back map (flatName -> {namespace, name, parameters})
@@ -380,26 +420,26 @@ const TOOL_SEARCH_FLAT = {
  */
 export function buildNamespaceMap(
   tools?: ResponsesTool[],
-  options: TranslateToolOptions = {},
+  options: TranslateToolOptions = {}
 ): { map: NamespaceMap; customNames: Set<string> } {
-  const map: NamespaceMap = new Map();
-  const customNames = new Set<string>();
-  if (!tools?.length) return { map, customNames };
+  const map: NamespaceMap = new Map()
+  const customNames = new Set<string>()
+  if (!tools?.length) return { map, customNames }
   for (const t of tools) {
     if (t.type === 'namespace' && t.name && Array.isArray(t.tools)) {
       for (const nested of t.tools) {
-        if (nested.type !== 'function' || !nested.name) continue;
+        if (nested.type !== 'function' || !nested.name) continue
         map.set(`${t.name}__${nested.name}`, {
           namespace: t.name,
           name: nested.name,
           parameters: nested.parameters as Record<string, unknown> | undefined,
-        });
+        })
       }
     } else if (t.type === 'custom' && t.name) {
-      customNames.add(t.name);
+      customNames.add(t.name)
     }
   }
-  return { map, customNames };
+  return { map, customNames }
 }
 
 /**
@@ -411,15 +451,15 @@ export function buildNamespaceMap(
 export function ingestNamespacesFromSearchOutput(
   items: ResponsesInputItem[],
   map: NamespaceMap,
-  customNames: Set<string>,
+  customNames: Set<string>
 ): void {
   for (const item of items) {
-    if (item.type !== 'tool_search_output') continue;
-    const search = item as ResponsesToolSearchOutputItem;
-    const tools = search.tools;
-    if (!Array.isArray(tools)) continue;
+    if (item.type !== 'tool_search_output') continue
+    const search = item as ResponsesToolSearchOutputItem
+    const tools = search.tools
+    if (!Array.isArray(tools)) continue
     for (const ns of tools) {
-      if (!ns || typeof ns !== 'object') continue;
+      if (!ns || typeof ns !== 'object') continue
       if (ns.type === 'namespace' && ns.name && Array.isArray(ns.tools)) {
         for (const sub of ns.tools) {
           if (sub && sub.name) {
@@ -427,13 +467,13 @@ export function ingestNamespacesFromSearchOutput(
               namespace: ns.name,
               name: sub.name,
               parameters: sub.parameters as Record<string, unknown> | undefined,
-            });
+            })
           }
         }
       } else if (ns.type === 'function' && ns.name) {
         // Already a flat callable name; nothing to split on output.
       } else if (ns.type === 'custom' && ns.name) {
-        customNames.add(ns.name);
+        customNames.add(ns.name)
       }
     }
   }
@@ -441,19 +481,19 @@ export function ingestNamespacesFromSearchOutput(
 
 export function translateResponsesTools(
   tools?: ResponsesTool[],
-  options: TranslateToolOptions = {},
+  options: TranslateToolOptions = {}
 ): CodexSdkCallParams['tools'] {
-  if (!tools?.length) return undefined;
-  const out: Record<string, ReturnType<typeof tool>> = {};
-  let toolCount = 0;
+  if (!tools?.length) return undefined
+  const out: Record<string, ReturnType<typeof tool>> = {}
+  let toolCount = 0
   const addTool = (name: string, definition: ResponsesFunctionTool): void => {
-    if (options.maxTools !== undefined && toolCount >= options.maxTools) return;
+    if (options.maxTools !== undefined && toolCount >= options.maxTools) return
     out[name] = tool({
       description: definition.description ?? '',
       inputSchema: jsonSchema(definition.parameters ?? { type: 'object', properties: {} }),
-    });
-    toolCount++;
-  };
+    })
+    toolCount++
+  }
 
   for (const t of tools) {
     if (t.type === 'namespace') {
@@ -461,63 +501,69 @@ export function translateResponsesTools(
       // matching Codex's own flattened-name convention so the model's tool_call name
       // round-trips back to Codex's dispatcher unchanged.
       for (const nested of t.tools ?? []) {
-        if (nested.type !== 'function' || !nested.name) continue;
-        addTool(`${t.name}__${nested.name}`, nested);
+        if (nested.type !== 'function' || !nested.name) continue
+        addTool(`${t.name}__${nested.name}`, nested)
       }
-      continue;
+      continue
     }
     if (t.type === 'tool_search') {
       // `tool_search` is a managed tool; rewrite into a plain callable function tool
       // so models that can't invoke managed tools natively can still surface it.
-      addTool('tool_search', TOOL_SEARCH_FLAT);
-      continue;
+      addTool('tool_search', TOOL_SEARCH_FLAT)
+      continue
     }
     if (t.type === 'additional_tools') {
       // Deferred turn-local tools — flatten each nested definition the same way as a
       // top-level `function` tool so the model can call it this turn.
-      for (const nested of (t as ResponsesManagedTool & { tools?: ResponsesFunctionTool[] }).tools ?? []) {
-        if (nested.type !== 'function' || !nested.name) continue;
-        addTool(nested.name, nested);
+      for (const nested of (t as ResponsesManagedTool & { tools?: ResponsesFunctionTool[] })
+        .tools ?? []) {
+        if (nested.type !== 'function' || !nested.name) continue
+        addTool(nested.name, nested)
       }
-      continue;
+      continue
     }
     if (t.type === 'custom') {
       // `apply_patch` etc. — exposed as a function tool; the response path re-wraps it
       // as a native `custom_tool_call` so Codex executes it. Parameters stay loose
       // (freeform body), so don't bind a strict schema.
-      addTool(t.name, { type: 'function', name: t.name, description: t.description ?? '', parameters: { type: 'object', properties: {} } });
-      continue;
+      addTool(t.name, {
+        type: 'function',
+        name: t.name,
+        description: t.description ?? '',
+        parameters: { type: 'object', properties: {} },
+      })
+      continue
     }
-    if (t.type !== 'function' || !t.name) continue;
-    addTool(t.name, t);
+    if (t.type !== 'function' || !t.name) continue
+    addTool(t.name, t)
   }
-  return Object.keys(out).length ? out : undefined;
+  return Object.keys(out).length ? out : undefined
 }
 
 export function translateResponsesRequest(
   body: ResponsesRequest,
   npm: string,
   metadata?: ReasoningMetadata,
-  options: TranslateToolOptions = {},
+  options: TranslateToolOptions = {}
 ): CodexSdkCallParams {
-  const { system, messages } = translateResponsesInput(body.input, body.instructions, npm);
-  const effort = body.reasoning?.effort;
+  const { system, messages } = translateResponsesInput(body.input, body.instructions, npm)
+  const effort = body.reasoning?.effort
   const providerOptions = deepMergeProviderOptions(
     thinkingProviderOptions(npm),
-    effortProviderOptions(npm, effort, metadata?.upstreamModelId ?? body.model, metadata),
-  );
-  const tools = translateResponsesTools(body.tools, options);
-  const reqMap = buildNamespaceMap(body.tools);
-  const inputResult = translateResponsesInput(body.input, body.instructions, npm);
+    effortProviderOptions(npm, effort, metadata?.upstreamModelId ?? body.model, metadata)
+  )
+  const tools = translateResponsesTools(body.tools, options)
+  const reqMap = buildNamespaceMap(body.tools)
+  const inputResult = translateResponsesInput(body.input, body.instructions, npm)
   // Merge request-tool namespaces with input-derived (deferred) namespaces.
   const namespaceMap: NamespaceMap = new Map([
     ...reqMap.map.entries(),
     ...(inputResult.namespaceMap ?? new Map()).entries(),
-  ]);
+  ])
   const customToolNames = new Set<string>([
     ...reqMap.customNames,
     ...(inputResult.customToolNames ?? new Set<string>()),
-  ]);
+  ])
   return {
     system: inputResult.system,
     messages: inputResult.messages,
@@ -527,58 +573,62 @@ export function translateResponsesRequest(
     providerOptions,
     namespaceMap,
     customToolNames,
-  };
+  }
 }
 
 function newResponseId(): string {
-  return `resp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  return `resp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 }
 
 function newItemId(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 }
 
-function usageFromPart(part: FullStreamPart): { input_tokens: number; output_tokens: number; total_tokens: number } {
-  const input = part.totalUsage?.inputTokens ?? 0;
-  const output = part.totalUsage?.outputTokens ?? 0;
-  return { input_tokens: input, output_tokens: output, total_tokens: input + output };
+function usageFromPart(part: FullStreamPart): {
+  input_tokens: number
+  output_tokens: number
+  total_tokens: number
+} {
+  const input = part.totalUsage?.inputTokens ?? 0
+  const output = part.totalUsage?.outputTokens ?? 0
+  return { input_tokens: input, output_tokens: output, total_tokens: input + output }
 }
 
 interface StreamingToolState {
-  itemId: string;
-  callId: string;
-  name: string;
-  outputIndex: number;
-  args: string;
+  itemId: string
+  callId: string
+  name: string
+  outputIndex: number
+  args: string
 }
 
 export interface ResponsesStreamSummary {
-  reasoningChars: number;
-  reasoningPreview: string;
-  textChars: number;
-  toolCallCount: number;
-  toolNames: string[];
+  reasoningChars: number
+  reasoningPreview: string
+  textChars: number
+  toolCallCount: number
+  toolNames: string[]
   /** Set when writeResponsesStream force-stopped the generation early — see REPEAT_TAIL_CHARS. */
-  loopDetected?: 'reasoning' | 'text';
+  loopDetected?: 'reasoning' | 'text'
   /** Set when leaked DeepSeek DSML tool-call markup was recovered into real function calls. */
-  dsmlToolCallsRecovered?: number;
+  dsmlToolCallsRecovered?: number
   /** Set when the stream was aborted (idle timeout — upstream stopped sending data). */
-  aborted?: boolean;
+  aborted?: boolean
   /** Set when the stream ended with an upstream error part (e.g. HTTP 4xx/5xx). */
-  errorMessage?: string;
+  errorMessage?: string
 }
 
 export interface ResponsesStreamProgress {
-  reasoningChars: number;
-  reasoningTail: string;
-  textChars: number;
-  toolCallCount: number;
-  elapsedMs: number;
+  reasoningChars: number
+  reasoningTail: string
+  textChars: number
+  toolCallCount: number
+  elapsedMs: number
 }
 
 /** Minimum time between onProgress calls, so a genuinely runaway/looping generation is
  *  still visible in the trace log before (or instead of) a final onDone summary. */
-const PROGRESS_INTERVAL_MS = 3_000;
+const PROGRESS_INTERVAL_MS = 3_000
 
 /**
  * Observed live: xAI grok-4.5 given a large, tools-stripped compaction request can finish
@@ -587,42 +637,42 @@ const PROGRESS_INTERVAL_MS = 3_000;
  * while textChars kept climbing). Checked on the same cadence as onProgress, independent of
  * whether tracing is enabled — this is a safety mechanism, not a debug feature.
  */
-const REPEAT_TAIL_CHARS = 200;
+const REPEAT_TAIL_CHARS = 200
 /** Consecutive stale-tail checks (each PROGRESS_INTERVAL_MS apart) before concluding the
  *  model is looping rather than coincidentally producing similar output between checks. */
-const REPEAT_STREAK_LIMIT = 3;
-const LOOP_NOTICE = '\n\n[anygate: generation stopped after detecting a repetition loop]';
+const REPEAT_STREAK_LIMIT = 3
+const LOOP_NOTICE = '\n\n[anygate: generation stopped after detecting a repetition loop]'
 
 interface RepeatTracker {
-  tail: string;
-  len: number;
-  streak: number;
+  tail: string
+  len: number
+  streak: number
 }
 
-const INITIAL_REPEAT_TRACKER: RepeatTracker = { tail: '', len: 0, streak: 0 };
+const INITIAL_REPEAT_TRACKER: RepeatTracker = { tail: '', len: 0, streak: 0 }
 
 /** Stale tail + substantial continued growth = regenerating the same content, not just
  *  naturally ending on similar words. Requiring both avoids false positives on a stream
  *  that briefly stalls with no new output at all. */
 function trackRepetition(current: string, prev: RepeatTracker): RepeatTracker {
-  const tail = current.length >= REPEAT_TAIL_CHARS ? current.slice(-REPEAT_TAIL_CHARS) : current;
-  const grew = current.length - prev.len >= REPEAT_TAIL_CHARS;
-  const stale = tail.length === REPEAT_TAIL_CHARS && tail === prev.tail && grew;
-  return { tail, len: current.length, streak: stale ? prev.streak + 1 : 0 };
+  const tail = current.length >= REPEAT_TAIL_CHARS ? current.slice(-REPEAT_TAIL_CHARS) : current
+  const grew = current.length - prev.len >= REPEAT_TAIL_CHARS
+  const stale = tail.length === REPEAT_TAIL_CHARS && tail === prev.tail && grew
+  return { tail, len: current.length, streak: stale ? prev.streak + 1 : 0 }
 }
 
 export interface WriteResponsesStreamOptions {
   /** Called when the stream is force-stopped (repetition loop) BEFORE breaking out of
    *  fullStream. Breaking alone does not cancel the SDK's upstream request — the SDK
    *  keeps consuming internally to settle its own promises — so the caller must abort. */
-  onForceStop?: (reason: string) => void;
+  onForceStop?: (reason: string) => void
   /** Split-back knowledge for Codex App `namespace` (MCP) tools: flat name -> {namespace, name}. */
-  namespaceMap?: NamespaceMap;
+  namespaceMap?: NamespaceMap
   /** Names of `type:"custom"` tools (e.g. apply_patch) to re-wrap as `custom_tool_call`. */
-  customToolNames?: Set<string>;
+  customToolNames?: Set<string>
   /** When true, the final text is emitted as a single `compaction` output item for
    *  Codex's remote compaction v2 (which requires exactly one compaction item). */
-  isCompaction?: boolean;
+  isCompaction?: boolean
 }
 
 export async function writeResponsesStream(
@@ -631,12 +681,12 @@ export async function writeResponsesStream(
   write: WriteFn,
   onDone?: (summary: ResponsesStreamSummary) => void,
   onProgress?: (progress: ResponsesStreamProgress) => void,
-  options?: WriteResponsesStreamOptions,
+  options?: WriteResponsesStreamOptions
 ): Promise<void> {
-  const emit = (type: string, data: unknown) => write(sseChunk(type, data));
-  const responseId = newResponseId();
-  const createdAt = Math.floor(Date.now() / 1000);
-  let usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+  const emit = (type: string, data: unknown) => write(sseChunk(type, data))
+  const responseId = newResponseId()
+  const createdAt = Math.floor(Date.now() / 1000)
+  let usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 }
 
   emit('response.created', {
     type: 'response.created',
@@ -648,73 +698,79 @@ export async function writeResponsesStream(
       status: 'in_progress',
       output: [],
     },
-  });
+  })
 
-  let outputIndex = 0;
-  let textItemId: string | null = null;
-  let textOutputIndex = 0;
-  let textFull = '';
-  const toolStates: StreamingToolState[] = [];
-  const toolStatesById = new Map<string, StreamingToolState>();
-  let currentToolState: StreamingToolState | null = null;
-  const streamStartedAt = Date.now();
-  let lastProgressAt = streamStartedAt;
-  let reasoningItemId: string | null = null;
-  let reasoningText = '';
-  let reasoningOutputIndex = 0;
-  const outputItems: unknown[] = [];
-  let reasoningRepeat = INITIAL_REPEAT_TRACKER;
-  let textRepeat = INITIAL_REPEAT_TRACKER;
-  let loopDetected: 'reasoning' | 'text' | undefined;
+  let outputIndex = 0
+  let textItemId: string | null = null
+  let textOutputIndex = 0
+  let textFull = ''
+  const toolStates: StreamingToolState[] = []
+  const toolStatesById = new Map<string, StreamingToolState>()
+  let currentToolState: StreamingToolState | null = null
+  const streamStartedAt = Date.now()
+  let lastProgressAt = streamStartedAt
+  let reasoningItemId: string | null = null
+  let reasoningText = ''
+  let reasoningOutputIndex = 0
+  const outputItems: unknown[] = []
+  let reasoningRepeat = INITIAL_REPEAT_TRACKER
+  let textRepeat = INITIAL_REPEAT_TRACKER
+  let loopDetected: 'reasoning' | 'text' | undefined
 
   // Split-back knowledge (Codex App `namespace`/MCP + `custom` tools) and compaction mode,
   // threaded through from the proxy via options.
-  const namespaceMap = options?.namespaceMap;
-  const customToolNames = options?.customToolNames;
-  const isCompaction = options?.isCompaction ?? false;
+  const namespaceMap = options?.namespaceMap
+  const customToolNames = options?.customToolNames
+  const isCompaction = options?.isCompaction ?? false
 
   const ensureTextItem = (): string => {
     if (!textItemId) {
-      textItemId = newItemId('msg');
-      textOutputIndex = outputIndex;
-      outputIndex++;
+      textItemId = newItemId('msg')
+      textOutputIndex = outputIndex
+      outputIndex++
       emit('response.output_item.added', {
         type: 'response.output_item.added',
         output_index: textOutputIndex,
-        item: { id: textItemId, type: 'message', role: 'assistant', status: 'in_progress', content: [] },
-      });
+        item: {
+          id: textItemId,
+          type: 'message',
+          role: 'assistant',
+          status: 'in_progress',
+          content: [],
+        },
+      })
       emit('response.content_part.added', {
         type: 'response.content_part.added',
         item_id: textItemId,
         output_index: textOutputIndex,
         content_index: 0,
         part: { type: 'output_text', text: '' },
-      });
+      })
     }
-    return textItemId;
-  };
+    return textItemId
+  }
 
   const rememberToolState = (state: StreamingToolState): StreamingToolState => {
-    toolStates.push(state);
-    toolStatesById.set(state.itemId, state);
-    toolStatesById.set(state.callId, state);
-    currentToolState = state;
-    return state;
-  };
+    toolStates.push(state)
+    toolStatesById.set(state.itemId, state)
+    toolStatesById.set(state.callId, state)
+    currentToolState = state
+    return state
+  }
 
   const createToolState = (
     rawId: string | undefined,
     name: string | undefined,
-    signature: string | undefined,
+    signature: string | undefined
   ): StreamingToolState => {
-    const itemId = rawId ?? newItemId('fc');
+    const itemId = rawId ?? newItemId('fc')
     const state = rememberToolState({
       itemId,
       callId: encodeToolUseId(itemId, signature, false),
       name: name ?? 'unknown',
       outputIndex: outputIndex++,
       args: '',
-    });
+    })
     emit('response.output_item.added', {
       type: 'response.output_item.added',
       output_index: state.outputIndex,
@@ -726,106 +782,106 @@ export async function writeResponsesStream(
         arguments: '',
         status: 'in_progress',
       },
-    });
-    return state;
-  };
+    })
+    return state
+  }
 
   const findToolState = (part: FullStreamPart): StreamingToolState | null => {
-    const key = part.id ?? part.toolCallId;
-    if (key) return toolStatesById.get(key) ?? currentToolState;
-    return currentToolState;
-  };
+    const key = part.id ?? part.toolCallId
+    if (key) return toolStatesById.get(key) ?? currentToolState
+    return currentToolState
+  }
 
   const appendToolArgs = (state: StreamingToolState, delta: string): void => {
-    if (!delta) return;
-    state.args += delta;
+    if (!delta) return
+    state.args += delta
     emit('response.function_call_arguments.delta', {
       type: 'response.function_call_arguments.delta',
       item_id: state.itemId,
       output_index: state.outputIndex,
       delta,
-    });
-  };
+    })
+  }
 
   for await (const part of fullStream) {
     switch (part.type) {
       case 'reasoning-start':
-        reasoningText = '';
-        reasoningItemId = newItemId('rs');
-        reasoningOutputIndex = outputIndex++;
+        reasoningText = ''
+        reasoningItemId = newItemId('rs')
+        reasoningOutputIndex = outputIndex++
         emit('response.output_item.added', {
           type: 'response.output_item.added',
           output_index: reasoningOutputIndex,
           item: { id: reasoningItemId, type: 'reasoning', summary: [] },
-        });
-        break;
+        })
+        break
 
       case 'reasoning-delta':
         if (!reasoningItemId) {
-          reasoningItemId = newItemId('rs');
-          reasoningOutputIndex = outputIndex++;
+          reasoningItemId = newItemId('rs')
+          reasoningOutputIndex = outputIndex++
           emit('response.output_item.added', {
             type: 'response.output_item.added',
             output_index: reasoningOutputIndex,
             item: { id: reasoningItemId, type: 'reasoning', summary: [] },
-          });
+          })
         }
-        reasoningText += part.text ?? '';
-        break;
+        reasoningText += part.text ?? ''
+        break
 
       case 'reasoning-end':
-        break;
+        break
 
       case 'text-start':
-        textFull = '';
-        ensureTextItem();
-        break;
+        textFull = ''
+        ensureTextItem()
+        break
 
       case 'text-delta':
-        ensureTextItem();
-        textFull += part.text ?? '';
+        ensureTextItem()
+        textFull += part.text ?? ''
         emit('response.output_text.delta', {
           type: 'response.output_text.delta',
           item_id: textItemId,
           output_index: textOutputIndex,
           content_index: 0,
           delta: part.text ?? '',
-        });
-        break;
+        })
+        break
 
       case 'tool-input-start': {
-        const sig = grabRoundTripSignature(part);
-        createToolState(part.id ?? part.toolCallId, part.toolName, sig);
-        break;
+        const sig = grabRoundTripSignature(part)
+        createToolState(part.id ?? part.toolCallId, part.toolName, sig)
+        break
       }
 
       case 'tool-input-delta': {
-        const state = findToolState(part);
-        if (state) appendToolArgs(state, part.delta ?? part.text ?? '');
-        break;
+        const state = findToolState(part)
+        if (state) appendToolArgs(state, part.delta ?? part.text ?? '')
+        break
       }
 
       case 'tool-call': {
-        const sig = grabRoundTripSignature(part);
-        const key = part.toolCallId ?? part.id;
-        const state = (key ? toolStatesById.get(key) : undefined)
-          ?? createToolState(key, part.toolName, sig);
+        const sig = grabRoundTripSignature(part)
+        const key = part.toolCallId ?? part.id
+        const state =
+          (key ? toolStatesById.get(key) : undefined) ?? createToolState(key, part.toolName, sig)
         if (!state.args) {
-          appendToolArgs(state, JSON.stringify(part.input ?? {}));
+          appendToolArgs(state, JSON.stringify(part.input ?? {}))
         }
-        break;
+        break
       }
 
       case 'finish':
-        if (part.totalUsage) usage = usageFromPart(part);
-        break;
+        if (part.totalUsage) usage = usageFromPart(part)
+        break
 
       case 'abort': {
         // The SDK ends the stream cleanly after an abort (no throw), so without
         // this case a timed-out request would finalize as status:"completed" and
         // Codex would treat dead-connection silence as a valid empty answer.
-        const msg = `stream aborted: ${part.reason ?? 'no data received from provider'}`;
-        process.stderr.write(`[anygate] ${modelId}: ${msg}\n`);
+        const msg = `stream aborted: ${part.reason ?? 'no data received from provider'}`
+        process.stderr.write(`[anygate] ${modelId}: ${msg}\n`)
         onDone?.({
           reasoningChars: reasoningText.length,
           reasoningPreview: reasoningText.slice(0, 200),
@@ -834,7 +890,7 @@ export async function writeResponsesStream(
           toolNames: toolStates.map(t => t.name),
           loopDetected,
           aborted: true,
-        });
+        })
         emit('response.completed', {
           type: 'response.completed',
           response: {
@@ -846,17 +902,20 @@ export async function writeResponsesStream(
             output: [],
             error: { message: msg, type: 'api_error' },
           },
-        });
-        return;
+        })
+        return
       }
 
       case 'error': {
-        const msg = formatUpstreamError(part.error);
-        const is429 = msg.includes('429') ||
-          (part.error && typeof part.error === 'object' &&
+        const msg = formatUpstreamError(part.error)
+        const is429 =
+          msg.includes('429') ||
+          (part.error &&
+            typeof part.error === 'object' &&
             ((part.error as { statusCode?: number }).statusCode === 429 ||
-             (part.error as { lastError?: { statusCode?: number } }).lastError?.statusCode === 429));
-        process.stderr.write(`[anygate] ${modelId}: ${msg}\n`);
+              (part.error as { lastError?: { statusCode?: number } }).lastError?.statusCode ===
+                429))
+        process.stderr.write(`[anygate] ${modelId}: ${msg}\n`)
         onDone?.({
           reasoningChars: reasoningText.length,
           reasoningPreview: reasoningText.slice(0, 200),
@@ -865,9 +924,9 @@ export async function writeResponsesStream(
           toolNames: toolStates.map(t => t.name),
           loopDetected,
           errorMessage: msg,
-        });
+        })
         if (is429) {
-          writeResponsesRateLimitStream(modelId, msg, write);
+          writeResponsesRateLimitStream(modelId, msg, write)
         } else {
           emit('response.completed', {
             type: 'response.completed',
@@ -880,22 +939,22 @@ export async function writeResponsesStream(
               output: [],
               error: { message: msg, type: 'api_error' },
             },
-          });
+          })
         }
-        return;
+        return
       }
 
       default:
-        break;
+        break
     }
 
-    const now = Date.now();
+    const now = Date.now()
     if (now - lastProgressAt >= PROGRESS_INTERVAL_MS) {
-      lastProgressAt = now;
-      reasoningRepeat = trackRepetition(reasoningText, reasoningRepeat);
-      textRepeat = trackRepetition(textFull, textRepeat);
-      if (reasoningRepeat.streak >= REPEAT_STREAK_LIMIT) loopDetected = 'reasoning';
-      else if (textRepeat.streak >= REPEAT_STREAK_LIMIT) loopDetected = 'text';
+      lastProgressAt = now
+      reasoningRepeat = trackRepetition(reasoningText, reasoningRepeat)
+      textRepeat = trackRepetition(textFull, textRepeat)
+      if (reasoningRepeat.streak >= REPEAT_STREAK_LIMIT) loopDetected = 'reasoning'
+      else if (textRepeat.streak >= REPEAT_STREAK_LIMIT) loopDetected = 'text'
 
       if (onProgress) {
         onProgress({
@@ -904,29 +963,29 @@ export async function writeResponsesStream(
           textChars: textFull.length,
           toolCallCount: toolStates.length,
           elapsedMs: now - streamStartedAt,
-        });
+        })
       }
 
       if (loopDetected) {
-        options?.onForceStop?.(`repetition loop detected (${loopDetected})`);
-        break;
+        options?.onForceStop?.(`repetition loop detected (${loopDetected})`)
+        break
       }
     }
   }
 
   if (loopDetected) {
-    ensureTextItem();
-    textFull += LOOP_NOTICE;
+    ensureTextItem()
+    textFull += LOOP_NOTICE
     emit('response.output_text.delta', {
       type: 'response.output_text.delta',
       item_id: textItemId,
       output_index: textOutputIndex,
       content_index: 0,
       delta: LOOP_NOTICE,
-    });
+    })
   }
 
-  const dsml = loopDetected ? null : parseDsmlToolCalls(textFull);
+  const dsml = loopDetected ? null : parseDsmlToolCalls(textFull)
 
   if (dsml) {
     // The client already streamed the raw DSML markup live as ordinary text-delta events
@@ -940,48 +999,66 @@ export async function writeResponsesStream(
         output_index: textOutputIndex,
         content_index: 0,
         text: dsml.leadingText,
-      });
+      })
       emit('response.content_part.done', {
         type: 'response.content_part.done',
         item_id: textItemId,
         output_index: textOutputIndex,
         content_index: 0,
         part: { type: 'output_text', text: dsml.leadingText },
-      });
+      })
       const textItem = {
         id: textItemId,
         type: 'message',
         role: 'assistant',
         status: 'completed',
         content: [{ type: 'output_text', text: dsml.leadingText }],
-      };
+      }
       emit('response.output_item.done', {
         type: 'response.output_item.done',
         output_index: textOutputIndex,
         item: textItem,
-      });
-      outputItems.push(textItem);
+      })
+      outputItems.push(textItem)
     }
     for (const call of dsml.calls) {
-      const itemId = newItemId('fc');
-      const callId = encodeToolUseId(itemId, undefined, false);
-      const idx = outputIndex++;
-      const args = JSON.stringify(call.args);
+      const itemId = newItemId('fc')
+      const callId = encodeToolUseId(itemId, undefined, false)
+      const idx = outputIndex++
+      const args = JSON.stringify(call.args)
       emit('response.output_item.added', {
         type: 'response.output_item.added',
         output_index: idx,
-        item: { type: 'function_call', id: itemId, call_id: callId, name: call.name, arguments: '', status: 'in_progress' },
-      });
+        item: {
+          type: 'function_call',
+          id: itemId,
+          call_id: callId,
+          name: call.name,
+          arguments: '',
+          status: 'in_progress',
+        },
+      })
       emit('response.function_call_arguments.done', {
         type: 'response.function_call_arguments.done',
         item_id: itemId,
         output_index: idx,
         arguments: args,
-      });
-      const fcItem = { type: 'function_call', id: itemId, call_id: callId, name: call.name, arguments: args, status: 'completed' };
-      const fcSplit = splitBackFunctionCall(fcItem as never, namespaceMap, customToolNames);
-      emit('response.output_item.done', { type: 'response.output_item.done', output_index: idx, item: fcSplit });
-      outputItems.push(fcSplit);
+      })
+      const fcItem = {
+        type: 'function_call',
+        id: itemId,
+        call_id: callId,
+        name: call.name,
+        arguments: args,
+        status: 'completed',
+      }
+      const fcSplit = splitBackFunctionCall(fcItem as never, namespaceMap, customToolNames)
+      emit('response.output_item.done', {
+        type: 'response.output_item.done',
+        output_index: idx,
+        item: fcSplit,
+      })
+      outputItems.push(fcSplit)
     }
   } else if (textItemId) {
     emit('response.output_text.done', {
@@ -990,37 +1067,37 @@ export async function writeResponsesStream(
       output_index: textOutputIndex,
       content_index: 0,
       text: textFull,
-    });
+    })
     emit('response.content_part.done', {
       type: 'response.content_part.done',
       item_id: textItemId,
       output_index: textOutputIndex,
       content_index: 0,
       part: { type: 'output_text', text: textFull },
-    });
+    })
     const textItem = {
       id: textItemId,
       type: 'message',
       role: 'assistant',
       status: 'completed',
       content: [{ type: 'output_text', text: textFull }],
-    };
+    }
     emit('response.output_item.done', {
       type: 'response.output_item.done',
       output_index: textOutputIndex,
       item: textItem,
-    });
-    outputItems.push(textItem);
+    })
+    outputItems.push(textItem)
   }
 
   if (reasoningItemId) {
-    const reasoningItem = makeReasoningOutputItem(reasoningItemId, reasoningText);
+    const reasoningItem = makeReasoningOutputItem(reasoningItemId, reasoningText)
     emit('response.output_item.done', {
       type: 'response.output_item.done',
       output_index: reasoningOutputIndex,
       item: reasoningItem,
-    });
-    outputItems.unshift(reasoningItem);
+    })
+    outputItems.unshift(reasoningItem)
   }
 
   for (const tool of toolStates) {
@@ -1029,7 +1106,7 @@ export async function writeResponsesStream(
       item_id: tool.itemId,
       output_index: tool.outputIndex,
       arguments: tool.args,
-    });
+    })
     const fcItem = {
       type: 'function_call',
       id: tool.itemId,
@@ -1037,17 +1114,23 @@ export async function writeResponsesStream(
       name: tool.name,
       arguments: tool.args,
       status: 'completed',
-    };
+    }
     emit('response.output_item.done', {
       type: 'response.output_item.done',
       output_index: tool.outputIndex,
       item: fcItem,
-    });
-    outputItems.push(fcItem);
+    })
+    outputItems.push(fcItem)
   }
 
   if (outputItems.length === 0) {
-    outputItems.push({ id: newItemId('msg'), type: 'message', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: '(conversation context was too large to summarize)' }] });
+    outputItems.push({
+      id: newItemId('msg'),
+      type: 'message',
+      role: 'assistant',
+      status: 'completed',
+      content: [{ type: 'output_text', text: '(conversation context was too large to summarize)' }],
+    })
   }
 
   // Codex's remote compaction v2 requires the response to contain EXACTLY ONE output
@@ -1055,12 +1138,13 @@ export async function writeResponsesStream(
   // context on later turns. Anything else (a normal message/reasoning turn) is rejected
   // outright as a fatal error. So collapse whatever we streamed into a single compaction
   // item built from the accumulated text (falling back to reasoning text).
-  let finalOutput: unknown[] = outputItems;
+  let finalOutput: unknown[] = outputItems
   if (isCompaction) {
-    const summaryText = (textFull ?? '').trim()
-      || (reasoningText ?? '').trim()
-      || '(conversation context was too large to summarize)';
-    finalOutput = [{ type: 'compaction', summary: summaryText }];
+    const summaryText =
+      (textFull ?? '').trim() ||
+      (reasoningText ?? '').trim() ||
+      '(conversation context was too large to summarize)'
+    finalOutput = [{ type: 'compaction', summary: summaryText }]
   }
 
   onDone?.({
@@ -1071,7 +1155,7 @@ export async function writeResponsesStream(
     toolNames: toolStates.map(t => t.name),
     loopDetected,
     dsmlToolCallsRecovered: dsml?.calls.length,
-  });
+  })
 
   emit('response.completed', {
     type: 'response.completed',
@@ -1084,7 +1168,7 @@ export async function writeResponsesStream(
       output: finalOutput,
       usage,
     },
-  });
+  })
 }
 
 /**
@@ -1096,10 +1180,10 @@ export async function writeResponsesStream(
  * SDK's `timeout.chunkMs`, which only arms after the first chunk) and reset on every
  * part, so it bounds both zero-byte hangs and mid-stream connection death.
  */
-const STREAM_IDLE_TIMEOUT_MS = 120_000;
+const STREAM_IDLE_TIMEOUT_MS = 120_000
 
 export interface StreamResponsesOptions {
-  idleTimeoutMs?: number;
+  idleTimeoutMs?: number
 }
 
 export async function streamResponsesResponse(
@@ -1109,56 +1193,67 @@ export async function streamResponsesResponse(
   write: WriteFn,
   onDone?: (summary: ResponsesStreamSummary) => void,
   onProgress?: (progress: ResponsesStreamProgress) => void,
-  options?: StreamResponsesOptions,
+  options?: StreamResponsesOptions
 ): Promise<void> {
-  const idleTimeoutMs = options?.idleTimeoutMs ?? STREAM_IDLE_TIMEOUT_MS;
-  const abort = new AbortController();
+  const idleTimeoutMs = options?.idleTimeoutMs ?? STREAM_IDLE_TIMEOUT_MS
+  const abort = new AbortController()
   let idleTimer = setTimeout(
-    () => abort.abort(new Error(`no data received from provider for ${Math.round(idleTimeoutMs / 1000)}s`)),
-    idleTimeoutMs,
-  );
+    () =>
+      abort.abort(
+        new Error(`no data received from provider for ${Math.round(idleTimeoutMs / 1000)}s`)
+      ),
+    idleTimeoutMs
+  )
 
-  const result = streamText({ model, ...params, abortSignal: abort.signal, onError: () => {} } as Parameters<typeof streamText>[0]);
+  const result = streamText({
+    model,
+    ...params,
+    abortSignal: abort.signal,
+    onError: () => {},
+  } as Parameters<typeof streamText>[0])
   // Prevent unhandled promise rejections on stream properties:
-  Promise.resolve(result.text).catch(() => {});
-  Promise.resolve(result.toolCalls).catch(() => {});
-  Promise.resolve(result.toolResults).catch(() => {});
-  Promise.resolve(result.finishReason).catch(() => {});
-  Promise.resolve(result.usage).catch(() => {});
-  Promise.resolve(result.response).catch(() => {});
+  Promise.resolve(result.text).catch(() => {})
+  Promise.resolve(result.toolCalls).catch(() => {})
+  Promise.resolve(result.toolResults).catch(() => {})
+  Promise.resolve(result.finishReason).catch(() => {})
+  Promise.resolve(result.usage).catch(() => {})
+  Promise.resolve(result.response).catch(() => {})
 
   const watchedStream = (async function* () {
     try {
       for await (const part of result.fullStream as AsyncIterable<FullStreamPart>) {
-        clearTimeout(idleTimer);
+        clearTimeout(idleTimer)
         idleTimer = setTimeout(
-          () => abort.abort(new Error(`no data received from provider for ${Math.round(idleTimeoutMs / 1000)}s`)),
-          idleTimeoutMs,
-        );
-        yield part;
+          () =>
+            abort.abort(
+              new Error(`no data received from provider for ${Math.round(idleTimeoutMs / 1000)}s`)
+            ),
+          idleTimeoutMs
+        )
+        yield part
       }
     } finally {
-      clearTimeout(idleTimer);
+      clearTimeout(idleTimer)
     }
-  })();
+  })()
 
   await writeResponsesStream(watchedStream, modelId, write, onDone, onProgress, {
     onForceStop: reason => abort.abort(new Error(reason)),
     namespaceMap: params.namespaceMap,
     customToolNames: params.customToolNames,
     isCompaction: params.isCompaction,
-  });
+  })
 }
 
 export async function generateResponsesResponse(
   model: LanguageModel,
   params: CodexSdkCallParams,
-  modelId: string,
+  modelId: string
 ): Promise<Record<string, unknown>> {
-  const output: ResponsesInputItem[] = [];
-  const r = await generateText({ model, ...params } as Parameters<typeof generateText>[0]);
-  const createdAt = Math.floor(Date.now() / 1000);
-  const responseId = newResponseId();
+  const output: ResponsesInputItem[] = []
+  const r = await generateText({ model, ...params } as Parameters<typeof generateText>[0])
+  const createdAt = Math.floor(Date.now() / 1000)
+  const responseId = newResponseId()
 
   // Codex's remote compaction v2 requires the response to contain EXACTLY ONE
   // output item of type `compaction` — a plain-text summary it decodes back into
@@ -1166,9 +1261,10 @@ export async function generateResponsesResponse(
   // turn) is rejected outright as a fatal error. So even if the model streamed
   // artifacts, wrap its text as the single compaction item and nothing else.
   if (params.isCompaction) {
-    const summaryText = (r.text ?? '').trim()
-      || (r.reasoningText ?? '').trim()
-      || '(conversation context was too large to summarize)';
+    const summaryText =
+      (r.text ?? '').trim() ||
+      (r.reasoningText ?? '').trim() ||
+      '(conversation context was too large to summarize)'
     return {
       id: responseId,
       object: 'response',
@@ -1181,21 +1277,21 @@ export async function generateResponsesResponse(
         output_tokens: r.usage?.outputTokens ?? 0,
         total_tokens: (r.usage?.inputTokens ?? 0) + (r.usage?.outputTokens ?? 0),
       },
-    };
+    }
   }
 
   if (r.reasoningText?.trim()) {
-    output.push(makeReasoningOutputItem(newItemId('rs'), r.reasoningText));
+    output.push(makeReasoningOutputItem(newItemId('rs'), r.reasoningText))
   }
 
   // Re-wrap model-emitted function calls into the shapes Codex's own dispatcher expects:
   // MCP/namespace tools split back into {namespace, name}; `custom` tools (e.g. apply_patch)
   // become `custom_tool_call`. Plain built-in function tools pass through unchanged.
   for (const tc of r.toolCalls ?? []) {
-    const callId = (tc as { toolCallId?: string }).toolCallId ?? newItemId('fc');
-    const argsRaw = (tc as { args?: unknown }).args;
-    const sig = grabRoundTripSignature(tc as unknown as FullStreamPart);
-    if (sig) encodeToolUseId(callId, sig, false);
+    const callId = (tc as { toolCallId?: string }).toolCallId ?? newItemId('fc')
+    const argsRaw = (tc as { args?: unknown }).args
+    const sig = grabRoundTripSignature(tc as unknown as FullStreamPart)
+    if (sig) encodeToolUseId(callId, sig, false)
     const fcItem = {
       type: 'function_call' as const,
       id: callId,
@@ -1203,8 +1299,14 @@ export async function generateResponsesResponse(
       name: tc.toolName,
       arguments: typeof argsRaw === 'string' ? argsRaw : JSON.stringify(argsRaw ?? {}),
       status: 'completed' as const,
-    };
-    output.push(splitBackFunctionCall(fcItem, params.namespaceMap, params.customToolNames) as unknown as ResponsesInputItem);
+    }
+    output.push(
+      splitBackFunctionCall(
+        fcItem,
+        params.namespaceMap,
+        params.customToolNames
+      ) as unknown as ResponsesInputItem
+    )
   }
 
   if (r.text !== null && r.text !== undefined) {
@@ -1214,17 +1316,21 @@ export async function generateResponsesResponse(
       role: 'assistant',
       status: 'completed',
       content: [{ type: 'output_text', text: r.text }],
-    });
+    })
   }
-
-
 
   if (output.length === 0) {
-    output.push({ id: newItemId('msg'), type: 'message', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: '(conversation context was too large to summarize)' }] });
+    output.push({
+      id: newItemId('msg'),
+      type: 'message',
+      role: 'assistant',
+      status: 'completed',
+      content: [{ type: 'output_text', text: '(conversation context was too large to summarize)' }],
+    })
   }
 
-  const inputTokens = r.usage?.inputTokens ?? 0;
-  const outputTokens = r.usage?.outputTokens ?? 0;
+  const inputTokens = r.usage?.inputTokens ?? 0
+  const outputTokens = r.usage?.outputTokens ?? 0
 
   return {
     id: responseId,
@@ -1238,13 +1344,13 @@ export async function generateResponsesResponse(
       output_tokens: outputTokens,
       total_tokens: inputTokens + outputTokens,
     },
-  };
+  }
 }
 
 export function responsesErrorBody(
   modelId: string,
   message: string,
-  statusCode = 401,
+  statusCode = 401
 ): Record<string, unknown> {
   return {
     id: newResponseId(),
@@ -1253,76 +1359,118 @@ export function responsesErrorBody(
     created_at: Math.floor(Date.now() / 1000),
     status: 'failed',
     output: [],
-    error: { message, type: statusCode === 429 ? 'rate_limit_error' : 'api_error', code: String(statusCode) },
-  };
+    error: {
+      message,
+      type: statusCode === 429 ? 'rate_limit_error' : 'api_error',
+      code: String(statusCode),
+    },
+  }
 }
 
-export function writeResponsesErrorStream(modelId: string, message: string, write: WriteFn, statusCode = 401): void {
-  write(sseChunk('response.completed', {
-    type: 'response.completed',
-    response: responsesErrorBody(modelId, message, statusCode),
-  }));
+export function writeResponsesErrorStream(
+  modelId: string,
+  message: string,
+  write: WriteFn,
+  statusCode = 401
+): void {
+  write(
+    sseChunk('response.completed', {
+      type: 'response.completed',
+      response: responsesErrorBody(modelId, message, statusCode),
+    })
+  )
 }
 
-export function writeResponsesRateLimitStream(modelId: string, message: string, write: WriteFn): void {
-  const responseId = newResponseId();
-  const itemId = newItemId('msg');
-  const createdAt = Math.floor(Date.now() / 1000);
-  const content = [{ type: 'output_text', text: message }];
-  write(sseChunk('response.created', {
-    type: 'response.created',
-    response: {
-      id: responseId,
-      object: 'response',
-      model: modelId,
-      created_at: createdAt,
-      status: 'in_progress',
-      output: [],
-    },
-  }));
-  write(sseChunk('response.output_item.added', {
-    type: 'response.output_item.added',
-    output_index: 0,
-    item: { id: itemId, type: 'message', role: 'assistant', status: 'in_progress', content: [] },
-  }));
-  write(sseChunk('response.content_part.added', {
-    type: 'response.content_part.added',
-    item_id: itemId, output_index: 0, content_index: 0,
-    part: { type: 'output_text', text: '' },
-  }));
-  write(sseChunk('response.output_text.delta', {
-    type: 'response.output_text.delta',
-    item_id: itemId, output_index: 0, content_index: 0,
-    delta: message,
-  }));
-  write(sseChunk('response.output_text.done', {
-    type: 'response.output_text.done',
-    item_id: itemId, output_index: 0, content_index: 0,
-    text: message,
-  }));
-  write(sseChunk('response.content_part.done', {
-    type: 'response.content_part.done',
-    item_id: itemId, output_index: 0, content_index: 0,
-    part: { type: 'output_text', text: message },
-  }));
-  write(sseChunk('response.output_item.done', {
-    type: 'response.output_item.done',
-    output_index: 0,
-    item: { id: itemId, type: 'message', role: 'assistant', status: 'completed', content },
-  }));
-  write(sseChunk('response.completed', {
-    type: 'response.completed',
-    response: {
-      id: responseId, object: 'response', model: modelId, created_at: createdAt,
-      status: 'completed',
-      output: [{ id: itemId, type: 'message', role: 'assistant', status: 'completed', content }],
-    },
-  }));
+export function writeResponsesRateLimitStream(
+  modelId: string,
+  message: string,
+  write: WriteFn
+): void {
+  const responseId = newResponseId()
+  const itemId = newItemId('msg')
+  const createdAt = Math.floor(Date.now() / 1000)
+  const content = [{ type: 'output_text', text: message }]
+  write(
+    sseChunk('response.created', {
+      type: 'response.created',
+      response: {
+        id: responseId,
+        object: 'response',
+        model: modelId,
+        created_at: createdAt,
+        status: 'in_progress',
+        output: [],
+      },
+    })
+  )
+  write(
+    sseChunk('response.output_item.added', {
+      type: 'response.output_item.added',
+      output_index: 0,
+      item: { id: itemId, type: 'message', role: 'assistant', status: 'in_progress', content: [] },
+    })
+  )
+  write(
+    sseChunk('response.content_part.added', {
+      type: 'response.content_part.added',
+      item_id: itemId,
+      output_index: 0,
+      content_index: 0,
+      part: { type: 'output_text', text: '' },
+    })
+  )
+  write(
+    sseChunk('response.output_text.delta', {
+      type: 'response.output_text.delta',
+      item_id: itemId,
+      output_index: 0,
+      content_index: 0,
+      delta: message,
+    })
+  )
+  write(
+    sseChunk('response.output_text.done', {
+      type: 'response.output_text.done',
+      item_id: itemId,
+      output_index: 0,
+      content_index: 0,
+      text: message,
+    })
+  )
+  write(
+    sseChunk('response.content_part.done', {
+      type: 'response.content_part.done',
+      item_id: itemId,
+      output_index: 0,
+      content_index: 0,
+      part: { type: 'output_text', text: message },
+    })
+  )
+  write(
+    sseChunk('response.output_item.done', {
+      type: 'response.output_item.done',
+      output_index: 0,
+      item: { id: itemId, type: 'message', role: 'assistant', status: 'completed', content },
+    })
+  )
+  write(
+    sseChunk('response.completed', {
+      type: 'response.completed',
+      response: {
+        id: responseId,
+        object: 'response',
+        model: modelId,
+        created_at: createdAt,
+        status: 'completed',
+        output: [{ id: itemId, type: 'message', role: 'assistant', status: 'completed', content }],
+      },
+    })
+  )
 }
 
 export function responsesRateLimitBody(modelId: string, message: string): Record<string, unknown> {
-  const itemId = newItemId('msg');
-  const content = [{ type: 'output_text', text: message }];
+  const itemId = newItemId('msg')
+  const content = [{ type: 'output_text', text: message }]
   return {
     id: newResponseId(),
     object: 'response',
@@ -1330,5 +1478,5 @@ export function responsesRateLimitBody(modelId: string, message: string): Record
     created_at: Math.floor(Date.now() / 1000),
     status: 'completed',
     output: [{ id: itemId, type: 'message', role: 'assistant', status: 'completed', content }],
-  };
+  }
 }

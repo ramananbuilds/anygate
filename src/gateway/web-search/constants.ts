@@ -6,9 +6,9 @@ export const WEB_SEARCH_ENV = {
   searxngUrl: 'ANYGATE_SEARXNG_URL',
   apiKey: 'ANYGATE_SEARCH_API_KEY',
   maxResults: 'ANYGATE_WEB_SEARCH_MAX_RESULTS',
-} as const;
+} as const
 
-export const DEFAULT_MAX_RESULTS = 5;
+export const DEFAULT_MAX_RESULTS = 5
 
 /** Max SDK steps so a gateway-executed web search can run and the model can answer. */
-export const MAX_WEB_SEARCH_STEPS = 5;
+export const MAX_WEB_SEARCH_STEPS = 5

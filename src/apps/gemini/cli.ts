@@ -1,27 +1,31 @@
 // src/gemini.ts — anygate gemini: launch Google Gemini CLI with registry providers
-import pc from 'picocolors';
-import * as p from '@clack/prompts';
-import { fetchProviderCatalog, providersForPicker } from '../../../src/registry/provider-catalog.js';
-import { resolveLocalProviderApiKey } from '../../../src/storage/credentials.js';
-import { CredentialUnavailableError } from '../../../src/shared/errors.js';
-import { loadPreferences, recordLaunchSelection } from '../../../src/storage/config.js';
-import { findProviderAndModel, planLaunchWizard, wantsCleanAgentStdout } from '../../apps/shared/launch-target.js';
-import { setAgentStdoutMode, isAgentStdoutMode } from '../../../src/utils/agent-io.js';
-import { findGeminiBinary, prepareGeminiChildEnv, launchGemini } from './launch.js';
+import pc from 'picocolors'
+import * as p from '@clack/prompts'
+import { fetchProviderCatalog, providersForPicker } from '../../../src/registry/provider-catalog.js'
+import { resolveLocalProviderApiKey } from '../../../src/storage/credentials.js'
+import { CredentialUnavailableError } from '../../../src/shared/errors.js'
+import { loadPreferences, recordLaunchSelection } from '../../../src/storage/config.js'
+import {
+  findProviderAndModel,
+  planLaunchWizard,
+  wantsCleanAgentStdout,
+} from '../../apps/shared/launch-target.js'
+import { setAgentStdoutMode, isAgentStdoutMode } from '../../../src/utils/agent-io.js'
+import { findGeminiBinary, prepareGeminiChildEnv, launchGemini } from './launch.js'
 import {
   pickGeminiProvider,
   pickGeminiModel,
   pickGeminiFavoriteModel,
   confirmGeminiLaunch,
   rejectGeminiManagedFlags,
-} from './prompts.js';
-import { startGeminiProxy } from './proxy.js';
-import { getGeminiProxyDebugLogPath, printTraceLog } from '../../apps/shared/trace-log.js';
-import type { ProxyRoute, ProxyHandle } from '../../../src/gateway/proxy/anthropic-proxy.js';
-import type { CloudCodeBackend } from '../shared/cloud-code-backend.js';
-import { rewriteGeminiBackendRoutes } from './backend-routes.js';
-import { VERSION } from '../../../src/config/constants.js';
-import { providersForTarget } from '../../../src/apps/shared/target-compatibility.js';
+} from './prompts.js'
+import { startGeminiProxy } from './proxy.js'
+import { getGeminiProxyDebugLogPath, printTraceLog } from '../../apps/shared/trace-log.js'
+import type { ProxyRoute, ProxyHandle } from '../../../src/gateway/proxy/anthropic-proxy.js'
+import type { CloudCodeBackend } from '../shared/cloud-code-backend.js'
+import { rewriteGeminiBackendRoutes } from './backend-routes.js'
+import { VERSION } from '../../../src/config/constants.js'
+import { providersForTarget } from '../../../src/apps/shared/target-compatibility.js'
 
 export function geminiHelpText(): string {
   return `${pc.bold('anygate gemini')} v${VERSION}
@@ -55,137 +59,138 @@ ${pc.bold('Examples:')}
   anygate gemini
   anygate gemini --trace
   anygate gemini --provider zen --model gemini-2.5-flash
-  anygate gemini -p "review this file"`;
+  anygate gemini -p "review this file"`
 }
 
 export async function runGeminiCommand(
   geminiArgs: string[],
   trace = false,
-  launch: { launchProvider?: string; launchModel?: string } = {},
+  launch: { launchProvider?: string; launchModel?: string } = {}
 ): Promise<number> {
   if (geminiArgs.includes('--help') || geminiArgs.includes('-h')) {
-    console.log(geminiHelpText());
-    return 0;
+    console.log(geminiHelpText())
+    return 0
   }
 
-  const geminiPath = findGeminiBinary();
+  const geminiPath = findGeminiBinary()
   if (!geminiPath) {
-    console.error(pc.red('\nError: gemini binary not found on PATH.\n'));
-    console.error('Install Google Gemini CLI:');
-    console.error('  npm install -g @google/gemini-cli\n');
-    return 1;
+    console.error(pc.red('\nError: gemini binary not found on PATH.\n'))
+    console.error('Install Google Gemini CLI:')
+    console.error('  npm install -g @google/gemini-cli\n')
+    return 1
   }
 
-  const passthroughArgs = rejectGeminiManagedFlags(geminiArgs);
-  const agentStdout = wantsCleanAgentStdout('gemini', passthroughArgs);
-  setAgentStdoutMode(agentStdout);
+  const passthroughArgs = rejectGeminiManagedFlags(geminiArgs)
+  const agentStdout = wantsCleanAgentStdout('gemini', passthroughArgs)
+  setAgentStdoutMode(agentStdout)
 
-  const prefs = loadPreferences();
+  const prefs = loadPreferences()
   const launchPlan = planLaunchWizard({
     explicit: { providerId: launch.launchProvider, modelId: launch.launchModel },
     childArgs: passthroughArgs,
     agent: 'gemini',
     prefs,
-  });
+  })
 
   if (launchPlan.error) {
-    console.error(pc.red(`\nError: ${launchPlan.error}\n`));
-    return 1;
+    console.error(pc.red(`\nError: ${launchPlan.error}\n`))
+    return 1
   }
 
-  let catalog;
+  let catalog
   if (agentStdout) {
     try {
-      catalog = await fetchProviderCatalog({ agent: 'gemini' });
+      catalog = await fetchProviderCatalog({ agent: 'gemini' })
     } catch (err) {
-      console.error(pc.red(String(err instanceof Error ? err.message : err)));
-      return 1;
+      console.error(pc.red(String(err instanceof Error ? err.message : err)))
+      return 1
     }
   } else {
-    const catalogSpinner = p.spinner();
-    catalogSpinner.start('Loading your providers...');
+    const catalogSpinner = p.spinner()
+    catalogSpinner.start('Loading your providers...')
     try {
-      catalog = await fetchProviderCatalog({ agent: 'gemini' });
+      catalog = await fetchProviderCatalog({ agent: 'gemini' })
     } catch (err) {
-      catalogSpinner.stop('');
-      console.error(pc.red(String(err instanceof Error ? err.message : err)));
-      return 1;
+      catalogSpinner.stop('')
+      console.error(pc.red(String(err instanceof Error ? err.message : err)))
+      return 1
     }
-    catalogSpinner.stop('');
+    catalogSpinner.stop('')
   }
 
-  const compatible = providersForTarget(providersForPicker(catalog), 'gemini');
+  const compatible = providersForTarget(providersForPicker(catalog), 'gemini')
   if (compatible.length === 0) {
-    p.log.warn('No Gemini-compatible providers in your registry.');
-    p.log.info('Add a provider with anygate providers add, or sign in with anygate providers auth openai.');
-    return 0;
+    p.log.warn('No Gemini-compatible providers in your registry.')
+    p.log.info(
+      'Add a provider with anygate providers add, or sign in with anygate providers auth openai.'
+    )
+    return 0
   }
 
-  let activeProvider = compatible.find(lp => lp.id === prefs.lastGeminiProvider) ?? compatible[0]!;
-  let selectedModel = activeProvider.models.find(m => m.id === prefs.lastGeminiModel) ?? activeProvider.models[0];
+  let activeProvider = compatible.find(lp => lp.id === prefs.lastGeminiProvider) ?? compatible[0]!
+  let selectedModel =
+    activeProvider.models.find(m => m.id === prefs.lastGeminiModel) ?? activeProvider.models[0]
   if (!selectedModel) {
-    p.log.error(`Provider "${activeProvider.name}" has no models available.`);
-    return 1;
-  };
+    p.log.error(`Provider "${activeProvider.name}" has no models available.`)
+    return 1
+  }
 
   if (launchPlan.skip && launchPlan.target) {
-    const resolved = findProviderAndModel(compatible, launchPlan.target);
+    const resolved = findProviderAndModel(compatible, launchPlan.target)
     if (!resolved) {
       p.log.error(
-        `Provider/model not found: ${launchPlan.target.providerId} / ${launchPlan.target.modelId}`,
-      );
-      return 1;
+        `Provider/model not found: ${launchPlan.target.providerId} / ${launchPlan.target.modelId}`
+      )
+      return 1
     }
-    activeProvider = resolved.provider;
-    selectedModel = resolved.model;
+    activeProvider = resolved.provider
+    selectedModel = resolved.model
     if (!agentStdout) {
-      p.log.step(`Using ${selectedModel.name || selectedModel.id} (${activeProvider.name})`);
+      p.log.step(`Using ${selectedModel.name || selectedModel.id} (${activeProvider.name})`)
     }
   } else {
     if (!agentStdout) {
-      console.log('');
-      p.log.info(`Launching ${pc.bold('Gemini CLI')} with anygate`);
+      console.log('')
+      p.log.info(`Launching ${pc.bold('Gemini CLI')} with anygate`)
     }
 
     const chosenProvider = await pickGeminiProvider(
       compatible,
       prefs,
       (prefs.favoriteModels ?? []).length > 0,
-      launch.launchProvider,
-    );
-    if (!chosenProvider) return 0;
+      launch.launchProvider
+    )
+    if (!chosenProvider) return 0
 
     if (chosenProvider === '__favorites__') {
-      const favPick = await pickGeminiFavoriteModel(compatible, prefs.favoriteModels ?? []);
-      if (!favPick || favPick === 'back') return 0;
-      activeProvider = favPick.provider;
-      selectedModel = favPick.model;
+      const favPick = await pickGeminiFavoriteModel(compatible, prefs.favoriteModels ?? [])
+      if (!favPick || favPick === 'back') return 0
+      activeProvider = favPick.provider
+      selectedModel = favPick.model
     } else {
-      activeProvider = chosenProvider;
-      const chosenModel = await pickGeminiModel(activeProvider, prefs);
-      if (!chosenModel || chosenModel === 'back') return 0;
-      selectedModel = chosenModel;
+      activeProvider = chosenProvider
+      const chosenModel = await pickGeminiModel(activeProvider, prefs)
+      if (!chosenModel || chosenModel === 'back') return 0
+      selectedModel = chosenModel
     }
 
     if (!agentStdout) {
       const ok = await confirmGeminiLaunch(
         activeProvider.name,
         selectedModel.name || selectedModel.id,
-        selectedModel.id,
-      );
-      if (!ok) return 0;
+        selectedModel.id
+      )
+      if (!ok) return 0
     }
   }
 
   // Save selected provider/model preferences
-  recordLaunchSelection('gemini', activeProvider.id, selectedModel.id, prefs);
+  recordLaunchSelection('gemini', activeProvider.id, selectedModel.id, prefs)
 
-  const launchApiKey = await resolveLocalProviderApiKey(activeProvider);
+  const launchApiKey = await resolveLocalProviderApiKey(activeProvider)
   if (!launchApiKey?.trim()) {
-    p.log.error(
-      new CredentialUnavailableError(activeProvider.id).userMessage,
-    );
-    return 1;
+    p.log.error(new CredentialUnavailableError(activeProvider.id).userMessage)
+    return 1
   }
 
   // Build route mapping for proxy catalog
@@ -207,16 +212,16 @@ export async function runGeminiCommand(
     supportedParameters: m.supportedParameters,
     reasoning: m.reasoning,
     interleavedReasoningField: m.interleavedReasoningField,
-  }));
+  }))
 
   // Resolve and append favorites to proxy routes
-  const resolvedFavs: ProxyRoute[] = [];
-  const favorites = prefs.favoriteModels ?? [];
+  const resolvedFavs: ProxyRoute[] = []
+  const favorites = prefs.favoriteModels ?? []
   for (const fav of favorites) {
-    const provider = compatible.find(lp => lp.id === fav.providerId);
-    const model = provider?.models.find(m => m.id === fav.modelId);
+    const provider = compatible.find(lp => lp.id === fav.providerId)
+    const model = provider?.models.find(m => m.id === fav.modelId)
     if (provider && model) {
-      const apiKey = await resolveLocalProviderApiKey(provider);
+      const apiKey = await resolveLocalProviderApiKey(provider)
       if (apiKey) {
         resolvedFavs.push({
           aliasId: model.id,
@@ -236,23 +241,23 @@ export async function runGeminiCommand(
           supportedParameters: model.supportedParameters,
           reasoning: model.reasoning,
           interleavedReasoningField: model.interleavedReasoningField,
-        });
+        })
       }
     }
   }
 
-  const routesMap = new Map<string, ProxyRoute>();
+  const routesMap = new Map<string, ProxyRoute>()
   for (const route of providerRoutes) {
-    routesMap.set(route.aliasId, route);
+    routesMap.set(route.aliasId, route)
   }
   for (const route of resolvedFavs) {
     if (!routesMap.has(route.aliasId)) {
-      routesMap.set(route.aliasId, route);
+      routesMap.set(route.aliasId, route)
     }
   }
 
   // Ensure starting model is in routing catalog
-  const startingRoute = routesMap.get(selectedModel.id);
+  const startingRoute = routesMap.get(selectedModel.id)
   if (!startingRoute) {
     routesMap.set(selectedModel.id, {
       aliasId: selectedModel.id,
@@ -272,52 +277,52 @@ export async function runGeminiCommand(
       supportedParameters: selectedModel.supportedParameters,
       reasoning: selectedModel.reasoning,
       interleavedReasoningField: selectedModel.interleavedReasoningField,
-    });
+    })
   }
 
-  let finalRoutes = [...routesMap.values()];
+  let finalRoutes = [...routesMap.values()]
   // Backend-routed models get rewritten to a new local alias below — this tracks
   // what selectedModel.id becomes so Gemini CLI is launched with the id its
   // requests will actually be resolved by, not the pre-rewrite one.
-  let launchModelId = selectedModel.id;
-  let oauthBackend: CloudCodeBackend | null = null;
+  let launchModelId = selectedModel.id
+  let oauthBackend: CloudCodeBackend | null = null
 
-  let proxyHandle: ProxyHandle | null = null;
+  let proxyHandle: ProxyHandle | null = null
   try {
-    const backendRoutes = await rewriteGeminiBackendRoutes(finalRoutes, launchModelId, trace);
-    finalRoutes = backendRoutes.routes;
-    launchModelId = backendRoutes.launchModelId;
-    oauthBackend = backendRoutes.backend;
-    proxyHandle = await startGeminiProxy(finalRoutes, trace);
+    const backendRoutes = await rewriteGeminiBackendRoutes(finalRoutes, launchModelId, trace)
+    finalRoutes = backendRoutes.routes
+    launchModelId = backendRoutes.launchModelId
+    oauthBackend = backendRoutes.backend
+    proxyHandle = await startGeminiProxy(finalRoutes, trace)
   } catch (err) {
-    p.log.error(`Failed to start Gemini proxy: ${err instanceof Error ? err.message : String(err)}`);
-    oauthBackend?.handle.close();
-    return 1;
+    p.log.error(`Failed to start Gemini proxy: ${err instanceof Error ? err.message : String(err)}`)
+    oauthBackend?.handle.close()
+    return 1
   }
 
-  const childEnv = prepareGeminiChildEnv(proxyHandle.port, proxyHandle.token);
+  const childEnv = prepareGeminiChildEnv(proxyHandle.port, proxyHandle.token)
 
   if (!agentStdout) {
-    p.log.info(`Gemini proxy started on port ${proxyHandle.port}`);
-    p.log.info(`💡 Type ${pc.bold('.model <id>')} in the chat to switch models mid-session.`);
+    p.log.info(`Gemini proxy started on port ${proxyHandle.port}`)
+    p.log.info(`💡 Type ${pc.bold('.model <id>')} in the chat to switch models mid-session.`)
   }
 
-  let exitCode = 1;
+  let exitCode = 1
   try {
-    exitCode = await launchGemini(geminiPath, launchModelId, childEnv.env, passthroughArgs);
+    exitCode = await launchGemini(geminiPath, launchModelId, childEnv.env, passthroughArgs)
   } finally {
-    childEnv.cleanup();
-    proxyHandle.close();
-    oauthBackend?.handle.close();
+    childEnv.cleanup()
+    proxyHandle.close()
+    oauthBackend?.handle.close()
   }
 
   if (!agentStdout) {
-    p.log.info('Gemini proxy stopped.');
+    p.log.info('Gemini proxy stopped.')
   }
 
   if (trace) {
-    printTraceLog(getGeminiProxyDebugLogPath());
+    printTraceLog(getGeminiProxyDebugLogPath())
   }
 
-  return exitCode;
+  return exitCode
 }

@@ -1,8 +1,8 @@
-import { Readable } from 'node:stream';
-import type { ServerResponse } from 'node:http';
-import { sanitizeCredential } from './gateway/server/auth.js';
-import { CLAUDE_CODE_USER_AGENT } from './auth/claude-identity.js';
-import { UpstreamUnreachableError } from './shared/errors.js';
+import { Readable } from 'node:stream'
+import type { ServerResponse } from 'node:http'
+import { sanitizeCredential } from './gateway/server/auth.js'
+import { CLAUDE_CODE_USER_AGENT } from './auth/claude-identity.js'
+import { UpstreamUnreachableError } from './shared/errors.js'
 
 export function anthropicUpstreamHeaders(
   apiKey: string,
@@ -10,10 +10,10 @@ export function anthropicUpstreamHeaders(
   inboundBeta?: string,
   authType?: 'api' | 'oauth',
   claudeCodeSessionId?: string,
-  extraHeaders?: Record<string, string>,
+  extraHeaders?: Record<string, string>
 ): Record<string, string> {
-  const key = sanitizeCredential(apiKey) ?? apiKey.trim();
-  const isOAuth = authType === 'oauth';
+  const key = sanitizeCredential(apiKey) ?? apiKey.trim()
+  const isOAuth = authType === 'oauth'
   const headers: Record<string, string> = {
     ...extraHeaders,
     'Content-Type': 'application/json',
@@ -23,30 +23,30 @@ export function anthropicUpstreamHeaders(
     ...(isOAuth ? { 'User-Agent': CLAUDE_CODE_USER_AGENT, 'x-app': 'cli' } : {}),
     ...(isOAuth && claudeCodeSessionId ? { 'X-Claude-Code-Session-Id': claudeCodeSessionId } : {}),
     ...(stream ? { Accept: 'text/event-stream' } : {}),
-  };
-  if (inboundBeta) {
-    headers['anthropic-beta'] = inboundBeta;
   }
-  return headers;
+  if (inboundBeta) {
+    headers['anthropic-beta'] = inboundBeta
+  }
+  return headers
 }
 
 export async function fetchWithOAuthRetry<TResponse extends { status: number }>(
   apiKey: string,
   request: (apiKey: string) => Promise<TResponse>,
-  refreshToken?: () => Promise<string | null>,
+  refreshToken?: () => Promise<string | null>
 ): Promise<{ response: TResponse; apiKey: string; refreshed: boolean }> {
-  let response = await request(apiKey);
+  let response = await request(apiKey)
   if (response.status !== 401 || !refreshToken) {
-    return { response, apiKey, refreshed: false };
+    return { response, apiKey, refreshed: false }
   }
 
-  const refreshed = await refreshToken().catch(() => null);
+  const refreshed = await refreshToken().catch(() => null)
   if (!refreshed || refreshed === apiKey) {
-    return { response, apiKey, refreshed: false };
+    return { response, apiKey, refreshed: false }
   }
 
-  response = await request(refreshed);
-  return { response, apiKey: refreshed, refreshed: true };
+  response = await request(refreshed)
+  return { response, apiKey: refreshed, refreshed: true }
 }
 
 /** Gateway an Anthropic /v1/messages response (JSON or SSE) to the client. */
@@ -62,60 +62,80 @@ export async function forwardAnthropicMessages(
   claudeCodeSessionId?: string,
   extraHeaders?: Record<string, string>,
   refreshToken?: () => Promise<string | null>,
-  onTokenRefreshed?: (token: string) => void,
+  onTokenRefreshed?: (token: string) => void
 ): Promise<void> {
-  const doFetch = (key: string) => fetch(messagesUrl, {
-    method: 'POST',
-    headers: anthropicUpstreamHeaders(key, clientWantsStream, inboundBeta, authType, claudeCodeSessionId, extraHeaders),
-    body: JSON.stringify(body),
-  });
+  const doFetch = (key: string) =>
+    fetch(messagesUrl, {
+      method: 'POST',
+      headers: anthropicUpstreamHeaders(
+        key,
+        clientWantsStream,
+        inboundBeta,
+        authType,
+        claudeCodeSessionId,
+        extraHeaders
+      ),
+      body: JSON.stringify(body),
+    })
 
-  let upstreamRes: Response;
+  let upstreamRes: Response
   try {
-    const retryResult = await fetchWithOAuthRetry(apiKey, doFetch, refreshToken);
-    upstreamRes = retryResult.response;
-    if (retryResult.refreshed) onTokenRefreshed?.(retryResult.apiKey);
+    const retryResult = await fetchWithOAuthRetry(apiKey, doFetch, refreshToken)
+    upstreamRes = retryResult.response
+    if (retryResult.refreshed) onTokenRefreshed?.(retryResult.apiKey)
   } catch (err) {
-    throw new UpstreamUnreachableError(err);
+    throw new UpstreamUnreachableError(err)
   }
 
   if (!upstreamRes.ok) {
-    const errBody = await upstreamRes.text();
-    log?.(`anthropic upstream ${upstreamRes.status}: ${errBody}`);
-    res.writeHead(upstreamRes.status, { 'Content-Type': upstreamRes.headers.get('content-type') || 'application/json' });
-    res.end(errBody);
-    return;
+    const errBody = await upstreamRes.text()
+    log?.(`anthropic upstream ${upstreamRes.status}: ${errBody}`)
+    res.writeHead(upstreamRes.status, {
+      'Content-Type': upstreamRes.headers.get('content-type') || 'application/json',
+    })
+    res.end(errBody)
+    return
   }
 
   if (clientWantsStream && upstreamRes.body) {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    });
+      Connection: 'keep-alive',
+    })
     Readable.fromWeb(upstreamRes.body as Parameters<typeof Readable.fromWeb>[0])
       .on('error', () => res.destroy())
-      .pipe(res);
-    return;
+      .pipe(res)
+    return
   }
 
   if (!upstreamRes.body) {
-    res.writeHead(502, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ type: 'error', error: { type: 'api_error', message: 'Upstream returned empty response body' } }));
-    return;
+    res.writeHead(502, { 'Content-Type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        type: 'error',
+        error: { type: 'api_error', message: 'Upstream returned empty response body' },
+      })
+    )
+    return
   }
 
-  const text = await upstreamRes.text();
+  const text = await upstreamRes.text()
   try {
-    JSON.parse(text);
+    JSON.parse(text)
   } catch {
-    res.writeHead(502, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ type: 'error', error: { type: 'api_error', message: 'Upstream response was not valid JSON' } }));
-    return;
+    res.writeHead(502, { 'Content-Type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        type: 'error',
+        error: { type: 'api_error', message: 'Upstream response was not valid JSON' },
+      })
+    )
+    return
   }
   res.writeHead(200, {
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(text).toString(),
-  });
-  res.end(text);
+  })
+  res.end(text)
 }

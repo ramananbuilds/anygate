@@ -4,4 +4,4 @@ export const xaiProviderConfig = {
   authType: 'api' as const,
   npm: '@ai-sdk/xai',
   baseURL: 'https://api.x.ai/v1',
-};
+}
