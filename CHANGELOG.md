@@ -1,14 +1,22 @@
 # Changelog
 
-## Unreleased
+## 0.5.12 (2026-07-30)
 
-### Bug Fixes
+### Phase 0: Context Window Safety & Self-Healing Validation
 - **Context window exceeded (HTTP 400)**: Enforced context fitting on ALL outbound SDK requests. `translateRequest()` now always resolves a context window (explicit option or model-id lookup via `resolveContextWindowFromModel`) and trims the conversation with an 85% safety margin. Previously, fitting only triggered when `contextWindow` was explicitly passed — many code paths left it undefined, causing small-window models (GPT-3.5, Nemotron 131K, etc.) to be rejected with "Input length exceeds maximum allowed tokens". `startProxy()` and `startProxyCatalog()` now resolve `route.contextWindow` with the same fallback before passing it to `sdkTranslateRequest()`.
+- **Robust context window resolution**: Added provider defaults, models.dev cache integration, and audit scripts for context window resolution. `resolveContextWindowFromModel()` now falls back through: explicit option → OpenCode cache → ID-pattern heuristics → 200k default.
+- **Self-healing model validation**: New `src/registry/validation/` module (`model-validator.ts`, `config.ts`) that automatically checks model availability by calling provider APIs. Features: 24h cache TTL, 5 concurrent validations, 8s timeout, HTTP status interpretation (2xx→available, 404/410→deprecated, 401/403→error, 429/5xx→unverified), fire-and-forget background validation in `fetch-template-models.ts`, deprecated model filtering in `provider-catalog.ts`, launch-time blocking in `cli/claude.ts`, and `anygate models validate` subcommand in `cli/models.ts`.
+
+### Phase 1: Critical Fixes
 - **Bare `anygate` main menu dispatch**: The main menu in `src/cli/root.ts` now dispatches to the actual command handlers via `dispatchCommand()` instead of printing a message and returning 0. Selecting "Launch Claude", "Launch Codex", "Configure Providers", "Doctor", "Server", "Dashboard", or "Settings" from the bare `anygate` menu now launches the corresponding subcommand.
-- **Gateway server error handling**: The catch-all in `src/gateway/server/router.ts` now uses `sendError()` for `AnygateError` instances and sends a generic "Internal server error" message for other errors, preventing internal details (stack traces, file paths, internal service names) from leaking to clients.
-- **Gateway server security hardening**: Added security headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store`) to all JSON responses via `sendJson()`. Added in-memory rate limiting (120 requests/minute per client) with `429` responses. Added `Content-Length` header to all responses.
 - **Dead code removal**: Removed 30+ dead files across `src/engine/` (10 files), `src/providers/` (8 files), `src/protocols/` (3 files), `src/core/` (4 directories), `src/launchers/` (8 files), and `tests/engine/` (2 files). Only `src/engine/routing/health.ts` and `src/providers/opencode-serve.ts` were retained as they are actively imported.
-- **ESLint + Prettier**: Added ESLint with TypeScript support and Prettier for code formatting. New scripts: `lint`, `lint:fix`, `format`, `format:check`.
+- **Gateway server error handling**: The catch-all in `src/gateway/server/router.ts` now uses `sendError()` for `AnygateError` instances and sends a generic "Internal server error" message for other errors, preventing internal details (stack traces, file paths, internal service names) from leaking to clients.
+- **Gateway server security hardening**: Added security headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store`) to all JSON responses via `sendJson()`. Added in-memory rate limiting (120 requests/minute per client) with `429` responses and `Retry-After` header. Added `Content-Length` header to all responses. Added 10MB request body size limit.
+- **ModelFormat type consistency**: Added `'cloud-code'` to `ModelFormat` in `src/types/model.ts` and updated all inline type literals (`LocalProviderModel`, `CachedModel`, `ServerModelFormat`, `AntigravityRoute`, `anthropic-proxy.ts`) to use the shared `ModelFormat` type. Eliminates type mismatch where `ServerModelFormat` had `'cloud-code'` but `ModelFormat` did not.
+- **ESLint + Prettier**: Added ESLint with TypeScript support and Prettier for code formatting. New scripts: `lint`, `lint:fix`, `format`, `format:check`. Husky pre-commit hook runs lint-staged + typecheck. Formatted all 263 source files.
+- **Security integration tests**: Added 14 tests in `tests/gateway/server-integration.test.ts` covering rate limiting (`checkRateLimit`), error handling (`sendError`), and security constants (`MAX_REQUEST_BODY_BYTES`).
+- **Fixed ESM violation**: Replaced `require()` in `src/apps/shared/app-launcher.ts` with static import (ESM modules don't support `require()`).
+- **Fixed pre-existing typecheck error**: Added `JSONSchema7` type assertion in `src/gateway/antigravity/request-adapter.ts`.
 
 ## 0.5.11 (2026-07-25)
 
