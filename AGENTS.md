@@ -59,11 +59,6 @@ npm run build && anygate --version
 - **`src/auth/`**: Authentication, PKCE, OAuth device flows, keyring adapters, & token handling (GitHub, OpenAI, xAI, Claude Code, Antigravity)
 - **`src/cli/`**: Subcommand entry points (`root.ts`, `claude.ts`, `codex.ts`, `gemini.ts`, `antigravity.ts`, `providers-command.ts`, `models.ts`, `server.ts`, `ui.ts`, `doctor.ts`, `update.ts`)
 - **`src/config/`**: System constants, path definitions, default preferences, and environment variable resolution
-- **`src/core/`**: Domain contracts, constants (`constants/`), error hierarchy (`errors/`), lifecycle events (`events/`), and interfaces (`interfaces/`)
-- **`src/engine/`**: Core Routing & Selection Engine
-  - `routing/`: `router.ts`, `resolver.ts`, `dispatcher.ts`, `strategy.ts`, `failover.ts`, `health.ts`, `middleware.ts`, `pipeline.ts`
-  - `selection/`: `selector.ts`, `target-compatibility.ts`, `launch-target.ts`
-  - `context/`: Token fitting & context window estimation
 - **`src/gateway/`**: API Gateway, HTTP Proxies, & Protocol Translation
   - `adapters/`: Wire format translation (`sdk-adapter.ts`, `openai-adapter.ts`, `vertex.ts`)
   - `antigravity/`: Antigravity fake Cloud Code gateway server & request/response adapters
@@ -72,9 +67,7 @@ npm run build && anygate --version
   - `proxy/`: Local HTTP Anthropic/OpenAI proxies (`anthropic-proxy.ts`, `proxy-shared.ts`)
   - `server/`: Standalone gateway server (`server.ts`, `router.ts`, `auth.ts`, `vendor-mask.ts`)
   - `web-search/`: Web search tool integrations (`duckduckgo.ts`, `searxng.ts`, `brave.ts`, `tavily.ts`, `tool.ts`)
-- **`src/launchers/`**: OS-native process execution & terminal window spawners (`native-launcher.ts`, `app-launcher.ts`, `macos.ts`, `windows.ts`, `linux.ts`)
-- **`src/protocols/`**: Protocol payload definitions (`anthropic/`, `google/`, `openai/`)
-- **`src/providers/`**: LM provider drivers (Anthropic, OpenAI, Groq, Mistral, Ollama, Vertex, OpenRouter)
+- **`src/providers/`**: LM provider drivers (`opencode-serve.ts` only; per-vendor stubs removed)
 - **`src/registry/`**: Provider & Model Registry
   - `data/`: Bundled model & pricing caches
   - `loader/`: Opencode importers, materializer, & data loaders
@@ -98,7 +91,6 @@ Tests mirror `src/` domain subdirectories:
 - `tests/apps/`: Application launcher, prompt, & session tests (31 test files)
 - `tests/auth/`: OAuth flow & token handling tests
 - `tests/cli/`: CLI subcommand & update check tests
-- `tests/engine/`: Routing & selection heuristic tests
 - `tests/gateway/`: Gateway server, HTTP proxy, & SDK adapter tests
 - `tests/helpers/`: Mock HTTP request/response test utilities (`ui-api-test-utils.ts`)
 - `tests/registry/`: Provider registry, template fetcher, & model sync tests
