@@ -3,9 +3,9 @@ import {
   isProviderHealthy,
   getProviderHealth,
   updateProviderHealth,
+  checkProviderHealth,
   type ProviderHealthStatus,
-} from '../../src/engine/routing/health.js'
-import { checkProviderHealth } from '../../src/services/provider-health.js'
+} from '../../src/services/provider-health.js'
 
 describe('Provider Health', () => {
   describe('updateProviderHealth', () => {
