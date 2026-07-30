@@ -6,7 +6,7 @@
 
 ### 1. Define the Launch Target
 
-Add the new target to `GatewayLaunchTarget` in `src/engine/selection/target-compatibility.ts`:
+Add the new target to `GatewayLaunchTarget` in `src/apps/shared/target-compatibility.ts`:
 
 ```typescript
 export type GatewayLaunchTarget =

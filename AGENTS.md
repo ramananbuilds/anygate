@@ -61,7 +61,7 @@ npm run build && anygate --version
   - `gemini/`: Google Gemini CLI & Antigravity launcher logic
   - `shared/`: Shared prompt builders, key setup, context-window calculation, free-models logic, and model compatibility filters
 - **`src/auth/`**: Authentication, PKCE, OAuth device flows, keyring adapters, & token handling (GitHub, OpenAI, xAI, Claude Code, Antigravity)
-- **`src/cli/`**: Subcommand entry points (`root.ts`, `claude.ts`, `codex.ts`, `gemini.ts`, `antigravity.ts`, `providers-command.ts`, `models.ts`, `server.ts`, `ui.ts`, `doctor.ts`, `update.ts`)
+- **`src/cli/`**: Subcommand entry points (`root.ts`, `claude.ts`, `claude-app.ts`, `codex.ts`, `codex-app.ts`, `gemini.ts`, `antigravity.ts`, `providers-command.ts`, `providers.ts`, `models.ts`, `server.ts`, `ui.ts`, `doctor.ts`, `update.ts`, `completions.ts`, `index.ts`)
 - **`src/config/`**: System constants, path definitions, default preferences, and environment variable resolution
 - **`src/gateway/`**: API Gateway, HTTP Proxies, & Protocol Translation
   - `adapters/`: Wire format translation (`sdk-adapter.ts`, `openai-adapter.ts`, `vertex.ts`)
@@ -81,13 +81,13 @@ npm run build && anygate --version
   - `sync/`: Background catalog model & credential refreshers
   - `templates/`: Provider template definitions & model catalog fetchers
   - `validation/`: URL security, credential verification, & self-healing model validation (`model-validator.ts`, `config.ts`)
-- **`src/services/`**: Cross-cutting shared services (`analytics.ts`, `doctor.ts`, `downloads.ts`, `favorites.ts`, `provider-health.ts`, `self-update.ts`)
+- **`src/services/`**: Cross-cutting shared services (`analytics.ts`, `doctor.ts`, `downloads.ts`, `favorites.ts`, `index.ts`, `model-sync.ts`, `provider-health.ts`, `self-update.ts`, `update-check.ts`, `updates.ts`)
 - **`src/storage/`**: Local configuration (`config.ts`), credentials (`credentials.ts`), favorites (`favorites.ts`), history (`history.ts`), and logs (`logs.ts`)
 - **`src/types/`**: TypeScript type definitions (`api.ts`, `auth.ts`, `config.ts`, `gateway.ts`, `launch.ts`, `model.ts`, `provider.ts`, `registry.ts`)
 - **`src/ui/`**: Web App Backend & Dashboard Server
   - `api.ts`, `api-types.ts`, `server-control.ts`
   - `app/`: Modern Svelte 5 / Vite UI Frontend Application (`src/`, `components/`, `routes/`, `stores/`)
-- **`src/utils/`**: Pure helper functions (`crypto.ts`, `files.ts`, `http.ts`, `json.ts`, `network.ts`, `paths.ts`, `string.ts`)
+- **`src/utils/`**: Pure helper functions (`agent-io.ts`, `array.ts`, `crypto.ts`, `files.ts`, `http.ts`, `index.ts`, `json.ts`, `network.ts`, `paths.ts`, `string.ts`, `time.ts`)
 
 ### Test Suite Structure (`tests/`)
 
@@ -99,6 +99,8 @@ Tests mirror `src/` domain subdirectories:
 - `tests/helpers/`: Mock HTTP request/response test utilities (`ui-api-test-utils.ts`)
 - `tests/registry/`: Provider registry, template fetcher, & model sync tests
 - `tests/services/`: Health check, usage, & update service tests
+- `tests/shared/`: Shared utility tests (logger, redact, validators)
+- `tests/utils/`: Utility function tests (array, crypto, files, http, json, network, paths, string, time)
 - `tests/storage/`: Configuration & credential store tests
 - `tests/ui/`: UI REST API & dashboard control tests
 - `tests/web-search/`: Web search tool tests

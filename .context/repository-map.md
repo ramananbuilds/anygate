@@ -30,11 +30,11 @@
   - `sync/`: Background catalog model refreshers
   - `templates/`: Provider template definitions & fetchers
   - `validation/`: URL security and credential verification
-- `src/services/` — Cross-cutting services (`analytics.ts`, `doctor.ts`, `downloads.ts`, `favorites.ts`, `provider-health.ts`, `self-update.ts`)
+- `src/services/` — Cross-cutting services (`analytics.ts`, `doctor.ts`, `downloads.ts`, `favorites.ts`, `index.ts`, `model-sync.ts`, `provider-health.ts`, `self-update.ts`, `update-check.ts`, `updates.ts`)
 - `src/storage/` — Persistence: preferences (`config.ts`), credentials (`credentials.ts`), favorites (`favorites.ts`), history (`history.ts`), and logs (`logs.ts`)
 - `src/types/` — TypeScript type definitions (`api.ts`, `auth.ts`, `config.ts`, `gateway.ts`, `launch.ts`, `model.ts`, `provider.ts`, `registry.ts`)
 - `src/ui/` — Gateway server & Web Dashboard (`api.ts`, `api-types.ts`, `server-control.ts`, and Svelte 5 frontend app at `src/ui/app/`)
-- `src/utils/` — Pure helper functions (`crypto.ts`, `files.ts`, `http.ts`, `json.ts`, `network.ts`, `paths.ts`, `string.ts`)
+- `src/utils/` — Pure helper functions (`agent-io.ts`, `array.ts`, `crypto.ts`, `files.ts`, `http.ts`, `index.ts`, `json.ts`, `network.ts`, `paths.ts`, `string.ts`, `time.ts`)
 
 ## `tests/` Test Suite Structure
 
@@ -45,6 +45,8 @@
 - `tests/helpers/`: Mock HTTP request/response test utilities (`ui-api-test-utils.ts`)
 - `tests/registry/`: Provider registry, template fetcher, & model sync tests
 - `tests/services/`: Health check, usage, & update service tests
+- `tests/shared/`: Shared utility tests (logger, redact, validators)
 - `tests/storage/`: Configuration & credential store tests
 - `tests/ui/`: UI REST API & dashboard control tests
+- `tests/utils/`: Utility function tests (array, crypto, files, http, json, network, paths, string, time)
 - `tests/web-search/`: Web search tool tests

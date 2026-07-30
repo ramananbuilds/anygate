@@ -1,55 +1,27 @@
-# Component: Engine (`src/engine/`)
+# Component: Engine (`src/engine/`) — DEPRECATED
 
-> Routing decisions, model selection, and target-compatibility filtering.
+> **Removed in v0.5.13.** The `src/engine/` directory was consolidated into
+> `src/services/provider-health.ts` and `src/apps/shared/`. The routing and
+> selection engine was found to be unused dead code — actual routing logic
+> lives in `src/gateway/proxy/` and `src/registry/provider-catalog.ts`.
 
-## Structure
+## What was removed
 
-```text
-src/engine/
-├── routing/
-│   ├── router.ts          # RouteRequest → RouteMatch resolution
-│   ├── resolver.ts        # Model ref parsing and provider+model lookup
-│   ├── dispatcher.ts      # Request dispatch coordination
-│   ├── strategy.ts        # Routing strategy selection
-│   ├── failover.ts        # Failover logic for unavailable routes
-│   ├── health.ts          # Provider health checking
-│   ├── middleware.ts       # Request/response middleware pipeline
-│   └── pipeline.ts        # Full routing pipeline orchestration
-├── selection/
-│   ├── selector.ts        # Model selection heuristics
-│   ├── target-compatibility.ts  # Target × model compatibility matrix
-│   └── launch-target.ts   # Launch wizard, model slugs, non-interactive detection
-├── context/
-│   └── .gitkeep           # Reserved for context window estimation
-└── index.ts
-```
+- `src/engine/routing/` — Router, resolver, dispatcher, strategy, failover,
+  health, middleware, pipeline (all removed in Phase 1)
+- `src/engine/selection/` — Selector, target-compatibility, launch-target (all
+  removed in Phase 1)
+- `src/engine/routing/health.ts` — Consolidated into `src/services/provider-health.ts`
 
-## Key Exports
+## Where the logic moved
 
-| Function | File | Purpose |
-|----------|------|---------|
-| `routeRequest()` | `routing/router.ts` | Match provider+model+target |
-| `resolveProviderAndModel()` | `routing/resolver.ts` | Parse model ref, find in providers |
-| `isTargetCompatibleModel()` | `selection/target-compatibility.ts` | Check model × target compat |
-| `planLaunchWizard()` | `selection/launch-target.ts` | Decide wizard vs direct launch |
-| `resolveLaunchTarget()` | `selection/launch-target.ts` | Resolve from flags/prefs |
-| `parseModelSlug()` | `selection/launch-target.ts` | Split `provider__model` format |
-
-## Key Types
-
-```typescript
-type GatewayLaunchTarget = 'claude' | 'claude-app' | 'codex' | 'codex-app' | 'gemini' | 'server' | 'antigravity';
-
-interface RouteRequest { providerId: string; modelId: string; target: GatewayLaunchTarget; }
-interface RouteMatch { provider: LocalProvider; model: LocalProviderModel; target: GatewayLaunchTarget; }
-interface LaunchTarget { providerId?: string; modelId?: string; }
-```
-
-## Dependencies
-
-- **Imports from**: `apps/shared/`, `types/`
-- **Imported by**: `apps/`, `gateway/`, `cli/`
+| Original Location | New Location |
+|-------------------|---------------|
+| `src/engine/routing/health.ts` | `src/services/provider-health.ts` |
+| `src/engine/selection/target-compatibility.ts` | `src/apps/shared/target-compatibility.ts` |
+| `src/engine/selection/launch-target.ts` | `src/apps/shared/launch-target.ts` |
 
 ## Architecture Reference
 
-See [Architecture: Routing Engine](../architecture/routing-engine.md)
+See [Architecture: Routing Engine](../architecture/routing-engine.md) for historical context.
+See [ADR 001: Provider Routing](docs/adr/001-provider-routing.md) for current routing decisions.
