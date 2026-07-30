@@ -14,6 +14,7 @@ import { aliasModelId } from '../gateway/proxy/anthropic-proxy.js'
 import type { ProxyRoute } from '../gateway/proxy/anthropic-proxy.js'
 import { resolveInputTypes } from './models-dev.js'
 import { getValidationStatus } from './validation/model-validator.js'
+import { dedupeByKey } from '../utils/array.js'
 import type { FavoriteModel, BackendConfig } from '../types/index.js'
 import { providersForTarget } from '../apps/shared/target-compatibility.js'
 import {
@@ -221,10 +222,9 @@ export function makeRouteResolver(
  * ResolveContext) and returns built ProxyRoute[] — does NOT delegate to
  * `buildFavoritesList` in `./favorites-resolver.ts` because the input/output
  * shapes are different (closure-based lookup vs. ResolveContext, ProxyRoute
- * vs. ResolvedFavorite). The dedup+cap pattern is duplicated here on purpose;
- * cross-surface shared resolution lives in `favorites-resolver.ts` and is
- * intended to be consumed by other call sites (Codex, Server) that need a
- * route-shape-agnostic intermediate result.
+ * vs. ResolvedFavorite). The dedup+cap step delegates to the shared
+ * `dedupeByKey` utility in `src/utils/array.ts`, consistent with
+ * `buildFavoritesList` in `favorites-resolver.ts`.
  */
 export function buildCatalogRoutes(
   startingRoute: ProxyRoute,
@@ -240,10 +240,8 @@ export function buildCatalogRoutes(
       return route
     })
     .filter((route): route is ProxyRoute => route !== undefined)
-  const routes = [
-    startingRoute,
-    ...tail.filter(route => route.aliasId !== startingRoute.aliasId),
-  ].slice(0, max)
+  // Dedup by aliasId (preserving first occurrence: startingRoute first) and cap to max.
+  const routes = dedupeByKey([startingRoute, ...tail], route => route.aliasId, max)
   return { routes, droppedFavorites }
 }
 
