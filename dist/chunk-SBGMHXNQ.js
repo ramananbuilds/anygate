@@ -13,8 +13,8 @@ import {
   VERSION,
   VERTEX_ANTHROPIC_NPM,
   classifyModelFormat,
-} from './chunk-EZ7N4T7Q.js'
-import { getTemplateById, listAddableTemplates } from './chunk-EE3Y3PDK.js'
+} from './chunk-6CHXDVVN.js'
+import { getTemplateById, listAddableTemplates } from './chunk-CWZQKIXP.js'
 
 // src/apps/shared/ui.ts
 import pc from 'picocolors'
@@ -88098,10 +88098,12 @@ var REDACTION_PATTERNS = [
   // Bearer / Authorization headers
   line => line.replace(/Bearer\s+[A-Za-z0-9._\-+/=]+/gi, 'Bearer [REDACTED]'),
   line => line.replace(/("authorization"\s*:\s*")[^"]+/gi, '$1[REDACTED]'),
-  line => line.replace(/(x-api-key"\s*:\s*")[^"]+/gi, '$1[REDACTED]'),
-  // Common API key prefixes
-  line => line.replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, 'sk-[REDACTED]'),
+  line => line.replace(/("x-api-key"\s*:\s*")[^"]+/gi, '$1[REDACTED]'),
+  // Non-JSON key: value formats
+  line => line.replace(/(\bx-api-key\s*:\s*)([^\s,;]+)/gi, '$1[REDACTED]'),
+  // Common API key prefixes — order matters: more specific patterns first
   line => line.replace(/\bsk-ant-[A-Za-z0-9_-]{8,}\b/g, 'sk-ant-[REDACTED]'),
+  line => line.replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, 'sk-[REDACTED]'),
   line => line.replace(/\bAIza[A-Za-z0-9_-]{20,}\b/g, 'AIza[REDACTED]'),
   line => line.replace(/\bgsk_[A-Za-z0-9]{20,}\b/g, 'gsk_[REDACTED]'),
 ]
@@ -93989,6 +93991,20 @@ async function loadRegistryProviders(diag, opts) {
   )
 }
 
+// src/utils/array.ts
+function dedupeByKey(items, keyFn, max) {
+  const seen = /* @__PURE__ */ new Set()
+  const out = []
+  for (const item of items) {
+    const key = keyFn(item)
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(item)
+    if (max !== void 0 && out.length >= max) break
+  }
+  return out
+}
+
 // src/registry/provider-catalog.ts
 async function fetchProviderCatalog(opts) {
   return loadRegistryProviders(void 0, opts)
@@ -94145,10 +94161,7 @@ function buildCatalogRoutes(startingRoute, favorites, resolveRoute2, max = MAX_M
       return route
     })
     .filter(route => route !== void 0)
-  const routes = [
-    startingRoute,
-    ...tail.filter(route => route.aliasId !== startingRoute.aliasId),
-  ].slice(0, max)
+  const routes = dedupeByKey([startingRoute, ...tail], route => route.aliasId, max)
   return { routes, droppedFavorites }
 }
 function resolveEndpoint(npm, apiUrl) {
@@ -96477,6 +96490,102 @@ function codexAppInstallHint() {
 // src/gateway/server/router.ts
 import { createServer as createServer2 } from 'http'
 
+// src/shared/logger.ts
+import pc4 from 'picocolors'
+var LOG_LEVELS = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+}
+var LEVEL_ICON = {
+  debug: '\u25C7',
+  info: '\u25CF',
+  warn: '\u25B2',
+  error: '\u2716',
+}
+var LEVEL_COLOR = {
+  debug: pc4.dim,
+  info: pc4.cyan,
+  warn: pc4.yellow,
+  error: pc4.red,
+}
+function getLogLevel() {
+  const envLevel = process.env['ANYGATE_LOG_LEVEL']?.toLowerCase()
+  if (envLevel && envLevel in LOG_LEVELS) return envLevel
+  return 'info'
+}
+function isJsonMode() {
+  return process.env['ANYGATE_LOG_FORMAT'] === 'json'
+}
+function formatJson(entry) {
+  return JSON.stringify(entry)
+}
+function formatHuman(entry) {
+  const color = LEVEL_COLOR[entry.level]
+  const icon = LEVEL_ICON[entry.level]
+  let line = `${color(icon)} ${pc4.dim(entry.ts)} ${entry.msg}`
+  if (entry.err) {
+    line += ` ${color(entry.err.message)}`
+  }
+  const extra = []
+  for (const [key, value] of Object.entries(entry)) {
+    if (key === 'level' || key === 'msg' || key === 'ts' || key === 'err') continue
+    extra.push(`${key}=${JSON.stringify(value)}`)
+  }
+  if (extra.length > 0) {
+    line += ` ${pc4.dim(extra.join(' '))}`
+  }
+  return line
+}
+var Logger = class {
+  level
+  prefix
+  constructor(prefix = 'anygate') {
+    this.prefix = prefix
+    this.level = getLogLevel()
+  }
+  shouldLog(level) {
+    return LOG_LEVELS[level] >= LOG_LEVELS[this.level]
+  }
+  write(level, msg, err, fields) {
+    if (!this.shouldLog(level)) return
+    const ts = /* @__PURE__ */ new Date().toISOString()
+    const fullMsg = `[${this.prefix}] ${msg}`
+    const entry = { level, msg: fullMsg, ts }
+    if (err) {
+      entry.err = { message: err.message }
+      if (err.stack) entry.err.stack = err.stack
+    }
+    if (fields) {
+      Object.assign(entry, fields)
+    }
+    const output = isJsonMode() ? formatJson(entry) : formatHuman(entry)
+    if (isJsonMode()) {
+      console.log(output)
+    } else if (level === 'error') {
+      console.error(output)
+    } else if (level === 'warn') {
+      console.warn(output)
+    } else {
+      console.log(output)
+    }
+  }
+  info(msg, fields) {
+    this.write('info', msg, void 0, fields)
+  }
+  warn(msg, fields) {
+    this.write('warn', msg, void 0, fields)
+  }
+  error(msg, err, fields) {
+    this.write('error', msg, err, fields)
+  }
+  debug(msg, fields) {
+    this.write('debug', msg, void 0, fields)
+  }
+}
+var logger = new Logger()
+
 // src/gateway/adapters/openai-adapter.ts
 import {
   tool as tool4,
@@ -96743,7 +96852,9 @@ async function routeRequest(req, res, options, modelCache, plog) {
     if (err instanceof AnygateError) {
       sendError(res, err)
     } else {
-      console.error('Unhandled gateway error:', err)
+      logger.error('Unhandled gateway error', err instanceof Error ? err : void 0, {
+        err: String(err),
+      })
       sendJson(res, 500, { error: { message: 'Internal server error' } })
     }
   }
@@ -97222,25 +97333,25 @@ async function launchOrRestartClaudeApp(
 }
 
 // src/gateway/server/server.ts
-import pc6 from 'picocolors'
+import pc7 from 'picocolors'
 import { networkInterfaces } from 'os'
 import * as p6 from '@clack/prompts'
 
 // src/gateway/context/prompts.ts
 import * as p4 from '@clack/prompts'
-import pc4 from 'picocolors'
+import pc5 from 'picocolors'
 async function askServerStartMode() {
   const mode = await p4.select({
     message: 'How do you want to start the server?',
     options: [
       {
         value: 'configure',
-        label: pc4.cyan('Configure & start'),
+        label: pc5.cyan('Configure & start'),
         hint: 'Providers, discovery masking, listen mode',
       },
       {
         value: 'quick',
-        label: pc4.cyan('Start with saved settings'),
+        label: pc5.cyan('Start with saved settings'),
         hint: 'Use last server configuration',
       },
     ],
@@ -97290,10 +97401,10 @@ async function askListenMode() {
   const mode = await p4.select({
     message: 'Where should the server listen?',
     options: [
-      { value: 'local', label: pc4.cyan('Local only'), hint: 'Only this computer can use it' },
+      { value: 'local', label: pc5.cyan('Local only'), hint: 'Only this computer can use it' },
       {
         value: 'network',
-        label: pc4.cyan('Network'),
+        label: pc5.cyan('Network'),
         hint: 'Other computers on your network can use it',
       },
     ],
@@ -97321,8 +97432,8 @@ async function askUseSavedServerPassword() {
   const choice = await p4.select({
     message: 'Use saved server password?',
     options: [
-      { value: 'use-saved', label: pc4.cyan('Use saved password') },
-      { value: 'new-password', label: pc4.cyan('Enter a new password') },
+      { value: 'use-saved', label: pc5.cyan('Use saved password') },
+      { value: 'new-password', label: pc5.cyan('Enter a new password') },
     ],
     initialValue: 'use-saved',
   })
@@ -97345,7 +97456,7 @@ async function askSaveServerPassword() {
 }
 
 // src/gateway/providers/provider-select.ts
-import pc5 from 'picocolors'
+import pc6 from 'picocolors'
 import * as p5 from '@clack/prompts'
 function isSelected(list, id) {
   return list.includes(id)
@@ -97368,7 +97479,7 @@ async function selectServerProviders(available, initial) {
       const provider = lookup2.get(id)
       const label = provider
         ? `\u2605 ${provider.name}`
-        : pc5.dim(`\u2605 ${id} \u2014 provider gone`)
+        : pc6.dim(`\u2605 ${id} \u2014 provider gone`)
       const hint = provider
         ? `${provider.modelCount} model${provider.modelCount !== 1 ? 's' : ''}`
         : 'select to remove'
@@ -97379,7 +97490,7 @@ async function selectServerProviders(available, initial) {
       value: '__add__',
       label:
         unselected.length === 0
-          ? pc5.dim('+ Add a provider \u2192 (all providers selected)')
+          ? pc6.dim('+ Add a provider \u2192 (all providers selected)')
           : '+ Add a provider \u2192',
       hint: unselected.length === 0 ? '' : `${unselected.length} more available`,
     })
@@ -97510,11 +97621,11 @@ function printModelCatalog(models, gateway) {
   if (models.length === 0) return
   for (const line of formatModelCatalogLines(models, gateway)) {
     if (line === 'Model catalog:') {
-      console.log(pc6.bold(line))
+      console.log(pc7.bold(line))
     } else if (/^  [^#\d\s].+\(\d+/.test(line)) {
-      console.log(pc6.bold(line))
+      console.log(pc7.bold(line))
     } else if (/^  \s*#\s+Model\s+Anthropic ID\s+OpenAI ID/.test(line)) {
-      console.log(pc6.dim(line))
+      console.log(pc7.dim(line))
     } else {
       console.log(line)
     }
@@ -97725,7 +97836,7 @@ async function runVertexServerCommand() {
     },
   })
   console.log('')
-  console.log(pc6.bold(pc6.green('Vertex gateway running')))
+  console.log(pc7.bold(pc7.green('Vertex gateway running')))
   console.log(`  Anthropic:  http://127.0.0.1:${server.port}/anthropic`)
   console.log(`  Models:     ${models.map(model => model.id).join(', ')}`)
   if (mode === 'network') {
@@ -97740,10 +97851,10 @@ async function runVertexServerCommand() {
   } else {
     console.log('  API key:    any non-empty value')
   }
-  console.log(pc6.dim('  Auth:       gcloud Application Default Credentials'))
+  console.log(pc7.dim('  Auth:       gcloud Application Default Credentials'))
   console.log('')
   printModelCatalog(models)
-  console.log(pc6.dim('Press Ctrl+C to stop.'))
+  console.log(pc7.dim('Press Ctrl+C to stop.'))
   await waitForShutdown()
   await server.close()
   return 0
@@ -97811,7 +97922,7 @@ async function runServerCommand(options = {}) {
     if (runConfig.favoritesOnly) {
       const favorites = loadPreferences().favoriteModels ?? []
       if (favorites.length === 0) {
-        spinner3.stop(pc6.red('No favorite models configured'))
+        spinner3.stop(pc7.red('No favorite models configured'))
         p6.log.error(
           'Run `anygate models` to add favorites, or turn off favorites-only in the server wizard.'
         )
@@ -97819,7 +97930,7 @@ async function runServerCommand(options = {}) {
       }
       models = filterServerModelsByFavorites(models, favorites).slice(0, MAX_MODEL_CATALOG)
       if (models.length === 0) {
-        spinner3.stop(pc6.red('No favorite models matched the current provider filter'))
+        spinner3.stop(pc7.red('No favorite models matched the current provider filter'))
         p6.log.error(
           'Adjust favorites with `anygate models` or change exposed providers in the server wizard.'
         )
@@ -97829,7 +97940,7 @@ async function runServerCommand(options = {}) {
     if (runConfig.freeModelsOnly) {
       models = filterServerModelsByFreeStatus(models)
       if (models.length === 0) {
-        spinner3.stop(pc6.red('No free models matched the current server filters'))
+        spinner3.stop(pc7.red('No free models matched the current server filters'))
         p6.log.error('Turn off free-models-only mode or add a provider with free models.')
         return 1
       }
@@ -97841,7 +97952,7 @@ async function runServerCommand(options = {}) {
       p6.log.info('Desktop/Cowork picker will only show these. Edit with `anygate models`.')
     }
     if (models.length === 0) {
-      spinner3.stop(pc6.red('No models to expose'))
+      spinner3.stop(pc7.red('No models to expose'))
       p6.log.error(
         'Add providers with `anygate providers add` or configure exposed providers in the server wizard.'
       )
@@ -97860,8 +97971,10 @@ async function runServerCommand(options = {}) {
     )
     if (summary) p6.log.info(summary)
   } catch (err) {
-    spinner3.stop(pc6.red('Failed to load models'))
-    console.error(pc6.red(String(err instanceof Error ? err.message : err)))
+    spinner3.stop(pc7.red('Failed to load models'))
+    logger.error('Failed to load models', err instanceof Error ? err : void 0, {
+      err: String(err),
+    })
     return 1
   }
   const gateway = runConfig.maskGatewayIds ? { maskGatewayIds: true } : void 0
@@ -97875,7 +97988,7 @@ async function runServerCommand(options = {}) {
     gateway,
   })
   console.log('')
-  console.log(pc6.bold(pc6.green('anygate server running')))
+  console.log(pc7.bold(pc7.green('anygate server running')))
   console.log(`  Anthropic:  http://127.0.0.1:${server.port}/anthropic`)
   console.log(`  OpenAI:     http://127.0.0.1:${server.port}/openai/v1`)
   if (mode === 'network') {
@@ -97893,20 +98006,20 @@ async function runServerCommand(options = {}) {
     console.log('  API key:    any non-empty value')
   }
   if (runConfig.exposedProviders) {
-    console.log(pc6.dim(`  Providers:  ${runConfig.exposedProviders.join(', ')}`))
+    console.log(pc7.dim(`  Providers:  ${runConfig.exposedProviders.join(', ')}`))
   }
   if (runConfig.favoritesOnly) {
-    console.log(pc6.dim('  Catalog:    favorite models only'))
+    console.log(pc7.dim('  Catalog:    favorite models only'))
   }
   if (runConfig.freeModelsOnly) {
-    console.log(pc6.dim('  Pricing:    free/free-access models only'))
+    console.log(pc7.dim('  Pricing:    free/free-access models only'))
   }
   if (runConfig.maskGatewayIds) {
-    console.log(pc6.dim('  Discovery:  gateway ids masked for Claude Desktop / Cowork'))
+    console.log(pc7.dim('  Discovery:  gateway ids masked for Claude Desktop / Cowork'))
   }
   console.log('')
   printModelCatalog(models, gateway)
-  console.log(pc6.dim('Press Ctrl+C to stop.'))
+  console.log(pc7.dim('Press Ctrl+C to stop.'))
   await waitForShutdown()
   await server.close()
   return 0
@@ -98140,4 +98253,4 @@ export {
   runServerCommand,
   favoriteProviderDisplayName,
 }
-//# sourceMappingURL=chunk-UJY4SCX3.js.map
+//# sourceMappingURL=chunk-SBGMHXNQ.js.map

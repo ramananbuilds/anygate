@@ -64,13 +64,13 @@ import {
   summarizeServerProviders,
   validateCustomEndpointUrl,
   writeSecureLogLine,
-} from './chunk-UJY4SCX3.js'
-import { BACKENDS, MAX_MODEL_CATALOG } from './chunk-EZ7N4T7Q.js'
+} from './chunk-SBGMHXNQ.js'
+import { BACKENDS, MAX_MODEL_CATALOG } from './chunk-6CHXDVVN.js'
 import {
   getTemplateById,
   listSupportedTemplates,
   listVisibleOAuthTemplates,
-} from './chunk-EE3Y3PDK.js'
+} from './chunk-CWZQKIXP.js'
 import './chunk-UT3JLF3M.js'
 
 // src/ui/command.ts
@@ -1191,7 +1191,7 @@ async function handleAddProvider(req, res) {
       return
     }
     const { listSupportedTemplates: listSupportedTemplates2 } =
-      await import('./provider-templates-TWUEY3QZ.js')
+      await import('./provider-templates-665GVTZI.js')
     const template = listSupportedTemplates2().find(t => t.id === templateId)
     if (!template) {
       sendJson(res, 404, { error: `Template '${templateId}' not found` })
@@ -1975,4 +1975,4 @@ async function runUiCommand(opts = {}) {
   return 0
 }
 export { formatUiServerLifecycleMessage, isUiApiRoute, resolveUiShutdownDecision, runUiCommand }
-//# sourceMappingURL=command-GDNSQRDN.js.map
+//# sourceMappingURL=command-TLYLRE27.js.map

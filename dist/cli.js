@@ -171,7 +171,7 @@ import {
   validateModels,
   writeSecureLogLine,
   zenRegistryStub,
-} from './chunk-UJY4SCX3.js'
+} from './chunk-SBGMHXNQ.js'
 import {
   BACKENDS,
   CONFLICTING_ENV_VARS,
@@ -179,14 +179,14 @@ import {
   MAX_MODEL_CATALOG,
   VERSION,
   VERTEX_ANTHROPIC_NPM,
-} from './chunk-EZ7N4T7Q.js'
+} from './chunk-6CHXDVVN.js'
 import {
   filterTemplates,
   getTemplateById,
   listAddableTemplates,
   listSupportedTemplates,
   listVisibleOAuthTemplates,
-} from './chunk-EE3Y3PDK.js'
+} from './chunk-CWZQKIXP.js'
 import './chunk-UT3JLF3M.js'
 
 // src/cli.ts
@@ -5796,8 +5796,8 @@ async function resolveFavorite(fav, ctx) {
   return void 0
 }
 async function buildFavoritesList(starting, favorites, ctx, max = 20, options = {}) {
-  const seen = /* @__PURE__ */ new Set()
   const out = []
+  const seen = /* @__PURE__ */ new Set()
   if (starting) {
     seen.add(`${starting.providerId}::${starting.model.id}`)
     out.push(starting)
@@ -6691,7 +6691,7 @@ Error: ${launchPlan.error}
 // src/cli/codex.ts
 async function handleCodexCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-N3KAGTUD.js')
+    const { VERSION: VERSION2 } = await import('./constants-ZJ7PCN3Q.js')
     console.log(VERSION2)
     return 0
   }
@@ -7847,7 +7847,7 @@ async function runCodexAppCommand(args, opts = {}) {
 // src/cli/codex-app.ts
 async function handleCodexAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-N3KAGTUD.js')
+    const { VERSION: VERSION2 } = await import('./constants-ZJ7PCN3Q.js')
     console.log(VERSION2)
     return 0
   }
@@ -8390,7 +8390,7 @@ ${pc10.bold('Claude Desktop 3P Mode Active')}`)
 // src/cli/claude-app.ts
 async function handleClaudeAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-N3KAGTUD.js')
+    const { VERSION: VERSION2 } = await import('./constants-ZJ7PCN3Q.js')
     console.log(VERSION2)
     return 0
   }
@@ -9666,7 +9666,7 @@ Error: ${launchPlan.error}
 // src/cli/gemini.ts
 async function handleGeminiCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-N3KAGTUD.js')
+    const { VERSION: VERSION2 } = await import('./constants-ZJ7PCN3Q.js')
     console.log(VERSION2)
     return 0
   }
@@ -13105,7 +13105,7 @@ Examples:
 `
 async function handleAgyCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-N3KAGTUD.js')
+    const { VERSION: VERSION2 } = await import('./constants-ZJ7PCN3Q.js')
     console.log(VERSION2)
     return 0
   }
@@ -13120,7 +13120,7 @@ async function handleAgyCommand(parsed) {
 }
 async function handleAntigravityAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-N3KAGTUD.js')
+    const { VERSION: VERSION2 } = await import('./constants-ZJ7PCN3Q.js')
     console.log(VERSION2)
     return 0
   }
@@ -13135,7 +13135,7 @@ async function handleAntigravityAppCommand(parsed) {
 }
 async function handleAntigravityIdeCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-N3KAGTUD.js')
+    const { VERSION: VERSION2 } = await import('./constants-ZJ7PCN3Q.js')
     console.log(VERSION2)
     return 0
   }
@@ -13240,7 +13240,7 @@ Options:
 `)
     return 0
   }
-  const { runUiCommand } = await import('./command-GDNSQRDN.js')
+  const { runUiCommand } = await import('./command-TLYLRE27.js')
   return runUiCommand({ trace: parsed.trace })
 }
 
@@ -13252,7 +13252,7 @@ import * as p16 from '@clack/prompts'
 import * as p15 from '@clack/prompts'
 import pc13 from 'picocolors'
 
-// src/apps/claude/favorites.ts
+// src/apps/shared/favorites.ts
 function isFavorite(list, fav) {
   return list.some(f => f.providerId === fav.providerId && f.modelId === fav.modelId)
 }
@@ -13699,7 +13699,7 @@ async function runValidateSubcommand(parsed) {
 // src/cli/providers.ts
 async function handleProvidersCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-N3KAGTUD.js')
+    const { VERSION: VERSION2 } = await import('./constants-ZJ7PCN3Q.js')
     console.log(VERSION2)
     return 0
   }
@@ -13818,7 +13818,7 @@ async function runDoctorCommand(_dryRun) {
 // src/cli/doctor.ts
 async function handleDoctorCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-N3KAGTUD.js')
+    const { VERSION: VERSION2 } = await import('./constants-ZJ7PCN3Q.js')
     console.log(VERSION2)
     return 0
   }
@@ -13966,7 +13966,7 @@ function runCompletionsCommand(shellArg) {
 // src/cli/completions.ts
 async function handleCompletionsCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-N3KAGTUD.js')
+    const { VERSION: VERSION2 } = await import('./constants-ZJ7PCN3Q.js')
     console.log(VERSION2)
     return 0
   }
@@ -14058,7 +14058,7 @@ async function runUpdateCommand(dryRun) {
 // src/cli/update.ts
 async function handleUpdateCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-N3KAGTUD.js')
+    const { VERSION: VERSION2 } = await import('./constants-ZJ7PCN3Q.js')
     console.log(VERSION2)
     return 0
   }

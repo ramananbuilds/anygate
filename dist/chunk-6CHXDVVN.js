@@ -37,6 +37,7 @@ var package_default = {
     dev: 'tsup --watch',
     test: 'vitest run',
     'test:watch': 'vitest',
+    'test:coverage': 'vitest run --coverage',
     typecheck: 'tsc --noEmit',
     'refresh:models-dev': 'node scripts/refresh-models-dev-cache.mjs',
     'audit:context-windows': 'tsx scripts/audit-context-windows.ts',
@@ -175,4 +176,4 @@ export {
   classifyModelFormat,
   VERSION,
 }
-//# sourceMappingURL=chunk-EZ7N4T7Q.js.map
+//# sourceMappingURL=chunk-6CHXDVVN.js.map
