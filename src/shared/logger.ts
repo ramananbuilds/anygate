@@ -109,12 +109,12 @@ export class Logger {
     if (isJsonMode()) {
       // In JSON mode, write everything to stdout for easy collection.
       console.log(output)
+    } else if (level === 'error') {
+      console.error(output)
+    } else if (level === 'warn') {
+      console.warn(output)
     } else {
-      if (level === 'error' || level === 'warn') {
-        console.error(output)
-      } else {
-        console.log(output)
-      }
+      console.log(output)
     }
   }
 
