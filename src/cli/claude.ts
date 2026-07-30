@@ -34,7 +34,7 @@ import type {
   LocalProvider,
   LocalProviderModel,
 } from '../types/index.js'
-import { addFavorite, removeFavorite, isFavorite } from '../apps/claude/favorites.js'
+import { addFavorite, removeFavorite, isFavorite } from '../apps/shared/favorites.js'
 import {
   browseByProviderChoice,
   buildGlobalFavoriteIndex,

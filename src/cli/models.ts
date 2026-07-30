@@ -15,8 +15,7 @@ import {
 } from '../apps/shared/ui.js'
 import { favoriteProviderDisplayName } from '../apps/claude/favorites-provider-display.js'
 import { buildGlobalFavoriteIndex } from '../apps/claude/favorites-picker.js'
-import { isFavorite } from '../apps/claude/favorites.js'
-import { addFavorite, removeFavorite } from '../apps/claude/favorites.js'
+import { isFavorite, addFavorite, removeFavorite } from '../apps/shared/favorites.js'
 import type {
   FavoriteModel,
   LocalProvider,

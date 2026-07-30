@@ -2,7 +2,7 @@
 import * as p from '@clack/prompts'
 import pc from 'picocolors'
 import type { FavoriteModel, LocalProvider, LocalProviderModel } from '../../../src/types/index.js'
-import { isFavorite } from './favorites.js'
+import { isFavorite } from '../../apps/shared/favorites.js'
 import { pickModelFromPagedList } from '../../../src/apps/shared/prompts.js'
 import { fmtModel, fmtProviderBracket, formatModelLabel } from '../../../src/apps/shared/ui.js'
 import { scoreModelSearch } from '../../../src/apps/shared/model-search.js'
