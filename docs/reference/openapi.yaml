@@ -1,0 +1,441 @@
+openapi: 3.0.3
+info:
+  title: Anygate Gateway API
+  description: |
+    Local API gateway that routes any LLM provider into any coding agent.
+    Exposes both Anthropic-compatible and OpenAI-compatible API surfaces.
+
+    ## Authentication
+
+    In **local mode** (default), the server binds to `127.0.0.1` and requires no
+    authentication — any non-empty value works as an API key.
+
+    In **network mode**, the server requires a password. Pass it via:
+    - `x-api-key` header
+    - `Authorization: Bearer <password>` header
+
+    ## Rate Limiting
+
+    120 requests per minute per client. Exceeded requests receive HTTP 429 with
+    a `Retry-After` header.
+
+  version: 0.5.13
+  contact:
+    name: anygate
+    url: https://github.com/ramananbuilds/anygate
+  license:
+    name: MIT
+
+servers:
+  - url: http://127.0.0.1:17645
+    description: Local gateway (default)
+
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: API key (or any non-empty value in local mode).
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: password
+      description: Bearer token (server password in network mode).
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+
+    ModelInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Model identifier
+        name:
+          type: string
+          description: Human-readable model name
+        isFree:
+          type: boolean
+          description: Whether the model is free to use
+        brand:
+          type: string
+          description: Provider brand
+        sourceBackend:
+          type: string
+          description: Source backend identifier
+        modelFormat:
+          type: string
+          enum: [anthropic, openai, cloud-code, unsupported]
+          description: API format of the model
+
+    ModelsResponse:
+      type: object
+      properties:
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModelInfo'
+
+    AnthropicModelInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        created:
+          type: integer
+        metadata:
+          type: object
+          properties:
+            input_tokens:
+              type: integer
+            output_tokens:
+              type: integer
+            max_tokens:
+              type: integer
+
+    AnthropicModelsResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnthropicModelInfo'
+
+    OpenAiModelInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          example: model
+        owned_by:
+          type: string
+
+    OpenAiModelsResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          example: list
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpenAiModelInfo'
+
+    AnthropicMessageRequest:
+      type: object
+      required:
+        - model
+        - messages
+      properties:
+        model:
+          type: string
+          description: Model identifier
+        messages:
+          type: array
+          items:
+            type: object
+            required: [role, content]
+            properties:
+              role:
+                type: string
+                enum: [user, assistant]
+              content:
+                oneOf:
+                  - type: string
+                  - type: array
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum: [text, image_url, cache_control, tool_use, tool_result]
+        stream:
+          type: boolean
+          description: Whether to stream the response
+        max_tokens:
+          type: integer
+          description: Maximum tokens to generate
+        temperature:
+          type: number
+          format: float
+          description: Sampling temperature
+        tools:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              input_schema:
+                type: object
+
+    AnthropicErrorResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          example: error
+        error:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [invalid_request_error, authentication_error, permission_error, not_found_error, rate_limit_error, api_error]
+            message:
+              type: string
+
+    OpenAiChatCompletionRequest:
+      type: object
+      required:
+        - model
+        - messages
+      properties:
+        model:
+          type: string
+        messages:
+          type: array
+          items:
+            type: object
+            required: [role]
+            properties:
+              role:
+                type: string
+                enum: [system, user, assistant, tool, function]
+              content:
+                oneOf:
+                  - type: string
+                  - type: array
+              tool_calls:
+                type: array
+
+    OpenAiChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+          example: chat.completion
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: object
+                properties:
+                  role:
+                    type: string
+                  content:
+                    type: string
+              finish_reason:
+                type: string
+
+    RateLimitErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              example: Rate limit exceeded
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check if the gateway server is running.
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /models:
+    get:
+      summary: List models
+      description: List all models available through the gateway.
+      responses:
+        '200':
+          description: List of models
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelsResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnthropicErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitErrorResponse'
+
+  /anthropic/v1/models:
+    get:
+      summary: List models (Anthropic format)
+      description: List models in Anthropic-compatible format for Claude Desktop.
+      responses:
+        '200':
+          description: List of models in Anthropic format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnthropicModelsResponse'
+
+  /openai/v1/models:
+    get:
+      summary: List models (OpenAI format)
+      description: List models in OpenAI-compatible format.
+      responses:
+        '200':
+          description: List of models in OpenAI format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenAiModelsResponse'
+
+  /anthropic/v1/messages:
+    post:
+      summary: Create message (Anthropic)
+      description: |
+        Send a message to a model via the Anthropic API format. Non-Anthropic
+        models are automatically translated through the Vercel AI SDK.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnthropicMessageRequest'
+      responses:
+        '200':
+          description: Response from the model
+          content:
+            application/json:
+              schema:
+                type: object
+        '202':
+          description: Accepted for streaming
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                example: text/event-stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnthropicErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnthropicErrorResponse'
+        '404':
+          description: Model not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnthropicErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitErrorResponse'
+        '502':
+          description: Bad gateway (upstream error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnthropicErrorResponse'
+
+  /openai/v1/chat/completions:
+    post:
+      summary: Create chat completion (OpenAI)
+      description: |
+        Send a chat completion request via the OpenAI API format. Anthropic-format
+        models are automatically translated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenAiChatCompletionRequest'
+      responses:
+        '200':
+          description: Chat completion response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenAiChatCompletionResponse'
+        '202':
+          description: Accepted for streaming
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                example: text/event-stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnthropicErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitErrorResponse'
+        '502':
+          description: Bad gateway (upstream error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnthropicErrorResponse'
