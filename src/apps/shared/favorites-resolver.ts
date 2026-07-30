@@ -93,14 +93,15 @@ export async function buildFavoritesList(
   droppedFavorites: FavoriteModel[]
   capacitySkippedFavorites: FavoriteModel[]
 }> {
-  const seen = new Set<string>()
   const out: ResolvedFavorite[] = []
+  const seen = new Set<string>()
 
   if (starting) {
     seen.add(`${starting.providerId}::${starting.model.id}`)
     out.push(starting)
   }
 
+  // Dedup using shared utility — key excludes the already-added starting model.
   const uniqueFavorites = favorites.filter(fav => {
     const key = `${fav.providerId}::${fav.modelId}`
     if (seen.has(key)) return false
