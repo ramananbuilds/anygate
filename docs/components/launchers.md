@@ -1,6 +1,6 @@
 # Component: Launchers — REMOVED
 
-> **Removed in v0.5.12.** The `src/launchers/` directory was removed as part of
+> **Removed in v0.6.0.** The `src/launchers/` directory was removed as part of
 > the Phase 1 dead code cleanup. The launcher logic was found to be unused —
 > actual process spawning lives in `src/apps/shared/native-launcher.ts` and
 > `src/apps/shared/app-launcher.ts`.

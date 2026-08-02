@@ -46,6 +46,8 @@ touch src/registry/data/templates/acme.json
 | `modelSource` | Yes | How models are discovered |
 | `supported` | Yes | Set `true` for public use |
 | `signupUrl` | No | Where to get an API key |
+| `signupNote` | No | One-line note rendered beside the signup link (e.g. referral bonus terms) |
+| `headers` | No | Headers sent on every request to this provider. Use for endpoints that gate on client identity (a required `User-Agent`, an editor-version header, etc.) |
 | `apiKeyOptional` | No | `true` for free/local providers |
 | `staticModels` | No | Pre-defined models (for `static-seed`) |
 

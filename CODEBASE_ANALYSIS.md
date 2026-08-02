@@ -1,6 +1,6 @@
 # Anygate Codebase Analysis — Current State Review
 
-> Version: 0.5.11 → 0.5.12 (post-implementation) | Date: 2026-07-30
+> Version: 0.6.0 (post-implementation) | Date: 2026-07-30
 > Product Constitution: Route any model into any coding agent. Eliminate vendor lock-in.
 
 ---
@@ -196,7 +196,7 @@ ANYGATE_VISION_PROMPT="Describe this image..."  # Custom prompt
 | Doc Type | Status |
 |----------|--------|
 | Architecture docs (8) | ✅ Complete |
-| Component docs (10) | ✅ Updated for v0.5.11+ |
+| Component docs (10) | ✅ Updated for v0.6.0+ |
 | Guides (8) | ✅ Includes migration, development, testing, debugging |
 | Reference docs (5) | ✅ Includes OpenAPI spec |
 | ADRs (5) | ✅ Provider routing, env isolation, gateway security, credential resolution, structured logging |

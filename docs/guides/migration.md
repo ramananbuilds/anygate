@@ -7,7 +7,7 @@ migration steps, and common issues.
 
 | From | To | Breaking Changes | Migration Effort |
 |------|-----|------------------|-----------------|
-| 0.5.10 | 0.5.12+ | Context fitting, model validation, bare `anygate` menu | Low |
+| 0.5.10 | 0.6.0+ | Context fitting, model validation, bare `anygate` menu | Low |
 | 0.5.8 | 0.5.10 | UI serving path fix | Low |
 | 0.5.7 | 0.5.9 | 17-domain architecture restructure | Low (internal) |
 | 0.5.6 | 0.5.8 | Favorites catalog launch | Low |
@@ -15,7 +15,7 @@ migration steps, and common issues.
 
 ---
 
-## Upgrading to 0.5.12+
+## Upgrading to 0.6.0+
 
 ### Context Window Fitting (Enforced)
 
@@ -166,8 +166,8 @@ If a model that worked before is now showing as "not found":
 
 ### "Input length exceeds maximum tokens"
 
-This was fixed in 0.5.12. If you still see this error:
-1. Ensure you are on version 0.5.12 or later.
+This was fixed in 0.6.0. If you still see this error:
+1. Ensure you are on version 0.6.0 or later.
 2. Check the model's context window configuration.
 3. Consider using a model with a larger context window.
 

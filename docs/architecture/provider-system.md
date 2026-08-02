@@ -114,7 +114,7 @@ Models are fetched from the OpenCode registry API. Zen models can be filtered to
 
 Providers routed through the Vercel AI SDK. Supported:
 
-Anthropic, Cerebras, Cohere, DeepInfra, DeepSeek, Fireworks, Groq, Kilo, LM Studio, Mistral, NVIDIA, Ollama, OpenCode Cloud, OpenRouter, OVH, Perplexity, Scaleway, Together AI, Venice, xAI
+Agent Router, Anthropic, Cerebras, Cohere, DeepInfra, DeepSeek, Fireworks, Groq, Kilo, LM Studio, Mistral, NVIDIA, Ollama, OpenCode Cloud, OpenRouter, OVH, Perplexity, Scaleway, Together AI, Venice, xAI
 
 ### OAuth Providers
 
