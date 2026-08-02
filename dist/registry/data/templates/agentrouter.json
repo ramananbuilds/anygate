@@ -1,0 +1,19 @@
+{
+  "id": "agentrouter",
+  "name": "Agent Router",
+  "description": "Agent Router - credit-based multi-model gateway (Claude, GPT, Gemini) via one key",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://agentrouter.org",
+  "modelsEndpoint": "/v1/models",
+  "modelsPath": "/v1/models",
+  "signupUrl": "https://agentrouter.org/register?aff=bfOF",
+  "signupNote": "Signing up through this link adds $50 in bonus credits versus registering directly. It is a referral link.",
+  "modelSource": "api-list",
+  "headers": {
+    "User-Agent": "claude-cli/1.0.0 (external, cli)",
+    "x-app": "cli"
+  },
+  "npm": "@ai-sdk/anthropic"
+}

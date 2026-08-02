@@ -8,9 +8,9 @@ import {
   listVisibleOAuthTemplates,
   loadTemplateSync,
   loadTemplatesSync,
-  toProviderTemplate,
-} from './chunk-CWZQKIXP.js'
-import './chunk-UT3JLF3M.js'
+  toProviderTemplate
+} from "./chunk-4ILOT7YG.js";
+import "./chunk-UT3JLF3M.js";
 export {
   PROVIDER_TEMPLATES,
   filterTemplates,
@@ -20,6 +20,6 @@ export {
   listVisibleOAuthTemplates,
   loadTemplateSync,
   loadTemplatesSync,
-  toProviderTemplate,
-}
-//# sourceMappingURL=provider-templates-665GVTZI.js.map
+  toProviderTemplate
+};
+//# sourceMappingURL=provider-templates-STJ2AFGY.js.map
