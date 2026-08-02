@@ -20,6 +20,8 @@ export interface ProviderTemplateData {
   modelsEndpoint?: string
   modelsPath?: string
   signupUrl?: string
+  /** Optional one-line note shown next to the signup link (e.g. referral bonus terms). */
+  signupNote?: string
   modelSource?: string
   staticModels?: Array<{ id: string; name: string }>
   headers?: Record<string, string>

@@ -32,6 +32,8 @@ export interface ProviderTemplate {
   defaultBaseUrl?: string
   modelsPath?: string
   signupUrl?: string
+  /** Optional one-line note shown next to the signup link (e.g. referral bonus terms). */
+  signupNote?: string
   urlPlaceholder?: string
   urlPrompt?: string
   apiKeyOptional?: boolean
@@ -84,6 +86,7 @@ interface ProviderTemplateData {
   modelsEndpoint?: string
   modelsPath?: string
   signupUrl?: string
+  signupNote?: string
   modelSource?: string
   staticModels?: Array<{ id: string; name: string }>
   headers?: Record<string, string>
@@ -105,6 +108,7 @@ export function toProviderTemplate(data: ProviderTemplateData): ProviderTemplate
     defaultBaseUrl: data.apiBaseUrl,
     modelsPath: data.modelsPath ?? data.modelsEndpoint,
     signupUrl: data.signupUrl,
+    signupNote: data.signupNote,
     modelSource: (data.modelSource as ProviderTemplate['modelSource']) ?? 'api-list',
     staticModels: data.staticModels,
     supported: data.supported,
@@ -138,6 +142,7 @@ const NPM_PACKAGES: Record<string, string> = {
   google: '@ai-sdk/google',
   alibaba: '@ai-sdk/alibaba',
   openrouter: '@openrouter/ai-sdk-provider',
+  agentrouter: '@ai-sdk/anthropic',
   kilo: '@ai-sdk/openai-compatible',
   ollama: '@ai-sdk/openai-compatible',
   lmstudio: '@ai-sdk/openai-compatible',

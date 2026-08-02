@@ -53,6 +53,8 @@ export interface UiTemplate {
   id: string
   name: string
   signupUrl: string | null
+  /** Optional one-line note shown next to the signup link (e.g. referral bonus terms). */
+  signupNote?: string | null
   authType: string
   anonymousFreeModels?: boolean
   urlPrompt?: string | null

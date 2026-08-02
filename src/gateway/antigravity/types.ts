@@ -19,6 +19,8 @@ export interface AntigravityRoute {
   authType?: 'api' | 'oauth' | 'none'
   oauthAccountId?: string
   providerData?: Record<string, unknown>
+  /** Custom upstream headers (e.g. a required User-Agent) carried from the registry provider. */
+  headers?: Record<string, string>
   /** Provider base URL — never serialized into the catalog. */
   baseURL?: string
   contextWindow?: number

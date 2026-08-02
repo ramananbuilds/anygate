@@ -293,7 +293,8 @@ async function handleAnthropicMessages(
       model.npm!,
       model.apiBaseUrl,
       apiKey,
-      options.vertex
+      options.vertex,
+      message => plog(message)
     )
     const npmMaxTools = maxToolsForNpm(model.npm)
     const toolCount = Array.isArray((body as Record<string, unknown>).tools)
@@ -545,7 +546,8 @@ async function getOrInitLanguageModel(
   npm: string,
   baseURL: string | undefined,
   apiKey: string,
-  vertex: VertexServerConfig | undefined
+  vertex: VertexServerConfig | undefined,
+  onDebug?: (msg: string) => void
 ): Promise<LanguageModel> {
   const cacheKey = [
     model.providerId ?? model.sourceBackend,
@@ -568,6 +570,7 @@ async function getOrInitLanguageModel(
       headers: model.headers,
       useResponsesLite: model.useResponsesLite,
       preferWebSockets: model.preferWebSockets,
+      onDebug,
     })
     modelCache.set(cacheKey, languageModel)
   }

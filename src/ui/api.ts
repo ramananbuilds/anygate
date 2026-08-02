@@ -707,6 +707,7 @@ function handleGetTemplates(res: ServerResponse): void {
     id: t.id,
     name: t.name,
     signupUrl: t.signupUrl ?? null,
+    signupNote: t.signupNote ?? null,
     authType: t.authType,
     anonymousFreeModels: t.anonymousFreeModels ?? false,
     urlPrompt: t.urlPrompt ?? null,

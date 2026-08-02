@@ -362,9 +362,16 @@ export function printMainMenuPanel(version: string, providerCount: number): void
   ])
 }
 
-export function printApiKeyProviderPanel(name: string, signupUrl: string): void {
+export function printApiKeyProviderPanel(
+  name: string,
+  signupUrl: string,
+  signupNote?: string
+): void {
   printPanel(pc.cyan(`${name} API key`), [
     `${pc.white('Requires an API key (free at:')} ${fmtUrl(signupUrl)}`,
+    // Providers may declare a signup note (e.g. referral bonus terms). Only
+    // rendered when the template defines one, so every other panel is unchanged.
+    ...(signupNote ? [pc.yellow(signupNote)] : []),
     `${pc.dim('AnyGate stores it securely in your system keychain.')}`,
   ])
 }

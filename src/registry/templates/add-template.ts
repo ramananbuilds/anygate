@@ -132,6 +132,12 @@ export async function addProviderFromTemplate(
     api: {
       npm: template.npm,
       url: fetched.baseUrl,
+      // Providers that gate on client identity (a required User-Agent, an
+      // editor-version header, etc.) declare those in the template. They must
+      // be persisted here — materializeOne reads provider.api.headers to carry
+      // them to every runtime request. Dropping them means model listing
+      // succeeds at add time and every later call 401s.
+      ...(template.headers ? { headers: template.headers } : {}),
     },
     addedAt: existing?.addedAt ?? now,
     refreshedAt: now,

@@ -33,6 +33,43 @@ export {
 /** Models that must use /v1/responses instead of /v1/chat/completions. */
 const RESPONSES_ONLY_PREFIXES = ['gpt-5-codex', 'gpt-5-pro', 'gpt-5.2-pro', 'o3', 'o4']
 
+/**
+ * A TransformStream that removes non-compliant `data: null` SSE lines from an
+ * event-stream response. Some OpenAI-compatible reseller gateways interleave
+ * `data: null` keepalives between valid chunks; the AI SDK's strict chunk
+ * validation throws on them (`Type validation failed: Value: null`), aborting
+ * the entire stream. Buffering by line lets us drop just those lines while
+ * passing every valid `data: {...}` and `data: [DONE]` through untouched.
+ */
+function createNullChunkStripper(): TransformStream<Uint8Array, Uint8Array> {
+  const decoder = new TextDecoder()
+  const encoder = new TextEncoder()
+  let buffer = ''
+  const isNullDataLine = (line: string): boolean => {
+    const trimmed = line.trimStart()
+    if (!trimmed.startsWith('data:')) return false
+    return trimmed.slice(5).trim() === 'null'
+  }
+  return new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      buffer += decoder.decode(chunk, { stream: true })
+      const newlineIdx = buffer.lastIndexOf('\n')
+      if (newlineIdx === -1) return
+      const complete = buffer.slice(0, newlineIdx + 1)
+      buffer = buffer.slice(newlineIdx + 1)
+      const kept = complete
+        .split('\n')
+        .filter(line => !isNullDataLine(line))
+        .join('\n')
+      if (kept) controller.enqueue(encoder.encode(kept))
+    },
+    flush(controller) {
+      const tail = buffer + decoder.decode()
+      if (tail && !isNullDataLine(tail)) controller.enqueue(encoder.encode(tail))
+    },
+  })
+}
+
 type SdkProviderFactory = (options: {
   apiKey: string
   baseURL?: string
@@ -253,6 +290,66 @@ export async function createLanguageModel(spec: ProviderModelSpec): Promise<Lang
       baseURL: baseURL ?? '',
       ...(apiKey.trim() ? { apiKey } : {}),
       ...(spec.headers ? { headers: spec.headers } : {}),
+      // Custom headers like User-Agent must be forced at the fetch layer: the AI
+      // SDK builds its own User-Agent and overwrites a header-option value on some
+      // call paths (streaming vs non-streaming differ), which breaks providers that
+      // gate on client identity. This wrapper pins spec.headers onto every request
+      // regardless of path, and (when tracing) logs the exact wire headers + any
+      // error-response body so failures can be diagnosed from ground truth.
+      ...(spec.headers || process.env.ANYGATE_TRACE === '1'
+        ? {
+            fetch: (async (input: any, init: any) => {
+              const url = typeof input === 'string' ? input : (input?.url ?? String(input))
+              const hdrs = new Headers(init?.headers ?? {})
+              // Force custom headers to their configured values, overriding whatever
+              // the SDK set (notably User-Agent).
+              if (spec.headers) {
+                for (const [k, v] of Object.entries(spec.headers)) hdrs.set(k, v)
+              }
+              const nextInit = { ...init, headers: hdrs }
+              if (process.env.ANYGATE_TRACE === '1') {
+                const shown: string[] = []
+                hdrs.forEach((v, k) => {
+                  shown.push(`${k}: ${/authorization|api-key/i.test(k) ? v.slice(0, 12) + '…' : v}`)
+                })
+                spec.onDebug?.(
+                  `[sdk-fetch] POST ${url}\n[sdk-fetch] headers:\n  ${shown.join('\n  ')}`
+                )
+                // Dump the outgoing request body so a moderation/blocklist rejection
+                // (e.g. new-api `sensitive_words_detected`) can be traced to the exact
+                // offending text. Trace-gated and written only to the local debug log.
+                if (typeof init?.body === 'string') {
+                  spec.onDebug?.(`[sdk-fetch] → body: ${init.body.slice(0, 8000)}`)
+                }
+              }
+              const resp = await fetch(input, nextInit)
+              if (process.env.ANYGATE_TRACE === '1') {
+                spec.onDebug?.(`[sdk-fetch] ← HTTP ${resp.status}`)
+                if (resp.status >= 400) {
+                  const body = await resp
+                    .clone()
+                    .text()
+                    .catch(() => '')
+                  spec.onDebug?.(`[sdk-fetch] ← body: ${body.slice(0, 500)}`)
+                }
+              }
+              // Some OpenAI-compatible resellers emit non-compliant `data: null`
+              // keepalive lines mid-stream. The AI SDK validates every SSE chunk
+              // against a strict schema and throws on `null`, aborting the whole
+              // response. Strip those lines so valid chunks stream through intact.
+              const contentType = resp.headers.get('content-type') ?? ''
+              if (resp.body && contentType.includes('text/event-stream')) {
+                const sanitized = resp.body.pipeThrough(createNullChunkStripper())
+                return new Response(sanitized, {
+                  status: resp.status,
+                  statusText: resp.statusText,
+                  headers: resp.headers,
+                })
+              }
+              return resp
+            }) as typeof fetch,
+          }
+        : {}),
     }
     model = createOpenAICompatible({
       ...options,

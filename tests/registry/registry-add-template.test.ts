@@ -125,9 +125,31 @@ describe('registry/add-template', () => {
     const res = await addProviderFromTemplate(dummyTemplate, 'key_123', { replaceExisting: true });
 
     expect(res.added).toBe(true);
-    
+
     const savedRegistry = vi.mocked(io.saveRegistry).mock.calls[0]?.[0] as ProviderRegistry;
     expect(savedRegistry.providers).toHaveLength(1); // Replaced, not duplicated
     expect(savedRegistry.providers[0]?.name).toBe('Test Provider');
+  });
+
+  it('persists template headers into api.headers so they reach runtime', async () => {
+    const tpl: ProviderTemplate = {
+      ...dummyTemplate,
+      headers: { 'User-Agent': 'claude-cli/1.0.0 (external, cli)', 'x-app': 'cli' },
+    };
+
+    const res = await addProviderFromTemplate(tpl, 'key_123');
+
+    expect(res.added).toBe(true);
+    expect(res.provider?.api.headers).toEqual({
+      'User-Agent': 'claude-cli/1.0.0 (external, cli)',
+      'x-app': 'cli',
+    });
+  });
+
+  it('omits api.headers entirely for templates that declare none', async () => {
+    const res = await addProviderFromTemplate(dummyTemplate, 'key_123');
+
+    expect(res.added).toBe(true);
+    expect(res.provider?.api.headers).toBeUndefined();
   });
 });

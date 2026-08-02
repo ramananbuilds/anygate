@@ -329,11 +329,15 @@ describe('createLanguageModel', () => {
       headers: { 'X-Plan': 'coding' },
     });
 
+    // A `fetch` wrapper is passed whenever spec.headers is set: the SDK builds its
+    // own User-Agent and overwrites header options on some call paths, so custom
+    // headers are re-pinned at the fetch layer. See provider-factory.ts.
     expect(createOpenAICompatible).toHaveBeenCalledWith({
       name: 'custom-zai',
       apiKey: 'sk-test',
       baseURL: 'https://api.z.ai/api/coding/paas/v4',
       headers: { 'X-Plan': 'coding' },
+      fetch: expect.any(Function),
     });
     vi.doUnmock('@ai-sdk/openai-compatible');
   });

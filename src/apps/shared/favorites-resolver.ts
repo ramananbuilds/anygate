@@ -17,6 +17,8 @@ export interface ResolvedFavorite {
   authType?: 'api' | 'oauth' | 'none'
   oauthAccountId?: string
   providerData?: Record<string, unknown>
+  /** Custom upstream headers (e.g. a required User-Agent) carried from the registry provider. */
+  headers?: Record<string, string>
 }
 
 /**
@@ -71,6 +73,7 @@ export async function resolveFavorite(
       authType: found.provider.authType,
       oauthAccountId: found.provider.oauthAccountId,
       providerData: found.provider.providerData,
+      headers: found.provider.headers,
     }
   }
 

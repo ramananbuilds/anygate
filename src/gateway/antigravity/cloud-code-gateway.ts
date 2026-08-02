@@ -775,6 +775,7 @@ async function handleStreamingRequest(
     authType: route.authType,
     oauthAccountId: route.oauthAccountId,
     providerData: route.providerData,
+    headers: route.headers,
   })
   const responseId = `gateway-${Date.now()}`
 
@@ -926,6 +927,7 @@ async function handleUnaryRequest(
     authType: route.authType,
     oauthAccountId: route.oauthAccountId,
     providerData: route.providerData,
+    headers: route.headers,
   })
   const responseId = `gateway-${Date.now()}`
 

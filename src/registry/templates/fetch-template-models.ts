@@ -51,6 +51,15 @@ function modelsUrl(baseUrl: string, template: ProviderTemplate): string {
   return `${trimmed}/v1/models`
 }
 
+/** Hostname of a base URL, or '' when it is not parseable. */
+function hostOf(baseUrl: string): string {
+  try {
+    return new URL(baseUrl).hostname
+  } catch {
+    return ''
+  }
+}
+
 function toNumber(value: string | number | undefined): number | undefined {
   if (value === undefined) return undefined
   const num = typeof value === 'number' ? value : Number(value)
@@ -199,6 +208,13 @@ export async function fetchTemplateModels(
   if (template.npm === '@ai-sdk/anthropic') {
     if (trimmedApiKey) headers['x-api-key'] = trimmedApiKey
     headers['anthropic-version'] = '2023-06-01'
+    // Third-party Anthropic-compatible gateways (new-api/one-api forks) serve
+    // /v1/messages in Anthropic format but authenticate model listing with a
+    // Bearer token, not x-api-key. Send both off-Anthropic so listing succeeds
+    // either way; api.anthropic.com ignores the extra Authorization header.
+    if (trimmedApiKey && !/(^|\.)api\.anthropic\.com$/i.test(hostOf(baseUrl))) {
+      headers['Authorization'] = `Bearer ${trimmedApiKey}`
+    }
   } else if (trimmedApiKey) {
     headers['Authorization'] = `Bearer ${trimmedApiKey}`
   }

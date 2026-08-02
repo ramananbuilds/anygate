@@ -35,6 +35,7 @@ export async function resolveAntigravityLaunchRoutes(
     authType: opts.provider.authType,
     oauthAccountId: opts.provider.oauthAccountId,
     providerData: opts.provider.providerData,
+    headers: opts.provider.headers,
   }
   const ctx: ResolveContext = {
     agent: 'antigravity',

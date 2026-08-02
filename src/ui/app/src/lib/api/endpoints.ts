@@ -37,7 +37,7 @@ export function saveConfig(body: {
 }
 
 export function getUpdateStatus(): Promise<unknown> {
-  if (useMockApi) return Promise.resolve({ hasUpdate: false, current: '0.5.11' })
+  if (useMockApi) return Promise.resolve({ hasUpdate: false, current: '0.6.0' })
   return getJson('/api/update-status')
 }
 

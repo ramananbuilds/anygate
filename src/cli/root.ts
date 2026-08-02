@@ -81,7 +81,7 @@ async function handleKeylessProvider(template: ProviderTemplate): Promise<boolea
 /** Handle an API-key-required provider: paste key, open signup, or skip. */
 async function handleApiKeyProvider(template: ProviderTemplate): Promise<boolean | null> {
   const signupUrl = template.signupUrl ?? 'https://opencode.ai/auth'
-  printApiKeyProviderPanel(template.name, signupUrl)
+  printApiKeyProviderPanel(template.name, signupUrl, template.signupNote)
 
   let choice = await p.select({
     message: `How would you like to set up ${template.name}?`,
@@ -94,7 +94,7 @@ async function handleApiKeyProvider(template: ProviderTemplate): Promise<boolean
       {
         value: 'signup',
         label: pc.cyan('Open signup page in browser'),
-        hint: `Free tier at ${signupUrl}`,
+        hint: template.signupNote ?? `Free tier at ${signupUrl}`,
       },
       {
         value: 'skip',
