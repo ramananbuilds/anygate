@@ -1,83 +1,91 @@
 // src/gemini-proxy.ts — Local Gemini-to-SDK translation proxy
-import { createServer } from 'node:http';
-import type { IncomingMessage, ServerResponse } from 'node:http';
-import { randomUUID } from 'node:crypto';
-import { streamText, generateText, tool, jsonSchema } from 'ai';
-import type { LanguageModel } from 'ai';
-import { readBody, sendJson } from '../../../src/shared/http.js';
+import { createServer } from 'node:http'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import { randomUUID } from 'node:crypto'
+import { streamText, generateText, tool, jsonSchema } from 'ai'
+import type { LanguageModel } from 'ai'
+import { readBody, sendJson } from '../../../src/shared/http.js'
 import {
   createLanguageModel,
   deepMergeProviderOptions,
   effortProviderOptions,
   maxToolsForNpm,
   thinkingProviderOptions,
-} from '../../../src/gateway/providers/provider-factory.js';
-import { applyClaudeCodeOAuthIdentity } from '../../../src/auth/claude-code-identity.js';
-import { silenceSdkWarnings } from '../../../src/gateway/adapters/sdk-adapter.js';
-import { getGeminiProxyDebugLogPath, makeTraceLogger } from '../../apps/shared/trace-log.js';
-import type { ProxyRoute, ProxyHandle } from '../../../src/gateway/proxy/anthropic-proxy.js';
-import { routeLookupIds } from '../../apps/shared/context-model-id.js';
-import { formatUpstreamError } from '../../../src/shared/errors.js';
+} from '../../../src/gateway/providers/provider-factory.js'
+import { applyClaudeCodeOAuthIdentity } from '../../../src/auth/claude-code-identity.js'
+import { silenceSdkWarnings } from '../../../src/gateway/adapters/sdk-adapter.js'
+import { getGeminiProxyDebugLogPath, makeTraceLogger } from '../../apps/shared/trace-log.js'
+import type { ProxyRoute, ProxyHandle } from '../../../src/gateway/proxy/anthropic-proxy.js'
+import { routeLookupIds } from '../../apps/shared/context-model-id.js'
+import { formatUpstreamError } from '../../../src/shared/errors.js'
 
 function mapFinishReason(reason: string): string {
-  if (reason === 'stop' || reason === 'tool-calls') return 'STOP';
-  if (reason === 'length') return 'MAX_TOKENS';
-  if (reason === 'content-filter') return 'SAFETY';
-  return 'OTHER';
+  if (reason === 'stop' || reason === 'tool-calls') return 'STOP'
+  if (reason === 'length') return 'MAX_TOKENS'
+  if (reason === 'content-filter') return 'SAFETY'
+  return 'OTHER'
 }
 
-function lookupGeminiRoute(routes: ProxyRoute[], requestedModel: string, defaultRoute?: ProxyRoute): ProxyRoute | undefined {
-  const ids = [requestedModel, ...routeLookupIds(requestedModel)];
-  
+function lookupGeminiRoute(
+  routes: ProxyRoute[],
+  requestedModel: string,
+  defaultRoute?: ProxyRoute
+): ProxyRoute | undefined {
+  const ids = [requestedModel, ...routeLookupIds(requestedModel)]
+
   // Also support stripping prefixes/suffixes
-  const slashIdx = requestedModel.indexOf('/');
+  const slashIdx = requestedModel.indexOf('/')
   if (slashIdx >= 0) {
-    const after = requestedModel.slice(slashIdx + 1);
-    ids.push(after, ...routeLookupIds(after));
+    const after = requestedModel.slice(slashIdx + 1)
+    ids.push(after, ...routeLookupIds(after))
   }
-  const doubleUnderscore = requestedModel.indexOf('__');
+  const doubleUnderscore = requestedModel.indexOf('__')
   if (doubleUnderscore >= 0) {
-    const after = requestedModel.slice(doubleUnderscore + 2);
-    ids.push(after, ...routeLookupIds(after));
+    const after = requestedModel.slice(doubleUnderscore + 2)
+    ids.push(after, ...routeLookupIds(after))
   }
 
-  const uniqueIds = [...new Set(ids)];
+  const uniqueIds = [...new Set(ids)]
   for (const id of uniqueIds) {
-    const route = routes.find(r => r.aliasId === id || r.realModelId === id);
-    if (route) return route;
+    const route = routes.find(r => r.aliasId === id || r.realModelId === id)
+    if (route) return route
   }
-  const fallback = defaultRoute ?? routes[0]!;
+  const fallback = defaultRoute ?? routes[0]!
   if (requestedModel !== fallback.aliasId) {
     // Option A + C: unknown model (e.g. a subagent default like claude-opus-4-8)
     // remaps to the default favorite instead of leaking an "Unknown model" error upstream.
-    console.error(`[gemini-proxy] model '${requestedModel}' not in catalog — remapping to default route '${fallback.aliasId}' (upstream: ${fallback.realModelId})`);
+    console.error(
+      `[gemini-proxy] model '${requestedModel}' not in catalog — remapping to default route '${fallback.aliasId}' (upstream: ${fallback.realModelId})`
+    )
   }
-  return fallback;
+  return fallback
 }
 
-
-
 export interface TranslateGeminiRequestOptions {
-  maxTools?: number;
+  maxTools?: number
 }
 
 function mergeConsecutiveMessages(messages: any[]): any[] {
-  const merged: any[] = [];
+  const merged: any[] = []
   for (const msg of messages) {
     if (merged.length === 0) {
-      merged.push(msg);
-      continue;
+      merged.push(msg)
+      continue
     }
-    const last = merged[merged.length - 1];
+    const last = merged[merged.length - 1]
     if (last.role === msg.role) {
-      const lastContent = Array.isArray(last.content) ? last.content : [{ type: 'text', text: last.content }];
-      const nextContent = Array.isArray(msg.content) ? msg.content : [{ type: 'text', text: msg.content }];
-      last.content = [...lastContent, ...nextContent];
+      const lastContent = Array.isArray(last.content)
+        ? last.content
+        : [{ type: 'text', text: last.content }]
+      const nextContent = Array.isArray(msg.content)
+        ? msg.content
+        : [{ type: 'text', text: msg.content }]
+      last.content = [...lastContent, ...nextContent]
     } else {
-      merged.push(msg);
+      merged.push(msg)
     }
   }
-  return merged;
+  return merged
 }
 
 // Strip Gemini CLI self-identification injected by the CLI into system and user content.
@@ -87,76 +95,80 @@ function stripGeminiIdentity(text: string): string {
   return text
     .replace(/You are Gemini CLI[\s\S]*?(?=\n\n|$)/gi, '')
     .replace(/I'm Gemini CLI[\s\S]*?(?=\n\n|$)/gi, '')
-    .replace(/Gemini CLI/gi, 'AI CLI');
+    .replace(/Gemini CLI/gi, 'AI CLI')
 }
 
-export function translateGeminiRequest(body: any, options: TranslateGeminiRequestOptions = {}): any {
+export function translateGeminiRequest(
+  body: any,
+  options: TranslateGeminiRequestOptions = {}
+): any {
   // 1. System instruction
-  let system: string | undefined;
+  let system: string | undefined
   if (body.systemInstruction?.parts) {
-    const rawSystem = body.systemInstruction.parts.map((p: any) => p.text || '').join('\n');
-    system = stripGeminiIdentity(rawSystem).trim();
+    const rawSystem = body.systemInstruction.parts.map((p: any) => p.text || '').join('\n')
+    system = stripGeminiIdentity(rawSystem).trim()
   }
 
   // 2. Messages (contents)
-  const messages: any[] = [];
-  const nameToIdList = new Map<string, string[]>();
+  const messages: any[] = []
+  const nameToIdList = new Map<string, string[]>()
 
-  const contents = body.contents || [];
+  const contents = body.contents || []
   for (const turn of contents) {
-    const role = turn.role === 'model' ? 'assistant' : 'user';
-    const parts: any[] = [];
-    const toolResults: any[] = [];
+    const role = turn.role === 'model' ? 'assistant' : 'user'
+    const parts: any[] = []
+    const toolResults: any[] = []
 
-    const turnParts = turn.parts || [];
+    const turnParts = turn.parts || []
     for (const p of turnParts) {
       if (p.text !== undefined) {
         // Strip <session_context> identity injected into user message parts
-        const text = stripGeminiIdentity(p.text);
+        const text = stripGeminiIdentity(p.text)
         if (text.includes('<thinking>')) {
-          const tokens = text.split(/<thinking>([\s\S]*?)<\/thinking>/);
+          const tokens = text.split(/<thinking>([\s\S]*?)<\/thinking>/)
           for (let i = 0; i < tokens.length; i++) {
-            const token = tokens[i].trim();
-            if (!token) continue;
-            parts.push({ type: i % 2 === 1 ? 'reasoning' : 'text', text: token });
+            const token = tokens[i].trim()
+            if (!token) continue
+            parts.push({ type: i % 2 === 1 ? 'reasoning' : 'text', text: token })
           }
         } else {
-          parts.push({ type: 'text', text });
+          parts.push({ type: 'text', text })
         }
       } else if (p.inlineData) {
         parts.push({
           type: 'image',
           image: Buffer.from(p.inlineData.data, 'base64'),
           mediaType: p.inlineData.mimeType,
-        });
+        })
       } else if (p.functionCall) {
-        const id = 'call_' + randomUUID().replace(/-/g, '');
-        const name = p.functionCall.name;
-        if (!nameToIdList.has(name)) nameToIdList.set(name, []);
-        nameToIdList.get(name)!.push(id);
+        const id = 'call_' + randomUUID().replace(/-/g, '')
+        const name = p.functionCall.name
+        if (!nameToIdList.has(name)) nameToIdList.set(name, [])
+        nameToIdList.get(name)!.push(id)
 
         parts.push({
           type: 'tool-call',
           toolCallId: id,
           toolName: name,
           input: p.functionCall.args || {},
-        });
+        })
       } else if (p.functionResponse) {
-        const name = p.functionResponse.name;
-        const idList = nameToIdList.get(name) || [];
-        const id = idList.shift() || ('call_' + randomUUID().replace(/-/g, ''));
-        
+        const name = p.functionResponse.name
+        const idList = nameToIdList.get(name) || []
+        const id = idList.shift() || 'call_' + randomUUID().replace(/-/g, '')
+
         toolResults.push({
           type: 'tool-result',
           toolCallId: id,
           toolName: name,
           output: {
             type: 'text',
-            value: typeof p.functionResponse.response === 'string'
-              ? p.functionResponse.response
-              : JSON.stringify(p.functionResponse.response || {}),
+            value:
+              typeof p.functionResponse.response === 'string'
+                ? p.functionResponse.response
+                : JSON.stringify(p.functionResponse.response || {}),
           },
-        });
+        })
       }
     }
 
@@ -164,51 +176,51 @@ export function translateGeminiRequest(body: any, options: TranslateGeminiReques
       messages.push({
         role: 'tool',
         content: toolResults,
-      });
+      })
     }
     if (parts.length > 0) {
       messages.push({
         role,
         content: parts,
-      });
+      })
     }
   }
 
   // Merge consecutive user/assistant/tool messages
-  const mergedMessages = mergeConsecutiveMessages(messages);
+  const mergedMessages = mergeConsecutiveMessages(messages)
 
   // 3. Tools translation
-  let tools: any;
+  let tools: any
   if (body.tools) {
-    tools = {};
-    let toolCount = 0;
+    tools = {}
+    let toolCount = 0
     for (const t of body.tools) {
       if (t.functionDeclarations) {
         for (const fd of t.functionDeclarations) {
-          if (options.maxTools !== undefined && toolCount >= options.maxTools) break;
+          if (options.maxTools !== undefined && toolCount >= options.maxTools) break
           tools[fd.name] = tool({
             description: fd.description || '',
             inputSchema: jsonSchema(fd.parameters || { type: 'object', properties: {} }),
-          });
-          toolCount++;
+          })
+          toolCount++
         }
       }
     }
   }
 
   // 4. Tool Choice
-  let toolChoice: any;
-  const mode = body.toolConfig?.functionCallingConfig?.mode;
+  let toolChoice: any
+  const mode = body.toolConfig?.functionCallingConfig?.mode
   if (mode === 'ANY') {
-    toolChoice = 'required';
+    toolChoice = 'required'
   } else if (mode === 'AUTO') {
-    toolChoice = 'auto';
+    toolChoice = 'auto'
   }
 
-  const generationConfig = body.generationConfig || {};
-  let responseFormat: { type: 'json' } | undefined;
+  const generationConfig = body.generationConfig || {}
+  let responseFormat: { type: 'json' } | undefined
   if (generationConfig.responseMimeType === 'application/json') {
-    responseFormat = { type: 'json' };
+    responseFormat = { type: 'json' }
   }
 
   return {
@@ -219,34 +231,33 @@ export function translateGeminiRequest(body: any, options: TranslateGeminiReques
     maxOutputTokens: generationConfig.maxOutputTokens,
     temperature: generationConfig.temperature,
     responseFormat,
-  };
+  }
 }
 
-export async function startGeminiProxy(
-  routes: ProxyRoute[],
-  debug = false,
-): Promise<ProxyHandle> {
-  const proxyToken = randomUUID();
-  silenceSdkWarnings();
+export async function startGeminiProxy(routes: ProxyRoute[], debug = false): Promise<ProxyHandle> {
+  const proxyToken = randomUUID()
+  silenceSdkWarnings()
 
   if (routes.length === 0) {
-    return Promise.reject(new Error('Gemini proxy requires at least one route'));
+    return Promise.reject(new Error('Gemini proxy requires at least one route'))
   }
 
-  const defaultRoute = routes[0]!;
-  const models = new Map<string, LanguageModel>();
-  const plog = debug ? makeTraceLogger(getGeminiProxyDebugLogPath()) : () => {};
+  const defaultRoute = routes[0]!
+  const models = new Map<string, LanguageModel>()
+  const plog = debug ? makeTraceLogger(getGeminiProxyDebugLogPath()) : () => {}
 
   const onRejection = (reason: unknown) => {
-    plog(`Unhandled Rejection: ${reason instanceof Error ? reason.stack || reason.message : String(reason)}`);
-  };
+    plog(
+      `Unhandled Rejection: ${reason instanceof Error ? reason.stack || reason.message : String(reason)}`
+    )
+  }
   const onException = (error: Error) => {
-    plog(`Uncaught Exception: ${error.stack || error.message}`);
-  };
+    plog(`Uncaught Exception: ${error.stack || error.message}`)
+  }
 
   // Helper to lazily resolve language model when needed
   const getOrInitModel = async (route: ProxyRoute): Promise<LanguageModel> => {
-    let m = models.get(route.aliasId);
+    let m = models.get(route.aliasId)
     if (!m) {
       m = await createLanguageModel({
         npm: route.npm || '@ai-sdk/openai-compatible',
@@ -258,11 +269,11 @@ export async function startGeminiProxy(
         oauthAccountId: route.oauthAccountId,
         providerData: route.providerData,
         headers: route.headers,
-      });
-      models.set(route.aliasId, m);
+      })
+      models.set(route.aliasId, m)
     }
-    return m;
-  };
+    return m
+  }
 
   const formatGeminiModel = (route: ProxyRoute) => ({
     name: `models/${route.aliasId}`,
@@ -272,390 +283,439 @@ export async function startGeminiProxy(
     inputTokenLimit: route.contextWindow || 1000000,
     outputTokenLimit: 8192,
     supportedGenerationMethods: ['generateContent', 'streamGenerateContent'],
-  });
+  })
 
-  let sessionRouteOverride: ProxyRoute | undefined = undefined;
+  let sessionRouteOverride: ProxyRoute | undefined = undefined
 
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     try {
-      const url = req.url ?? '';
-      plog(`${req.method} ${url}`);
+      const url = req.url ?? ''
+      plog(`${req.method} ${url}`)
 
       // 1. GET /v1beta/models or /v1/models
       if (req.method === 'GET' && (url.endsWith('/models') || url.includes('/models?'))) {
-        plog('GET models list');
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        plog('GET models list')
+        res.writeHead(200, { 'Content-Type': 'application/json' })
         const payload = JSON.stringify({
           models: routes.map(formatGeminiModel),
-        });
-        plog(`Response: ${payload}`);
-        res.end(payload);
-        return;
+        })
+        plog(`Response: ${payload}`)
+        res.end(payload)
+        return
       }
 
       // 2. GET /v1beta/models/:model or /v1/models/:model
       if (req.method === 'GET' && url.includes('/models/')) {
-        const modelMatch = url.match(/\/models\/([^?]+)/);
+        const modelMatch = url.match(/\/models\/([^?]+)/)
         if (modelMatch) {
-          const modelId = decodeURIComponent(modelMatch[1]);
-          const route = lookupGeminiRoute(routes, modelId) ?? defaultRoute;
-          plog(`GET model details: ${modelId} -> mapped to route ${route.aliasId}`);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          const payload = JSON.stringify(formatGeminiModel(route));
-          plog(`Response: ${payload}`);
-          res.end(payload);
-          return;
+          const modelId = decodeURIComponent(modelMatch[1])
+          const route = lookupGeminiRoute(routes, modelId) ?? defaultRoute
+          plog(`GET model details: ${modelId} -> mapped to route ${route.aliasId}`)
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          const payload = JSON.stringify(formatGeminiModel(route))
+          plog(`Response: ${payload}`)
+          res.end(payload)
+          return
         }
       }
 
       // 3. POST Generate content (streaming or non-streaming)
       if (req.method === 'POST' && url.includes(':')) {
-        const isStream = url.includes('streamGenerateContent');
-        const rawBody = await readBody(req);
-        plog(`Request body:\n${rawBody}`);
-        let body: any;
+        const isStream = url.includes('streamGenerateContent')
+        const rawBody = await readBody(req)
+        plog(`Request body:\n${rawBody}`)
+        let body: any
         try {
-          body = JSON.parse(rawBody);
+          body = JSON.parse(rawBody)
         } catch {
-          plog('Error: Invalid JSON body');
-          res.writeHead(400);
-          res.end('Invalid JSON');
-          return;
+          plog('Error: Invalid JSON body')
+          res.writeHead(400)
+          res.end('Invalid JSON')
+          return
         }
 
-        const modelMatch = url.match(/\/models\/([^:]+)/);
-        const requestedModel = modelMatch ? decodeURIComponent(modelMatch[1]) : defaultRoute.aliasId;
+        const modelMatch = url.match(/\/models\/([^:]+)/)
+        const requestedModel = modelMatch ? decodeURIComponent(modelMatch[1]) : defaultRoute.aliasId
 
         // --- Model Switch Intercept ---
-        const lastUserTurn = findLastUserTurn(body.contents || []);
-        const modelCommand = parseModelCommand(lastUserTurn);
+        const lastUserTurn = findLastUserTurn(body.contents || [])
+        const modelCommand = parseModelCommand(lastUserTurn)
 
         if (modelCommand !== null) {
           if (modelCommand === '') {
             // .model with no args — show current model and available list
-            const current = sessionRouteOverride ?? (lookupGeminiRoute(routes, requestedModel) ?? defaultRoute);
-            const availableList = routes.map(r => `  - ${r.aliasId} (${r.displayName})`).join('\n');
-            const exampleId = routes.length > 1 ? routes[1].aliasId : (routes[0]?.aliasId ?? 'deepseek-v4');
-            const text = `Current model: ${current.displayName} (${current.aliasId})\n\nAvailable models:\n${availableList}\n\n💡 To switch models, type: .model <id>\nExample: .model ${exampleId}`;
-            sendMockGeminiResponse(res, text, isStream, current.aliasId);
-            return;
+            const current =
+              sessionRouteOverride ?? lookupGeminiRoute(routes, requestedModel) ?? defaultRoute
+            const availableList = routes.map(r => `  - ${r.aliasId} (${r.displayName})`).join('\n')
+            const exampleId =
+              routes.length > 1 ? routes[1].aliasId : (routes[0]?.aliasId ?? 'deepseek-v4')
+            const text = `Current model: ${current.displayName} (${current.aliasId})\n\nAvailable models:\n${availableList}\n\n💡 To switch models, type: .model <id>\nExample: .model ${exampleId}`
+            sendMockGeminiResponse(res, text, isStream, current.aliasId)
+            return
           }
 
-          const targetRoute = lookupGeminiRoute(routes, modelCommand);
+          const targetRoute = lookupGeminiRoute(routes, modelCommand)
           if (targetRoute) {
-            sessionRouteOverride = targetRoute;
-            plog(`.model switch: ${targetRoute.aliasId} (${targetRoute.realModelId})`);
-            sendMockGeminiResponse(res, `✅ Switched model to ${targetRoute.displayName} (${targetRoute.aliasId})`, isStream, targetRoute.aliasId);
+            sessionRouteOverride = targetRoute
+            plog(`.model switch: ${targetRoute.aliasId} (${targetRoute.realModelId})`)
+            sendMockGeminiResponse(
+              res,
+              `✅ Switched model to ${targetRoute.displayName} (${targetRoute.aliasId})`,
+              isStream,
+              targetRoute.aliasId
+            )
           } else {
-            const available = routes.map(r => r.aliasId).join(', ');
-            sendMockGeminiResponse(res, `❌ Model '${modelCommand}' not found.\n\nAvailable: ${available}`, isStream);
+            const available = routes.map(r => r.aliasId).join(', ')
+            sendMockGeminiResponse(
+              res,
+              `❌ Model '${modelCommand}' not found.\n\nAvailable: ${available}`,
+              isStream
+            )
           }
-          return;
+          return
         }
 
-        const route = sessionRouteOverride ?? (lookupGeminiRoute(routes, requestedModel) ?? defaultRoute);
-        plog(`Route selected: ${route.aliasId} (upstream model: ${route.realModelId})`);
+        const route =
+          sessionRouteOverride ?? lookupGeminiRoute(routes, requestedModel) ?? defaultRoute
+        plog(`Route selected: ${route.aliasId} (upstream model: ${route.realModelId})`)
 
-        body.contents = sanitizeModelSwitchTurns(body.contents || []);
+        body.contents = sanitizeModelSwitchTurns(body.contents || [])
 
-        const languageModel = await getOrInitModel(route);
+        const languageModel = await getOrInitModel(route)
         const params = applyClaudeCodeOAuthIdentity(
           { ...route, upstreamModelId: route.realModelId },
-          translateGeminiRequest(body, { maxTools: maxToolsForNpm(route.npm) }),
-        );
+          translateGeminiRequest(body, { maxTools: maxToolsForNpm(route.npm) })
+        )
         params.providerOptions = deepMergeProviderOptions(
           params.providerOptions,
           deepMergeProviderOptions(
             thinkingProviderOptions(route.npm || '@ai-sdk/openai-compatible'),
-            effortProviderOptions(route.npm || '@ai-sdk/openai-compatible', 'high', route.realModelId, route),
-          ),
-        );
-        plog(`Translated SDK params:\n${JSON.stringify(params, null, 2)}`);
+            effortProviderOptions(
+              route.npm || '@ai-sdk/openai-compatible',
+              'high',
+              route.realModelId,
+              route
+            )
+          )
+        )
+        plog(`Translated SDK params:\n${JSON.stringify(params, null, 2)}`)
 
         if (isStream) {
           res.writeHead(200, {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          });
+            Connection: 'keep-alive',
+          })
 
-          plog('Starting streamText...');
+          plog('Starting streamText...')
           const { fullStream } = streamText({
             model: languageModel,
             ...params,
-          });
+          })
 
-          const toolCallBuffers = new Map<string, { name: string; json: string }>();
-          let isThinking = false;
+          const toolCallBuffers = new Map<string, { name: string; json: string }>()
+          let isThinking = false
 
           for await (const part of fullStream) {
-            const p = part as any;
-            plog(`Stream chunk type: ${p.type}`);
-            
+            const p = part as any
+            plog(`Stream chunk type: ${p.type}`)
+
             // Auto-close thinking tag if moving to tool calls or finish
-            if (isThinking && (p.type === 'tool-input-start' || p.type === 'tool-call' || p.type === 'finish')) {
-              isThinking = false;
+            if (
+              isThinking &&
+              (p.type === 'tool-input-start' || p.type === 'tool-call' || p.type === 'finish')
+            ) {
+              isThinking = false
               const chunk = {
-                candidates: [{ content: { role: 'model', parts: [{ text: `\n</thinking>\n\n` }] } }],
+                candidates: [
+                  { content: { role: 'model', parts: [{ text: `\n</thinking>\n\n` }] } },
+                ],
                 modelVersion: route.aliasId,
-              };
-              res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+              }
+              res.write(`data: ${JSON.stringify(chunk)}\n\n`)
             }
 
             if (p.type === 'reasoning') {
-              let text = p.textDelta ?? p.text ?? '';
+              let text = p.textDelta ?? p.text ?? ''
               if (!isThinking) {
-                isThinking = true;
-                text = `<thinking>\n` + text;
+                isThinking = true
+                text = `<thinking>\n` + text
               }
               const chunk = {
                 candidates: [{ content: { role: 'model', parts: [{ text }] } }],
                 modelVersion: route.aliasId,
-              };
-              res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+              }
+              res.write(`data: ${JSON.stringify(chunk)}\n\n`)
             } else if (p.type === 'text-delta') {
-              let text = p.textDelta ?? p.text ?? '';
+              let text = p.textDelta ?? p.text ?? ''
               if (isThinking) {
-                isThinking = false;
-                text = `\n</thinking>\n\n` + text;
+                isThinking = false
+                text = `\n</thinking>\n\n` + text
               }
               const chunk = {
-                candidates: [{
-                  content: {
-                    role: 'model',
-                    parts: [{ text }]
-                  }
-                }],
+                candidates: [
+                  {
+                    content: {
+                      role: 'model',
+                      parts: [{ text }],
+                    },
+                  },
+                ],
                 modelVersion: route.aliasId,
-              };
-              const data = `data: ${JSON.stringify(chunk)}\n\n`;
-              plog(`Streaming text delta: ${p.textDelta}`);
-              res.write(data);
+              }
+              const data = `data: ${JSON.stringify(chunk)}\n\n`
+              plog(`Streaming text delta: ${p.textDelta}`)
+              res.write(data)
             } else if (p.type === 'tool-input-start') {
-              toolCallBuffers.set(p.toolCallId, { name: p.toolName, json: '' });
+              toolCallBuffers.set(p.toolCallId, { name: p.toolName, json: '' })
             } else if (p.type === 'tool-input-delta') {
-              const buf = toolCallBuffers.get(p.toolCallId);
-              if (buf) buf.json += p.delta;
+              const buf = toolCallBuffers.get(p.toolCallId)
+              if (buf) buf.json += p.delta
             } else if (p.type === 'tool-call') {
-              const buf = toolCallBuffers.get(p.toolCallId);
-              const args = buf ? JSON.parse(buf.json || '{}') : (p.input || {});
-              const name = buf ? buf.name : p.toolName;
-              plog(`Streaming tool call: ${name} with args: ${JSON.stringify(args)}`);
-              
+              const buf = toolCallBuffers.get(p.toolCallId)
+              const args = buf ? JSON.parse(buf.json || '{}') : p.input || {}
+              const name = buf ? buf.name : p.toolName
+              plog(`Streaming tool call: ${name} with args: ${JSON.stringify(args)}`)
+
               const chunk = {
-                candidates: [{
-                  content: {
-                    role: 'model',
-                    parts: [{
-                      functionCall: { name, args }
-                    }]
-                  }
-                }],
+                candidates: [
+                  {
+                    content: {
+                      role: 'model',
+                      parts: [
+                        {
+                          functionCall: { name, args },
+                        },
+                      ],
+                    },
+                  },
+                ],
                 modelVersion: route.aliasId,
-              };
-              res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+              }
+              res.write(`data: ${JSON.stringify(chunk)}\n\n`)
             } else if (p.type === 'finish') {
               const chunk = {
-                candidates: [{
-                  finishReason: mapFinishReason(p.finishReason ?? '')
-                }],
+                candidates: [
+                  {
+                    finishReason: mapFinishReason(p.finishReason ?? ''),
+                  },
+                ],
                 usageMetadata: {
                   promptTokenCount: p.totalUsage?.inputTokens || 0,
                   candidatesTokenCount: p.totalUsage?.outputTokens || 0,
                 },
                 modelVersion: route.aliasId,
-              };
-              plog(`Stream finish. Reason: ${p.finishReason}`);
-              res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+              }
+              plog(`Stream finish. Reason: ${p.finishReason}`)
+              res.write(`data: ${JSON.stringify(chunk)}\n\n`)
             }
           }
-          res.end();
-          plog('Stream ended.');
+          res.end()
+          plog('Stream ended.')
         } else {
           // Non-streaming generateContent
-          plog('Starting generateText...');
+          plog('Starting generateText...')
           const result = await generateText({
             model: languageModel,
             ...params,
-          });
-          plog('generateText finished.');
+          })
+          plog('generateText finished.')
 
-          const parts: any[] = [];
+          const parts: any[] = []
           if (result.reasoning) {
-            parts.push({ text: `<thinking>\n${result.reasoning}\n</thinking>\n\n` });
+            parts.push({ text: `<thinking>\n${result.reasoning}\n</thinking>\n\n` })
           }
           if (result.text) {
-            parts.push({ text: result.text });
+            parts.push({ text: result.text })
           }
           if (result.toolCalls?.length) {
             for (const tc of result.toolCalls) {
               parts.push({
-                functionCall: { name: tc.toolName, args: tc.input }
-              });
+                functionCall: { name: tc.toolName, args: tc.input },
+              })
             }
           }
 
           const response = {
-            candidates: [{
-              content: {
-                role: 'model',
-                parts,
+            candidates: [
+              {
+                content: {
+                  role: 'model',
+                  parts,
+                },
+                finishReason: mapFinishReason(result.finishReason ?? ''),
               },
-              finishReason: mapFinishReason(result.finishReason ?? '')
-            }],
+            ],
             usageMetadata: {
               promptTokenCount: result.usage?.inputTokens || 0,
               candidatesTokenCount: result.usage?.outputTokens || 0,
             },
             modelVersion: route.aliasId,
-          };
+          }
 
-          plog(`Response:\n${JSON.stringify(response, null, 2)}`);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(response));
+          plog(`Response:\n${JSON.stringify(response, null, 2)}`)
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify(response))
         }
-        return;
+        return
       }
 
-      plog(`404 Not Found: ${url}`);
-      res.writeHead(404);
-      res.end('Not Found');
+      plog(`404 Not Found: ${url}`)
+      res.writeHead(404)
+      res.end('Not Found')
     } catch (err) {
-      plog(`Error handling request: ${err instanceof Error ? err.stack || err.message : String(err)}`);
-      const errMsg = formatUpstreamError(err);
+      plog(
+        `Error handling request: ${err instanceof Error ? err.stack || err.message : String(err)}`
+      )
+      const errMsg = formatUpstreamError(err)
       if (debug) {
-        console.error(`[Gemini Proxy] ${errMsg}`);
+        console.error(`[Gemini Proxy] ${errMsg}`)
       }
       if (!res.headersSent) {
-        sendMockGeminiResponse(res, `⚠ ${errMsg}`, req.url?.includes('streamGenerateContent') ?? false);
+        sendMockGeminiResponse(
+          res,
+          `⚠ ${errMsg}`,
+          req.url?.includes('streamGenerateContent') ?? false
+        )
       } else {
         // Headers already sent — we're mid-SSE stream; emit a normal Gemini text chunk before closing.
         try {
-          writeGeminiStreamText(res, `⚠ ${errMsg}`);
+          writeGeminiStreamText(res, `⚠ ${errMsg}`)
         } catch {
           // ignore write errors on a closing socket
         }
-        res.end();
+        res.end()
       }
     }
-  });
+  })
 
-  process.on('unhandledRejection', onRejection);
-  process.on('uncaughtException', onException);
+  process.on('unhandledRejection', onRejection)
+  process.on('uncaughtException', onException)
 
   const cleanup = () => {
-    process.off('unhandledRejection', onRejection);
-    process.off('uncaughtException', onException);
-  };
+    process.off('unhandledRejection', onRejection)
+    process.off('uncaughtException', onException)
+  }
 
   return new Promise((resolve, reject) => {
-    server.on('error', (err) => {
-      cleanup();
-      reject(err);
-    });
+    server.on('error', err => {
+      cleanup()
+      reject(err)
+    })
     server.listen(0, '127.0.0.1', () => {
-      const addr = server.address();
+      const addr = server.address()
       if (!addr || typeof addr === 'string') {
-        cleanup();
-        reject(new Error('Failed to bind gemini proxy'));
-        return;
+        cleanup()
+        reject(new Error('Failed to bind gemini proxy'))
+        return
       }
       resolve({
         port: addr.port,
         token: proxyToken,
         close: () => {
-          cleanup();
-          server.close();
+          cleanup()
+          server.close()
         },
-      });
-    });
-  });
+      })
+    })
+  })
 }
 
 export function sanitizeModelSwitchTurns(contents: any[]): any[] {
-  const cleaned: any[] = [];
-  let i = 0;
+  const cleaned: any[] = []
+  let i = 0
   while (i < contents.length) {
-    const turn = contents[i];
+    const turn = contents[i]
     if (isModelSwitchTurn(turn)) {
       // Skip this user turn and the next model turn (the fake response)
-      i += 1;
+      i += 1
       if (i < contents.length && contents[i]?.role === 'model') {
-        i += 1; // skip the paired model response
+        i += 1 // skip the paired model response
       }
-      continue;
+      continue
     }
-    cleaned.push(turn);
-    i += 1;
+    cleaned.push(turn)
+    i += 1
   }
-  return cleaned;
+  return cleaned
 }
 
 export function isModelSwitchTurn(turn: any): boolean {
-  if (turn?.role !== 'user') return false;
-  const parts = turn.parts || [];
-  if (parts.length === 0) return false;
-  const firstText = parts[0]?.text;
-  if (typeof firstText !== 'string') return false;
-  return firstText.trim().startsWith('.model');
+  if (turn?.role !== 'user') return false
+  const parts = turn.parts || []
+  if (parts.length === 0) return false
+  const firstText = parts[0]?.text
+  if (typeof firstText !== 'string') return false
+  return firstText.trim().startsWith('.model')
 }
 
 export function findLastUserTurn(contents: any[]): any | undefined {
   for (let i = contents.length - 1; i >= 0; i--) {
-    if (contents[i]?.role === 'user') return contents[i];
+    if (contents[i]?.role === 'user') return contents[i]
   }
-  return undefined;
+  return undefined
 }
 
 export function parseModelCommand(turn: any): string | null {
-  if (!turn || turn.role !== 'user') return null;
-  const parts = turn.parts || [];
-  if (parts.length !== 1) return null; // Must be a single-part message
-  const text = parts[0]?.text;
-  if (typeof text !== 'string') return null;
-  const trimmed = text.trim();
-  if (!trimmed.startsWith('.model')) return null;
-  if (trimmed === '.model') return ''; // no args
-  if (trimmed.charAt(6) !== ' ') return null; // ".modelfoo" is not a command
-  return trimmed.slice(7).trim();
+  if (!turn || turn.role !== 'user') return null
+  const parts = turn.parts || []
+  if (parts.length !== 1) return null // Must be a single-part message
+  const text = parts[0]?.text
+  if (typeof text !== 'string') return null
+  const trimmed = text.trim()
+  if (!trimmed.startsWith('.model')) return null
+  if (trimmed === '.model') return '' // no args
+  if (trimmed.charAt(6) !== ' ') return null // ".modelfoo" is not a command
+  return trimmed.slice(7).trim()
 }
 
-function sendMockGeminiResponse(res: ServerResponse, text: string, isStream: boolean, modelVersion?: string): void {
+function sendMockGeminiResponse(
+  res: ServerResponse,
+  text: string,
+  isStream: boolean,
+  modelVersion?: string
+): void {
   if (isStream) {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    });
-    writeGeminiStreamText(res, text, modelVersion);
-    res.end();
+      Connection: 'keep-alive',
+    })
+    writeGeminiStreamText(res, text, modelVersion)
+    res.end()
   } else {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      candidates: [{
-        content: { role: 'model', parts: [{ text }] },
-        finishReason: 'STOP',
-      }],
-      usageMetadata: { promptTokenCount: 0, candidatesTokenCount: 0 },
-      ...(modelVersion ? { modelVersion } : {}),
-    }));
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        candidates: [
+          {
+            content: { role: 'model', parts: [{ text }] },
+            finishReason: 'STOP',
+          },
+        ],
+        usageMetadata: { promptTokenCount: 0, candidatesTokenCount: 0 },
+        ...(modelVersion ? { modelVersion } : {}),
+      })
+    )
   }
 }
 
 function writeGeminiStreamText(res: ServerResponse, text: string, modelVersion?: string): void {
   const chunk = {
-    candidates: [{
-      content: { role: 'model', parts: [{ text }] },
-      finishReason: 'STOP',
-    }],
+    candidates: [
+      {
+        content: { role: 'model', parts: [{ text }] },
+        finishReason: 'STOP',
+      },
+    ],
     usageMetadata: { promptTokenCount: 0, candidatesTokenCount: 0 },
     ...(modelVersion ? { modelVersion } : {}),
-  };
-  res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+  }
+  res.write(`data: ${JSON.stringify(chunk)}\n\n`)
   const finishChunk = {
     candidates: [{ finishReason: 'STOP' }],
     usageMetadata: { promptTokenCount: 0, candidatesTokenCount: 0 },
     ...(modelVersion ? { modelVersion } : {}),
-  };
-  res.write(`data: ${JSON.stringify(finishChunk)}\n\n`);
+  }
+  res.write(`data: ${JSON.stringify(finishChunk)}\n\n`)
 }

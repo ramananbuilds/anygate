@@ -69,8 +69,6 @@ import {
   getValidationStatus,
   grabRoundTripSignature,
   hasApplicationDefaultCredentials,
-  init_config,
-  init_paths,
   injectClaudeIdentity,
   isClaudeAppRunning,
   isCodexAppRunning,
@@ -173,7 +171,7 @@ import {
   validateModels,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-4S64KWC2.js";
+} from "./chunk-JH5UJLQZ.js";
 import {
   BACKENDS,
   CONFLICTING_ENV_VARS,
@@ -181,15 +179,15 @@ import {
   MAX_MODEL_CATALOG,
   VERSION,
   VERTEX_ANTHROPIC_NPM
-} from "./chunk-SQS4KS65.js";
+} from "./chunk-H3Q4G6BB.js";
 import {
   filterTemplates,
   getTemplateById,
   listAddableTemplates,
   listSupportedTemplates,
   listVisibleOAuthTemplates
-} from "./chunk-6AFYEDSU.js";
-import "./chunk-72WNE2IK.js";
+} from "./chunk-4ILOT7YG.js";
+import "./chunk-UT3JLF3M.js";
 
 // src/cli.ts
 import pc18 from "picocolors";
@@ -200,8 +198,6 @@ import { fileURLToPath } from "url";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
-init_config();
-init_paths();
 var SKILL_DIR_NAME = "anygate-cli";
 var SKILL_INSTALL_DIRS = [
   join(getAppHome(), "skills"),
@@ -242,7 +238,8 @@ function skillInstallTargets() {
 }
 function formatProviderModels(provider) {
   const models = provider.modelsCache?.models ?? [];
-  if (models.length === 0) return `  (no cached models \u2014 run: anygate providers refresh-models ${provider.id})`;
+  if (models.length === 0)
+    return `  (no cached models \u2014 run: anygate providers refresh-models ${provider.id})`;
   const lines = models.slice(0, 40).map((m) => `    ${m.id}${m.name !== m.id ? `  (${m.name})` : ""}`);
   if (models.length > 40) lines.push(`    ... and ${models.length - 40} more`);
   return lines.join("\n");
@@ -253,13 +250,19 @@ function buildLiveStateSection() {
   const enabled = registry.providers.filter((p18) => p18.enabled);
   const prefLines = [];
   if (prefs.lastProvider || prefs.lastModel) {
-    prefLines.push(`  Claude last launch: provider=${prefs.lastProvider ?? "(none)"} model=${prefs.lastModel ?? "(none)"}`);
+    prefLines.push(
+      `  Claude last launch: provider=${prefs.lastProvider ?? "(none)"} model=${prefs.lastModel ?? "(none)"}`
+    );
   }
   if (prefs.lastCodexProvider || prefs.lastCodexModel) {
-    prefLines.push(`  Codex last launch:  provider=${prefs.lastCodexProvider ?? "(none)"} model=${prefs.lastCodexModel ?? "(none)"}`);
+    prefLines.push(
+      `  Codex last launch:  provider=${prefs.lastCodexProvider ?? "(none)"} model=${prefs.lastCodexModel ?? "(none)"}`
+    );
   }
   if (prefs.lastGeminiProvider || prefs.lastGeminiModel) {
-    prefLines.push(`  Gemini last launch: provider=${prefs.lastGeminiProvider ?? "(none)"} model=${prefs.lastGeminiModel ?? "(none)"}`);
+    prefLines.push(
+      `  Gemini last launch: provider=${prefs.lastGeminiProvider ?? "(none)"} model=${prefs.lastGeminiModel ?? "(none)"}`
+    );
   }
   if (prefs.favoriteModels?.length) {
     prefLines.push(`  Favorites (${prefs.favoriteModels.length}/${MAX_MODEL_CATALOG}):`);
@@ -267,10 +270,12 @@ function buildLiveStateSection() {
       prefLines.push(`    ${f.providerId} / ${f.modelId}`);
     }
   }
-  const providerBlocks = enabled.length === 0 ? ["  No registry providers configured. Built-in cloud: zen, go (OpenCode Zen/Go)."] : enabled.map((p18) => [
-    `  ${p18.name} (${p18.id}) \u2014 ${p18.modelsCache?.models.length ?? 0} cached model(s)`,
-    formatProviderModels(p18)
-  ].join("\n"));
+  const providerBlocks = enabled.length === 0 ? ["  No registry providers configured. Built-in cloud: zen, go (OpenCode Zen/Go)."] : enabled.map(
+    (p18) => [
+      `  ${p18.name} (${p18.id}) \u2014 ${p18.modelsCache?.models.length ?? 0} cached model(s)`,
+      formatProviderModels(p18)
+    ].join("\n")
+  );
   return `
 ================================================================================
 CURRENT LOCAL STATE (from disk \u2014 no network)
@@ -770,7 +775,9 @@ import * as p from "@clack/prompts";
 import open from "open";
 var ONBOARDING_TEMPLATES = ["kilo", "nvidia", "groq", "mistral", "cerebras"];
 function categorizeOnboardingProviders() {
-  const templates = ONBOARDING_TEMPLATES.map((id) => getTemplateById(id)).filter((t) => t !== void 0 && t.supported);
+  const templates = ONBOARDING_TEMPLATES.map((id) => getTemplateById(id)).filter(
+    (t) => t !== void 0 && t.supported
+  );
   const keyless = [];
   const apiKeyRequired = [];
   for (const t of templates) {
@@ -800,7 +807,7 @@ async function handleKeylessProvider(template) {
 }
 async function handleApiKeyProvider(template) {
   const signupUrl = template.signupUrl ?? "https://opencode.ai/auth";
-  printApiKeyProviderPanel(template.name, signupUrl);
+  printApiKeyProviderPanel(template.name, signupUrl, template.signupNote);
   let choice = await p.select({
     message: `How would you like to set up ${template.name}?`,
     options: [
@@ -812,7 +819,7 @@ async function handleApiKeyProvider(template) {
       {
         value: "signup",
         label: pc.cyan("Open signup page in browser"),
-        hint: `Free tier at ${signupUrl}`
+        hint: template.signupNote ?? `Free tier at ${signupUrl}`
       },
       {
         value: "skip",
@@ -1032,28 +1039,27 @@ async function runMainMenu() {
   switch (choice) {
     case "claude":
       gateOutro("Launching Claude Code...");
-      return 0;
-    // The actual launch is handled by the claude command
+      return dispatchCommand({ command: "claude", claudeArgs: [] });
     case "codex":
       gateOutro("Launching Codex...");
-      return 0;
+      return dispatchCommand({ command: "codex", claudeArgs: [] });
     case "providers":
       gateOutro("Opening provider manager...");
-      return 0;
+      return dispatchCommand({ command: "providers", claudeArgs: [] });
     case "onboarding":
       return runOnboardingFlow();
     case "doctor":
       gateOutro("Running diagnostics...");
-      return 0;
+      return dispatchCommand({ command: "doctor", claudeArgs: [] });
     case "server":
       gateOutro("Starting server...");
-      return 0;
+      return dispatchCommand({ command: "server", claudeArgs: [] });
     case "ui":
       gateOutro("Opening dashboard...");
-      return 0;
+      return dispatchCommand({ command: "ui", claudeArgs: [] });
     case "settings":
       gateOutro("Opening settings...");
-      return 0;
+      return dispatchCommand({ command: "providers", claudeArgs: [] });
     default:
       return 0;
   }
@@ -1122,7 +1128,10 @@ async function validateImportKey(lp, entry) {
       allowInsecureLocal: catalogTemplate?.apiKeyOptional === true
     });
     if (!urlCheck.ok || !urlCheck.normalizedUrl) {
-      return reject("invalid-key", `${urlCheck.error ?? "Invalid API base URL."} ${urlCheck.hint ?? ""}`.trim());
+      return reject(
+        "invalid-key",
+        `${urlCheck.error ?? "Invalid API base URL."} ${urlCheck.hint ?? ""}`.trim()
+      );
     }
     safeBaseUrl = urlCheck.normalizedUrl;
   }
@@ -1200,7 +1209,10 @@ async function importFromOpencode(options = {}) {
       continue;
     }
     const isOAuth = isOAuthImportProvider(lp.id, oauth);
-    const entry = localProviderToRegistry(lp, isOAuth ? { authType: "oauth", authRef: oauthAuthRef(lp.id) } : void 0);
+    const entry = localProviderToRegistry(
+      lp,
+      isOAuth ? { authType: "oauth", authRef: oauthAuthRef(lp.id) } : void 0
+    );
     if (!entry) {
       skipped.push({
         id: lp.id,
@@ -1233,7 +1245,9 @@ async function importFromOpencode(options = {}) {
         existing,
         incoming: entry,
         incomingProvider: lp,
-        existingKeyHint: await keyHint(existing.id, existing.authRef, { oauth: existing.authType === "oauth" }),
+        existingKeyHint: await keyHint(existing.id, existing.authRef, {
+          oauth: existing.authType === "oauth"
+        }),
         incomingKeyHint: await keyHint(entry.id, entry.authRef, {
           fallbackKey: lp.apiKey,
           oauth: isOAuth
@@ -1254,7 +1268,10 @@ async function importFromOpencode(options = {}) {
       continue;
     }
     if (existingIdx >= 0) {
-      registry.providers[existingIdx] = { ...entry, addedAt: registry.providers[existingIdx].addedAt };
+      registry.providers[existingIdx] = {
+        ...entry,
+        addedAt: registry.providers[existingIdx].addedAt
+      };
     } else {
       registry.providers.push(entry);
     }
@@ -1295,7 +1312,8 @@ function detectShellProfile() {
   const shell = process.env["SHELL"] ?? "";
   if (process.platform === "darwin") {
     if (shell.includes("zsh")) return { display: "~/.zshrc", path: `${homedir2()}/.zshrc` };
-    if (shell.includes("bash")) return { display: "~/.bash_profile", path: `${homedir2()}/.bash_profile` };
+    if (shell.includes("bash"))
+      return { display: "~/.bash_profile", path: `${homedir2()}/.bash_profile` };
     return { display: "~/.profile", path: `${homedir2()}/.profile` };
   }
   if (process.platform === "linux") {
@@ -1350,28 +1368,70 @@ async function resolveOrCollectApiKey(simulate = false, trace = false) {
   const saveOptions = (() => {
     if (isMac) {
       return [
-        { value: "keychain", label: "Keychain only", hint: "Key stored encrypted in Keychain; anygate reads it automatically next time" },
-        { value: "keychain-autoload", label: `Keychain + ${display} auto-load`, hint: `Key in Keychain; ${display} also exports it so all terminal tools can see it` },
-        { value: "profile", label: `${display} only (plaintext)`, hint: "Key written directly to your shell profile \u2014 simpler but less secure" },
-        { value: "session", label: "This session only", hint: "Not saved anywhere \u2014 you'll be asked again next time" }
+        {
+          value: "keychain",
+          label: "Keychain only",
+          hint: "Key stored encrypted in Keychain; anygate reads it automatically next time"
+        },
+        {
+          value: "keychain-autoload",
+          label: `Keychain + ${display} auto-load`,
+          hint: `Key in Keychain; ${display} also exports it so all terminal tools can see it`
+        },
+        {
+          value: "profile",
+          label: `${display} only (plaintext)`,
+          hint: "Key written directly to your shell profile \u2014 simpler but less secure"
+        },
+        {
+          value: "session",
+          label: "This session only",
+          hint: "Not saved anywhere \u2014 you'll be asked again next time"
+        }
       ];
     }
     if (isWindows4) {
       return [
-        { value: "credential-manager", label: "Windows Credential Manager", hint: "Key stored securely; anygate reads it automatically next time" },
-        { value: "setx", label: "Persistent environment variable (plaintext)", hint: "Runs setx \u2014 key visible in System Properties \u2192 Environment Variables" },
-        { value: "session", label: "This session only", hint: "Not saved anywhere \u2014 you'll be asked again next time" }
+        {
+          value: "credential-manager",
+          label: "Windows Credential Manager",
+          hint: "Key stored securely; anygate reads it automatically next time"
+        },
+        {
+          value: "setx",
+          label: "Persistent environment variable (plaintext)",
+          hint: "Runs setx \u2014 key visible in System Properties \u2192 Environment Variables"
+        },
+        {
+          value: "session",
+          label: "This session only",
+          hint: "Not saved anywhere \u2014 you'll be asked again next time"
+        }
       ];
     }
     const opts = [];
     if (secretServiceAvailable) {
-      opts.push({ value: "secret-service", label: "Secret Service (GNOME Keyring / KWallet)", hint: "Key stored securely in your desktop keyring; anygate reads it automatically next time" });
+      opts.push({
+        value: "secret-service",
+        label: "Secret Service (GNOME Keyring / KWallet)",
+        hint: "Key stored securely in your desktop keyring; anygate reads it automatically next time"
+      });
     } else if (!simulate) {
-      p2.log.info("No keyring daemon detected \u2014 secure storage requires GNOME Keyring or KWallet running.");
+      p2.log.info(
+        "No keyring daemon detected \u2014 secure storage requires GNOME Keyring or KWallet running."
+      );
     }
     opts.push(
-      { value: "profile", label: `${display} (plaintext)`, hint: "Key written directly to your shell profile" },
-      { value: "session", label: "This session only", hint: "Not saved anywhere \u2014 you'll be asked again next time" }
+      {
+        value: "profile",
+        label: `${display} (plaintext)`,
+        hint: "Key written directly to your shell profile"
+      },
+      {
+        value: "session",
+        label: "This session only",
+        hint: "Not saved anywhere \u2014 you'll be asked again next time"
+      }
     );
     return opts;
   })();
@@ -1412,7 +1472,9 @@ async function resolveOrCollectApiKey(simulate = false, trace = false) {
 ${autoLoadLine}
 `);
         }
-        p2.log.success(`Key saved to Keychain and auto-load added to ${display} \u2014 active now and in all future terminals.`);
+        p2.log.success(
+          `Key saved to Keychain and auto-load added to ${display} \u2014 active now and in all future terminals.`
+        );
       } catch {
         p2.log.success("Key saved to Keychain \u2014 active now and automatically loaded next time.");
         p2.log.warn(`Could not write auto-load line to ${display}`);
@@ -1422,15 +1484,21 @@ ${autoLoadLine}
     }
   } else if (saveChoice === "credential-manager") {
     if (await saveToCredentialStore(trimmedKey)) {
-      p2.log.success("Key saved to Windows Credential Manager \u2014 active now and automatically loaded next time.");
+      p2.log.success(
+        "Key saved to Windows Credential Manager \u2014 active now and automatically loaded next time."
+      );
     } else {
       p2.log.warn("Could not write to Credential Manager \u2014 key will be used for this session only");
     }
   } else if (saveChoice === "setx") {
     try {
-      const result = spawnSync("setx", ["OPENCODE_API_KEY", trimmedKey], { stdio: ["pipe", "pipe", "pipe"] });
+      const result = spawnSync("setx", ["OPENCODE_API_KEY", trimmedKey], {
+        stdio: ["pipe", "pipe", "pipe"]
+      });
       if (result.status !== 0) throw new Error("setx exited with non-zero status");
-      p2.log.success("Key saved as a user environment variable \u2014 active now and in all future terminals.");
+      p2.log.success(
+        "Key saved as a user environment variable \u2014 active now and in all future terminals."
+      );
     } catch {
       p2.log.warn("Could not run setx \u2014 key will be used for this session only");
     }
@@ -1534,7 +1602,9 @@ async function runFirstRunWizard(trace = false) {
       return runFirstRunWizard(trace);
     }
     if (result.imported.length === 0) {
-      p3.log.warn("No providers imported. Configure providers in OpenCode first, or use Quick start with Zen.");
+      p3.log.warn(
+        "No providers imported. Configure providers in OpenCode first, or use Quick start with Zen."
+      );
       return runFirstRunWizard(trace);
     }
     p3.log.success(
@@ -1544,9 +1614,6 @@ async function runFirstRunWizard(trace = false) {
   }
   return "continue";
 }
-
-// src/cli/claude.ts
-init_config();
 
 // src/apps/shared/prompts.ts
 import * as p4 from "@clack/prompts";
@@ -1565,23 +1632,32 @@ function scoreModelSearch(query, fields) {
     return { normalized, compact: normalized.replace(/\s+/g, ""), weight: field.weight };
   });
   const tokens = normalizedQuery.split(" ").filter(Boolean);
-  if (!tokens.every((token) => searchableFields.some((field) => field.normalized.includes(token) || field.compact.includes(token)))) {
+  if (!tokens.every(
+    (token) => searchableFields.some(
+      (field) => field.normalized.includes(token) || field.compact.includes(token)
+    )
+  )) {
     return 0;
   }
   let score = 1;
   for (const field of searchableFields) {
     if (field.normalized === normalizedQuery) score = Math.max(score, field.weight + 300);
     else if (field.compact === compactQuery) score = Math.max(score, field.weight + 260);
-    else if (field.normalized.startsWith(normalizedQuery)) score = Math.max(score, field.weight + 180);
+    else if (field.normalized.startsWith(normalizedQuery))
+      score = Math.max(score, field.weight + 180);
     else if (field.compact.startsWith(compactQuery)) score = Math.max(score, field.weight + 150);
     else if (field.normalized.includes(normalizedQuery)) score = Math.max(score, field.weight + 90);
     else if (field.compact.includes(compactQuery)) score = Math.max(score, field.weight + 70);
   }
-  return score + tokens.reduce((sum, token) => sum + searchableFields.reduce((best, field) => {
-    if (field.normalized.split(" ").includes(token)) return Math.max(best, 30);
-    if (field.normalized.includes(token) || field.compact.includes(token)) return Math.max(best, 12);
-    return best;
-  }, 0), 0);
+  return score + tokens.reduce(
+    (sum, token) => sum + searchableFields.reduce((best, field) => {
+      if (field.normalized.split(" ").includes(token)) return Math.max(best, 30);
+      if (field.normalized.includes(token) || field.compact.includes(token))
+        return Math.max(best, 12);
+      return best;
+    }, 0),
+    0
+  );
 }
 
 // src/apps/shared/prompts.ts
@@ -1687,7 +1763,11 @@ async function selectLargeCatalog(models, browseList, toOption, message, initial
       const method = await p4.select({
         message: `${message} (${models.length} available)`,
         options: [
-          { value: MODE_SEARCH, label: pc3.cyan("Search models"), hint: "Filter by name, id, or brand" },
+          {
+            value: MODE_SEARCH,
+            label: pc3.cyan("Search models"),
+            hint: "Filter by name, id, or brand"
+          },
           {
             value: MODE_BROWSE,
             label: pc3.cyan("Browse all models"),
@@ -1703,13 +1783,9 @@ async function selectLargeCatalog(models, browseList, toOption, message, initial
       continue;
     }
     if (mode === "browse") {
-      const picked = await pickModelFromPagedList(
-        browseList,
-        toOption,
-        message,
-        initialModelId,
-        { search: true }
-      );
+      const picked = await pickModelFromPagedList(browseList, toOption, message, initialModelId, {
+        search: true
+      });
       if (picked === "search") {
         mode = "search";
         continue;
@@ -1757,10 +1833,7 @@ async function selectModelWithSearch(models, toOption, message, initialModelId, 
   if (models.length === 0) return null;
   const orderedBrowse = browseList ?? sortModelsByBrand(models);
   if (models.length <= MODEL_SEARCH_THRESHOLD) {
-    const options = [
-      ...models.map(toOption),
-      navOption("__back__", "\u2190 Go back", "")
-    ];
+    const options = [...models.map(toOption), navOption("__back__", "\u2190 Go back", "")];
     const initialValue = initialModelId && options.some((o) => o.value === initialModelId) ? initialModelId : options[0]?.value;
     const picked = await p4.select({
       message,
@@ -1908,7 +1981,8 @@ function isGeminiNonInteractive(args) {
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === "--") return false;
-    if (arg === "-p" || arg === "--prompt" || arg === "-i" || arg === "--prompt-interactive") return true;
+    if (arg === "-p" || arg === "--prompt" || arg === "-i" || arg === "--prompt-interactive")
+      return true;
     if (arg.startsWith("-")) {
       i = skipAttachedFlagValue(args, i);
       continue;
@@ -2011,9 +2085,12 @@ function planLaunchWizard(opts) {
   return { skip: false, target: null };
 }
 function nonInteractiveLaunchError(agent) {
-  if (agent === "claude") return "Print mode requires --provider and --model, or saved preferences from a prior launch.";
-  if (agent === "codex") return "Non-interactive Codex launch requires --provider and --model, or saved preferences from a prior launch.";
-  if (agent === "antigravity") return "Non-interactive Antigravity launch requires --provider and --model, or saved preferences from a prior launch.";
+  if (agent === "claude")
+    return "Print mode requires --provider and --model, or saved preferences from a prior launch.";
+  if (agent === "codex")
+    return "Non-interactive Codex launch requires --provider and --model, or saved preferences from a prior launch.";
+  if (agent === "antigravity")
+    return "Non-interactive Antigravity launch requires --provider and --model, or saved preferences from a prior launch.";
   return "Non-interactive Gemini launch requires --provider and --model, or saved preferences from a prior launch.";
 }
 function isAntigravityNonInteractive(args) {
@@ -2027,7 +2104,6 @@ function isAntigravityNonInteractive(args) {
 // src/cli/providers-command.ts
 import pc4 from "picocolors";
 import * as p5 from "@clack/prompts";
-init_config();
 function providerHubChoiceValue(entry) {
   return `provider:${entry.id}`;
 }
@@ -2039,8 +2115,16 @@ async function runProvidersImport() {
     const choice = await p5.select({
       message: "Which configuration should we keep?",
       options: [
-        { value: "keep", label: pc4.cyan("Keep mine"), hint: "Leave your current anygate config unchanged" },
-        { value: "import", label: pc4.cyan("Use imported"), hint: "Replace with OpenCode settings and refresh models" },
+        {
+          value: "keep",
+          label: pc4.cyan("Keep mine"),
+          hint: "Leave your current anygate config unchanged"
+        },
+        {
+          value: "import",
+          label: pc4.cyan("Use imported"),
+          hint: "Replace with OpenCode settings and refresh models"
+        },
         { value: "skip", label: pc4.dim("Skip this provider"), hint: "" }
       ]
     });
@@ -2183,7 +2267,9 @@ async function runProvidersRefreshModels(providerId) {
     }
     const diff = result.previousModelCount === void 0 ? 0 : (result.modelCount ?? 0) - result.previousModelCount;
     const diffStr = result.previousModelCount === void 0 ? "" : diff > 0 ? ` (+${diff})` : diff < 0 ? ` (${diff})` : "";
-    p5.log.success(`${result.name}: ${result.modelCount} model${result.modelCount === 1 ? "" : "s"} updated${diffStr}.`);
+    p5.log.success(
+      `${result.name}: ${result.modelCount} model${result.modelCount === 1 ? "" : "s"} updated${diffStr}.`
+    );
     if (result.reason) {
       p5.log.warn(result.reason);
     }
@@ -2251,7 +2337,9 @@ async function pickTemplateFromCatalog() {
     const query = String(searchInput);
     const matched = filterTemplates(templates, query);
     if (matched.length === 0) {
-      const alreadyAdded = filterTemplates(listSupportedTemplates(), query).filter((t) => configuredIds.has(t.id));
+      const alreadyAdded = filterTemplates(listSupportedTemplates(), query).filter(
+        (t) => configuredIds.has(t.id)
+      );
       if (alreadyAdded.length > 0) {
         p5.log.info(`Already configured: ${alreadyAdded.map((t) => t.name).join(", ")}`);
       } else {
@@ -2275,7 +2363,9 @@ async function pickTemplateFromCatalog() {
 }
 async function runOpenCodeCloudDetail() {
   const registry = loadRegistry();
-  const routes = registry.providers.filter((provider) => provider.id === "zen" || provider.id === "go");
+  const routes = registry.providers.filter(
+    (provider) => provider.id === "zen" || provider.id === "go"
+  );
   printCloudProviderPanel("OpenCode Zen / Go");
   if (routes.length === 0) return "back";
   const choice = await p5.select({
@@ -2327,7 +2417,11 @@ async function runProviderDetail(id) {
       label: provider.enabled ? "Disable provider" : "Enable provider",
       hint: provider.enabled ? "Hide from anygate claude picker" : "Show in anygate claude picker"
     },
-    { value: "remove", label: "Remove provider", hint: "Delete from registry and Keychain when safe" },
+    {
+      value: "remove",
+      label: "Remove provider",
+      hint: "Delete from registry and Keychain when safe"
+    },
     { value: "back", label: "Back", hint: "" }
   );
   const action = await p5.select({
@@ -2380,7 +2474,8 @@ function parseProvidersArgs(args) {
   if (first === "list") return { subcommand: "list", showHelp: false };
   if (first === "remove" || first === "rm") {
     const targetId = args[1];
-    if (!targetId) return { subcommand: "remove", showHelp: true, error: "Usage: anygate providers remove <id>" };
+    if (!targetId)
+      return { subcommand: "remove", showHelp: true, error: "Usage: anygate providers remove <id>" };
     return { subcommand: "remove", showHelp: false, removeId: targetId };
   }
   if (first === "refresh-models") {
@@ -2457,7 +2552,9 @@ async function runCustomEndpointAddFlow() {
   const usesHttp = /^http:\/\//i.test(String(baseUrl).trim());
   let allowInsecureHttp = false;
   if (usesHttp) {
-    p5.log.warn("HTTP is not encrypted. Only use it for a trusted local or LAN server, like Ollama on your own network.");
+    p5.log.warn(
+      "HTTP is not encrypted. Only use it for a trusted local or LAN server, like Ollama on your own network."
+    );
     const allowLocal = await p5.confirm({
       message: "Allow insecure HTTP for this local/LAN server?",
       initialValue: true
@@ -2567,12 +2664,24 @@ async function runProvidersHub() {
         hint
       });
     }
-    options.push({ value: "auth-menu", label: "\u2192 Sign in with OAuth", hint: "GitHub Copilot \xB7 xAI \xB7 OpenAI" });
+    options.push({
+      value: "auth-menu",
+      label: "\u2192 Sign in with OAuth",
+      hint: "GitHub Copilot \xB7 xAI \xB7 OpenAI"
+    });
     if (entries.length > 0) {
-      options.push({ value: "refresh-all", label: "\u21BA Refresh all models", hint: "Update model lists for all providers" });
+      options.push({
+        value: "refresh-all",
+        label: "\u21BA Refresh all models",
+        hint: "Update model lists for all providers"
+      });
     }
     if (hasOpencode) {
-      options.push({ value: "import", label: "\u2192 Import providers from OpenCode CLI", hint: "One-time import" });
+      options.push({
+        value: "import",
+        label: "\u2192 Import providers from OpenCode CLI",
+        hint: "One-time import"
+      });
     }
     options.push({ value: "done", label: "Done", hint: "" });
     const choice = await p5.select({
@@ -2836,15 +2945,17 @@ Error: ${launchPlan.error}
   }
   const localProviders = catalog.length > 0 ? catalog : null;
   if (switchMenuActive) {
-    const resolveRoute = makeRouteResolver(
-      localProviders
-    );
+    const resolveRoute = makeRouteResolver(localProviders);
     const startingRoute = resolveRoute(activeProvider.id, selectedModel.id) ?? null;
     if (!startingRoute) {
       p6.log.error("Could not resolve a proxy route for the selected model.");
       return 1;
     }
-    const { routes: catalogRoutes, droppedFavorites } = buildCatalogRoutes(startingRoute, favorites, resolveRoute);
+    const { routes: catalogRoutes, droppedFavorites } = buildCatalogRoutes(
+      startingRoute,
+      favorites,
+      resolveRoute
+    );
     if (droppedFavorites.length > 0) {
       p6.log.warn(
         `Skipping ${droppedFavorites.length} favorite${droppedFavorites.length === 1 ? "" : "s"} that are no longer available in /model`
@@ -2891,7 +3002,9 @@ Error: ${launchPlan.error}
     console.log(`  ${pc5.bold("Provider:")}  ${activeProvider.name}`);
     console.log(`  ${pc5.bold("Model:")}     ${selectedModel.id}`);
     console.log(`  ${pc5.bold("Format:")}    ${selectedModel.modelFormat} (${formatDesc})`);
-    console.log(`  ${pc5.bold(selectedModel.modelFormat === "anthropic" ? "Endpoint:" : "SDK npm:")} ${endpoint}`);
+    console.log(
+      `  ${pc5.bold(selectedModel.modelFormat === "anthropic" ? "Endpoint:" : "SDK npm:")} ${endpoint}`
+    );
     console.log(`  ${pc5.bold("Key:")}       ${activeProvider.name} provider key`);
     console.log("");
     console.log(pc5.dim("  (dry run complete \u2014 Claude Code was NOT launched)"));
@@ -2900,9 +3013,7 @@ Error: ${launchPlan.error}
   }
   const launchApiKey = await resolveLocalProviderApiKey(activeProvider);
   if (!launchApiKey?.trim()) {
-    p6.log.error(
-      new CredentialUnavailableError(activeProvider.id).userMessage
-    );
+    p6.log.error(new CredentialUnavailableError(activeProvider.id).userMessage);
     return 1;
   }
   const isAvailable = await quickValidateModel(activeProvider.id, selectedModel.id);
@@ -2936,7 +3047,9 @@ Error: ${launchPlan.error}
       );
       if (!isAgentStdoutMode()) p6.log.info(`Cloud Code proxy started on port ${proxyHandle.port}`);
     } catch (err) {
-      p6.log.error(`Failed to start Cloud Code proxy: ${err instanceof Error ? err.message : String(err)}`);
+      p6.log.error(
+        `Failed to start Cloud Code proxy: ${err instanceof Error ? err.message : String(err)}`
+      );
       return 1;
     }
     childEnv = buildChildEnv(
@@ -2965,7 +3078,9 @@ Error: ${launchPlan.error}
       );
       if (!isAgentStdoutMode()) p6.log.info(`OAuth proxy started on port ${proxyHandle.port}`);
     } catch (err) {
-      p6.log.error(`Failed to start OAuth proxy: ${err instanceof Error ? err.message : String(err)}`);
+      p6.log.error(
+        `Failed to start OAuth proxy: ${err instanceof Error ? err.message : String(err)}`
+      );
       return 1;
     }
     childEnv = buildChildEnv(
@@ -3012,7 +3127,9 @@ Error: ${launchPlan.error}
         );
       }
     } catch (err) {
-      p6.log.error(`Failed to start SDK adapter proxy: ${err instanceof Error ? err.message : String(err)}`);
+      p6.log.error(
+        `Failed to start SDK adapter proxy: ${err instanceof Error ? err.message : String(err)}`
+      );
       return 1;
     }
     childEnv = buildChildEnv(
@@ -3073,7 +3190,6 @@ async function launchClaudeViaCatalog(catalogRoutes, startingRoute, contextWindo
 // src/apps/codex/cli.ts
 import pc8 from "picocolors";
 import * as p9 from "@clack/prompts";
-init_config();
 
 // src/apps/codex/proxy.ts
 import { createHash } from "crypto";
@@ -3130,7 +3246,9 @@ function applyClaudeCodeOAuthIdentity(input, sdkParams) {
 import { streamText, generateText, tool, jsonSchema } from "ai";
 function messageText(content) {
   if (typeof content === "string") return content;
-  return (content ?? []).map((p18) => p18.type === "output_text" || p18.type === "input_text" || p18.type === "text" ? p18.text ?? "" : "").join("");
+  return (content ?? []).map(
+    (p18) => p18.type === "output_text" || p18.type === "input_text" || p18.type === "text" ? p18.text ?? "" : ""
+  ).join("");
 }
 function extractDeveloperAndInstructions(items, instructions) {
   const developerParts = [];
@@ -3174,9 +3292,16 @@ function mergeConsecutiveMessages(messages) {
   return out;
 }
 function ensureUserFirst(messages) {
-  if (messages.length === 0) return [{ role: "user", content: [{ type: "text", text: "(empty input)" }] }];
+  if (messages.length === 0)
+    return [{ role: "user", content: [{ type: "text", text: "(empty input)" }] }];
   if (messages[0].role === "assistant") {
-    return [{ role: "user", content: [{ type: "text", text: "(conversation continued)" }] }, ...messages];
+    return [
+      {
+        role: "user",
+        content: [{ type: "text", text: "(conversation continued)" }]
+      },
+      ...messages
+    ];
   }
   return messages;
 }
@@ -3256,12 +3381,14 @@ function translateResponsesInput(input, instructions, npm) {
       const { rawId } = splitToolUseId(item.call_id);
       messages.push({
         role: "tool",
-        content: [{
-          type: "tool-result",
-          toolCallId: rawId,
-          toolName: toolNames.get(rawId) ?? "unknown",
-          output: { type: "text", value: serializeToolResultContent(item.output) }
-        }]
+        content: [
+          {
+            type: "tool-result",
+            toolCallId: rawId,
+            toolName: toolNames.get(rawId) ?? "unknown",
+            output: { type: "text", value: serializeToolResultContent(item.output) }
+          }
+        ]
       });
     } else if ("role" in item) {
       const role = item.role === "assistant" ? "assistant" : "user";
@@ -3283,8 +3410,14 @@ var TOOL_SEARCH_FLAT = {
   parameters: {
     type: "object",
     properties: {
-      query: { type: "string", description: "Search query describing the tool or capability needed." },
-      limit: { type: "number", description: "Maximum number of matching tools to return. Defaults to 8." }
+      query: {
+        type: "string",
+        description: "Search query describing the tool or capability needed."
+      },
+      limit: {
+        type: "number",
+        description: "Maximum number of matching tools to return. Defaults to 8."
+      }
     },
     required: ["query"],
     additionalProperties: false
@@ -3367,7 +3500,12 @@ function translateResponsesTools(tools, options = {}) {
       continue;
     }
     if (t.type === "custom") {
-      addTool(t.name, { type: "function", name: t.name, description: t.description ?? "", parameters: { type: "object", properties: {} } });
+      addTool(t.name, {
+        type: "function",
+        name: t.name,
+        description: t.description ?? "",
+        parameters: { type: "object", properties: {} }
+      });
       continue;
     }
     if (t.type !== "function" || !t.name) continue;
@@ -3469,7 +3607,13 @@ async function writeResponsesStream(fullStream, modelId, write, onDone, onProgre
       emit("response.output_item.added", {
         type: "response.output_item.added",
         output_index: textOutputIndex,
-        item: { id: textItemId, type: "message", role: "assistant", status: "in_progress", content: [] }
+        item: {
+          id: textItemId,
+          type: "message",
+          role: "assistant",
+          status: "in_progress",
+          content: []
+        }
       });
       emit("response.content_part.added", {
         type: "response.content_part.added",
@@ -3723,7 +3867,14 @@ async function writeResponsesStream(fullStream, modelId, write, onDone, onProgre
       emit("response.output_item.added", {
         type: "response.output_item.added",
         output_index: idx,
-        item: { type: "function_call", id: itemId, call_id: callId, name: call.name, arguments: "", status: "in_progress" }
+        item: {
+          type: "function_call",
+          id: itemId,
+          call_id: callId,
+          name: call.name,
+          arguments: "",
+          status: "in_progress"
+        }
       });
       emit("response.function_call_arguments.done", {
         type: "response.function_call_arguments.done",
@@ -3731,9 +3882,20 @@ async function writeResponsesStream(fullStream, modelId, write, onDone, onProgre
         output_index: idx,
         arguments: args
       });
-      const fcItem = { type: "function_call", id: itemId, call_id: callId, name: call.name, arguments: args, status: "completed" };
+      const fcItem = {
+        type: "function_call",
+        id: itemId,
+        call_id: callId,
+        name: call.name,
+        arguments: args,
+        status: "completed"
+      };
       const fcSplit = splitBackFunctionCall(fcItem, namespaceMap, customToolNames);
-      emit("response.output_item.done", { type: "response.output_item.done", output_index: idx, item: fcSplit });
+      emit("response.output_item.done", {
+        type: "response.output_item.done",
+        output_index: idx,
+        item: fcSplit
+      });
       outputItems.push(fcSplit);
     }
   } else if (textItemId) {
@@ -3797,7 +3959,13 @@ async function writeResponsesStream(fullStream, modelId, write, onDone, onProgre
     outputItems.push(fcItem);
   }
   if (outputItems.length === 0) {
-    outputItems.push({ id: newItemId("msg"), type: "message", role: "assistant", status: "completed", content: [{ type: "output_text", text: "(conversation context was too large to summarize)" }] });
+    outputItems.push({
+      id: newItemId("msg"),
+      type: "message",
+      role: "assistant",
+      status: "completed",
+      content: [{ type: "output_text", text: "(conversation context was too large to summarize)" }]
+    });
   }
   let finalOutput = outputItems;
   if (isCompaction) {
@@ -3831,11 +3999,18 @@ async function streamResponsesResponse(model, params, modelId, write, onDone, on
   const idleTimeoutMs = options?.idleTimeoutMs ?? STREAM_IDLE_TIMEOUT_MS;
   const abort = new AbortController();
   let idleTimer = setTimeout(
-    () => abort.abort(new Error(`no data received from provider for ${Math.round(idleTimeoutMs / 1e3)}s`)),
+    () => abort.abort(
+      new Error(`no data received from provider for ${Math.round(idleTimeoutMs / 1e3)}s`)
+    ),
     idleTimeoutMs
   );
-  const result = streamText({ model, ...params, abortSignal: abort.signal, onError: () => {
-  } });
+  const result = streamText({
+    model,
+    ...params,
+    abortSignal: abort.signal,
+    onError: () => {
+    }
+  });
   Promise.resolve(result.text).catch(() => {
   });
   Promise.resolve(result.toolCalls).catch(() => {
@@ -3853,7 +4028,9 @@ async function streamResponsesResponse(model, params, modelId, write, onDone, on
       for await (const part of result.fullStream) {
         clearTimeout(idleTimer);
         idleTimer = setTimeout(
-          () => abort.abort(new Error(`no data received from provider for ${Math.round(idleTimeoutMs / 1e3)}s`)),
+          () => abort.abort(
+            new Error(`no data received from provider for ${Math.round(idleTimeoutMs / 1e3)}s`)
+          ),
           idleTimeoutMs
         );
         yield part;
@@ -3906,7 +4083,13 @@ async function generateResponsesResponse(model, params, modelId) {
       arguments: typeof argsRaw === "string" ? argsRaw : JSON.stringify(argsRaw ?? {}),
       status: "completed"
     };
-    output.push(splitBackFunctionCall(fcItem, params.namespaceMap, params.customToolNames));
+    output.push(
+      splitBackFunctionCall(
+        fcItem,
+        params.namespaceMap,
+        params.customToolNames
+      )
+    );
   }
   if (r.text !== null && r.text !== void 0) {
     output.push({
@@ -3918,7 +4101,13 @@ async function generateResponsesResponse(model, params, modelId) {
     });
   }
   if (output.length === 0) {
-    output.push({ id: newItemId("msg"), type: "message", role: "assistant", status: "completed", content: [{ type: "output_text", text: "(conversation context was too large to summarize)" }] });
+    output.push({
+      id: newItemId("msg"),
+      type: "message",
+      role: "assistant",
+      status: "completed",
+      content: [{ type: "output_text", text: "(conversation context was too large to summarize)" }]
+    });
   }
   const inputTokens = r.usage?.inputTokens ?? 0;
   const outputTokens = r.usage?.outputTokens ?? 0;
@@ -3944,80 +4133,102 @@ function responsesErrorBody(modelId, message, statusCode = 401) {
     created_at: Math.floor(Date.now() / 1e3),
     status: "failed",
     output: [],
-    error: { message, type: statusCode === 429 ? "rate_limit_error" : "api_error", code: String(statusCode) }
+    error: {
+      message,
+      type: statusCode === 429 ? "rate_limit_error" : "api_error",
+      code: String(statusCode)
+    }
   };
 }
 function writeResponsesErrorStream(modelId, message, write, statusCode = 401) {
-  write(sseChunk("response.completed", {
-    type: "response.completed",
-    response: responsesErrorBody(modelId, message, statusCode)
-  }));
+  write(
+    sseChunk("response.completed", {
+      type: "response.completed",
+      response: responsesErrorBody(modelId, message, statusCode)
+    })
+  );
 }
 function writeResponsesRateLimitStream(modelId, message, write) {
   const responseId = newResponseId();
   const itemId = newItemId("msg");
   const createdAt = Math.floor(Date.now() / 1e3);
   const content = [{ type: "output_text", text: message }];
-  write(sseChunk("response.created", {
-    type: "response.created",
-    response: {
-      id: responseId,
-      object: "response",
-      model: modelId,
-      created_at: createdAt,
-      status: "in_progress",
-      output: []
-    }
-  }));
-  write(sseChunk("response.output_item.added", {
-    type: "response.output_item.added",
-    output_index: 0,
-    item: { id: itemId, type: "message", role: "assistant", status: "in_progress", content: [] }
-  }));
-  write(sseChunk("response.content_part.added", {
-    type: "response.content_part.added",
-    item_id: itemId,
-    output_index: 0,
-    content_index: 0,
-    part: { type: "output_text", text: "" }
-  }));
-  write(sseChunk("response.output_text.delta", {
-    type: "response.output_text.delta",
-    item_id: itemId,
-    output_index: 0,
-    content_index: 0,
-    delta: message
-  }));
-  write(sseChunk("response.output_text.done", {
-    type: "response.output_text.done",
-    item_id: itemId,
-    output_index: 0,
-    content_index: 0,
-    text: message
-  }));
-  write(sseChunk("response.content_part.done", {
-    type: "response.content_part.done",
-    item_id: itemId,
-    output_index: 0,
-    content_index: 0,
-    part: { type: "output_text", text: message }
-  }));
-  write(sseChunk("response.output_item.done", {
-    type: "response.output_item.done",
-    output_index: 0,
-    item: { id: itemId, type: "message", role: "assistant", status: "completed", content }
-  }));
-  write(sseChunk("response.completed", {
-    type: "response.completed",
-    response: {
-      id: responseId,
-      object: "response",
-      model: modelId,
-      created_at: createdAt,
-      status: "completed",
-      output: [{ id: itemId, type: "message", role: "assistant", status: "completed", content }]
-    }
-  }));
+  write(
+    sseChunk("response.created", {
+      type: "response.created",
+      response: {
+        id: responseId,
+        object: "response",
+        model: modelId,
+        created_at: createdAt,
+        status: "in_progress",
+        output: []
+      }
+    })
+  );
+  write(
+    sseChunk("response.output_item.added", {
+      type: "response.output_item.added",
+      output_index: 0,
+      item: { id: itemId, type: "message", role: "assistant", status: "in_progress", content: [] }
+    })
+  );
+  write(
+    sseChunk("response.content_part.added", {
+      type: "response.content_part.added",
+      item_id: itemId,
+      output_index: 0,
+      content_index: 0,
+      part: { type: "output_text", text: "" }
+    })
+  );
+  write(
+    sseChunk("response.output_text.delta", {
+      type: "response.output_text.delta",
+      item_id: itemId,
+      output_index: 0,
+      content_index: 0,
+      delta: message
+    })
+  );
+  write(
+    sseChunk("response.output_text.done", {
+      type: "response.output_text.done",
+      item_id: itemId,
+      output_index: 0,
+      content_index: 0,
+      text: message
+    })
+  );
+  write(
+    sseChunk("response.content_part.done", {
+      type: "response.content_part.done",
+      item_id: itemId,
+      output_index: 0,
+      content_index: 0,
+      part: { type: "output_text", text: message }
+    })
+  );
+  write(
+    sseChunk("response.output_item.done", {
+      type: "response.output_item.done",
+      output_index: 0,
+      item: { id: itemId, type: "message", role: "assistant", status: "completed", content }
+    })
+  );
+  write(
+    sseChunk("response.completed", {
+      type: "response.completed",
+      response: {
+        id: responseId,
+        object: "response",
+        model: modelId,
+        created_at: createdAt,
+        status: "completed",
+        output: [{ id: itemId, type: "message", role: "assistant", status: "completed", content }]
+      }
+    })
+  );
 }
 function responsesRateLimitBody(modelId, message) {
   const itemId = newItemId("msg");
@@ -4108,7 +4319,9 @@ var COMPACTION_PROMPT_MARKER = "You are performing a CONTEXT CHECKPOINT COMPACTI
 function inputItemText(content) {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
-  return content.map((p18) => p18 && typeof p18 === "object" && typeof p18.text === "string" ? p18.text : "").join("");
+  return content.map(
+    (p18) => p18 && typeof p18 === "object" && typeof p18.text === "string" ? p18.text : ""
+  ).join("");
 }
 function isLikelyCodexCompactionRequest(body) {
   if (!Array.isArray(body.input)) return false;
@@ -4159,9 +4372,7 @@ function codexRouteLookupIds(requestedModel) {
 function findCodexProxyRoute(routes, requestedModel) {
   const ids = codexRouteLookupIds(requestedModel);
   for (const id of ids) {
-    const route = routes.find(
-      (r) => r.modelId === id || codexAppModelSlug(r.modelId) === id
-    );
+    const route = routes.find((r) => r.modelId === id || codexAppModelSlug(r.modelId) === id);
     if (route) return route;
   }
   return void 0;
@@ -4180,18 +4391,21 @@ async function startCodexProxy(routes, options = {}) {
   silenceSdkWarnings();
   const models = /* @__PURE__ */ new Map();
   for (const route of routes) {
-    models.set(route.modelId, await createLanguageModel({
-      npm: route.npm,
-      modelId: route.upstreamModelId,
-      apiKey: route.apiKey,
-      baseURL: route.baseURL,
-      providerId: route.providerId ?? route.modelId,
-      authType: route.authType,
-      oauthAccountId: route.oauthAccountId,
-      providerData: route.providerData,
-      vertex: route.vertex,
-      headers: route.headers
-    }));
+    models.set(
+      route.modelId,
+      await createLanguageModel({
+        npm: route.npm,
+        modelId: route.upstreamModelId,
+        apiKey: route.apiKey,
+        baseURL: route.baseURL,
+        providerId: route.providerId ?? route.modelId,
+        authType: route.authType,
+        oauthAccountId: route.oauthAccountId,
+        providerData: route.providerData,
+        vertex: route.vertex,
+        headers: route.headers
+      })
+    );
   }
   return new Promise((resolve, reject2) => {
     const log17 = debug ? makeTraceLogger(getCodexProxyDebugLogPath()) : () => {
@@ -4203,7 +4417,9 @@ async function startCodexProxy(routes, options = {}) {
     const server = createServer(async (req, res) => {
       const url = req.url ?? "/";
       if (debug) {
-        log17(`-> ${req.method} ${url} content-type=${req.headers["content-type"] ?? "(none)"} content-encoding=${req.headers["content-encoding"] ?? "(none)"} content-length=${req.headers["content-length"] ?? "(none)"}`);
+        log17(
+          `-> ${req.method} ${url} content-type=${req.headers["content-type"] ?? "(none)"} content-encoding=${req.headers["content-encoding"] ?? "(none)"} content-length=${req.headers["content-length"] ?? "(none)"}`
+        );
       }
       if (!requireAuth && req.method === "POST") {
         const origin = req.headers.origin;
@@ -4219,7 +4435,9 @@ async function startCodexProxy(routes, options = {}) {
           }
         };
         if (!isValidLoopback(origin) || !isValidLoopback(referer)) {
-          sendJson(res, 403, { error: { message: "Forbidden origin", type: "invalid_request_error" } });
+          sendJson(res, 403, {
+            error: { message: "Forbidden origin", type: "invalid_request_error" }
+          });
           return;
         }
       }
@@ -4257,7 +4475,9 @@ async function startCodexProxy(routes, options = {}) {
         const id = url.slice("/v1/models/".length);
         const route = findCodexProxyRoute(routes, id);
         if (!route) {
-          sendJson(res, 404, { error: { message: `Model not found: ${id}`, type: "invalid_request_error" } });
+          sendJson(res, 404, {
+            error: { message: `Model not found: ${id}`, type: "invalid_request_error" }
+          });
           return;
         }
         sendJson(res, 200, {
@@ -4281,9 +4501,13 @@ async function startCodexProxy(routes, options = {}) {
           rawBody = await readBody(req);
         } catch (err) {
           if (debug) {
-            log17(`Error: failed to read/decode request body on POST ${url}: ${formatUpstreamError(err)} content-encoding=${req.headers["content-encoding"] ?? "(none)"}`);
+            log17(
+              `Error: failed to read/decode request body on POST ${url}: ${formatUpstreamError(err)} content-encoding=${req.headers["content-encoding"] ?? "(none)"}`
+            );
           }
-          sendJson(res, 400, { error: { message: "Invalid request body", type: "invalid_request_error" } });
+          sendJson(res, 400, {
+            error: { message: "Invalid request body", type: "invalid_request_error" }
+          });
           return;
         }
         let body;
@@ -4292,22 +4516,34 @@ async function startCodexProxy(routes, options = {}) {
         } catch (err) {
           if (debug) {
             const headers = JSON.stringify(req.headers);
-            log17(`Error: Invalid JSON body on POST ${url}: ${formatUpstreamError(err)} headers=${headers} rawBody=${JSON.stringify(rawBody.slice(0, 2e3))}`);
+            log17(
+              `Error: Invalid JSON body on POST ${url}: ${formatUpstreamError(err)} headers=${headers} rawBody=${JSON.stringify(rawBody.slice(0, 2e3))}`
+            );
           }
-          sendJson(res, 400, { error: { message: "Invalid JSON body", type: "invalid_request_error" } });
+          sendJson(res, 400, {
+            error: { message: "Invalid JSON body", type: "invalid_request_error" }
+          });
           return;
         }
         if (debug) {
           const prevId = body.previous_response_id ?? null;
           const inputItems = Array.isArray(body.input) ? body.input.length : typeof body.input === "string" ? 1 : 0;
           const tools = Array.isArray(body.tools) ? body.tools : [];
-          const toolNames = tools.map((t) => t && typeof t === "object" && "name" in t ? t.name : "?").join(",");
-          log17(`request: model=${String(body.model ?? "")} previous_response_id=${prevId ?? "(none)"} input_items=${inputItems} body_bytes=${rawBody.length} tools=[${toolNames || "none"}]`);
-          const mcpTools = tools.filter((t) => t && typeof t === "object" && "name" in t && String(t.name).startsWith("mcp__"));
+          const toolNames = tools.map(
+            (t) => t && typeof t === "object" && "name" in t ? t.name : "?"
+          ).join(",");
+          log17(
+            `request: model=${String(body.model ?? "")} previous_response_id=${prevId ?? "(none)"} input_items=${inputItems} body_bytes=${rawBody.length} tools=[${toolNames || "none"}]`
+          );
+          const mcpTools = tools.filter(
+            (t) => t && typeof t === "object" && "name" in t && String(t.name).startsWith("mcp__")
+          );
           for (const t of mcpTools) {
             const mt = t;
             const subTools = mt.type === "namespace" && Array.isArray(mt.tools) ? ` subTools=[${mt.tools.length}]` : "";
-            log17(`  mcp-tool: name=${mt.name} type=${mt.type} desc=${JSON.stringify(String(mt.description ?? "")).slice(0, 120)}${subTools}`);
+            log17(
+              `  mcp-tool: name=${mt.name} type=${mt.type} desc=${JSON.stringify(String(mt.description ?? "")).slice(0, 120)}${subTools}`
+            );
           }
         }
         const modelId = String(body.model ?? "");
@@ -4322,41 +4558,55 @@ async function startCodexProxy(routes, options = {}) {
             resolved = { route: fallbackRoute, languageModel: fallbackLm };
           } else {
             if (debug) {
-              log17(`resolveModel failed: requested="${modelId}" known=[${routes.map((r) => r.modelId).join(", ")}]`);
+              log17(
+                `resolveModel failed: requested="${modelId}" known=[${routes.map((r) => r.modelId).join(", ")}]`
+              );
             }
-            sendJson(res, 404, { error: { message: `Unknown model: ${modelId}`, type: "invalid_request_error" } });
+            sendJson(res, 404, {
+              error: { message: `Unknown model: ${modelId}`, type: "invalid_request_error" }
+            });
             return;
           }
         }
         const { route, languageModel } = resolved;
         try {
-          let params = applyClaudeCodeOAuthIdentity(route, translateResponsesRequest(
-            body,
-            route.npm,
-            {
-              providerId: route.providerId,
-              apiBaseUrl: route.baseURL,
-              supportedParameters: route.supportedParameters,
-              reasoning: route.reasoning,
-              interleavedReasoningField: route.interleavedReasoningField,
-              upstreamModelId: route.upstreamModelId
-            },
-            { maxTools: maxToolsForNpm(route.npm) }
-          ));
+          let params = applyClaudeCodeOAuthIdentity(
+            route,
+            translateResponsesRequest(
+              body,
+              route.npm,
+              {
+                providerId: route.providerId,
+                apiBaseUrl: route.baseURL,
+                supportedParameters: route.supportedParameters,
+                reasoning: route.reasoning,
+                interleavedReasoningField: route.interleavedReasoningField,
+                upstreamModelId: route.upstreamModelId
+              },
+              { maxTools: maxToolsForNpm(route.npm) }
+            )
+          );
           if (route.contextWindow && route.contextWindow > 0) {
             const before = params.messages.length;
             const estimatedChars = estimateCodexRequestChars(params);
             const compaction = isLikelyCodexCompactionRequest(body);
-            if (debug) log17(`context check: model=${route.modelId} window=${route.contextWindow} chars=${estimatedChars} compaction=${compaction ? "yes" : "no"} messages=${before}`);
+            if (debug)
+              log17(
+                `context check: model=${route.modelId} window=${route.contextWindow} chars=${estimatedChars} compaction=${compaction ? "yes" : "no"} messages=${before}`
+              );
             params = protectCodexCompactionParams(body, params, route.contextWindow);
             params.isCompaction = compaction;
             if (debug && params.messages.length < before) {
-              log17(`context trim: model=${route.modelId} window=${route.contextWindow} kept=${params.messages.length}/${before} messages`);
+              log17(
+                `context trim: model=${route.modelId} window=${route.contextWindow} kept=${params.messages.length}/${before} messages`
+              );
             }
           }
           if (debug) {
             const effort = body.reasoning?.effort;
-            log17(`model=${route.modelId} effort=${effort ?? "(none)"} providerOptions=${JSON.stringify(params.providerOptions)}`);
+            log17(
+              `model=${route.modelId} effort=${effort ?? "(none)"} providerOptions=${JSON.stringify(params.providerOptions)}`
+            );
           }
           if (body.stream) {
             res.writeHead(200, {
@@ -4366,16 +4616,27 @@ async function startCodexProxy(routes, options = {}) {
             });
             const write = (chunk) => res.write(chunk);
             try {
-              await streamResponsesResponse(languageModel, params, modelId, write, (summary) => {
-                if (debug) {
-                  const failure = `${summary.aborted ? " aborted=yes" : ""}${summary.errorMessage ? ` error=${JSON.stringify(summary.errorMessage)}` : ""}`;
-                  log17(`response done: model=${route.modelId} reasoningChars=${summary.reasoningChars} textChars=${summary.textChars} toolCalls=${summary.toolCallCount} toolNames=[${summary.toolNames.join(",")}] loopDetected=${summary.loopDetected ?? "no"} dsmlRecovered=${summary.dsmlToolCallsRecovered ?? 0}${failure} reasoningPreview=${JSON.stringify(summary.reasoningPreview)}`);
+              await streamResponsesResponse(
+                languageModel,
+                params,
+                modelId,
+                write,
+                (summary) => {
+                  if (debug) {
+                    const failure = `${summary.aborted ? " aborted=yes" : ""}${summary.errorMessage ? ` error=${JSON.stringify(summary.errorMessage)}` : ""}`;
+                    log17(
+                      `response done: model=${route.modelId} reasoningChars=${summary.reasoningChars} textChars=${summary.textChars} toolCalls=${summary.toolCallCount} toolNames=[${summary.toolNames.join(",")}] loopDetected=${summary.loopDetected ?? "no"} dsmlRecovered=${summary.dsmlToolCallsRecovered ?? 0}${failure} reasoningPreview=${JSON.stringify(summary.reasoningPreview)}`
+                    );
+                  }
+                },
+                (progress) => {
+                  if (debug) {
+                    log17(
+                      `response progress: model=${route.modelId} elapsedMs=${progress.elapsedMs} reasoningChars=${progress.reasoningChars} textChars=${progress.textChars} toolCalls=${progress.toolCallCount} reasoningTail=${JSON.stringify(progress.reasoningTail)}`
+                    );
+                  }
                 }
-              }, (progress) => {
-                if (debug) {
-                  log17(`response progress: model=${route.modelId} elapsedMs=${progress.elapsedMs} reasoningChars=${progress.reasoningChars} textChars=${progress.textChars} toolCalls=${progress.toolCallCount} reasoningTail=${JSON.stringify(progress.reasoningTail)}`);
-                }
-              });
+              );
             } catch (err) {
               const msg = formatUpstreamError(err);
               const status = upstreamHttpStatus(err);
@@ -4475,7 +4736,9 @@ async function startCodexProxy(routes, options = {}) {
       if (requireAuth) {
         const inboundKey = extractApiKey(req);
         if (!inboundKey || inboundKey !== PROXY_PLACEHOLDER_KEY) {
-          socket.write("HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+          socket.write(
+            "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+          );
           socket.destroy();
           return;
         }
@@ -4522,11 +4785,16 @@ Sec-WebSocket-Accept: ${wsAcceptKey(clientKey)}\r
           try {
             body = JSON.parse(frame.text);
           } catch {
-            if (debug) log17(`WS Error: Invalid JSON body: rawBody=${JSON.stringify(frame.text.slice(0, 2e3))}`);
-            sendWsEvent(`event: error
+            if (debug)
+              log17(
+                `WS Error: Invalid JSON body: rawBody=${JSON.stringify(frame.text.slice(0, 2e3))}`
+              );
+            sendWsEvent(
+              `event: error
 data: ${JSON.stringify({ error: { message: "Invalid JSON", type: "invalid_request_error" } })}
 
-`);
+`
+            );
             closeSocket();
             return;
           }
@@ -4534,8 +4802,12 @@ data: ${JSON.stringify({ error: { message: "Invalid JSON", type: "invalid_reques
             const prevId = body.previous_response_id ?? null;
             const inputItems = Array.isArray(body.input) ? body.input.length : typeof body.input === "string" ? 1 : 0;
             const tools = Array.isArray(body.tools) ? body.tools : [];
-            const toolNames = tools.map((t) => t && typeof t === "object" && "name" in t ? t.name : "?").join(",");
-            log17(`WS request: model=${String(body.model ?? "")} previous_response_id=${prevId ?? "(none)"} input_items=${inputItems} body_bytes=${frame.text.length} tools=[${toolNames || "none"}]`);
+            const toolNames = tools.map(
+              (t) => t && typeof t === "object" && "name" in t ? t.name : "?"
+            ).join(",");
+            log17(
+              `WS request: model=${String(body.model ?? "")} previous_response_id=${prevId ?? "(none)"} input_items=${inputItems} body_bytes=${frame.text.length} tools=[${toolNames || "none"}]`
+            );
           }
           const modelId = String(body.model ?? "");
           let resolved = resolveModel(routes, models, modelId);
@@ -4546,55 +4818,81 @@ data: ${JSON.stringify({ error: { message: "Invalid JSON", type: "invalid_reques
               if (debug) log17(`WS resolveModel fallback: requested="${modelId}" \u2192 ${fb.modelId}`);
               resolved = { route: fb, languageModel: fbLm };
             } else {
-              if (debug) log17(`WS resolveModel failed: requested="${modelId}" known=[${routes.map((r) => r.modelId).join(", ")}]`);
-              sendWsEvent(`event: error
+              if (debug)
+                log17(
+                  `WS resolveModel failed: requested="${modelId}" known=[${routes.map((r) => r.modelId).join(", ")}]`
+                );
+              sendWsEvent(
+                `event: error
 data: ${JSON.stringify({ error: { message: `Unknown model: ${modelId}` } })}
 
-`);
+`
+              );
               closeSocket();
               return;
             }
           }
           const { route, languageModel } = resolved;
           try {
-            let params = applyClaudeCodeOAuthIdentity(route, translateResponsesRequest(
-              body,
-              route.npm,
-              {
-                providerId: route.providerId,
-                apiBaseUrl: route.baseURL,
-                supportedParameters: route.supportedParameters,
-                reasoning: route.reasoning,
-                interleavedReasoningField: route.interleavedReasoningField,
-                upstreamModelId: route.upstreamModelId
-              },
-              { maxTools: maxToolsForNpm(route.npm) }
-            ));
+            let params = applyClaudeCodeOAuthIdentity(
+              route,
+              translateResponsesRequest(
+                body,
+                route.npm,
+                {
+                  providerId: route.providerId,
+                  apiBaseUrl: route.baseURL,
+                  supportedParameters: route.supportedParameters,
+                  reasoning: route.reasoning,
+                  interleavedReasoningField: route.interleavedReasoningField,
+                  upstreamModelId: route.upstreamModelId
+                },
+                { maxTools: maxToolsForNpm(route.npm) }
+              )
+            );
             if (route.contextWindow && route.contextWindow > 0) {
               const before = params.messages.length;
               const estimatedChars = estimateCodexRequestChars(params);
               const compaction = isLikelyCodexCompactionRequest(body);
-              if (debug) log17(`WS context check: model=${route.modelId} window=${route.contextWindow} chars=${estimatedChars} compaction=${compaction ? "yes" : "no"} messages=${before} tools=${params.tools ? Object.keys(params.tools).length : 0}`);
+              if (debug)
+                log17(
+                  `WS context check: model=${route.modelId} window=${route.contextWindow} chars=${estimatedChars} compaction=${compaction ? "yes" : "no"} messages=${before} tools=${params.tools ? Object.keys(params.tools).length : 0}`
+                );
               params = protectCodexCompactionParams(body, params, route.contextWindow);
               params.isCompaction = compaction;
               if (debug && params.messages.length < before) {
-                log17(`WS context trim: model=${route.modelId} window=${route.contextWindow} kept=${params.messages.length}/${before} messages tools=${params.tools ? Object.keys(params.tools).length : 0}`);
+                log17(
+                  `WS context trim: model=${route.modelId} window=${route.contextWindow} kept=${params.messages.length}/${before} messages tools=${params.tools ? Object.keys(params.tools).length : 0}`
+                );
               }
             }
             if (debug) {
               const effort = body.reasoning?.effort;
-              log17(`WS model=${route.modelId} effort=${effort ?? "(none)"} providerOptions=${JSON.stringify(params.providerOptions)}`);
+              log17(
+                `WS model=${route.modelId} effort=${effort ?? "(none)"} providerOptions=${JSON.stringify(params.providerOptions)}`
+              );
             }
-            await streamResponsesResponse(languageModel, params, modelId, sendWsEvent, (summary) => {
-              if (debug) {
-                const failure = `${summary.aborted ? " aborted=yes" : ""}${summary.errorMessage ? ` error=${JSON.stringify(summary.errorMessage)}` : ""}`;
-                log17(`WS response done: model=${route.modelId} reasoningChars=${summary.reasoningChars} textChars=${summary.textChars} toolCalls=${summary.toolCallCount} toolNames=[${summary.toolNames.join(",")}] loopDetected=${summary.loopDetected ?? "no"} dsmlRecovered=${summary.dsmlToolCallsRecovered ?? 0}${failure} reasoningPreview=${JSON.stringify(summary.reasoningPreview)}`);
+            await streamResponsesResponse(
+              languageModel,
+              params,
+              modelId,
+              sendWsEvent,
+              (summary) => {
+                if (debug) {
+                  const failure = `${summary.aborted ? " aborted=yes" : ""}${summary.errorMessage ? ` error=${JSON.stringify(summary.errorMessage)}` : ""}`;
+                  log17(
+                    `WS response done: model=${route.modelId} reasoningChars=${summary.reasoningChars} textChars=${summary.textChars} toolCalls=${summary.toolCallCount} toolNames=[${summary.toolNames.join(",")}] loopDetected=${summary.loopDetected ?? "no"} dsmlRecovered=${summary.dsmlToolCallsRecovered ?? 0}${failure} reasoningPreview=${JSON.stringify(summary.reasoningPreview)}`
+                  );
+                }
+              },
+              (progress) => {
+                if (debug) {
+                  log17(
+                    `WS response progress: model=${route.modelId} elapsedMs=${progress.elapsedMs} reasoningChars=${progress.reasoningChars} textChars=${progress.textChars} toolCalls=${progress.toolCallCount} reasoningTail=${JSON.stringify(progress.reasoningTail)}`
+                  );
+                }
               }
-            }, (progress) => {
-              if (debug) {
-                log17(`WS response progress: model=${route.modelId} elapsedMs=${progress.elapsedMs} reasoningChars=${progress.reasoningChars} textChars=${progress.textChars} toolCalls=${progress.toolCallCount} reasoningTail=${JSON.stringify(progress.reasoningTail)}`);
-              }
-            });
+            );
           } catch (err) {
             const msg = formatUpstreamError(err);
             const status = upstreamHttpStatus(err);
@@ -4706,7 +5004,6 @@ function codexProviderEnvKey(providerId) {
 }
 
 // src/apps/codex/session.ts
-init_paths();
 import {
   copyFileSync,
   existsSync as existsSync3,
@@ -4912,7 +5209,6 @@ import { execFileSync, execSync, spawn } from "child_process";
 import { existsSync as existsSync4 } from "fs";
 import { homedir as homedir4 } from "os";
 import { join as join4 } from "path";
-init_config();
 var isWindows = process.platform === "win32";
 var CODEX_CI_ENV_VARS = [
   "CI",
@@ -5029,7 +5325,9 @@ import pc6 from "picocolors";
 import * as p7 from "@clack/prompts";
 async function pickCodexProvider(providers, prefs, hasFavorites = false, initialProviderId, agentLabel = "Codex") {
   if (providers.length === 0 && !hasFavorites) return null;
-  const options = providers.map((lp) => providerSelectOption(lp));
+  const options = providers.map(
+    (lp) => providerSelectOption(lp)
+  );
   if (hasFavorites) {
     options.unshift({
       value: "__favorites__",
@@ -5037,7 +5335,13 @@ async function pickCodexProvider(providers, prefs, hasFavorites = false, initial
       hint: `${prefs.favoriteModels?.length ?? 0} saved favorites`
     });
   }
-  const initial = initialProviderId && options.some((o) => o.value === initialProviderId) ? initialProviderId : hasFavorites ? "__favorites__" : prefs.lastCodexProvider && options.some((o) => o.value === prefs.lastCodexProvider) ? prefs.lastCodexProvider : options[0].value;
+  const initial = initialProviderId && options.some((o) => o.value === initialProviderId) ? initialProviderId : (
+    // When favorites exist, default to the Favorites Catalog so the gateway
+    // exposes ALL saved models to the client picker — not just the last
+    // single-provider selection (remembered via lastCodexProvider), which
+    // would otherwise collapse the catalog to a single model.
+    hasFavorites ? "__favorites__" : prefs.lastCodexProvider && options.some((o) => o.value === prefs.lastCodexProvider) ? prefs.lastCodexProvider : options[0].value
+  );
   const chosen = await p7.select({
     message: `Which provider for ${agentLabel}?`,
     options,
@@ -5116,7 +5420,8 @@ function rejectManagedFlags(codexArgs) {
       if (takesValue.has(arg)) i++;
       continue;
     }
-    if (arg.startsWith("--profile=") || arg.startsWith("--model=") || arg.startsWith("--provider=") || arg.startsWith("-m=")) continue;
+    if (arg.startsWith("--profile=") || arg.startsWith("--model=") || arg.startsWith("--provider=") || arg.startsWith("-m="))
+      continue;
     out.push(arg);
   }
   return out;
@@ -5227,14 +5532,15 @@ async function resolveFavorite(fav, ctx) {
       apiKey: await resolveLocalProviderApiKey(found.provider) ?? "",
       authType: found.provider.authType,
       oauthAccountId: found.provider.oauthAccountId,
-      providerData: found.provider.providerData
+      providerData: found.provider.providerData,
+      headers: found.provider.headers
     };
   }
   return void 0;
 }
 async function buildFavoritesList(starting, favorites, ctx, max = 20, options = {}) {
-  const seen = /* @__PURE__ */ new Set();
   const out = [];
+  const seen = /* @__PURE__ */ new Set();
   if (starting) {
     seen.add(`${starting.providerId}::${starting.model.id}`);
     out.push(starting);
@@ -5362,11 +5668,7 @@ async function resolveCodexFavorites(activeProvider, selectedModel, compatible, 
     { providerId: activeProvider.id, modelId: selectedModel.id },
     ctx
   );
-  const { resolved, droppedFavorites } = await buildFavoritesList(
-    startingResolved,
-    favorites,
-    ctx
-  );
+  const { resolved, droppedFavorites } = await buildFavoritesList(startingResolved, favorites, ctx);
   if (droppedFavorites.length > 0) {
     p8.log.warn(
       `Skipped ${droppedFavorites.length} stale/unauthorized favorite(s): ${droppedFavorites.map((f) => `${f.providerId}:${f.modelId}`).join(", ")}`
@@ -5403,10 +5705,7 @@ function buildCloudCodeProxyRoute(model, apiKey, providerData) {
   };
 }
 function buildOAuthAnthropicProxyRoute(model, apiKey, providerId, providerData) {
-  const aliasId = claudeCodeClientModelId(
-    aliasModelId(model.id, providerId),
-    model.contextWindow
-  );
+  const aliasId = claudeCodeClientModelId(aliasModelId(model.id, providerId), model.contextWindow);
   return {
     aliasId,
     realModelId: model.upstreamModelId || model.id,
@@ -5425,12 +5724,19 @@ function buildOAuthAnthropicProxyRoute(model, apiKey, providerId, providerData) 
 async function partitionAndStartCloudCodeBackend(items, toOutput, trace) {
   if (items.length === 0) return { backendItems: [], backend: null };
   const proxyRoutes = items.map(
-    (item) => item.model.modelFormat === "cloud-code" ? buildCloudCodeProxyRoute(item.model, item.apiKey, item.providerData ?? {}) : buildOAuthAnthropicProxyRoute(item.model, item.apiKey, item.providerId, item.providerData ?? {})
+    (item) => item.model.modelFormat === "cloud-code" ? buildCloudCodeProxyRoute(item.model, item.apiKey, item.providerData ?? {}) : buildOAuthAnthropicProxyRoute(
+      item.model,
+      item.apiKey,
+      item.providerId,
+      item.providerData ?? {}
+    )
   );
   const backend = await startCloudCodeCatalogBackend(proxyRoutes, proxyRoutes[0].aliasId, trace);
   return {
     backend,
-    backendItems: proxyRoutes.map((proxyRoute, index) => toOutput(proxyRoute, backend, items[index]))
+    backendItems: proxyRoutes.map(
+      (proxyRoute, index) => toOutput(proxyRoute, backend, items[index])
+    )
   };
 }
 async function buildSingleModelCloudCodeRoute(model, apiKey, providerId, providerData, trace) {
@@ -5513,12 +5819,15 @@ async function writeLaunchArtifacts(route, selectedModel, providerName, proxyPor
     reasoning: route.reasoning,
     interleavedReasoningField: route.interleavedReasoningField
   });
-  writeOverlayFile(profilePath, buildCodexProfileToml({
-    route,
-    proxyPort,
-    catalogPath,
-    modelReasoningEffort: caps.defaultLevel || void 0
-  }));
+  writeOverlayFile(
+    profilePath,
+    buildCodexProfileToml({
+      route,
+      proxyPort,
+      catalogPath,
+      modelReasoningEffort: caps.defaultLevel || void 0
+    })
+  );
   return { profilePath, catalogPath };
 }
 async function writeFavoritesLaunchArtifacts(resolved, starting, proxyPort) {
@@ -5535,12 +5844,15 @@ async function writeFavoritesLaunchArtifacts(resolved, starting, proxyPort) {
     upstreamModelId: model.upstreamModelId || model.id,
     apiKey: ""
   };
-  writeOverlayFile(profilePath, buildCodexProfileToml({
-    route: dummyRoute,
-    proxyPort,
-    catalogPath,
-    modelReasoningEffort: defaultReasoningEffortForFavorite(starting)
-  }));
+  writeOverlayFile(
+    profilePath,
+    buildCodexProfileToml({
+      route: dummyRoute,
+      proxyPort,
+      catalogPath,
+      modelReasoningEffort: defaultReasoningEffortForFavorite(starting)
+    })
+  );
   return { profilePath, catalogPath };
 }
 function printCodexCleanupReminder(hadProxy) {
@@ -5618,19 +5930,24 @@ async function runCodexVertexLaunch(passthroughArgs, trace) {
   const debugLogPath = getCodexProxyDebugLogPath();
   let proxyHandle = null;
   try {
-    p9.log.info(`Vertex AI \xB7 ${selectedEntry.display_name} \u2014 project: ${config.project} / location: ${config.location}`);
+    p9.log.info(
+      `Vertex AI \xB7 ${selectedEntry.display_name} \u2014 project: ${config.project} / location: ${config.location}`
+    );
     proxyHandle = await startCodexProxy(allRoutes, { debug: trace });
     const proxyPort = proxyHandle.port;
     const catalogPath = getCatalogOutputPath("vertex");
     writeOverlayFile(catalogPath, serializeCatalog(buildCatalogFile(allModels, "Vertex AI")));
     const profilePath = getProfileOutputPath();
     const caps = getReasoningCapabilities(VERTEX_ANTHROPIC_NPM, selectedEntry.id);
-    writeOverlayFile(profilePath, buildCodexProfileToml({
-      route: startingRoute,
-      proxyPort,
-      catalogPath,
-      modelReasoningEffort: caps.defaultLevel || void 0
-    }));
+    writeOverlayFile(
+      profilePath,
+      buildCodexProfileToml({
+        route: startingRoute,
+        proxyPort,
+        catalogPath,
+        modelReasoningEffort: caps.defaultLevel || void 0
+      })
+    );
     writeSessionLock({
       pid: process.pid,
       startedAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -5692,7 +6009,9 @@ async function runCodexCommand(codexArgs, trace = false, launch = {}) {
           console.error(pc8.red("anygate codex --vertex requires an interactive terminal."));
           return 1;
         }
-        console.error(pc8.yellow(`Another anygate codex session may be running (pid ${sessionCheck.lock.pid}).`));
+        console.error(
+          pc8.yellow(`Another anygate codex session may be running (pid ${sessionCheck.lock.pid}).`)
+        );
         console.error("Run anygate codex --restore to clean up, or wait for it to finish.");
         return 1;
       }
@@ -5717,12 +6036,16 @@ Error: ${launchPlan.error}
     const sessionCheck = checkSessionLock(isTty || allowNonTty);
     if (!sessionCheck.ok) {
       if (sessionCheck.reason === "non_tty") {
-        console.error(pc8.red(
-          "anygate codex requires an interactive terminal (or use --provider and --model for non-interactive launch)."
-        ));
+        console.error(
+          pc8.red(
+            "anygate codex requires an interactive terminal (or use --provider and --model for non-interactive launch)."
+          )
+        );
         return 1;
       }
-      console.error(pc8.yellow(`Another anygate codex session may be running (pid ${sessionCheck.lock.pid}).`));
+      console.error(
+        pc8.yellow(`Another anygate codex session may be running (pid ${sessionCheck.lock.pid}).`)
+      );
       console.error("Run anygate codex --restore to clean up, or wait for it to finish.");
       return 1;
     }
@@ -5762,7 +6085,9 @@ Error: ${launchPlan.error}
   if (compatible.length === 0) {
     if (!configOnly) {
       p9.log.warn("No Codex-compatible providers in your registry.");
-      p9.log.info("Add a provider with anygate providers add, or sign in with anygate providers auth openai.");
+      p9.log.info(
+        "Add a provider with anygate providers add, or sign in with anygate providers auth openai."
+      );
     }
     return 0;
   }
@@ -5792,7 +6117,12 @@ Error: ${launchPlan.error}
   } else if (!configOnly) {
     let currentInitialProvider = prefs.lastCodexProvider && compatible.some((o) => o.id === prefs.lastCodexProvider) ? prefs.lastCodexProvider : compatible[0].id;
     while (true) {
-      const pickedProvider = await pickCodexProvider(compatible, prefs, favoritesActive, currentInitialProvider);
+      const pickedProvider = await pickCodexProvider(
+        compatible,
+        prefs,
+        favoritesActive,
+        currentInitialProvider
+      );
       if (!pickedProvider) return 0;
       if (pickedProvider === "__favorites__") {
         const favoritePick = await pickFavoriteStartingModel(
@@ -5907,21 +6237,26 @@ Error: ${launchPlan.error}
         trace
       );
       cloudCodeBackend = backend;
-      proxyHandle = await startCodexProxy([{
-        modelId: cloudRoute.aliasId,
-        npm: "@ai-sdk/anthropic",
-        apiKey: cloudCodeBackend.token,
-        baseURL: `http://127.0.0.1:${cloudCodeBackend.port}`,
-        upstreamModelId: cloudRoute.aliasId,
-        providerId: route.providerId,
-        authType: route.authType,
-        oauthAccountId: route.oauthAccountId,
-        providerData,
-        contextWindow: route.contextWindow,
-        supportedParameters: route.supportedParameters,
-        reasoning: route.reasoning,
-        interleavedReasoningField: route.interleavedReasoningField
-      }], { debug: trace });
+      proxyHandle = await startCodexProxy(
+        [
+          {
+            modelId: cloudRoute.aliasId,
+            npm: "@ai-sdk/anthropic",
+            apiKey: cloudCodeBackend.token,
+            baseURL: `http://127.0.0.1:${cloudCodeBackend.port}`,
+            upstreamModelId: cloudRoute.aliasId,
+            providerId: route.providerId,
+            authType: route.authType,
+            oauthAccountId: route.oauthAccountId,
+            providerData,
+            contextWindow: route.contextWindow,
+            supportedParameters: route.supportedParameters,
+            reasoning: route.reasoning,
+            interleavedReasoningField: route.interleavedReasoningField
+          }
+        ],
+        { debug: trace }
+      );
       proxyPort = proxyHandle.port;
     } else if (route.authType === "oauth" && selectedModel.modelFormat === "anthropic") {
       const providerData = activeProvider.providerData ?? {};
@@ -5933,38 +6268,48 @@ Error: ${launchPlan.error}
         trace
       );
       cloudCodeBackend = backend;
-      proxyHandle = await startCodexProxy([{
-        modelId: oauthRoute.aliasId,
-        npm: "@ai-sdk/anthropic",
-        apiKey: cloudCodeBackend.token,
-        baseURL: `http://127.0.0.1:${cloudCodeBackend.port}`,
-        upstreamModelId: oauthRoute.aliasId,
-        providerId: route.providerId,
-        authType: route.authType,
-        oauthAccountId: route.oauthAccountId,
-        providerData,
-        contextWindow: route.contextWindow,
-        supportedParameters: route.supportedParameters,
-        reasoning: route.reasoning,
-        interleavedReasoningField: route.interleavedReasoningField
-      }], { debug: trace });
+      proxyHandle = await startCodexProxy(
+        [
+          {
+            modelId: oauthRoute.aliasId,
+            npm: "@ai-sdk/anthropic",
+            apiKey: cloudCodeBackend.token,
+            baseURL: `http://127.0.0.1:${cloudCodeBackend.port}`,
+            upstreamModelId: oauthRoute.aliasId,
+            providerId: route.providerId,
+            authType: route.authType,
+            oauthAccountId: route.oauthAccountId,
+            providerData,
+            contextWindow: route.contextWindow,
+            supportedParameters: route.supportedParameters,
+            reasoning: route.reasoning,
+            interleavedReasoningField: route.interleavedReasoningField
+          }
+        ],
+        { debug: trace }
+      );
       proxyPort = proxyHandle.port;
     } else if (route.tier === "proxy") {
-      proxyHandle = await startCodexProxy([{
-        modelId: route.modelId,
-        npm: route.npm,
-        apiKey: route.apiKey,
-        baseURL: route.baseURL,
-        upstreamModelId: route.upstreamModelId,
-        providerId: route.providerId,
-        authType: route.authType,
-        oauthAccountId: route.oauthAccountId,
-        providerData: route.providerData,
-        supportedParameters: route.supportedParameters,
-        reasoning: route.reasoning,
-        interleavedReasoningField: route.interleavedReasoningField,
-        headers: route.headers
-      }], { debug: trace });
+      proxyHandle = await startCodexProxy(
+        [
+          {
+            modelId: route.modelId,
+            npm: route.npm,
+            apiKey: route.apiKey,
+            baseURL: route.baseURL,
+            upstreamModelId: route.upstreamModelId,
+            providerId: route.providerId,
+            authType: route.authType,
+            oauthAccountId: route.oauthAccountId,
+            providerData: route.providerData,
+            supportedParameters: route.supportedParameters,
+            reasoning: route.reasoning,
+            interleavedReasoningField: route.interleavedReasoningField,
+            headers: route.headers
+          }
+        ],
+        { debug: trace }
+      );
       proxyPort = proxyHandle.port;
     }
     const startingFavorite = resolvedFavorites.find(
@@ -5985,7 +6330,9 @@ Error: ${launchPlan.error}
       console.log(pc8.bold(pc8.cyan("  CONFIG PREVIEW \u2014 anygate codex")));
       console.log("");
       if (favoritesActive && resolvedFavorites.length > 0) {
-        console.log(`  ${pc8.bold("Mode:")}     Favorites Catalog (${resolvedFavorites.length} model${resolvedFavorites.length !== 1 ? "s" : ""})`);
+        console.log(
+          `  ${pc8.bold("Mode:")}     Favorites Catalog (${resolvedFavorites.length} model${resolvedFavorites.length !== 1 ? "s" : ""})`
+        );
         console.log("");
         console.log(`  ${pc8.bold("Models:")}`);
         for (const r of resolvedFavorites) {
@@ -6053,7 +6400,7 @@ Error: ${launchPlan.error}
 // src/cli/codex.ts
 async function handleCodexCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-IECYPHO4.js");
+    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
     console.log(VERSION2);
     return 0;
   }
@@ -6071,7 +6418,6 @@ async function handleCodexCommand(parsed) {
 // src/apps/codex/app.ts
 import pc9 from "picocolors";
 import * as p10 from "@clack/prompts";
-init_config();
 
 // src/apps/codex/app-provider-routes.ts
 function codexRouteToProxyRoute(provider, model, apiKey) {
@@ -6312,7 +6658,9 @@ function applyAppConfigPatch(spec, configPath = getCodexConfigPath()) {
   try {
     existing = parseCodexConfig(existingText);
   } catch (err) {
-    throw new Error(`Invalid existing Codex config at ${configPath}: ${err instanceof Error ? err.message : err}`);
+    throw new Error(
+      `Invalid existing Codex config at ${configPath}: ${err instanceof Error ? err.message : err}`
+    );
   }
   const merged = mergeAppConfig(existing, spec);
   const text4 = `${stringify(merged)}
@@ -6350,9 +6698,24 @@ function restoreConfigFromState(state, configPath = getCodexConfigPath()) {
   if ("hadOpenAIBaseUrl" in state) {
     applyRestoreKey(config, "openai_base_url", Boolean(state.hadOpenAIBaseUrl), state.openAIBaseUrl);
   }
-  applyRestoreKey(config, "model_reasoning_effort", state.hadModelReasoningEffort, state.modelReasoningEffort);
-  applyRestoreNumber(config, "model_context_window", state.hadModelContextWindow ?? false, state.modelContextWindow);
-  applyRestoreNumber(config, "model_auto_compact_token_limit", state.hadModelAutoCompactTokenLimit ?? false, state.modelAutoCompactTokenLimit);
+  applyRestoreKey(
+    config,
+    "model_reasoning_effort",
+    state.hadModelReasoningEffort,
+    state.modelReasoningEffort
+  );
+  applyRestoreNumber(
+    config,
+    "model_context_window",
+    state.hadModelContextWindow ?? false,
+    state.modelContextWindow
+  );
+  applyRestoreNumber(
+    config,
+    "model_auto_compact_token_limit",
+    state.hadModelAutoCompactTokenLimit ?? false,
+    state.modelAutoCompactTokenLimit
+  );
   const sidecar = getCodexAppSidecarProfilePath();
   if (existsSync5(sidecar)) {
     try {
@@ -6379,14 +6742,7 @@ function previewAppConfigToml(spec) {
 }
 
 // src/apps/codex/app-session.ts
-import {
-  copyFileSync as copyFileSync2,
-  existsSync as existsSync6,
-  mkdirSync as mkdirSync4,
-  readdirSync as readdirSync2,
-  readFileSync as readFileSync5,
-  rmSync as rmSync3
-} from "fs";
+import { copyFileSync as copyFileSync2, existsSync as existsSync6, mkdirSync as mkdirSync4, readdirSync as readdirSync2, readFileSync as readFileSync5, rmSync as rmSync3 } from "fs";
 import { basename as basename2, join as join6 } from "path";
 function getAppSessionLockPath(env = process.env) {
   return join6(getAnygateICodexDir(env), "session-app.json");
@@ -6697,7 +7053,9 @@ async function runCodexAppVertexLaunch(configOnly, trace = false) {
     console.log(`  ${pc9.bold("Project:")} ${config.project}`);
     console.log(`  ${pc9.bold("Location:")} ${config.location}`);
     console.log(`  ${pc9.bold("Model:")}    ${selectedEntry.display_name}`);
-    console.log(`  ${pc9.bold("Catalog:")} ${vertexModels.length} model${vertexModels.length !== 1 ? "s" : ""} available`);
+    console.log(
+      `  ${pc9.bold("Catalog:")} ${vertexModels.length} model${vertexModels.length !== 1 ? "s" : ""} available`
+    );
     console.log("");
     console.log(`  ${pc9.bold("Catalog file:")}`);
     console.log(`    ${pc9.dim(shortenPath(catalogPath))}`);
@@ -6743,7 +7101,9 @@ async function runCodexAppVertexLaunch(configOnly, trace = false) {
       proxyPort
     });
     sessionActive = true;
-    p10.log.info(`Vertex AI \xB7 ${selectedEntry.display_name} \u2014 project: ${config.project} / location: ${config.location}`);
+    p10.log.info(
+      `Vertex AI \xB7 ${selectedEntry.display_name} \u2014 project: ${config.project} / location: ${config.location}`
+    );
     logProxy(proxyPort);
     logActiveModel(selectedEntry.display_name, selectedEntry.id);
     try {
@@ -6803,8 +7163,14 @@ async function runCodexAppCommand(args, opts = {}) {
         console.error(pc9.red("anygate codex-app requires an interactive terminal."));
         return 1;
       }
-      console.error(pc9.yellow(`Another anygate codex-app session may be running (pid ${sessionCheck.lock.pid}).`));
-      console.error("Stop it with Ctrl+C in that terminal, or run anygate codex-app --restore after it exits.");
+      console.error(
+        pc9.yellow(
+          `Another anygate codex-app session may be running (pid ${sessionCheck.lock.pid}).`
+        )
+      );
+      console.error(
+        "Stop it with Ctrl+C in that terminal, or run anygate codex-app --restore after it exits."
+      );
       return 1;
     }
   }
@@ -6878,7 +7244,12 @@ async function runCodexAppCommand(args, opts = {}) {
     } else {
       let currentInitialProvider = prefs.lastCodexProvider && compatible.some((o) => o.id === prefs.lastCodexProvider) ? prefs.lastCodexProvider : compatible[0].id;
       while (true) {
-        const pickedProvider = await pickCodexProvider(compatible, prefs, favoritesActive, currentInitialProvider);
+        const pickedProvider = await pickCodexProvider(
+          compatible,
+          prefs,
+          favoritesActive,
+          currentInitialProvider
+        );
         if (!pickedProvider) return 0;
         if (pickedProvider === "__favorites__") {
           const favoritePick = await pickFavoriteStartingModel(
@@ -6925,18 +7296,19 @@ async function runCodexAppCommand(args, opts = {}) {
   let resolvedFavorites = [];
   let providersById = /* @__PURE__ */ new Map();
   if (favoritesActive) {
-    const res = await resolveCodexFavorites(activeProvider, selectedModel, compatible, favorites, "codex-app");
+    const res = await resolveCodexFavorites(
+      activeProvider,
+      selectedModel,
+      compatible,
+      favorites,
+      "codex-app"
+    );
     resolvedFavorites = res.resolvedFavorites;
     providersById = res.providersById;
   }
   if (!configOnly) {
     const modelLabel = formatCodexModelLabel(selectedModel);
-    const confirmed = useFavoritesCatalog || await confirmCodexLaunch(
-      activeProvider.name,
-      modelLabel,
-      selectedModel.id,
-      appRoute
-    );
+    const confirmed = useFavoritesCatalog || await confirmCodexLaunch(activeProvider.name, modelLabel, selectedModel.id, appRoute);
     if (!confirmed) {
       cloudCodeBackend?.handle.close();
       return 0;
@@ -6963,7 +7335,9 @@ async function runCodexAppCommand(args, opts = {}) {
       console.log(pc9.bold(pc9.cyan("  CONFIG PREVIEW \u2014 anygate codex-app")));
       console.log("");
       if (favoritesActive) {
-        console.log(`  ${pc9.bold("Mode:")}     Favorites Catalog (${resolvedFavorites.length} model${resolvedFavorites.length !== 1 ? "s" : ""})`);
+        console.log(
+          `  ${pc9.bold("Mode:")}     Favorites Catalog (${resolvedFavorites.length} model${resolvedFavorites.length !== 1 ? "s" : ""})`
+        );
         console.log("");
         console.log(`  ${pc9.bold("Models:")}`);
         for (const r of resolvedFavorites) {
@@ -6973,7 +7347,9 @@ async function runCodexAppCommand(args, opts = {}) {
         console.log(`  ${pc9.bold("Mode:")}     Single model`);
         console.log(`  ${pc9.bold("Provider:")} ${activeProvider.name}`);
         console.log(`  ${pc9.bold("Model:")}    ${formatCodexModelLabel(selectedModel)}`);
-        console.log(`  ${pc9.bold("Catalog:")}  ${routable.length} model${routable.length !== 1 ? "s" : ""} available`);
+        console.log(
+          `  ${pc9.bold("Catalog:")}  ${routable.length} model${routable.length !== 1 ? "s" : ""} available`
+        );
       }
       console.log("");
       console.log(`  ${pc9.bold("config.toml patch preview:")}`);
@@ -7012,7 +7388,11 @@ async function runCodexAppCommand(args, opts = {}) {
           return { ...route2, oauthAccountId: provider?.oauthAccountId, providerData };
         });
         const startingAlias = backendRoutes[0].aliasId;
-        cloudCodeBackendFav = await startCloudCodeCatalogBackend(backendRoutes, startingAlias, trace);
+        cloudCodeBackendFav = await startCloudCodeCatalogBackend(
+          backendRoutes,
+          startingAlias,
+          trace
+        );
         backendCodexRoutes = backendRoutes.map((cr) => ({
           modelId: cr.aliasId,
           npm: "@ai-sdk/anthropic",
@@ -7027,19 +7407,19 @@ async function runCodexAppCommand(args, opts = {}) {
         }));
       }
       const regularRoutes = buildCodexProxyRoutesFromResolved(regularResolved, providersById);
-      proxyHandle = await startCodexProxy(
-        [...backendCodexRoutes, ...regularRoutes],
-        { requireAuth: false, debug: trace }
-      );
+      proxyHandle = await startCodexProxy([...backendCodexRoutes, ...regularRoutes], {
+        requireAuth: false,
+        debug: trace
+      });
       proxyPort = proxyHandle.port;
     } else {
       if (!appProviderRoutes) {
         throw new Error("Codex App provider routes were not initialized");
       }
-      proxyHandle = await startCodexProxy(
-        appProviderRoutes.routes,
-        { requireAuth: false, debug: trace }
-      );
+      proxyHandle = await startCodexProxy(appProviderRoutes.routes, {
+        requireAuth: false,
+        debug: trace
+      });
       proxyPort = proxyHandle.port;
     }
     const modelLabel = formatCodexModelLabel(selectedModel);
@@ -7064,11 +7444,17 @@ async function runCodexAppCommand(args, opts = {}) {
     });
     sessionActive = true;
     const prevRecent = prefs.recentModelsByProvider?.[activeProvider.id] ?? [];
-    const updatedRecent = [selectedModel.id, ...prevRecent.filter((id) => id !== selectedModel.id)].slice(0, 3);
+    const updatedRecent = [
+      selectedModel.id,
+      ...prevRecent.filter((id) => id !== selectedModel.id)
+    ].slice(0, 3);
     savePreferences({
       lastCodexProvider: activeProvider.id,
       lastCodexModel: selectedModel.id,
-      recentModelsByProvider: { ...prefs.recentModelsByProvider, [activeProvider.id]: updatedRecent }
+      recentModelsByProvider: {
+        ...prefs.recentModelsByProvider,
+        [activeProvider.id]: updatedRecent
+      }
     });
     logProxy(proxyPort);
     logActiveModel(modelLabel, selectedModel.id);
@@ -7109,7 +7495,7 @@ async function runCodexAppCommand(args, opts = {}) {
 // src/cli/codex-app.ts
 async function handleCodexAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-IECYPHO4.js");
+    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
     console.log(VERSION2);
     return 0;
   }
@@ -7143,7 +7529,6 @@ This command launches the ChatGPT Desktop app with anygate's provider registry.
 // src/apps/claude/desktop.ts
 import pc10 from "picocolors";
 import * as p11 from "@clack/prompts";
-init_config();
 
 // src/apps/claude/desktop-app.ts
 import { existsSync as existsSync7, readFileSync as readFileSync6, writeFileSync as writeFileSync4, mkdirSync as mkdirSync5 } from "fs";
@@ -7444,7 +7829,13 @@ async function runClaudeAppCommand(args, boot) {
   } else if (useFavoritesCatalog && hasFavorites) {
     useFavorites = true;
   } else {
-    const pickedProvider = await pickCodexProvider(compatible, prefs, hasFavorites, void 0, "Claude");
+    const pickedProvider = await pickCodexProvider(
+      compatible,
+      prefs,
+      hasFavorites,
+      void 0,
+      "Claude"
+    );
     if (!pickedProvider) return 0;
     if (pickedProvider === "__favorites__") {
       useFavorites = true;
@@ -7470,7 +7861,9 @@ async function runClaudeAppCommand(args, boot) {
     const antigravityProvider = catalog.find((lp) => lp.id === "antigravity");
     const cloudCodeFavoriteModels = favorites.map((fav) => {
       if (fav.providerId !== "antigravity") return null;
-      const model = antigravityProvider?.models.find((m) => m.id === fav.modelId);
+      const model = antigravityProvider?.models.find(
+        (m) => m.id === fav.modelId
+      );
       return model?.modelFormat === "cloud-code" ? model : null;
     }).filter((m) => m !== null);
     const regularFavorites = favorites.filter(
@@ -7488,21 +7881,23 @@ async function runClaudeAppCommand(args, boot) {
       const startingAlias = cloudRoutes[0].aliasId;
       cloudCodeFavBackend = await startCloudCodeCatalogBackend(cloudRoutes, startingAlias, trace);
       const favBackend = cloudCodeFavBackend;
-      cloudCodeServerModels = cloudCodeFavoriteModels.map((model) => modelToServerModelInfo(model, antigravityProvider, {
-        isFree: false,
-        providerId: "antigravity",
-        sourceBackend: "antigravity",
-        modelFormat: "anthropic",
-        cost: void 0,
-        baseUrl: `http://127.0.0.1:${favBackend.port}`,
-        completionsUrl: void 0,
-        npm: void 0,
-        apiBaseUrl: void 0,
-        apiKey: favBackend.token,
-        authType: void 0,
-        oauthAccountId: void 0,
-        headers: void 0
-      }));
+      cloudCodeServerModels = cloudCodeFavoriteModels.map(
+        (model) => modelToServerModelInfo(model, antigravityProvider, {
+          isFree: false,
+          providerId: "antigravity",
+          sourceBackend: "antigravity",
+          modelFormat: "anthropic",
+          cost: void 0,
+          baseUrl: `http://127.0.0.1:${favBackend.port}`,
+          completionsUrl: void 0,
+          npm: void 0,
+          apiBaseUrl: void 0,
+          apiKey: favBackend.token,
+          authType: void 0,
+          oauthAccountId: void 0,
+          headers: void 0
+        })
+      );
     }
     const regularLocalProviders = providersForTarget(catalog, "claude-app");
     const regularAllModels = regularLocalProviders.flatMap(
@@ -7521,17 +7916,19 @@ async function runClaudeAppCommand(args, boot) {
     const providerData = activeProvider.providerData ?? {};
     const cloudRoute = buildCloudCodeProxyRoute(selectedModel, activeProvider.apiKey, providerData);
     cloudCodeBackend = await startCloudCodeCatalogBackend([cloudRoute], cloudRoute.aliasId, trace);
-    serverModels = [modelToServerModelInfo(selectedModel, activeProvider, {
-      modelFormat: "anthropic",
-      baseUrl: `http://127.0.0.1:${cloudCodeBackend.port}`,
-      completionsUrl: void 0,
-      npm: void 0,
-      apiBaseUrl: void 0,
-      apiKey: cloudCodeBackend.token,
-      authType: void 0,
-      oauthAccountId: void 0,
-      headers: void 0
-    })];
+    serverModels = [
+      modelToServerModelInfo(selectedModel, activeProvider, {
+        modelFormat: "anthropic",
+        baseUrl: `http://127.0.0.1:${cloudCodeBackend.port}`,
+        completionsUrl: void 0,
+        npm: void 0,
+        apiBaseUrl: void 0,
+        apiKey: cloudCodeBackend.token,
+        authType: void 0,
+        oauthAccountId: void 0,
+        headers: void 0
+      })
+    ];
   } else {
     serverModels = [modelToServerModelInfo(selectedModel, activeProvider)];
   }
@@ -7562,11 +7959,17 @@ async function runClaudeAppCommand(args, boot) {
     setupExitCleanup(uuid);
     if (!useFavorites) {
       const prevRecent = prefs.recentModelsByProvider?.[activeProvider.id] ?? [];
-      const updatedRecent = [selectedModel.id, ...prevRecent.filter((id) => id !== selectedModel.id)].slice(0, 3);
+      const updatedRecent = [
+        selectedModel.id,
+        ...prevRecent.filter((id) => id !== selectedModel.id)
+      ].slice(0, 3);
       savePreferences({
         lastCodexProvider: activeProvider.id,
         lastCodexModel: selectedModel.id,
-        recentModelsByProvider: { ...prefs.recentModelsByProvider, [activeProvider.id]: updatedRecent }
+        recentModelsByProvider: {
+          ...prefs.recentModelsByProvider,
+          [activeProvider.id]: updatedRecent
+        }
       });
     }
     console.log(`
@@ -7612,7 +8015,7 @@ ${pc10.bold("Claude Desktop 3P Mode Active")}`);
 // src/cli/claude-app.ts
 async function handleClaudeAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-IECYPHO4.js");
+    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
     console.log(VERSION2);
     return 0;
   }
@@ -7644,10 +8047,8 @@ This command launches the Claude Desktop app with anygate's provider registry.
 // src/apps/gemini/cli.ts
 import pc11 from "picocolors";
 import * as p13 from "@clack/prompts";
-init_config();
 
 // src/apps/gemini/launch.ts
-init_config();
 import { spawn as spawn2 } from "child_process";
 import { existsSync as existsSync9, mkdirSync as mkdirSync6, mkdtempSync, rmSync as rmSync5, writeFileSync as writeFileSync6 } from "fs";
 import { homedir as homedir6, tmpdir } from "os";
@@ -7737,7 +8138,9 @@ function launchGemini(geminiPath, modelId, env, extraArgs) {
 import * as p12 from "@clack/prompts";
 async function pickGeminiProvider(providers, prefs, hasFavorites = false, initialProviderId) {
   if (providers.length === 0 && !hasFavorites) return null;
-  const options = providers.map((lp) => providerSelectOption(lp));
+  const options = providers.map(
+    (lp) => providerSelectOption(lp)
+  );
   if (hasFavorites) {
     options.unshift({
       value: "__favorites__",
@@ -7854,7 +8257,8 @@ function rejectGeminiManagedFlags(geminiArgs) {
       if (takesValue.has(arg)) i++;
       continue;
     }
-    if (arg.startsWith("--model=") || arg.startsWith("--provider=") || arg.startsWith("-m=")) continue;
+    if (arg.startsWith("--model=") || arg.startsWith("--provider=") || arg.startsWith("-m="))
+      continue;
     out.push(arg);
   }
   return out;
@@ -7889,7 +8293,9 @@ function lookupGeminiRoute(routes, requestedModel, defaultRoute) {
   }
   const fallback = defaultRoute ?? routes[0];
   if (requestedModel !== fallback.aliasId) {
-    console.error(`[gemini-proxy] model '${requestedModel}' not in catalog \u2014 remapping to default route '${fallback.aliasId}' (upstream: ${fallback.realModelId})`);
+    console.error(
+      `[gemini-proxy] model '${requestedModel}' not in catalog \u2014 remapping to default route '${fallback.aliasId}' (upstream: ${fallback.realModelId})`
+    );
   }
   return fallback;
 }
@@ -8037,7 +8443,9 @@ async function startGeminiProxy(routes, debug = false) {
   const plog = debug ? makeTraceLogger(getGeminiProxyDebugLogPath()) : () => {
   };
   const onRejection = (reason) => {
-    plog(`Unhandled Rejection: ${reason instanceof Error ? reason.stack || reason.message : String(reason)}`);
+    plog(
+      `Unhandled Rejection: ${reason instanceof Error ? reason.stack || reason.message : String(reason)}`
+    );
   };
   const onException = (error) => {
     plog(`Uncaught Exception: ${error.stack || error.message}`);
@@ -8117,7 +8525,7 @@ ${rawBody}`);
         const modelCommand = parseModelCommand(lastUserTurn);
         if (modelCommand !== null) {
           if (modelCommand === "") {
-            const current = sessionRouteOverride ?? (lookupGeminiRoute(routes, requestedModel) ?? defaultRoute);
+            const current = sessionRouteOverride ?? lookupGeminiRoute(routes, requestedModel) ?? defaultRoute;
             const availableList = routes.map((r) => `  - ${r.aliasId} (${r.displayName})`).join("\n");
             const exampleId = routes.length > 1 ? routes[1].aliasId : routes[0]?.aliasId ?? "deepseek-v4";
             const text4 = `Current model: ${current.displayName} (${current.aliasId})
@@ -8134,16 +8542,25 @@ Example: .model ${exampleId}`;
           if (targetRoute) {
             sessionRouteOverride = targetRoute;
             plog(`.model switch: ${targetRoute.aliasId} (${targetRoute.realModelId})`);
-            sendMockGeminiResponse(res, `\u2705 Switched model to ${targetRoute.displayName} (${targetRoute.aliasId})`, isStream, targetRoute.aliasId);
+            sendMockGeminiResponse(
+              res,
+              `\u2705 Switched model to ${targetRoute.displayName} (${targetRoute.aliasId})`,
+              isStream,
+              targetRoute.aliasId
+            );
           } else {
             const available = routes.map((r) => r.aliasId).join(", ");
-            sendMockGeminiResponse(res, `\u274C Model '${modelCommand}' not found.
+            sendMockGeminiResponse(
+              res,
+              `\u274C Model '${modelCommand}' not found.
 
-Available: ${available}`, isStream);
+Available: ${available}`,
+              isStream
+            );
           }
           return;
         }
-        const route = sessionRouteOverride ?? (lookupGeminiRoute(routes, requestedModel) ?? defaultRoute);
+        const route = sessionRouteOverride ?? lookupGeminiRoute(routes, requestedModel) ?? defaultRoute;
         plog(`Route selected: ${route.aliasId} (upstream model: ${route.realModelId})`);
         body.contents = sanitizeModelSwitchTurns(body.contents || []);
         const languageModel = await getOrInitModel(route);
@@ -8155,7 +8572,12 @@ Available: ${available}`, isStream);
           params.providerOptions,
           deepMergeProviderOptions(
             thinkingProviderOptions(route.npm || "@ai-sdk/openai-compatible"),
-            effortProviderOptions(route.npm || "@ai-sdk/openai-compatible", "high", route.realModelId, route)
+            effortProviderOptions(
+              route.npm || "@ai-sdk/openai-compatible",
+              "high",
+              route.realModelId,
+              route
+            )
           )
         );
         plog(`Translated SDK params:
@@ -8164,7 +8586,7 @@ ${JSON.stringify(params, null, 2)}`);
           res.writeHead(200, {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
-            "Connection": "keep-alive"
+            Connection: "keep-alive"
           });
           plog("Starting streamText...");
           const { fullStream } = streamText2({
@@ -8179,10 +8601,12 @@ ${JSON.stringify(params, null, 2)}`);
             if (isThinking && (p18.type === "tool-input-start" || p18.type === "tool-call" || p18.type === "finish")) {
               isThinking = false;
               const chunk = {
-                candidates: [{ content: { role: "model", parts: [{ text: `
+                candidates: [
+                  { content: { role: "model", parts: [{ text: `
 </thinking>
 
-` }] } }],
+` }] } }
+                ],
                 modelVersion: route.aliasId
               };
               res.write(`data: ${JSON.stringify(chunk)}
@@ -8213,12 +8637,14 @@ ${JSON.stringify(params, null, 2)}`);
 ` + text4;
               }
               const chunk = {
-                candidates: [{
-                  content: {
-                    role: "model",
-                    parts: [{ text: text4 }]
+                candidates: [
+                  {
+                    content: {
+                      role: "model",
+                      parts: [{ text: text4 }]
+                    }
                   }
-                }],
+                ],
                 modelVersion: route.aliasId
               };
               const data = `data: ${JSON.stringify(chunk)}
@@ -8237,14 +8663,18 @@ ${JSON.stringify(params, null, 2)}`);
               const name = buf ? buf.name : p18.toolName;
               plog(`Streaming tool call: ${name} with args: ${JSON.stringify(args)}`);
               const chunk = {
-                candidates: [{
-                  content: {
-                    role: "model",
-                    parts: [{
-                      functionCall: { name, args }
-                    }]
+                candidates: [
+                  {
+                    content: {
+                      role: "model",
+                      parts: [
+                        {
+                          functionCall: { name, args }
+                        }
+                      ]
+                    }
                   }
-                }],
+                ],
                 modelVersion: route.aliasId
               };
               res.write(`data: ${JSON.stringify(chunk)}
@@ -8252,9 +8682,11 @@ ${JSON.stringify(params, null, 2)}`);
 `);
             } else if (p18.type === "finish") {
               const chunk = {
-                candidates: [{
-                  finishReason: mapFinishReason(p18.finishReason ?? "")
-                }],
+                candidates: [
+                  {
+                    finishReason: mapFinishReason(p18.finishReason ?? "")
+                  }
+                ],
                 usageMetadata: {
                   promptTokenCount: p18.totalUsage?.inputTokens || 0,
                   candidatesTokenCount: p18.totalUsage?.outputTokens || 0
@@ -8295,13 +8727,15 @@ ${result.reasoning}
             }
           }
           const response = {
-            candidates: [{
-              content: {
-                role: "model",
-                parts
-              },
-              finishReason: mapFinishReason(result.finishReason ?? "")
-            }],
+            candidates: [
+              {
+                content: {
+                  role: "model",
+                  parts
+                },
+                finishReason: mapFinishReason(result.finishReason ?? "")
+              }
+            ],
             usageMetadata: {
               promptTokenCount: result.usage?.inputTokens || 0,
               candidatesTokenCount: result.usage?.outputTokens || 0
@@ -8319,13 +8753,19 @@ ${JSON.stringify(response, null, 2)}`);
       res.writeHead(404);
       res.end("Not Found");
     } catch (err) {
-      plog(`Error handling request: ${err instanceof Error ? err.stack || err.message : String(err)}`);
+      plog(
+        `Error handling request: ${err instanceof Error ? err.stack || err.message : String(err)}`
+      );
       const errMsg = formatUpstreamError(err);
       if (debug) {
         console.error(`[Gemini Proxy] ${errMsg}`);
       }
       if (!res.headersSent) {
-        sendMockGeminiResponse(res, `\u26A0 ${errMsg}`, req.url?.includes("streamGenerateContent") ?? false);
+        sendMockGeminiResponse(
+          res,
+          `\u26A0 ${errMsg}`,
+          req.url?.includes("streamGenerateContent") ?? false
+        );
       } else {
         try {
           writeGeminiStreamText(res, `\u26A0 ${errMsg}`);
@@ -8412,28 +8852,34 @@ function sendMockGeminiResponse(res, text4, isStream, modelVersion) {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      "Connection": "keep-alive"
+      Connection: "keep-alive"
     });
     writeGeminiStreamText(res, text4, modelVersion);
     res.end();
   } else {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({
-      candidates: [{
-        content: { role: "model", parts: [{ text: text4 }] },
-        finishReason: "STOP"
-      }],
-      usageMetadata: { promptTokenCount: 0, candidatesTokenCount: 0 },
-      ...modelVersion ? { modelVersion } : {}
-    }));
+    res.end(
+      JSON.stringify({
+        candidates: [
+          {
+            content: { role: "model", parts: [{ text: text4 }] },
+            finishReason: "STOP"
+          }
+        ],
+        usageMetadata: { promptTokenCount: 0, candidatesTokenCount: 0 },
+        ...modelVersion ? { modelVersion } : {}
+      })
+    );
   }
 }
 function writeGeminiStreamText(res, text4, modelVersion) {
   const chunk = {
-    candidates: [{
-      content: { role: "model", parts: [{ text: text4 }] },
-      finishReason: "STOP"
-    }],
+    candidates: [
+      {
+        content: { role: "model", parts: [{ text: text4 }] },
+        finishReason: "STOP"
+      }
+    ],
     usageMetadata: { promptTokenCount: 0, candidatesTokenCount: 0 },
     ...modelVersion ? { modelVersion } : {}
   };
@@ -8602,7 +9048,9 @@ Error: ${launchPlan.error}
   const compatible = providersForTarget(providersForPicker(catalog), "gemini");
   if (compatible.length === 0) {
     p13.log.warn("No Gemini-compatible providers in your registry.");
-    p13.log.info("Add a provider with anygate providers add, or sign in with anygate providers auth openai.");
+    p13.log.info(
+      "Add a provider with anygate providers add, or sign in with anygate providers auth openai."
+    );
     return 0;
   }
   let activeProvider = compatible.find((lp) => lp.id === prefs.lastGeminiProvider) ?? compatible[0];
@@ -8611,7 +9059,6 @@ Error: ${launchPlan.error}
     p13.log.error(`Provider "${activeProvider.name}" has no models available.`);
     return 1;
   }
-  ;
   if (launchPlan.skip && launchPlan.target) {
     const resolved = findProviderAndModel(compatible, launchPlan.target);
     if (!resolved) {
@@ -8660,9 +9107,7 @@ Error: ${launchPlan.error}
   recordLaunchSelection("gemini", activeProvider.id, selectedModel.id, prefs);
   const launchApiKey = await resolveLocalProviderApiKey(activeProvider);
   if (!launchApiKey?.trim()) {
-    p13.log.error(
-      new CredentialUnavailableError(activeProvider.id).userMessage
-    );
+    p13.log.error(new CredentialUnavailableError(activeProvider.id).userMessage);
     return 1;
   }
   const providerRoutes = activeProvider.models.map((m) => ({
@@ -8785,7 +9230,7 @@ Error: ${launchPlan.error}
 // src/cli/gemini.ts
 async function handleGeminiCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-IECYPHO4.js");
+    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
     console.log(VERSION2);
     return 0;
   }
@@ -8800,7 +9245,6 @@ async function handleGeminiCommand(parsed) {
 }
 
 // src/apps/gemini/antigravity.ts
-init_config();
 import pc12 from "picocolors";
 import * as p14 from "@clack/prompts";
 import { appendFileSync as appendFileSync2 } from "fs";
@@ -9085,7 +9529,9 @@ function evaluateAgySwitchCompatibility(opts) {
   const shapeMatches = validation.warnings.length === 0 && validation.switchSlots.length > 0;
   const warnings = [];
   if (opts.versionReadError) {
-    warnings.push(`Could not read agy --version (${opts.versionReadError}); validating AGY fixture shape instead.`);
+    warnings.push(
+      `Could not read agy --version (${opts.versionReadError}); validating AGY fixture shape instead.`
+    );
   }
   if (opts.version && KNOWN_INCOMPATIBLE_AGY_VERSIONS.has(opts.version)) {
     return {
@@ -9109,9 +9555,13 @@ function evaluateAgySwitchCompatibility(opts) {
     };
   }
   if (opts.version && !KNOWN_COMPATIBLE_AGY_VERSIONS.has(opts.version)) {
-    warnings.push(`Unvalidated AGY version ${opts.version}; fixture shape matches, so multi-model switching remains enabled.`);
+    warnings.push(
+      `Unvalidated AGY version ${opts.version}; fixture shape matches, so multi-model switching remains enabled.`
+    );
   } else if (!opts.version && !opts.versionReadError) {
-    warnings.push("AGY version is unknown; fixture shape matches, so multi-model switching remains enabled.");
+    warnings.push(
+      "AGY version is unknown; fixture shape matches, so multi-model switching remains enabled."
+    );
   }
   return {
     mode: "multi-model",
@@ -9169,10 +9619,7 @@ function withCascadeCheckpointer(entry, maxTokenLimit = 128e3) {
 function applyRouteContextBounds(entry, route) {
   const maxTokenLimit = route.contextWindow ?? 128e3;
   const maxOutputTokens = Math.min(entry.maxOutputTokens ?? 65536, maxTokenLimit);
-  const checkpointTokenLimit = Math.min(
-    128e3,
-    Math.max(1, maxTokenLimit - maxOutputTokens)
-  );
+  const checkpointTokenLimit = Math.min(128e3, Math.max(1, maxTokenLimit - maxOutputTokens));
   entry.maxTokens = maxTokenLimit;
   entry.maxOutputTokens = maxOutputTokens;
   entry.supportsImages = route.inputTypes?.includes("image") ?? false;
@@ -9255,7 +9702,9 @@ function injectGatewayModels(fixture, routes, templateKey) {
   if (routes.length > 0) {
     result.models[GATEWAY_CASCADE_ANCHOR_ID] ??= structuredClone(template);
     result.models[GATEWAY_CASCADE_FALLBACK_ID] ??= structuredClone(GATEWAY_CASCADE_FALLBACK_ENTRY);
-    result.models[GATEWAY_CASCADE_INTENT_MODEL_ID] ??= structuredClone(GATEWAY_CASCADE_INTENT_MODEL_ENTRY);
+    result.models[GATEWAY_CASCADE_INTENT_MODEL_ID] ??= structuredClone(
+      GATEWAY_CASCADE_INTENT_MODEL_ENTRY
+    );
     if (!result.models[GATEWAY_CASCADE_PLAN_ANCHOR_ID]) {
       const planAnchor = withCascadeCheckpointer(structuredClone(template));
       planAnchor.model = GATEWAY_CASCADE_PLAN_MODEL;
@@ -9274,9 +9723,11 @@ function injectGatewayModels(fixture, routes, templateKey) {
     result.agentModelSorts = [
       {
         displayName: "Recommended",
-        groups: [{
-          modelIds: slots.map((slot) => slot.slotId)
-        }]
+        groups: [
+          {
+            modelIds: slots.map((slot) => slot.slotId)
+          }
+        ]
       }
     ];
     return result;
@@ -9321,6 +9772,7 @@ function buildAntigravityRoutes(resolvedFavorites, maxRoutes = MAX_MODEL_CATALOG
       ...fav.authType ? { authType: fav.authType } : {},
       ...fav.oauthAccountId ? { oauthAccountId: fav.oauthAccountId } : {},
       ...fav.providerData ? { providerData: fav.providerData } : {},
+      ...fav.headers ? { headers: fav.headers } : {},
       baseURL,
       contextWindow,
       inputTypes
@@ -10603,8 +11055,16 @@ async function startCloudCodeGateway(routes, opts = {}) {
             if (trace) log17(`[gateway]   active route: ${route.catalogId} via ${model}`);
           }
           if (isCloudCodeOAuthRoute(route)) {
-            handleCloudCodeForwardRequest(res, route, parsed, lowerUrl, log17).catch((err) => {
-              log17(`[gateway] cloud-code forward error: ${err instanceof Error ? err.stack || err.message : String(err)}`);
+            handleCloudCodeForwardRequest(
+              res,
+              route,
+              parsed,
+              lowerUrl,
+              log17
+            ).catch((err) => {
+              log17(
+                `[gateway] cloud-code forward error: ${err instanceof Error ? err.stack || err.message : String(err)}`
+              );
               if (!res.headersSent) {
                 respondJson(res, 500, { error: { code: 500, message: formatUpstreamError(err) } });
               } else if (!res.writableEnded) {
@@ -10616,7 +11076,11 @@ async function startCloudCodeGateway(routes, opts = {}) {
           const baseProviderOptions = providerOptionsCache.get(route.catalogId);
           const isStream = lowerUrl.includes("stream");
           const conversationKey = conversationKeyFromRequest(parsed);
-          const requestOptions = reasoningEchoOptionsForRoute(route, parsed, reasoningEchoesByConversation);
+          const requestOptions = reasoningEchoOptionsForRoute(
+            route,
+            parsed,
+            reasoningEchoesByConversation
+          );
           const rememberReasoning = (reasoning) => {
             if (!shouldEchoReasoningForRoute(route)) return;
             rememberReasoningEcho(reasoningEchoesByConversation, conversationKey, reasoning);
@@ -10626,7 +11090,9 @@ async function startCloudCodeGateway(routes, opts = {}) {
               requestOptions,
               onReasoningWithToolCall: rememberReasoning
             }).catch((err) => {
-              log17(`[gateway] stream error: ${err instanceof Error ? err.stack || err.message : String(err)}`);
+              log17(
+                `[gateway] stream error: ${err instanceof Error ? err.stack || err.message : String(err)}`
+              );
               if (!res.headersSent) {
                 respondJson(res, 500, { error: { code: 500, message: formatUpstreamError(err) } });
               } else if (!res.writableEnded) {
@@ -10638,7 +11104,9 @@ async function startCloudCodeGateway(routes, opts = {}) {
               requestOptions,
               onReasoningWithToolCall: rememberReasoning
             }).catch((err) => {
-              log17(`[gateway] unary error: ${err instanceof Error ? err.stack || err.message : String(err)}`);
+              log17(
+                `[gateway] unary error: ${err instanceof Error ? err.stack || err.message : String(err)}`
+              );
               if (!res.headersSent) {
                 respondJson(res, 500, { error: { code: 500, message: formatUpstreamError(err) } });
               }
@@ -10659,7 +11127,13 @@ async function startCloudCodeGateway(routes, opts = {}) {
         return;
       }
       if (lowerUrl.includes("userquota")) {
-        respondJson(res, 200, { quotaSummary: { remainingQueries: 9999, totalQueries: 9999, quotaType: "GATEWAY_UNLIMITED" } });
+        respondJson(res, 200, {
+          quotaSummary: {
+            remainingQueries: 9999,
+            totalQueries: 9999,
+            quotaType: "GATEWAY_UNLIMITED"
+          }
+        });
         return;
       }
       if (lowerUrl.includes("userinfo")) {
@@ -10738,7 +11212,12 @@ async function startCloudCodeGateway(routes, opts = {}) {
       }
       respondJson(res, 200, {});
     }).catch((err) => {
-      respondJson(res, 400, { error: { code: 400, message: `Failed to read request: ${err instanceof Error ? err.message : String(err)}` } });
+      respondJson(res, 400, {
+        error: {
+          code: 400,
+          message: `Failed to read request: ${err instanceof Error ? err.message : String(err)}`
+        }
+      });
     });
   });
   return new Promise((resolve, reject2) => {
@@ -11012,10 +11491,13 @@ function respondJson(res, status, data) {
   res.end(body);
 }
 async function handleStreamingRequest(res, route, providerOptions, parsed, log17, options = {}) {
-  const sdkParams = applyClaudeCodeOAuthIdentity(route, translateRequest(parsed, {
-    ...options.requestOptions,
-    maxTools: maxToolsForNpm(route.npm)
-  }));
+  const sdkParams = applyClaudeCodeOAuthIdentity(
+    route,
+    translateRequest(parsed, {
+      ...options.requestOptions,
+      maxTools: maxToolsForNpm(route.npm)
+    })
+  );
   const effectiveProviderOptions = deepMergeProviderOptions(
     providerOptions,
     sdkParams.providerOptions
@@ -11028,7 +11510,8 @@ async function handleStreamingRequest(res, route, providerOptions, parsed, log17
     providerId: route.providerId,
     authType: route.authType,
     oauthAccountId: route.oauthAccountId,
-    providerData: route.providerData
+    providerData: route.providerData,
+    headers: route.headers
   });
   const responseId = `gateway-${Date.now()}`;
   const { fullStream } = streamText3({
@@ -11148,10 +11631,13 @@ async function handleStreamingRequest(res, route, providerOptions, parsed, log17
   res.end();
 }
 async function handleUnaryRequest(res, route, providerOptions, parsed, _log, options = {}) {
-  const sdkParams = applyClaudeCodeOAuthIdentity(route, translateRequest(parsed, {
-    ...options.requestOptions,
-    maxTools: maxToolsForNpm(route.npm)
-  }));
+  const sdkParams = applyClaudeCodeOAuthIdentity(
+    route,
+    translateRequest(parsed, {
+      ...options.requestOptions,
+      maxTools: maxToolsForNpm(route.npm)
+    })
+  );
   const effectiveProviderOptions = deepMergeProviderOptions(
     providerOptions,
     sdkParams.providerOptions
@@ -11164,7 +11650,8 @@ async function handleUnaryRequest(res, route, providerOptions, parsed, _log, opt
     providerId: route.providerId,
     authType: route.authType,
     oauthAccountId: route.oauthAccountId,
-    providerData: route.providerData
+    providerData: route.providerData,
+    headers: route.headers
   });
   const responseId = `gateway-${Date.now()}`;
   const result = await generateText3({
@@ -11186,7 +11673,10 @@ async function handleUnaryRequest(res, route, providerOptions, parsed, _log, opt
   if (result.toolCalls?.length) {
     for (const tc of result.toolCalls) {
       parts.push({
-        functionCall: { name: tc.toolName, args: normalizeFunctionCallArgs(tc.input) }
+        functionCall: {
+          name: tc.toolName,
+          args: normalizeFunctionCallArgs(tc.input)
+        }
       });
     }
   }
@@ -11197,10 +11687,12 @@ async function handleUnaryRequest(res, route, providerOptions, parsed, _log, opt
     parts.push({ text: "" });
   }
   const response = {
-    candidates: [{
-      content: { role: "model", parts },
-      finishReason: mapFinishReason2(result.finishReason ?? "")
-    }],
+    candidates: [
+      {
+        content: { role: "model", parts },
+        finishReason: mapFinishReason2(result.finishReason ?? "")
+      }
+    ],
     usageMetadata: {
       promptTokenCount: result.usage?.inputTokens || 0,
       candidatesTokenCount: result.usage?.outputTokens || 0,
@@ -11233,7 +11725,8 @@ async function resolveAntigravityLaunchRoutes(opts) {
     apiKey,
     authType: opts.provider.authType,
     oauthAccountId: opts.provider.oauthAccountId,
-    providerData: opts.provider.providerData
+    providerData: opts.provider.providerData,
+    headers: opts.provider.headers
   };
   const ctx = {
     agent: "antigravity",
@@ -11260,7 +11753,6 @@ async function resolveAntigravityLaunchRoutes(opts) {
 }
 
 // src/gateway/antigravity/launch-cli.ts
-init_config();
 import { execFileSync as execFileSync2, execSync as execSync2, spawn as spawn3 } from "child_process";
 import { existsSync as existsSync10 } from "fs";
 import { homedir as homedir7 } from "os";
@@ -11435,7 +11927,6 @@ function prepareIdeProfile(profileDir, gatewayUrl, isIDE) {
 }
 
 // src/gateway/antigravity/launch-ide.ts
-init_config();
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -11486,14 +11977,20 @@ function defaultProcessList() {
   }
 }
 function isAntigravityIdeRunning(profileDir, processList = defaultProcessList) {
-  if (process.platform === "win32") return winIsProcessRunningForProfile("Antigravity IDE.exe", profileDir);
+  if (process.platform === "win32")
+    return winIsProcessRunningForProfile("Antigravity IDE.exe", profileDir);
   const output = processList();
-  return output.split("\n").some((line2) => line2.includes("Antigravity IDE.app") && line2.includes(`--user-data-dir=${profileDir}`));
+  return output.split("\n").some(
+    (line2) => line2.includes("Antigravity IDE.app") && line2.includes(`--user-data-dir=${profileDir}`)
+  );
 }
 function isAntigravityAppRunning(profileDir, processList = defaultProcessList) {
-  if (process.platform === "win32") return winIsProcessRunningForProfile("Antigravity.exe", profileDir);
+  if (process.platform === "win32")
+    return winIsProcessRunningForProfile("Antigravity.exe", profileDir);
   const output = processList();
-  return output.split("\n").some((line2) => line2.includes("Antigravity.app") && line2.includes(`--user-data-dir=${profileDir}`));
+  return output.split("\n").some(
+    (line2) => line2.includes("Antigravity.app") && line2.includes(`--user-data-dir=${profileDir}`)
+  );
 }
 async function waitForAntigravityIdeQuit(profileDir, options = {}) {
   const processList = options.processList ?? defaultProcessList;
@@ -11564,7 +12061,14 @@ function findAntigravityAppBinary() {
   if (process.platform !== "darwin") return null;
   const defaultPath = "/Applications/Antigravity.app/Contents/MacOS/Antigravity";
   if (existsSync11(defaultPath)) return defaultPath;
-  const homePath = join11(homedir9(), "Applications", "Antigravity.app", "Contents", "MacOS", "Antigravity");
+  const homePath = join11(
+    homedir9(),
+    "Applications",
+    "Antigravity.app",
+    "Contents",
+    "MacOS",
+    "Antigravity"
+  );
   if (existsSync11(homePath)) return homePath;
   return null;
 }
@@ -11579,7 +12083,16 @@ function findAntigravityIdeBinary() {
   if (process.platform !== "darwin") return null;
   const defaultPath = "/Applications/Antigravity IDE.app/Contents/Resources/app/bin/antigravity-ide";
   if (existsSync11(defaultPath)) return defaultPath;
-  const homePath = join11(homedir9(), "Applications", "Antigravity IDE.app", "Contents", "Resources", "app", "bin", "antigravity-ide");
+  const homePath = join11(
+    homedir9(),
+    "Applications",
+    "Antigravity IDE.app",
+    "Contents",
+    "Resources",
+    "app",
+    "bin",
+    "antigravity-ide"
+  );
   if (existsSync11(homePath)) return homePath;
   return null;
 }
@@ -11599,10 +12112,7 @@ function launchAntigravityApp(env, profileDir, gatewayUrl, extraArgs) {
       return;
     }
     prepareIdeProfile(profileDir, gatewayUrl, false);
-    const args = [
-      `--user-data-dir=${profileDir}`,
-      ...extraArgs
-    ];
+    const args = [`--user-data-dir=${profileDir}`, ...extraArgs];
     const child = spawn4(binaryPath, args, {
       stdio: "inherit",
       env
@@ -11702,7 +12212,9 @@ function resolveAntigravityBootModel(provider, modelSelector) {
   };
 }
 async function pickAntigravityCliFavoriteLaunchModel(favorites, allProviders) {
-  const resolved = favorites.map((favorite) => resolveFavoriteModel(favorite, allProviders)).filter((entry) => entry !== null);
+  const resolved = favorites.map((favorite) => resolveFavoriteModel(favorite, allProviders)).filter(
+    (entry) => entry !== null
+  );
   if (resolved.length === 0) {
     p14.log.warn("No Antigravity CLI favorites are available.");
     p14.log.info(pc12.dim("Manage them with `anygate favorites --agy`."));
@@ -11822,7 +12334,9 @@ async function resolveAndBuildRoutes(provider, model, allProviders, prefs, opts)
     );
   }
   if (result.capacitySkippedFavorites.length > 0) {
-    p14.log.warn(formatAgyCapacityWarning(opts.validatedSlotCount, result.capacitySkippedFavorites.length));
+    p14.log.warn(
+      formatAgyCapacityWarning(opts.validatedSlotCount, result.capacitySkippedFavorites.length)
+    );
     p14.log.warn(
       "Not exposed: " + result.capacitySkippedFavorites.map((fav) => `${fav.providerId}:${fav.modelId}`).join(", ")
     );
@@ -11867,7 +12381,9 @@ async function runAntigravityCommand(intro, tracePrefix, trace, boot, launch, op
   const prefs = loadPreferences();
   gateIntro(intro);
   if (tracePrefix === "agy" && (prefs.favoriteModels?.length ?? 0) > 0 && (prefs.antigravityCliFavoriteModels?.length ?? 0) === 0 && !prefs.antigravityCliFavoritesHintShown) {
-    p14.log.info("Tip: AGY uses its own favorites list. Run `anygate favorites --agy` to set up switching.");
+    p14.log.info(
+      "Tip: AGY uses its own favorites list. Run `anygate favorites --agy` to set up switching."
+    );
     savePreferences({ antigravityCliFavoritesHintShown: true });
   }
   const agyFavorites = prefs.antigravityCliFavoriteModels ?? [];
@@ -11953,7 +12469,12 @@ async function runAgyCommand(childArgs, trace = false, boot) {
     trace,
     boot,
     (env, routes) => launchAntigravityCli(env, buildAgyLaunchArgs(routes[0].displayName, childArgs)),
-    { childArgs, versionGuard: true, pauseForCapacityWarning: true, useFavoritesCatalog: agyArgsIncludeFavoritesFlag(childArgs) }
+    {
+      childArgs,
+      versionGuard: true,
+      pauseForCapacityWarning: true,
+      useFavoritesCatalog: agyArgsIncludeFavoritesFlag(childArgs)
+    }
   );
 }
 async function runAntigravityAppCommand(childArgs, trace = false, boot) {
@@ -11970,7 +12491,9 @@ async function runAntigravityAppCommand(childArgs, trace = false, boot) {
           initialValue: true
         });
         if (p14.isCancel(restart) || !restart) {
-          p14.log.info("Quit and reopen Antigravity when you are ready for the new gateway to take effect.");
+          p14.log.info(
+            "Quit and reopen Antigravity when you are ready for the new gateway to take effect."
+          );
           return 0;
         }
         quitAntigravityAppGracefully();
@@ -12001,7 +12524,12 @@ async function runAntigravityAppCommand(childArgs, trace = false, boot) {
       }
       return 0;
     },
-    { childArgs, versionGuard: false, pauseForCapacityWarning: false, useFavoritesCatalog: agyArgsIncludeFavoritesFlag(childArgs) }
+    {
+      childArgs,
+      versionGuard: false,
+      pauseForCapacityWarning: false,
+      useFavoritesCatalog: agyArgsIncludeFavoritesFlag(childArgs)
+    }
   );
 }
 async function runAntigravityIdeCommand(childArgs, trace = false, boot) {
@@ -12018,7 +12546,9 @@ async function runAntigravityIdeCommand(childArgs, trace = false, boot) {
           initialValue: true
         });
         if (p14.isCancel(restart) || !restart) {
-          p14.log.info("Quit and reopen Antigravity IDE when you are ready for the new gateway to take effect.");
+          p14.log.info(
+            "Quit and reopen Antigravity IDE when you are ready for the new gateway to take effect."
+          );
           return 0;
         }
         quitAntigravityIdeGracefully();
@@ -12049,7 +12579,12 @@ async function runAntigravityIdeCommand(childArgs, trace = false, boot) {
       }
       return 0;
     },
-    { childArgs, versionGuard: false, pauseForCapacityWarning: false, useFavoritesCatalog: agyArgsIncludeFavoritesFlag(childArgs) }
+    {
+      childArgs,
+      versionGuard: false,
+      pauseForCapacityWarning: false,
+      useFavoritesCatalog: agyArgsIncludeFavoritesFlag(childArgs)
+    }
   );
 }
 
@@ -12139,7 +12674,7 @@ Examples:
 `;
 async function handleAgyCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-IECYPHO4.js");
+    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12154,7 +12689,7 @@ async function handleAgyCommand(parsed) {
 }
 async function handleAntigravityAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-IECYPHO4.js");
+    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12169,7 +12704,7 @@ async function handleAntigravityAppCommand(parsed) {
 }
 async function handleAntigravityIdeCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-IECYPHO4.js");
+    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12274,12 +12809,11 @@ Options:
 `);
     return 0;
   }
-  const { runUiCommand } = await import("./command-GK7IX7LS.js");
+  const { runUiCommand } = await import("./command-4UTGFOVW.js");
   return runUiCommand({ trace: parsed.trace });
 }
 
 // src/cli/models.ts
-init_config();
 import pc14 from "picocolors";
 import * as p16 from "@clack/prompts";
 
@@ -12287,7 +12821,7 @@ import * as p16 from "@clack/prompts";
 import * as p15 from "@clack/prompts";
 import pc13 from "picocolors";
 
-// src/apps/claude/favorites.ts
+// src/apps/shared/favorites.ts
 function isFavorite(list, fav) {
   return list.some((f) => f.providerId === fav.providerId && f.modelId === fav.modelId);
 }
@@ -12371,7 +12905,11 @@ async function pickGlobalFavoriteModel(providers, favorites, opts) {
         message: "Add a favorite",
         options: [
           { value: "back", label: pc13.cyan("\u2190 Back to favorites"), hint: "" },
-          { value: ADD_BY_PROVIDER, label: pc13.cyan("Browse by provider \u2192"), hint: "Pick one provider first" }
+          {
+            value: ADD_BY_PROVIDER,
+            label: pc13.cyan("Browse by provider \u2192"),
+            hint: "Pick one provider first"
+          }
         ]
       });
       if (p15.isCancel(fallback) || fallback === "back") return null;
@@ -12398,7 +12936,9 @@ async function pickGlobalFavoriteModel(providers, favorites, opts) {
     const picked = parseGlobalFavoritePickKey(result.id, matched);
     if (!picked) continue;
     if (isFavorite(favorites, { providerId: picked.providerId, modelId: picked.model.id })) {
-      p15.log.warn(`${picked.model.name || picked.model.id} (${picked.providerName}) is already in your favorites.`);
+      p15.log.warn(
+        `${picked.model.name || picked.model.id} (${picked.providerName}) is already in your favorites.`
+      );
       continue;
     }
     return picked;
@@ -12427,7 +12967,9 @@ async function runModelsCommand(parsed) {
   }));
   if (favoriteProviders.length === 0) {
     p16.log.warn("No providers found.");
-    p16.log.info(`OpenCode Zen/Go is always available. Add providers with ${pc14.cyan("anygate providers")}.`);
+    p16.log.info(
+      `OpenCode Zen/Go is always available. Add providers with ${pc14.cyan("anygate providers")}.`
+    );
     gateOutro("Done");
     return 0;
   }
@@ -12500,7 +13042,9 @@ async function runModelsCommand(parsed) {
         }
       }
       if (addPath === "free") {
-        const globalPick = await pickGlobalFavoriteModel(favoriteProviders, favorites, { freeOnly: true });
+        const globalPick = await pickGlobalFavoriteModel(favoriteProviders, favorites, {
+          freeOnly: true
+        });
         if (globalPick === null) continue;
         if (globalPick !== ADD_BY_PROVIDER) {
           provider = favoriteProviders.find((ap) => ap.id === globalPick.providerId);
@@ -12694,7 +13238,7 @@ async function runValidateSubcommand(parsed) {
 // src/cli/providers.ts
 async function handleProvidersCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-IECYPHO4.js");
+    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12807,7 +13351,7 @@ async function runDoctorCommand(_dryRun) {
 // src/cli/doctor.ts
 async function handleDoctorCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-IECYPHO4.js");
+    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12862,7 +13406,8 @@ function detectShell() {
   if (shell.includes("zsh")) return "zsh";
   if (shell.includes("bash")) return "bash";
   if (shell.includes("fish")) return "fish";
-  if (process.env["PSModulePath"] || process.env["POWERSHELL_DISTRIBUTION_CHANNEL"]) return "powershell";
+  if (process.env["PSModulePath"] || process.env["POWERSHELL_DISTRIBUTION_CHANNEL"])
+    return "powershell";
   return void 0;
 }
 function normalizeShell(input) {
@@ -12905,7 +13450,9 @@ _anygate "$@"
 `;
 }
 function fishScript() {
-  const lines = SUBCOMMANDS.map((c) => `complete -c anygate -n "not __fish_seen_subcommand_from ${SUBCOMMANDS.join(" ")}" -a ${c} -d 'anygate ${c}'`);
+  const lines = SUBCOMMANDS.map(
+    (c) => `complete -c anygate -n "not __fish_seen_subcommand_from ${SUBCOMMANDS.join(" ")}" -a ${c} -d 'anygate ${c}'`
+  );
   lines.push(`complete -c anygate -s h -l help -d 'Show help'`);
   lines.push(`complete -c anygate -s v -l version -d 'Show version'`);
   return `# anygate fish completion
@@ -12944,7 +13491,7 @@ function runCompletionsCommand(shellArg) {
 // src/cli/completions.ts
 async function handleCompletionsCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-IECYPHO4.js");
+    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
     console.log(VERSION2);
     return 0;
   }
@@ -13019,7 +13566,9 @@ async function runUpdateCommand(dryRun) {
     });
     child.on("close", (code) => {
       if (code === 0) {
-        p17.log.success("anygate updated. Restart your shell or re-run anygate to use the new version.");
+        p17.log.success(
+          "anygate updated. Restart your shell or re-run anygate to use the new version."
+        );
       } else {
         p17.log.error(`Update failed (exit ${code}). Try ${pc17.cyan(UPDATE_COMMAND)} manually.`);
       }
@@ -13031,7 +13580,7 @@ async function runUpdateCommand(dryRun) {
 // src/cli/update.ts
 async function handleUpdateCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-IECYPHO4.js");
+    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
     console.log(VERSION2);
     return 0;
   }
@@ -13086,7 +13635,15 @@ registerCommand("completions", handleCompletionsCommand);
 registerCommand("update", handleUpdateCommand);
 
 // src/cli.ts
-var STARTER_CLAUDE_FLAGS = /* @__PURE__ */ new Set(["--dry-run", "--setup", "--trace", "--help", "-h", "--version", "-v"]);
+var STARTER_CLAUDE_FLAGS = /* @__PURE__ */ new Set([
+  "--dry-run",
+  "--setup",
+  "--trace",
+  "--help",
+  "-h",
+  "--version",
+  "-v"
+]);
 var GATEWAY_LAUNCH_FLAGS = /* @__PURE__ */ new Set(["--provider", "--model"]);
 function parseGatewayLaunchFlag(arg, rest, index, parsed) {
   if (arg === "--provider" || arg === "--model") {

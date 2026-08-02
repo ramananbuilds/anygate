@@ -4,4 +4,4 @@ export const openAiProviderConfig = {
   authType: 'api' as const,
   npm: '@ai-sdk/openai',
   baseURL: 'https://api.openai.com/v1',
-};
+}

@@ -36,6 +36,10 @@ git push --follow-tags                   # tag push triggers CI → npm publish 
 npm run build       # compile TypeScript → dist/cli.js (via tsup, ESM) + build UI SPA
 npm test            # run all tests with vitest across tests/ subdirectories
 npm run typecheck   # type-check without emitting (tsc --noEmit)
+npm run lint        # run ESLint on src/ (TypeScript)
+npm run lint:fix    # auto-fix ESLint issues
+npm run format      # format src/ with Prettier
+npm run format:check # check formatting without writing
 npm run dev         # watch mode build
 
 # Run a single test file or domain directory

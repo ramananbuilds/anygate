@@ -1,7 +1,7 @@
 // Anthropic /v1/messages ↔ Vercel AI SDK. One turn per request; Claude Code owns the tool loop.
-import { streamText, generateText, tool, jsonSchema, stepCountIs } from 'ai';
-import type { Tool } from 'ai';
-import type { LanguageModel, ModelMessage } from 'ai';
+import { streamText, generateText, tool, jsonSchema, stepCountIs } from 'ai'
+import type { Tool } from 'ai'
+import type { LanguageModel, ModelMessage } from 'ai'
 import {
   sseChunk,
   encodeToolUseId,
@@ -10,171 +10,179 @@ import {
   silenceSdkWarnings,
   type FullStreamPart,
   grabRoundTripSignature,
-} from '../proxy/proxy-shared.js';
+} from '../proxy/proxy-shared.js'
 import {
   deepMergeProviderOptions,
   effortProviderOptions,
   thinkingProviderOptions,
   type ReasoningMetadata,
-} from '../providers/provider-factory.js';
-import { resolveUpstreamTools } from '../../apps/shared/tool-search.js';
-import { isWebSearchTool, makeWebSearchTool } from '../web-search/tool.js';
-import { MAX_WEB_SEARCH_STEPS } from '../web-search/constants.js';
-import { fitContextWindow, estimateContextTokens } from '../context/context-fit.js';
-import { resolveContextWindow } from '../../apps/shared/context-window.js';
-import type { AnthropicRequestMessage, AnthropicToolDefinition } from '../proxy/proxy-types.js';
-import { anthropicErrorType, upstreamHttpStatus } from '../../shared/errors.js';
+} from '../providers/provider-factory.js'
+import { resolveUpstreamTools } from '../../apps/shared/tool-search.js'
+import { isWebSearchTool, makeWebSearchTool } from '../web-search/tool.js'
+import { MAX_WEB_SEARCH_STEPS } from '../web-search/constants.js'
+import { fitContextWindow, estimateContextTokens } from '../context/context-fit.js'
+import { resolveContextWindow } from '../../apps/shared/context-window.js'
+import type { AnthropicRequestMessage, AnthropicToolDefinition } from '../proxy/proxy-types.js'
+import { anthropicErrorType, upstreamHttpStatus } from '../../shared/errors.js'
 
-export { silenceSdkWarnings };
+export { silenceSdkWarnings }
 
 // ── Anthropic request shapes (only the fields we read) ───────────────────────
 export interface AnthropicBlock {
-  type: string;
-  text?: string;
-  thinking?: string;
-  signature?: string;
-  id?: string;
-  name?: string;
-  input?: Record<string, unknown>;
-  tool_use_id?: string;
-  content?: unknown;
-  source?: { type: 'base64' | 'url'; media_type?: string; data?: string; url?: string };
+  type: string
+  text?: string
+  thinking?: string
+  signature?: string
+  id?: string
+  name?: string
+  input?: Record<string, unknown>
+  tool_use_id?: string
+  content?: unknown
+  source?: { type: 'base64' | 'url'; media_type?: string; data?: string; url?: string }
   // internal: resolved tool name for a tool_result, set by annotateToolNames
-  _name?: string;
+  _name?: string
 }
-export interface AnthropicMsg { role: 'user' | 'assistant' | 'system'; content: string | AnthropicBlock[]; }
-interface AnthropicTool { name: string; description?: string; input_schema: Record<string, unknown>; type?: string; }
+export interface AnthropicMsg {
+  role: 'user' | 'assistant' | 'system'
+  content: string | AnthropicBlock[]
+}
+interface AnthropicTool {
+  name: string
+  description?: string
+  input_schema: Record<string, unknown>
+  type?: string
+}
 export interface AnthropicRequest {
-  model: string;
-  system?: string | Array<string | { text?: string }>;
-  messages: AnthropicMsg[];
-  tools?: AnthropicTool[];
-  tool_choice?: { type: 'auto' | 'any' | 'tool'; name?: string };
-  max_tokens?: number;
-  temperature?: number;
-  stream?: boolean;
-  thinking?: { type?: string; budget_tokens?: number };
-  output_config?: { effort?: string };
+  model: string
+  system?: string | Array<string | { text?: string }>
+  messages: AnthropicMsg[]
+  tools?: AnthropicTool[]
+  tool_choice?: { type: 'auto' | 'any' | 'tool'; name?: string }
+  max_tokens?: number
+  temperature?: number
+  stream?: boolean
+  thinking?: { type?: string; budget_tokens?: number }
+  output_config?: { effort?: string }
 }
 
 export interface TranslateRequestOptions {
   /** Fallback when the client omits effort (e.g. Claude Desktop gateway). */
-  defaultEffort?: string;
-  reasoningMetadata?: ReasoningMetadata;
+  defaultEffort?: string
+  reasoningMetadata?: ReasoningMetadata
   /** ChatGPT Codex OAuth requires instructions and manages its own output limit. */
-  openAiOAuth?: boolean;
+  openAiOAuth?: boolean
   /** Hard cap on tools sent to the provider (e.g. Groq: 128). Excess tools are silently dropped. */
-  maxTools?: number;
+  maxTools?: number
   /** When set, trim the outgoing conversation to fit this many tokens (small-window models). */
-  contextWindow?: number;
+  contextWindow?: number
 }
 
 /** Read reasoning effort from an Anthropic-format request body. */
 export function anthropicEffortFromRequest(body: AnthropicRequest): string | undefined {
-  const effort = body.output_config?.effort;
-  if (typeof effort === 'string' && effort.trim()) return effort.trim();
-  return undefined;
+  const effort = body.output_config?.effort
+  if (typeof effort === 'string' && effort.trim()) return effort.trim()
+  return undefined
 }
 
 export interface SdkCallParams {
-  system?: string;
-  messages: ModelMessage[];
-  tools?: Record<string, Tool>;
-  toolChoice?: 'auto' | 'required' | { type: 'tool'; toolName: string };
-  maxOutputTokens?: number;
-  temperature?: number;
-  providerOptions?: Record<string, Record<string, unknown>>;
+  system?: string
+  messages: ModelMessage[]
+  tools?: Record<string, Tool>
+  toolChoice?: 'auto' | 'required' | { type: 'tool'; toolName: string }
+  maxOutputTokens?: number
+  temperature?: number
+  providerOptions?: Record<string, Record<string, unknown>>
   /** Name of a gateway-executed tool (web search) whose round-trip must be hidden from the client. */
-  webSearchToolName?: string;
+  webSearchToolName?: string
 }
 
 // ── system ───────────────────────────────────────────────────────────────────
 function systemToString(system: AnthropicRequest['system']): string | undefined {
-  if (!system) return undefined;
-  if (typeof system === 'string') return system;
-  return system.map(b => (typeof b === 'string' ? b : b.text ?? '')).join('\n');
+  if (!system) return undefined
+  if (typeof system === 'string') return system
+  return system.map(b => (typeof b === 'string' ? b : (b.text ?? ''))).join('\n')
 }
 
 // Claude Code injects context (skills list, system-reminders) as role:'system'
 // messages inside the messages array — fold into the system prompt so they aren't dropped.
 function inlineSystemText(messages: AnthropicMsg[]): string[] {
-  const parts: string[] = [];
+  const parts: string[] = []
   for (const msg of messages) {
-    if (msg.role !== 'system') continue;
-    const text = typeof msg.content === 'string'
-      ? msg.content
-      : msg.content.map(b => b.text ?? '').join('\n');
-    if (text.trim()) parts.push(text.trim());
+    if (msg.role !== 'system') continue
+    const text =
+      typeof msg.content === 'string' ? msg.content : msg.content.map(b => b.text ?? '').join('\n')
+    if (text.trim()) parts.push(text.trim())
   }
-  return parts;
+  return parts
 }
 
 // ── images ───────────────────────────────────────────────────────────────────
-function imagePart(block: AnthropicBlock): { type: 'image'; image: Uint8Array | URL; mediaType?: string } | null {
-  const src = block.source;
-  if (!src) return null;
+function imagePart(
+  block: AnthropicBlock
+): { type: 'image'; image: Uint8Array | URL; mediaType?: string } | null {
+  const src = block.source
+  if (!src) return null
   if (src.type === 'base64' && src.data) {
-    return { type: 'image', image: Buffer.from(src.data, 'base64'), mediaType: src.media_type };
+    return { type: 'image', image: Buffer.from(src.data, 'base64'), mediaType: src.media_type }
   }
   if (src.type === 'url' && src.url) {
-    return { type: 'image', image: new URL(src.url) };
+    return { type: 'image', image: new URL(src.url) }
   }
-  return null;
+  return null
 }
 
 // ── tool_result name resolution (tool messages need the tool name) ────────────
 export function annotateToolNames(messages: AnthropicMsg[]): void {
-  const nameById = new Map<string, string>();
+  const nameById = new Map<string, string>()
   for (const msg of messages) {
-    if (!Array.isArray(msg.content)) continue;
+    if (!Array.isArray(msg.content)) continue
     for (const b of msg.content) {
-      if (b.type === 'tool_use' && b.id && b.name) nameById.set(splitToolUseId(b.id).rawId, b.name);
+      if (b.type === 'tool_use' && b.id && b.name) nameById.set(splitToolUseId(b.id).rawId, b.name)
     }
   }
   for (const msg of messages) {
-    if (!Array.isArray(msg.content)) continue;
+    if (!Array.isArray(msg.content)) continue
     for (const b of msg.content) {
       if (b.type === 'tool_result' && b.tool_use_id) {
-        b._name = nameById.get(splitToolUseId(b.tool_use_id).rawId);
+        b._name = nameById.get(splitToolUseId(b.tool_use_id).rawId)
       }
     }
   }
 }
 
-function thinkingToSdkPart(
-  block: AnthropicBlock,
-  npm: string,
-): Record<string, unknown> | null {
-  const text = block.thinking ?? '';
-  if (npm === '@ai-sdk/openai' && !block.signature && !text.trim()) return null;
+function thinkingToSdkPart(block: AnthropicBlock, npm: string): Record<string, unknown> | null {
+  const text = block.thinking ?? ''
+  if (npm === '@ai-sdk/openai' && !block.signature && !text.trim()) return null
 
-  const part: Record<string, unknown> = { type: 'reasoning', text };
+  const part: Record<string, unknown> = { type: 'reasoning', text }
   if (block.signature) {
     if (npm === '@ai-sdk/google') {
-      part.providerOptions = { google: { thoughtSignature: block.signature } };
+      part.providerOptions = { google: { thoughtSignature: block.signature } }
     } else if (npm === '@ai-sdk/openai' || npm === '@ai-sdk/openai-compatible') {
-      part.providerOptions = { openai: { reasoningEncryptedContent: block.signature } };
+      part.providerOptions = { openai: { reasoningEncryptedContent: block.signature } }
     }
   }
-  return part;
+  return part
 }
 
 // ── messages: Anthropic → SDK ModelMessage[] ─────────────────────────────────
 export function translateMessages(messages: AnthropicMsg[], npm: string): ModelMessage[] {
-  const isGoogle = npm === '@ai-sdk/google';
-  const out: ModelMessage[] = [];
+  const isGoogle = npm === '@ai-sdk/google'
+  const out: ModelMessage[] = []
 
   for (const msg of messages) {
-    const blocks: AnthropicBlock[] = typeof msg.content === 'string'
-      ? [{ type: 'text', text: msg.content }]
-      : msg.content ?? [];
+    const blocks: AnthropicBlock[] =
+      typeof msg.content === 'string' ? [{ type: 'text', text: msg.content }] : (msg.content ?? [])
 
     if (msg.role === 'user') {
-      const toolResults = blocks.filter(b => b.type === 'tool_result');
-      const parts: Array<Record<string, unknown>> = [];
+      const toolResults = blocks.filter(b => b.type === 'tool_result')
+      const parts: Array<Record<string, unknown>> = []
       for (const b of blocks) {
-        if (b.type === 'text') parts.push({ type: 'text', text: b.text ?? '' });
-        else if (b.type === 'image') { const p = imagePart(b); if (p) parts.push(p); }
+        if (b.type === 'text') parts.push({ type: 'text', text: b.text ?? '' })
+        else if (b.type === 'image') {
+          const p = imagePart(b)
+          if (p) parts.push(p)
+        }
       }
       if (toolResults.length) {
         out.push({
@@ -185,63 +193,71 @@ export function translateMessages(messages: AnthropicMsg[], npm: string): ModelM
             toolName: tr._name ?? 'unknown',
             output: { type: 'text', value: serializeToolResultContent(tr.content) },
           })),
-        } as unknown as ModelMessage);
+        } as unknown as ModelMessage)
       }
-      if (parts.length) out.push({ role: 'user', content: parts } as unknown as ModelMessage);
+      if (parts.length) out.push({ role: 'user', content: parts } as unknown as ModelMessage)
     } else if (msg.role === 'assistant') {
-      const parts: Array<Record<string, unknown>> = [];
+      const parts: Array<Record<string, unknown>> = []
       for (const b of blocks) {
         if (b.type === 'text') {
-          parts.push({ type: 'text', text: b.text ?? '' });
+          parts.push({ type: 'text', text: b.text ?? '' })
         } else if (b.type === 'thinking') {
-          const part = thinkingToSdkPart(b, npm);
-          if (part) parts.push(part);
+          const part = thinkingToSdkPart(b, npm)
+          if (part) parts.push(part)
         } else if (b.type === 'tool_use' && b.id) {
-          const { rawId, thoughtSignature } = splitToolUseId(b.id);
+          const { rawId, thoughtSignature } = splitToolUseId(b.id)
           const part: Record<string, unknown> = {
-            type: 'tool-call', toolCallId: rawId, toolName: b.name, input: b.input ?? {},
-          };
-          if (thoughtSignature && isGoogle) part.providerOptions = { google: { thoughtSignature } };
-          parts.push(part);
+            type: 'tool-call',
+            toolCallId: rawId,
+            toolName: b.name,
+            input: b.input ?? {},
+          }
+          if (thoughtSignature && isGoogle) part.providerOptions = { google: { thoughtSignature } }
+          parts.push(part)
         }
       }
-      if (parts.length) out.push({ role: 'assistant', content: parts } as unknown as ModelMessage);
+      if (parts.length) out.push({ role: 'assistant', content: parts } as unknown as ModelMessage)
     }
   }
-  return out;
+  return out
 }
 
 /** Strip top-level null values so models that emit `null` for optional params don't fail schema validation. */
 function stripNullInputs(input: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
+  const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(input)) {
-    if (v !== null) out[k] = v;
+    if (v !== null) out[k] = v
   }
-  return out;
+  return out
 }
 
 export function translateTools(anthropicTools?: AnthropicTool[]): Record<string, Tool> | undefined {
-  if (!anthropicTools?.length) return undefined;
-  const tools: Record<string, Tool> = {};
+  if (!anthropicTools?.length) return undefined
+  const tools: Record<string, Tool> = {}
   for (const t of anthropicTools) {
-    if (!t.name) continue;
+    if (!t.name) continue
     // Hosted web_search has no input_schema — fulfill it locally instead of dropping it.
     if (isWebSearchTool(t)) {
-      tools[t.name] = makeWebSearchTool(t.name);
-      continue;
+      tools[t.name] = makeWebSearchTool(t.name)
+      continue
     }
-    if (!t.input_schema) continue;
-    tools[t.name] = tool({ description: t.description ?? '', inputSchema: jsonSchema(t.input_schema) });
+    if (!t.input_schema) continue
+    tools[t.name] = tool({
+      description: t.description ?? '',
+      inputSchema: jsonSchema(t.input_schema),
+    })
   }
-  return Object.keys(tools).length ? tools : undefined;
+  return Object.keys(tools).length ? tools : undefined
 }
 
-export function translateToolChoice(tc: AnthropicRequest['tool_choice']): SdkCallParams['toolChoice'] {
-  if (!tc) return undefined;
-  if (tc.type === 'auto') return 'auto';
-  if (tc.type === 'any') return 'required';
-  if (tc.type === 'tool' && tc.name) return { type: 'tool', toolName: tc.name };
-  return undefined;
+export function translateToolChoice(
+  tc: AnthropicRequest['tool_choice']
+): SdkCallParams['toolChoice'] {
+  if (!tc) return undefined
+  if (tc.type === 'auto') return 'auto'
+  if (tc.type === 'any') return 'required'
+  if (tc.type === 'tool' && tc.name) return { type: 'tool', toolName: tc.name }
+  return undefined
 }
 
 /**
@@ -256,23 +272,24 @@ export function translateToolChoice(tc: AnthropicRequest['tool_choice']): SdkCal
  * duplicating the heuristic table.
  */
 export function resolveContextWindowFromModel(modelId: string, providerId?: string): number {
-  return resolveContextWindow(modelId, undefined, providerId);
+  return resolveContextWindow(modelId, undefined, providerId)
 }
 
 export function translateRequest(
   body: AnthropicRequest,
   npm: string,
-  options?: TranslateRequestOptions,
+  options?: TranslateRequestOptions
 ): SdkCallParams {
-  let messages = body.messages ?? [];
-  annotateToolNames(messages);
+  let messages = body.messages ?? []
+  annotateToolNames(messages)
 
   // Fold inline role:'system' messages (skills list, system-reminders) into the
   // system prompt so they aren't dropped.
-  const baseSystem = systemToString(body.system);
-  const inlineParts = inlineSystemText(messages);
-  const systemText = [baseSystem, ...inlineParts].filter(s => s && s.trim()).join('\n\n')
-    || (options?.openAiOAuth ? 'You are a coding assistant.' : undefined);
+  const baseSystem = systemToString(body.system)
+  const inlineParts = inlineSystemText(messages)
+  const systemText =
+    [baseSystem, ...inlineParts].filter(s => s && s.trim()).join('\n\n') ||
+    (options?.openAiOAuth ? 'You are a coding assistant.' : undefined)
 
   // Trim the conversation to fit the model's context window so small-window
   // upstreams (e.g. Nemotron 131K) keep working in long sessions instead of
@@ -282,42 +299,52 @@ export function translateRequest(
   // ALWAYS fit when we know the window: use the explicit option if the caller
   // provided one, otherwise fall back to a model-id lookup so that no code
   // path can silently skip fitting and trigger an upstream 400.
-  let trimmedSystem = systemText;
-  let maxOutput = options?.openAiOAuth ? undefined : body.max_tokens;
-  let resolvedContextWindow = options?.contextWindow;
+  let trimmedSystem = systemText
+  let maxOutput = options?.openAiOAuth ? undefined : body.max_tokens
+  let resolvedContextWindow = options?.contextWindow
   if (!resolvedContextWindow || resolvedContextWindow <= 0) {
-    const modelId = options?.reasoningMetadata?.upstreamModelId ?? body.model;
-    const providerId = options?.reasoningMetadata?.providerId;
-    resolvedContextWindow = resolveContextWindowFromModel(modelId, providerId);
+    const modelId = options?.reasoningMetadata?.upstreamModelId ?? body.model
+    const providerId = options?.reasoningMetadata?.providerId
+    resolvedContextWindow = resolveContextWindowFromModel(modelId, providerId)
   }
   if (resolvedContextWindow > 0) {
-    const modelId = options?.reasoningMetadata?.upstreamModelId ?? body.model;
-    const inputTokens = estimateContextTokens(systemText, messages);
-    const util = ((inputTokens / resolvedContextWindow) * 100).toFixed(1);
+    const modelId = options?.reasoningMetadata?.upstreamModelId ?? body.model
+    const inputTokens = estimateContextTokens(systemText, messages)
+    const util = ((inputTokens / resolvedContextWindow) * 100).toFixed(1)
     if (process.env.ANYGATE_TRACE === '1') {
-      console.error(`[ctx] ${modelId}: ${inputTokens}/${resolvedContextWindow} (${util}%)`);
+      console.error(`[ctx] ${modelId}: ${inputTokens}/${resolvedContextWindow} (${util}%)`)
     }
     // messages already has inline system folded out via systemText; pass systemText so
     // the system prompt is preserved and never dropped.
-    const { system: fittedSystem, messages: fittedMessages, trimmed } = fitContextWindow(
-      messages, systemText, resolvedContextWindow, (typeof maxOutput === 'number' ? maxOutput : 0),
-    );
+    const {
+      system: fittedSystem,
+      messages: fittedMessages,
+      trimmed,
+    } = fitContextWindow(
+      messages,
+      systemText,
+      resolvedContextWindow,
+      typeof maxOutput === 'number' ? maxOutput : 0
+    )
     if (trimmed) {
       if (process.env.ANYGATE_TRACE === '1') {
-        const fittedTokens = estimateContextTokens(fittedSystem ?? '', fittedMessages);
-        console.error(`[ctx] TRIMMED: ${inputTokens} -> ${fittedTokens} (${messages.length} -> ${fittedMessages.length} msgs)`);
+        const fittedTokens = estimateContextTokens(fittedSystem ?? '', fittedMessages)
+        console.error(
+          `[ctx] TRIMMED: ${inputTokens} -> ${fittedTokens} (${messages.length} -> ${fittedMessages.length} msgs)`
+        )
       }
-      messages = fittedMessages;
-      annotateToolNames(messages);
+      messages = fittedMessages
+      annotateToolNames(messages)
       // Re-fold inline system parts that survived into the fitted message list.
-      const fittedInline = inlineSystemText(messages);
-      trimmedSystem = [fittedSystem, ...fittedInline].filter(s => s && s.trim()).join('\n\n')
-        || (options?.openAiOAuth ? 'You are a coding assistant.' : undefined);
+      const fittedInline = inlineSystemText(messages)
+      trimmedSystem =
+        [fittedSystem, ...fittedInline].filter(s => s && s.trim()).join('\n\n') ||
+        (options?.openAiOAuth ? 'You are a coding assistant.' : undefined)
       // Defensive: clamp max output so input + output stays within the window.
       if (typeof maxOutput === 'number') {
-        const fittedInputTokens = estimateContextTokens(fittedSystem ?? '', fittedMessages);
-        const headroom = resolvedContextWindow - fittedInputTokens - 256;
-        if (headroom > 0 && maxOutput > headroom) maxOutput = headroom;
+        const fittedInputTokens = estimateContextTokens(fittedSystem ?? '', fittedMessages)
+        const headroom = resolvedContextWindow - fittedInputTokens - 256
+        if (headroom > 0 && maxOutput > headroom) maxOutput = headroom
       }
     }
   }
@@ -326,24 +353,29 @@ export function translateRequest(
   // minimal request shapes, so cast at this boundary.
   let upstreamTools = resolveUpstreamTools(
     body.tools as unknown as AnthropicToolDefinition[] | undefined,
-    messages as unknown as AnthropicRequestMessage[],
-  ) as unknown as AnthropicTool[];
+    messages as unknown as AnthropicRequestMessage[]
+  ) as unknown as AnthropicTool[]
   if (options?.maxTools !== undefined && upstreamTools.length > options.maxTools) {
-    upstreamTools = upstreamTools.slice(0, options.maxTools);
+    upstreamTools = upstreamTools.slice(0, options.maxTools)
   }
-  const webSearchTool = upstreamTools.find(t => isWebSearchTool(t));
-  const effort = anthropicEffortFromRequest(body) ?? options?.defaultEffort;
+  const webSearchTool = upstreamTools.find(t => isWebSearchTool(t))
+  const effort = anthropicEffortFromRequest(body) ?? options?.defaultEffort
   let providerOptions = deepMergeProviderOptions(
     thinkingProviderOptions(npm),
-    effortProviderOptions(npm, effort, options?.reasoningMetadata?.upstreamModelId ?? body.model, options?.reasoningMetadata),
-  );
+    effortProviderOptions(
+      npm,
+      effort,
+      options?.reasoningMetadata?.upstreamModelId ?? body.model,
+      options?.reasoningMetadata
+    )
+  )
 
   // ChatGPT Codex OAuth backend requires `instructions` in providerOptions and
   // rejects the standard `system` field. It also manages its own output limit.
   if (options?.openAiOAuth && systemText) {
     providerOptions = deepMergeProviderOptions(providerOptions, {
       openai: { instructions: systemText },
-    });
+    })
   }
 
   return {
@@ -355,134 +387,170 @@ export function translateRequest(
     temperature: body.temperature,
     providerOptions,
     webSearchToolName: webSearchTool?.name,
-  };
+  }
 }
 
 // ── response: SDK fullStream → Anthropic SSE ─────────────────────────────────
-type WriteFn = (chunk: string) => void;
+type WriteFn = (chunk: string) => void
 
-type LogFn = (msg: () => string) => void;
+type LogFn = (msg: () => string) => void
 
 export async function writeAnthropicStream(
   fullStream: AsyncIterable<FullStreamPart>,
   modelId: string,
   write: WriteFn,
   log?: LogFn,
-  hiddenToolName?: string,
+  hiddenToolName?: string
 ): Promise<{ inputTokens: number; outputTokens: number }> {
-  const messageId = 'msg_' + Date.now();
-  let blockIndex = -1;
-  let started = false;
-  let openType: 'text' | 'thinking' | 'tool' | null = null;
-  let pendingThinkingSig: string | undefined;
-  const idToBlock = new Map<string, number>();
-  const hiddenIds = new Set<string>();
-  let finishReason = 'end_turn';
-  let usage = { input_tokens: 0, output_tokens: 0 };
+  const messageId = 'msg_' + Date.now()
+  let blockIndex = -1
+  let started = false
+  let openType: 'text' | 'thinking' | 'tool' | null = null
+  let pendingThinkingSig: string | undefined
+  const idToBlock = new Map<string, number>()
+  const hiddenIds = new Set<string>()
+  let finishReason = 'end_turn'
+  let usage = { input_tokens: 0, output_tokens: 0 }
 
-  const emit = (event: string, data: unknown) => write(sseChunk(event, data));
+  const emit = (event: string, data: unknown) => write(sseChunk(event, data))
   const ensureStart = () => {
-    if (started) return;
+    if (started) return
     emit('message_start', {
       type: 'message_start',
       message: {
-        id: messageId, type: 'message', role: 'assistant', content: [],
-        model: modelId, stop_reason: null, stop_sequence: null,
+        id: messageId,
+        type: 'message',
+        role: 'assistant',
+        content: [],
+        model: modelId,
+        stop_reason: null,
+        stop_sequence: null,
         usage: { input_tokens: 0, output_tokens: 0 },
       },
-    });
-    started = true;
-  };
+    })
+    started = true
+  }
   const closeOpen = () => {
     if (openType === 'thinking') {
       emit('content_block_delta', {
-        type: 'content_block_delta', index: blockIndex,
+        type: 'content_block_delta',
+        index: blockIndex,
         delta: { type: 'signature_delta', signature: pendingThinkingSig ?? '' },
-      });
-      pendingThinkingSig = undefined;
+      })
+      pendingThinkingSig = undefined
     }
-    if (openType) emit('content_block_stop', { type: 'content_block_stop', index: blockIndex });
-    openType = null;
-  };
+    if (openType) emit('content_block_stop', { type: 'content_block_stop', index: blockIndex })
+    openType = null
+  }
   const openBlock = (type: 'text' | 'thinking' | 'tool', contentBlock: unknown) => {
-    ensureStart(); closeOpen(); blockIndex++; openType = type;
-    emit('content_block_start', { type: 'content_block_start', index: blockIndex, content_block: contentBlock });
-  };
+    ensureStart()
+    closeOpen()
+    blockIndex++
+    openType = type
+    emit('content_block_start', {
+      type: 'content_block_start',
+      index: blockIndex,
+      content_block: contentBlock,
+    })
+  }
 
   for await (const part of fullStream) {
     switch (part.type) {
-      case 'start': ensureStart(); break;
+      case 'start':
+        ensureStart()
+        break
 
       case 'reasoning-start':
-        openBlock('thinking', { type: 'thinking', thinking: '', signature: '' });
-        break;
+        openBlock('thinking', { type: 'thinking', thinking: '', signature: '' })
+        break
       case 'reasoning-delta':
-        if (openType !== 'thinking') openBlock('thinking', { type: 'thinking', thinking: '', signature: '' });
+        if (openType !== 'thinking')
+          openBlock('thinking', { type: 'thinking', thinking: '', signature: '' })
         emit('content_block_delta', {
-          type: 'content_block_delta', index: blockIndex,
+          type: 'content_block_delta',
+          index: blockIndex,
           delta: { type: 'thinking_delta', thinking: part.text ?? '' },
-        });
-        break;
+        })
+        break
       case 'reasoning-end': {
-        const sig = grabRoundTripSignature(part);
-        if (sig) pendingThinkingSig = sig;
-        break;
+        const sig = grabRoundTripSignature(part)
+        if (sig) pendingThinkingSig = sig
+        break
       }
 
       case 'text-start':
-        openBlock('text', { type: 'text', text: '' });
-        break;
+        openBlock('text', { type: 'text', text: '' })
+        break
       case 'text-delta':
-        if (openType !== 'text') openBlock('text', { type: 'text', text: '' });
+        if (openType !== 'text') openBlock('text', { type: 'text', text: '' })
         emit('content_block_delta', {
-          type: 'content_block_delta', index: blockIndex,
+          type: 'content_block_delta',
+          index: blockIndex,
           delta: { type: 'text_delta', text: part.text ?? '' },
-        });
-        break;
-      case 'text-end': break;
+        })
+        break
+      case 'text-end':
+        break
 
       case 'tool-input-start': {
         // Gateway-executed tools (web search) run inside the SDK; hide the
         // round-trip so the client never sees a dangling tool_use.
         if (part.toolName && part.toolName === hiddenToolName) {
-          hiddenIds.add(part.id ?? '');
-          break;
+          hiddenIds.add(part.id ?? '')
+          break
         }
-        const sig = grabRoundTripSignature(part);
+        const sig = grabRoundTripSignature(part)
         openBlock('tool', {
-          type: 'tool_use', id: encodeToolUseId(part.id ?? '', sig), name: part.toolName, input: {},
-        });
-        idToBlock.set(part.id ?? '', blockIndex);
-        break;
+          type: 'tool_use',
+          id: encodeToolUseId(part.id ?? '', sig),
+          name: part.toolName,
+          input: {},
+        })
+        idToBlock.set(part.id ?? '', blockIndex)
+        break
       }
       case 'tool-input-delta':
-        if (hiddenIds.has(part.id ?? '')) break;
+        if (hiddenIds.has(part.id ?? '')) break
         emit('content_block_delta', {
-          type: 'content_block_delta', index: idToBlock.get(part.id ?? '') ?? blockIndex,
+          type: 'content_block_delta',
+          index: idToBlock.get(part.id ?? '') ?? blockIndex,
           delta: { type: 'input_json_delta', partial_json: part.delta ?? part.text ?? '' },
-        });
-        break;
-      case 'tool-input-end': break;
+        })
+        break
+      case 'tool-input-end':
+        break
 
       case 'tool-call': {
         // Hidden gateway tool (web search): don't surface it or flip finish reason.
-        if ((part.toolName && part.toolName === hiddenToolName) || hiddenIds.has(part.toolCallId ?? '')) {
-          hiddenIds.add(part.toolCallId ?? '');
-          break;
+        if (
+          (part.toolName && part.toolName === hiddenToolName) ||
+          hiddenIds.has(part.toolCallId ?? '')
+        ) {
+          hiddenIds.add(part.toolCallId ?? '')
+          break
         }
-        finishReason = 'tool_use';
+        finishReason = 'tool_use'
         // Non-streamed tool call (no input-start/delta arrived): emit a full block.
         if (!idToBlock.has(part.toolCallId ?? '') && openType !== 'tool') {
-          const sig = grabRoundTripSignature(part);
+          const sig = grabRoundTripSignature(part)
           openBlock('tool', {
-            type: 'tool_use', id: encodeToolUseId(part.toolCallId ?? '', sig), name: part.toolName, input: {},
-          });
+            type: 'tool_use',
+            id: encodeToolUseId(part.toolCallId ?? '', sig),
+            name: part.toolName,
+            input: {},
+          })
           emit('content_block_delta', {
-            type: 'content_block_delta', index: blockIndex,
-            delta: { type: 'input_json_delta', partial_json: JSON.stringify(stripNullInputs(part.input as Record<string, unknown> ?? {})) },
-          });
+            type: 'content_block_delta',
+            index: blockIndex,
+            delta: {
+              type: 'input_json_delta',
+              partial_json: JSON.stringify(
+                stripNullInputs((part.input as Record<string, unknown>) ?? {})
+              ),
+            },
+          })
         }
-        break;
+        break
       }
 
       case 'finish':
@@ -490,32 +558,40 @@ export async function writeAnthropicStream(
           usage = {
             input_tokens: part.totalUsage.inputTokens ?? 0,
             output_tokens: part.totalUsage.outputTokens ?? 0,
-          };
+          }
         }
-        if (part.finishReason === 'tool-calls') finishReason = 'tool_use';
-        else if (part.finishReason === 'length') finishReason = 'max_tokens';
-        else if (part.finishReason === 'stop' && finishReason !== 'tool_use') finishReason = 'end_turn';
-        break;
+        if (part.finishReason === 'tool-calls') finishReason = 'tool_use'
+        else if (part.finishReason === 'length') finishReason = 'max_tokens'
+        else if (part.finishReason === 'stop' && finishReason !== 'tool_use')
+          finishReason = 'end_turn'
+        break
 
       case 'error': {
-        const e = part.error as { data?: unknown; message?: string } | undefined;
-        const errMsg = e?.message || (typeof part.error === 'string' ? part.error : JSON.stringify(e?.data ?? part.error));
-        const errorType = anthropicErrorType(upstreamHttpStatus(part.error));
-        log?.(() => `sdk stream error (${errorType}): ${errMsg}`);
-        closeOpen();
-        emit('error', { type: 'error', error: { type: errorType, message: errMsg } });
-        return { inputTokens: 0, outputTokens: 0 };
+        const e = part.error as { data?: unknown; message?: string } | undefined
+        const errMsg =
+          e?.message ||
+          (typeof part.error === 'string' ? part.error : JSON.stringify(e?.data ?? part.error))
+        const errorType = anthropicErrorType(upstreamHttpStatus(part.error))
+        log?.(() => `sdk stream error (${errorType}): ${errMsg}`)
+        closeOpen()
+        emit('error', { type: 'error', error: { type: errorType, message: errMsg } })
+        return { inputTokens: 0, outputTokens: 0 }
       }
 
-      default: break;
+      default:
+        break
     }
   }
 
-  closeOpen();
-  ensureStart();
-  emit('message_delta', { type: 'message_delta', delta: { stop_reason: finishReason, stop_sequence: null }, usage });
-  emit('message_stop', { type: 'message_stop' });
-  return { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens };
+  closeOpen()
+  ensureStart()
+  emit('message_delta', {
+    type: 'message_delta',
+    delta: { stop_reason: finishReason, stop_sequence: null },
+    usage,
+  })
+  emit('message_stop', { type: 'message_stop' })
+  return { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens }
 }
 
 // ── high-level entry points ──────────────────────────────────────────────────
@@ -524,52 +600,72 @@ export async function streamAnthropicResponse(
   params: SdkCallParams,
   modelId: string,
   write: WriteFn,
-  log?: LogFn,
+  log?: LogFn
 ): Promise<{ inputTokens: number; outputTokens: number }> {
-  const { webSearchToolName, ...callParams } = params;
+  const { webSearchToolName, ...callParams } = params
   if (webSearchToolName) {
-    log?.(() => `gateway web_search: executing locally via DuckDuckGo (provider-agnostic)`);
+    log?.(() => `gateway web_search: executing locally via DuckDuckGo (provider-agnostic)`)
   }
-  const stopWhen = webSearchToolName ? stepCountIs(MAX_WEB_SEARCH_STEPS) : undefined;
-  const result = streamText({ model, ...callParams, stopWhen, onError: () => {} } as Parameters<typeof streamText>[0]);
+  const stopWhen = webSearchToolName ? stepCountIs(MAX_WEB_SEARCH_STEPS) : undefined
+  const result = streamText({ model, ...callParams, stopWhen, onError: () => {} } as Parameters<
+    typeof streamText
+  >[0])
   // Prevent unhandled promise rejections on stream properties:
-  Promise.resolve(result.text).catch(() => {});
-  Promise.resolve(result.toolCalls).catch(() => {});
-  Promise.resolve(result.toolResults).catch(() => {});
-  Promise.resolve(result.finishReason).catch(() => {});
-  Promise.resolve(result.usage).catch(() => {});
+  Promise.resolve(result.text).catch(() => {})
+  Promise.resolve(result.toolCalls).catch(() => {})
+  Promise.resolve(result.toolResults).catch(() => {})
+  Promise.resolve(result.finishReason).catch(() => {})
+  Promise.resolve(result.usage).catch(() => {})
 
-  return await writeAnthropicStream(result.fullStream as AsyncIterable<FullStreamPart>, modelId, write, log, webSearchToolName);
+  return await writeAnthropicStream(
+    result.fullStream as AsyncIterable<FullStreamPart>,
+    modelId,
+    write,
+    log,
+    webSearchToolName
+  )
 }
 
 export async function generateAnthropicResponse(
   model: LanguageModel,
   params: SdkCallParams,
   modelId: string,
-  options?: { forceStream?: boolean },
+  options?: { forceStream?: boolean }
 ): Promise<Record<string, unknown>> {
-  let text: string;
-  let toolCalls: Array<{ toolCallId: string; toolName: string; input: unknown }>;
-  let finishReason: string;
-  let usage: { inputTokens?: number; outputTokens?: number } | undefined;
+  let text: string
+  let toolCalls: Array<{ toolCallId: string; toolName: string; input: unknown }>
+  let finishReason: string
+  let usage: { inputTokens?: number; outputTokens?: number } | undefined
 
-  const { webSearchToolName, ...callParams } = params;
-  const stopWhen = webSearchToolName ? stepCountIs(MAX_WEB_SEARCH_STEPS) : undefined;
+  const { webSearchToolName, ...callParams } = params
+  const stopWhen = webSearchToolName ? stepCountIs(MAX_WEB_SEARCH_STEPS) : undefined
 
   if (options?.forceStream) {
     // Some upstreams (e.g. ChatGPT's Codex backend) reject non-streaming requests
     // outright. Request a real stream from the SDK and collect it into one
     // response instead of forwarding the client's non-streaming request upstream.
-    const r = streamText({ model, ...callParams, stopWhen, onError: () => {} } as Parameters<typeof streamText>[0]);
-    Promise.resolve(r.toolResults).catch(() => {});
-    [text, toolCalls, finishReason, usage] = await Promise.all([r.text, r.toolCalls, r.finishReason, r.usage]);
+    const r = streamText({ model, ...callParams, stopWhen, onError: () => {} } as Parameters<
+      typeof streamText
+    >[0])
+    Promise.resolve(r.toolResults).catch(() => {})
+    ;[text, toolCalls, finishReason, usage] = await Promise.all([
+      r.text,
+      r.toolCalls,
+      r.finishReason,
+      r.usage,
+    ])
   } else {
-    const r = await generateText({ model, ...callParams, stopWhen } as Parameters<typeof generateText>[0]);
-    ({ text, toolCalls, finishReason, usage } = r);
+    const r = await generateText({ model, ...callParams, stopWhen } as Parameters<
+      typeof generateText
+    >[0])
+    ;({ text, toolCalls, finishReason, usage } = r)
   }
 
   return {
-    id: 'msg_' + Date.now(), type: 'message', role: 'assistant', model: modelId,
+    id: 'msg_' + Date.now(),
+    type: 'message',
+    role: 'assistant',
+    model: modelId,
     content: [
       ...(text ? [{ type: 'text', text }] : []),
       ...toolCalls
@@ -585,5 +681,5 @@ export async function generateAnthropicResponse(
     usage: { input_tokens: usage?.inputTokens ?? 0, output_tokens: usage?.outputTokens ?? 0 },
     // Internal: surfaced to call sites so they can log analytics without re-parsing.
     _usage: { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0 },
-  };
+  }
 }

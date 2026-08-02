@@ -1,81 +1,86 @@
-import { shouldHideModel, type CompatibilityAgent } from './model-compatibility.js';
-import type { LocalProvider, LocalProviderModel } from '../../../src/types/index.js';
+import { shouldHideModel, type CompatibilityAgent } from './model-compatibility.js'
+import type { LocalProvider, LocalProviderModel } from '../../../src/types/index.js'
 
 export type GatewayLaunchTarget =
-  | 'claude'
-  | 'claude-app'
-  | 'codex'
-  | 'codex-app'
-  | 'gemini'
-  | 'server'
-  | 'antigravity';
+  'claude' | 'claude-app' | 'codex' | 'codex-app' | 'gemini' | 'server' | 'antigravity'
 
 export interface TargetCompatibilityContext {
-  target: GatewayLaunchTarget;
-  providerId: string;
-  authType?: 'api' | 'oauth' | 'none';
-  model: LocalProviderModel;
+  target: GatewayLaunchTarget
+  providerId: string
+  authType?: 'api' | 'oauth' | 'none'
+  model: LocalProviderModel
 }
 
 export interface TargetCompatibilityResult {
-  compatible: boolean;
-  reason?: string;
+  compatible: boolean
+  reason?: string
 }
 
 function blacklistAgentForTarget(target: GatewayLaunchTarget): CompatibilityAgent {
-  if (target === 'claude-app') return 'codex-app';
-  return target;
+  if (target === 'claude-app') return 'codex-app'
+  return target
 }
 
-export function isTargetCompatibleModel(ctx: TargetCompatibilityContext): TargetCompatibilityResult {
-  const blacklistAgent = blacklistAgentForTarget(ctx.target);
-  if (shouldHideModel({ providerId: ctx.providerId, modelId: ctx.model.id, agent: blacklistAgent })) {
-    return { compatible: false, reason: 'model is hidden by compatibility filters' };
+export function isTargetCompatibleModel(
+  ctx: TargetCompatibilityContext
+): TargetCompatibilityResult {
+  const blacklistAgent = blacklistAgentForTarget(ctx.target)
+  if (
+    shouldHideModel({ providerId: ctx.providerId, modelId: ctx.model.id, agent: blacklistAgent })
+  ) {
+    return { compatible: false, reason: 'model is hidden by compatibility filters' }
   }
 
   if (ctx.model.modelFormat === 'cloud-code') {
     if (ctx.target === 'server') {
-      return { compatible: false, reason: 'Cloud Code models are not supported for the server target yet' };
+      return {
+        compatible: false,
+        reason: 'Cloud Code models are not supported for the server target yet',
+      }
     }
-    return { compatible: true };
+    return { compatible: true }
   }
 
   if (ctx.model.modelFormat === 'anthropic') {
-    return { compatible: true };
+    return { compatible: true }
   }
 
   if (ctx.model.modelFormat === 'openai') {
-    if (ctx.providerId === 'zen' || ctx.providerId === 'go') return { compatible: true };
-    if (ctx.model.npm) return { compatible: true };
-    return { compatible: false, reason: 'OpenAI-format model is missing an SDK provider package' };
+    if (ctx.providerId === 'zen' || ctx.providerId === 'go') return { compatible: true }
+    if (ctx.model.npm) return { compatible: true }
+    return { compatible: false, reason: 'OpenAI-format model is missing an SDK provider package' }
   }
 
-  return { compatible: false, reason: `Unsupported model format: ${ctx.model.modelFormat}` };
+  return { compatible: false, reason: `Unsupported model format: ${ctx.model.modelFormat}` }
 }
 
 export function routableModelsForTarget(
   provider: LocalProvider,
-  target: GatewayLaunchTarget,
+  target: GatewayLaunchTarget
 ): LocalProviderModel[] {
-  return provider.models.filter(model =>
-    isTargetCompatibleModel({
-      target,
-      providerId: provider.id,
-      authType: provider.authType,
-      model,
-    }).compatible,
-  );
+  return provider.models.filter(
+    model =>
+      isTargetCompatibleModel({
+        target,
+        providerId: provider.id,
+        authType: provider.authType,
+        model,
+      }).compatible
+  )
 }
 
-export function providerForTarget(provider: LocalProvider, target: GatewayLaunchTarget): LocalProvider {
-  return { ...provider, models: routableModelsForTarget(provider, target) };
+export function providerForTarget(
+  provider: LocalProvider,
+  target: GatewayLaunchTarget
+): LocalProvider {
+  return { ...provider, models: routableModelsForTarget(provider, target) }
 }
 
 export function providersForTarget(
   providers: LocalProvider[],
-  target: GatewayLaunchTarget,
+  target: GatewayLaunchTarget
 ): LocalProvider[] {
   return providers
     .map(provider => providerForTarget(provider, target))
-    .filter(provider => provider.models.length > 0);
+    .filter(provider => provider.models.length > 0)
 }

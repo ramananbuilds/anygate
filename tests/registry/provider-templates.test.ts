@@ -46,6 +46,38 @@ describe('provider templates', () => {
     });
   });
 
+  it('defines Agent Router as an Anthropic-format gateway carrying the referral signup link', () => {
+    expect(getTemplateById('agentrouter')).toMatchObject({
+      name: 'Agent Router',
+      npm: '@ai-sdk/anthropic',
+      defaultBaseUrl: 'https://agentrouter.org',
+      modelsPath: '/v1/models',
+      signupUrl: 'https://agentrouter.org/register?aff=bfOF',
+      modelSource: 'api-list',
+      supported: true,
+    });
+  });
+
+  it('discloses the Agent Router referral bonus on the signup link', () => {
+    const note = getTemplateById('agentrouter')?.signupNote;
+    expect(note).toBeTruthy();
+    expect(note).toContain('$50');
+    expect(note).toContain('referral');
+  });
+
+  it('scopes the signup note to Agent Router only', () => {
+    const withNote = PROVIDER_TEMPLATES.filter(t => t.signupNote).map(t => t.id);
+    expect(withNote).toEqual(['agentrouter']);
+  });
+
+  it('carries the client-identity headers Agent Router gates on', () => {
+    // Without these the gateway answers 401 "unauthorized client detected".
+    expect(getTemplateById('agentrouter')?.headers).toEqual({
+      'User-Agent': 'claude-cli/1.0.0 (external, cli)',
+      'x-app': 'cli',
+    });
+  });
+
   it('omits hidden templates from OAuth discovery surfaces', () => {
     const hiddenIds = PROVIDER_TEMPLATES.filter(t => t.hidden).map(t => t.id);
     const visibleIds = listVisibleOAuthTemplates().map(t => t.id);

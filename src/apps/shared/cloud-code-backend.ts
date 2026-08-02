@@ -1,29 +1,36 @@
-import { startProxyCatalog, aliasModelId, type ProxyHandle, type ProxyRoute } from '../../../src/gateway/proxy/anthropic-proxy.js';
-import { claudeCodeClientModelId } from '../../apps/shared/context-model-id.js';
-import { ANTIGRAVITY_BASE_URLS } from '../../../src/auth/antigravity-oauth.js';
-import { resolveProviderCredential } from '../../../src/config/env.js';
-import { oauthAuthRef } from '../../../src/registry/loader/import-build.js';
-import type { LocalProviderModel } from '../../../src/types/index.js';
+import {
+  startProxyCatalog,
+  aliasModelId,
+  type ProxyHandle,
+  type ProxyRoute,
+} from '../../../src/gateway/proxy/anthropic-proxy.js'
+import { claudeCodeClientModelId } from '../../apps/shared/context-model-id.js'
+import { ANTIGRAVITY_BASE_URLS } from '../../../src/auth/antigravity-oauth.js'
+import { resolveProviderCredential } from '../../../src/config/env.js'
+import { oauthAuthRef } from '../../../src/registry/loader/import-build.js'
+import type { LocalProviderModel } from '../../../src/types/index.js'
 
 export interface CloudCodeBackend {
-  port: number;
-  token: string;
-  handle: ProxyHandle;
+  port: number
+  token: string
+  handle: ProxyHandle
 }
 
 export function needsCloudCodeBackend(
   model: LocalProviderModel,
-  authType?: 'api' | 'oauth' | 'none',
+  authType?: 'api' | 'oauth' | 'none'
 ): boolean {
-  return model.modelFormat === 'cloud-code'
-    || (model.modelFormat === 'anthropic' && authType === 'oauth');
+  return (
+    model.modelFormat === 'cloud-code' ||
+    (model.modelFormat === 'anthropic' && authType === 'oauth')
+  )
 }
 
 export interface BackendPartitionInput {
-  providerId: string;
-  model: LocalProviderModel;
-  apiKey: string;
-  providerData?: Record<string, unknown>;
+  providerId: string
+  model: LocalProviderModel
+  apiKey: string
+  providerData?: Record<string, unknown>
 }
 
 /**
@@ -34,12 +41,12 @@ export interface BackendPartitionInput {
 export function buildCloudCodeProxyRoute(
   model: LocalProviderModel,
   apiKey: string,
-  providerData: Record<string, unknown>,
+  providerData: Record<string, unknown>
 ): ProxyRoute {
   const aliasId = claudeCodeClientModelId(
     aliasModelId(model.id, 'antigravity'),
-    model.contextWindow,
-  );
+    model.contextWindow
+  )
   return {
     aliasId,
     realModelId: model.upstreamModelId || model.id,
@@ -53,7 +60,7 @@ export function buildCloudCodeProxyRoute(
     app: 'Antigravity',
     providerData,
     refreshToken: () => resolveProviderCredential('antigravity', oauthAuthRef('antigravity')),
-  };
+  }
 }
 
 /**
@@ -65,12 +72,9 @@ export function buildOAuthAnthropicProxyRoute(
   model: LocalProviderModel,
   apiKey: string,
   providerId: string,
-  providerData: Record<string, unknown>,
+  providerData: Record<string, unknown>
 ): ProxyRoute {
-  const aliasId = claudeCodeClientModelId(
-    aliasModelId(model.id, providerId),
-    model.contextWindow,
-  );
+  const aliasId = claudeCodeClientModelId(aliasModelId(model.id, providerId), model.contextWindow)
   return {
     aliasId,
     realModelId: model.upstreamModelId || model.id,
@@ -84,7 +88,7 @@ export function buildOAuthAnthropicProxyRoute(
     app: 'Claude',
     providerData,
     refreshToken: () => resolveProviderCredential(providerId, oauthAuthRef(providerId)),
-  };
+  }
 }
 
 export async function partitionAndStartCloudCodeBackend<
@@ -93,21 +97,28 @@ export async function partitionAndStartCloudCodeBackend<
 >(
   items: TInput[],
   toOutput: (proxyRoute: ProxyRoute, backend: CloudCodeBackend, original: TInput) => TOutput,
-  trace?: boolean,
+  trace?: boolean
 ): Promise<{ backendItems: TOutput[]; backend: CloudCodeBackend | null }> {
-  if (items.length === 0) return { backendItems: [], backend: null };
+  if (items.length === 0) return { backendItems: [], backend: null }
 
   const proxyRoutes = items.map(item =>
     item.model.modelFormat === 'cloud-code'
       ? buildCloudCodeProxyRoute(item.model, item.apiKey, item.providerData ?? {})
-      : buildOAuthAnthropicProxyRoute(item.model, item.apiKey, item.providerId, item.providerData ?? {}),
-  );
-  const backend = await startCloudCodeCatalogBackend(proxyRoutes, proxyRoutes[0]!.aliasId, trace);
+      : buildOAuthAnthropicProxyRoute(
+          item.model,
+          item.apiKey,
+          item.providerId,
+          item.providerData ?? {}
+        )
+  )
+  const backend = await startCloudCodeCatalogBackend(proxyRoutes, proxyRoutes[0]!.aliasId, trace)
 
   return {
     backend,
-    backendItems: proxyRoutes.map((proxyRoute, index) => toOutput(proxyRoute, backend, items[index]!)),
-  };
+    backendItems: proxyRoutes.map((proxyRoute, index) =>
+      toOutput(proxyRoute, backend, items[index]!)
+    ),
+  }
 }
 
 export async function buildSingleModelCloudCodeRoute(
@@ -115,21 +126,22 @@ export async function buildSingleModelCloudCodeRoute(
   apiKey: string,
   providerId: string,
   providerData: Record<string, unknown>,
-  trace?: boolean,
+  trace?: boolean
 ): Promise<{ proxyRoute: ProxyRoute; backend: CloudCodeBackend }> {
-  const proxyRoute = model.modelFormat === 'cloud-code'
-    ? buildCloudCodeProxyRoute(model, apiKey, providerData)
-    : buildOAuthAnthropicProxyRoute(model, apiKey, providerId, providerData);
-  const backend = await startCloudCodeCatalogBackend([proxyRoute], proxyRoute.aliasId, trace);
-  return { proxyRoute, backend };
+  const proxyRoute =
+    model.modelFormat === 'cloud-code'
+      ? buildCloudCodeProxyRoute(model, apiKey, providerData)
+      : buildOAuthAnthropicProxyRoute(model, apiKey, providerId, providerData)
+  const backend = await startCloudCodeCatalogBackend([proxyRoute], proxyRoute.aliasId, trace)
+  return { proxyRoute, backend }
 }
 
 /** Start a multi-model cloud-code backend proxy (one instance for all routes). */
 export async function startCloudCodeCatalogBackend(
   routes: ProxyRoute[],
   startingAliasId: string,
-  trace?: boolean,
+  trace?: boolean
 ): Promise<CloudCodeBackend> {
-  const handle = await startProxyCatalog(routes, startingAliasId, trace ?? false);
-  return { port: handle.port, token: handle.token, handle };
+  const handle = await startProxyCatalog(routes, startingAliasId, trace ?? false)
+  return { port: handle.port, token: handle.token, handle }
 }

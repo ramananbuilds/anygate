@@ -1,19 +1,19 @@
 // src/cli/gemini.ts — anygate gemini command
-import type { ParsedArgs } from '../types/index.js';
-import { runGeminiCommand, geminiHelpText } from '../apps/gemini/cli.js';
+import type { ParsedArgs } from '../types/index.js'
+import { runGeminiCommand, geminiHelpText } from '../apps/gemini/cli.js'
 
 export async function handleGeminiCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    const { VERSION } = await import('../config/constants.js');
-    console.log(VERSION);
-    return 0;
+    const { VERSION } = await import('../config/constants.js')
+    console.log(VERSION)
+    return 0
   }
   if (parsed.showHelp) {
-    console.log(geminiHelpText());
-    return 0;
+    console.log(geminiHelpText())
+    return 0
   }
   return runGeminiCommand(parsed.claudeArgs ?? [], parsed.trace ?? false, {
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
-  });
+  })
 }

@@ -7,26 +7,29 @@
 // called the old inline copy instead of the shared helper. Centralizing here
 // guarantees every launcher uses identical credential resolution.
 
-import { resolveProviderCredential } from '../config/env.js';
-import { getTemplateById } from '../registry/templates/provider-templates.js';
-import { loadRegistry } from '../registry/storage/io.js';
-import { oauthAuthRef } from '../registry/loader/import-build.js';
-import type { LocalProvider } from '../types/index.js';
+import { resolveProviderCredential } from '../config/env.js'
+import { getTemplateById } from '../registry/templates/provider-templates.js'
+import { loadRegistry } from '../registry/storage/io.js'
+import { oauthAuthRef } from '../registry/loader/import-build.js'
+import type { LocalProvider } from '../types/index.js'
 
 /** Resolve API key when provider.apiKey is empty (registry authRef or global OpenCode key). */
 export async function resolveLocalProviderApiKey(provider: LocalProvider): Promise<string | null> {
-  const direct = provider.apiKey?.trim();
-  if (direct) return direct;
+  const direct = provider.apiKey?.trim()
+  if (direct) return direct
 
-  if (provider.authType === 'none') return 'anonymous';
+  if (provider.authType === 'none') return 'anonymous'
 
-  const template = getTemplateById(provider.id);
+  const template = getTemplateById(provider.id)
   if (template?.apiKeyOptional || template?.anonymousFreeModels) {
-    return 'anonymous';
+    return 'anonymous'
   }
 
-  const reg = loadRegistry().providers.find(p => p.id === provider.id);
-  const authRef = reg?.authRef
-    ?? (provider.id === 'zen' || provider.id === 'go' ? 'keyring:global:opencode' : oauthAuthRef(provider.id));
-  return resolveProviderCredential(provider.id, authRef);
+  const reg = loadRegistry().providers.find(p => p.id === provider.id)
+  const authRef =
+    reg?.authRef ??
+    (provider.id === 'zen' || provider.id === 'go'
+      ? 'keyring:global:opencode'
+      : oauthAuthRef(provider.id))
+  return resolveProviderCredential(provider.id, authRef)
 }

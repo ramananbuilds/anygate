@@ -1,37 +1,23 @@
-# Component: Launchers (`src/launchers/`)
+# Component: Launchers — REMOVED
 
-> OS-native process execution and app window spawning.
+> **Removed in v0.6.0.** The `src/launchers/` directory was removed as part of
+> the Phase 1 dead code cleanup. The launcher logic was found to be unused —
+> actual process spawning lives in `src/apps/shared/native-launcher.ts` and
+> `src/apps/shared/app-launcher.ts`.
 
-## Structure
+## What was removed
 
-```text
-src/launchers/
-├── app-launcher.ts        # High-level app launch orchestration (8KB)
-├── native-launcher.ts     # Binary detection & process spawning (10KB)
-├── launch.ts              # Launch coordination
-├── desktop.ts             # Desktop app helpers
-├── terminal.ts            # Terminal window spawning
-├── shared.ts              # Cross-platform utilities
-├── macos.ts               # macOS: `open -a`, Finder, .app paths
-├── windows.ts             # Windows: registry, AppData, `start` command
-├── linux.ts               # Linux: `which`, XDG, direct exec
-└── index.ts
-```
+- `src/launchers/` — `app-launcher.ts`, `native-launcher.ts`, `launch.ts`,
+  `desktop.ts`, `terminal.ts`, `shared.ts`, `macos.ts`, `windows.ts`, `linux.ts`,
+  `index.ts`
 
-## Key Exports
+## Where the logic moved
 
-| Function | File | Purpose |
-|----------|------|---------|
-| `launchApp()` | `app-launcher.ts` | High-level app launch with env |
-| `detectApp()` | `native-launcher.ts` | Find installed app binary |
-| `getSupportedApps()` | `native-launcher.ts` | List all detectable apps |
-| `spawnProcess()` | `launch.ts` | Low-level process spawn |
-
-## Dependencies
-
-- **Imports from**: `config/`, `types/`
-- **Imported by**: `apps/`, `cli/`
+| Original Location | New Location |
+|-------------------|---------------|
+| `src/launchers/native-launcher.ts` | `src/apps/shared/native-launcher.ts` |
+| `src/launchers/app-launcher.ts` | `src/apps/shared/app-launcher.ts` |
 
 ## Architecture Reference
 
-See [Architecture: Launcher System](../architecture/launcher-system.md)
+See [Architecture: Launcher System](../architecture/launcher-system.md) for current implementation.

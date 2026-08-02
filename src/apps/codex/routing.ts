@@ -1,72 +1,73 @@
 // Codex routing: tier 1 (direct OpenAI) vs tier 2 (Responses proxy).
-import type { CodexProxyRoute } from './proxy.js';
-import { BACKENDS } from '../../../src/config/constants.js';
+import type { CodexProxyRoute } from './proxy.js'
+import { BACKENDS } from '../../../src/config/constants.js'
 import {
   isTargetCompatibleModel,
   providersForTarget,
   routableModelsForTarget,
   type GatewayLaunchTarget,
-} from '../../../src/apps/shared/target-compatibility.js';
-import type { LocalProvider, LocalProviderModel } from '../../../src/types/index.js';
+} from '../../../src/apps/shared/target-compatibility.js'
+import type { LocalProvider, LocalProviderModel } from '../../../src/types/index.js'
 
 export interface CodexRoute {
-  tier: 'direct' | 'proxy' | 'cloud-code';
-  npm: string;
-  baseURL?: string;
-  upstreamModelId: string;
-  apiKey: string;
-  contextWindow?: number;
-  modelId: string;
-  providerId: string;
-  authType?: 'api' | 'oauth' | 'none';
-  oauthAccountId?: string;
-  providerData?: Record<string, unknown>;
-  supportedParameters?: string[];
-  reasoning?: boolean;
-  interleavedReasoningField?: string;
+  tier: 'direct' | 'proxy' | 'cloud-code'
+  npm: string
+  baseURL?: string
+  upstreamModelId: string
+  apiKey: string
+  contextWindow?: number
+  modelId: string
+  providerId: string
+  authType?: 'api' | 'oauth' | 'none'
+  oauthAccountId?: string
+  providerData?: Record<string, unknown>
+  supportedParameters?: string[]
+  reasoning?: boolean
+  interleavedReasoningField?: string
   /** Static headers sent on every upstream request (e.g. a plan/auth-tracking header a custom endpoint requires). */
-  headers?: Record<string, string>;
+  headers?: Record<string, string>
 }
 
 export function isRoutableModel(
   model: LocalProviderModel,
   providerId: string,
   agent: GatewayLaunchTarget = 'codex',
-  authType?: LocalProvider['authType'],
+  authType?: LocalProvider['authType']
 ): boolean {
-  return isTargetCompatibleModel({ target: agent, providerId, authType, model }).compatible;
+  return isTargetCompatibleModel({ target: agent, providerId, authType, model }).compatible
 }
 
 /** Registry providers with at least one routable model (includes Anthropic). */
 export function codexCompatibleProviders(
   providers: LocalProvider[],
-  agent: GatewayLaunchTarget = 'codex',
+  agent: GatewayLaunchTarget = 'codex'
 ): LocalProvider[] {
-  return providersForTarget(providers, agent);
+  return providersForTarget(providers, agent)
 }
 
 function resolveBaseURL(model: LocalProviderModel, provider: LocalProvider): string | undefined {
   if (provider.id === 'zen' || provider.id === 'go') {
-    const isAnthropic = model.modelFormat === 'anthropic';
-    const baseUrl = BACKENDS[provider.id].baseUrl;
-    return isAnthropic ? baseUrl : `${baseUrl}/v1`;
+    const isAnthropic = model.modelFormat === 'anthropic'
+    const baseUrl = BACKENDS[provider.id].baseUrl
+    return isAnthropic ? baseUrl : `${baseUrl}/v1`
   }
-  return model.apiBaseUrl
-    ?? model.completionsUrl?.replace(/\/chat\/completions$/, '')
-    ?? model.baseUrl;
+  return (
+    model.apiBaseUrl ?? model.completionsUrl?.replace(/\/chat\/completions$/, '') ?? model.baseUrl
+  )
 }
 
 /** Tier 1 = OpenAI API keys only. OAuth needs the proxy for Codex endpoint headers. */
 export function resolveCodexRoute(
   provider: LocalProvider,
   model: LocalProviderModel,
-  apiKey: string,
+  apiKey: string
 ): CodexRoute {
-  const upstreamModelId = model.upstreamModelId || model.id;
-  const inferredNpm = model.modelFormat === 'anthropic' ? '@ai-sdk/anthropic' : '@ai-sdk/openai-compatible';
+  const upstreamModelId = model.upstreamModelId || model.id
+  const inferredNpm =
+    model.modelFormat === 'anthropic' ? '@ai-sdk/anthropic' : '@ai-sdk/openai-compatible'
   // For zen/go cloud backends the registry modelsCache npm is unreliable — the
   // OpenCode models cache (via modelFormat) is authoritative for endpoint format.
-  const isZenGo = provider.id === 'zen' || provider.id === 'go';
+  const isZenGo = provider.id === 'zen' || provider.id === 'go'
   const base = {
     npm: isZenGo ? inferredNpm : (model.npm ?? inferredNpm),
     baseURL: resolveBaseURL(model, provider),
@@ -82,7 +83,7 @@ export function resolveCodexRoute(
     reasoning: model.reasoning,
     interleavedReasoningField: model.interleavedReasoningField,
     headers: provider.headers,
-  };
+  }
 
   if (model.modelFormat === 'cloud-code') {
     return {
@@ -101,38 +102,42 @@ export function resolveCodexRoute(
       reasoning: model.reasoning,
       interleavedReasoningField: model.interleavedReasoningField,
       headers: provider.headers,
-    };
+    }
   }
 
-  if (model.npm === '@ai-sdk/openai' && provider.authType !== 'oauth' && model.modelFormat === 'openai') {
-    return { tier: 'direct', ...base };
+  if (
+    model.npm === '@ai-sdk/openai' &&
+    provider.authType !== 'oauth' &&
+    model.modelFormat === 'openai'
+  ) {
+    return { tier: 'direct', ...base }
   }
 
-  return { tier: 'proxy', ...base };
+  return { tier: 'proxy', ...base }
 }
 
 export function routableModelsForProvider(
   provider: LocalProvider,
-  agent: GatewayLaunchTarget = 'codex',
+  agent: GatewayLaunchTarget = 'codex'
 ): LocalProviderModel[] {
-  return routableModelsForTarget(provider, agent);
+  return routableModelsForTarget(provider, agent)
 }
 
 export function buildCodexProxyRoutesForProvider(
   provider: LocalProvider,
   apiKey: string,
   selectedModelId?: string,
-  agent: GatewayLaunchTarget = 'codex',
+  agent: GatewayLaunchTarget = 'codex'
 ): CodexProxyRoute[] {
-  const routable = routableModelsForProvider(provider, agent);
+  const routable = routableModelsForProvider(provider, agent)
   const ordered = selectedModelId
     ? [
-      ...routable.filter(m => m.id === selectedModelId),
-      ...routable.filter(m => m.id !== selectedModelId),
-    ]
-    : routable;
+        ...routable.filter(m => m.id === selectedModelId),
+        ...routable.filter(m => m.id !== selectedModelId),
+      ]
+    : routable
   return ordered.map(model => {
-    const route = resolveCodexRoute(provider, model, apiKey);
+    const route = resolveCodexRoute(provider, model, apiKey)
     return {
       modelId: route.modelId,
       npm: route.npm,
@@ -148,8 +153,8 @@ export function buildCodexProxyRoutesForProvider(
       interleavedReasoningField: route.interleavedReasoningField,
       contextWindow: route.contextWindow,
       headers: route.headers,
-    };
-  });
+    }
+  })
 }
 
 export function codexProviderEnvKey(providerId: string): string {
@@ -159,6 +164,6 @@ export function codexProviderEnvKey(providerId: string): string {
     'xai-oauth': 'XAI_API_KEY',
     anthropic: 'ANTHROPIC_API_KEY',
     google: 'GEMINI_API_KEY',
-  };
-  return known[providerId] ?? `${providerId.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_API_KEY`;
+  }
+  return known[providerId] ?? `${providerId.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_API_KEY`
 }

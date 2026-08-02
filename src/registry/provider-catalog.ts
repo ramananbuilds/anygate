@@ -1,50 +1,52 @@
-import type { CompatibilityAgent } from '../apps/shared/model-compatibility.js';
-import { deriveBrand } from '../apps/shared/model-compatibility.js';
-import { loadRegistry } from './storage/io.js';
-import { loadRegistryProviders } from './loader/load.js';
-import type { LocalProvider, LocalProviderModel, ModelInfo } from '../types/index.js';
-import type { ServerModelInfo } from '../gateway/server/models.js';
-import { BACKENDS, MAX_MODEL_CATALOG, classifyModelFormat } from '../config/constants.js';
-import { claudeCodeClientModelId } from '../apps/shared/context-model-id.js';
-import { resolveContextWindow, loadOpencodeCache } from '../apps/shared/context-window.js';
-import { shouldHideModel } from '../apps/shared/model-compatibility.js';
-import { ANTIGRAVITY_BASE_URLS } from '../auth/antigravity-oauth.js';
-import { isSdkUpgradedNpm } from '../gateway/providers/provider-factory.js';
-import { aliasModelId } from '../gateway/proxy/anthropic-proxy.js';
-import type { ProxyRoute } from '../gateway/proxy/anthropic-proxy.js';
-import { resolveInputTypes } from './models-dev.js';
-import { getValidationStatus } from './validation/model-validator.js';
-import type { FavoriteModel, BackendConfig } from '../types/index.js';
-import { providersForTarget } from '../apps/shared/target-compatibility.js';
+import type { CompatibilityAgent } from '../apps/shared/model-compatibility.js'
+import { deriveBrand } from '../apps/shared/model-compatibility.js'
+import { loadRegistry } from './storage/io.js'
+import { loadRegistryProviders } from './loader/load.js'
+import type { LocalProvider, LocalProviderModel, ModelInfo } from '../types/index.js'
+import type { ServerModelInfo } from '../gateway/server/models.js'
+import { BACKENDS, MAX_MODEL_CATALOG, classifyModelFormat } from '../config/constants.js'
+import { claudeCodeClientModelId } from '../apps/shared/context-model-id.js'
+import { resolveContextWindow, loadOpencodeCache } from '../apps/shared/context-window.js'
+import { shouldHideModel } from '../apps/shared/model-compatibility.js'
+import { ANTIGRAVITY_BASE_URLS } from '../auth/antigravity-oauth.js'
+import { isSdkUpgradedNpm } from '../gateway/providers/provider-factory.js'
+import { aliasModelId } from '../gateway/proxy/anthropic-proxy.js'
+import type { ProxyRoute } from '../gateway/proxy/anthropic-proxy.js'
+import { resolveInputTypes } from './models-dev.js'
+import { getValidationStatus } from './validation/model-validator.js'
+import { dedupeByKey } from '../utils/array.js'
+import type { FavoriteModel, BackendConfig } from '../types/index.js'
+import { providersForTarget } from '../apps/shared/target-compatibility.js'
 import {
   listSupportedTemplates,
   listAddableTemplates,
   type ProviderTemplate,
-} from './templates/provider-templates.js';
+} from './templates/provider-templates.js'
 
-
-export async function fetchProviderCatalog(
-  opts?: { agent?: CompatibilityAgent },
-): Promise<LocalProvider[]> {
-  return loadRegistryProviders(undefined, opts);
+export async function fetchProviderCatalog(opts?: {
+  agent?: CompatibilityAgent
+}): Promise<LocalProvider[]> {
+  return loadRegistryProviders(undefined, opts)
 }
 
 export function providersForPicker(providers: LocalProvider[]): LocalProvider[] {
   for (const p of providers) {
     // Filter out models that have been confirmed deprecated via validation cache
     p.models = p.models.filter(m => {
-      const cached = getValidationStatus(p.id, m.id);
-      return !cached || cached.status !== 'deprecated';
-    });
+      const cached = getValidationStatus(p.id, m.id)
+      return !cached || cached.status !== 'deprecated'
+    })
 
     p.models.sort((a, b) => {
-      const nameA = a.name || a.id;
-      const nameB = b.name || b.id;
-      return nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true });
-    });
+      const nameA = a.name || a.id
+      const nameB = b.name || b.id
+      return nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true })
+    })
   }
 
-  return providers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
+  return providers.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true })
+  )
 }
 
 /**
@@ -53,21 +55,23 @@ export function providersForPicker(providers: LocalProvider[]): LocalProvider[] 
  * templates are marked as `inRegistry: false` and have a special hint.
  */
 export async function providersForPickerWithTemplates(
-  agent: CompatibilityAgent = 'claude',
+  agent: CompatibilityAgent = 'claude'
 ): Promise<Array<LocalProvider & { inRegistry: boolean; template?: ProviderTemplate }>> {
   // Get configured providers from registry
-  const catalog = await fetchProviderCatalog({ agent });
-  const configuredProviders = providersForTarget(providersForPicker(catalog), agent);
+  const catalog = await fetchProviderCatalog({ agent })
+  const configuredProviders = providersForTarget(providersForPicker(catalog), agent)
 
   // Get configured provider IDs
-  const configuredIds = new Set(configuredProviders.map(p => p.id));
+  const configuredIds = new Set(configuredProviders.map(p => p.id))
 
   // Get available templates not yet configured
-  const configuredIdsArray = Array.from(configuredIds);
-  const availableTemplates = listAddableTemplates(configuredIdsArray);
+  const configuredIdsArray = Array.from(configuredIds)
+  const availableTemplates = listAddableTemplates(configuredIdsArray)
 
   // Create "virtual" LocalProvider entries for unconfigured templates
-  const templateProviders: Array<LocalProvider & { inRegistry: false; template: ProviderTemplate }> = availableTemplates.map(template => ({
+  const templateProviders: Array<
+    LocalProvider & { inRegistry: false; template: ProviderTemplate }
+  > = availableTemplates.map(template => ({
     id: template.id,
     name: template.name,
     apiKey: '',
@@ -75,52 +79,52 @@ export async function providersForPickerWithTemplates(
     models: [], // Will be populated if user selects this provider
     inRegistry: false,
     template,
-  }));
+  }))
 
   // Combine and sort: configured providers first, then templates
   const allProviders = [
     ...configuredProviders.map(p => ({ ...p, inRegistry: true })),
     ...templateProviders,
-  ].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
+  ].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }))
 
-  return allProviders;
+  return allProviders
 }
 
 /** Human-readable auth line for `providers list` and provider detail. */
 export function formatRegistryAuthLabel(
-  provider: Pick<import('../registry/types.js').RegistryProvider, 'authRef' | 'authType'>,
+  provider: Pick<import('../registry/types.js').RegistryProvider, 'authRef' | 'authType'>
 ): string {
   if (provider.authType === 'oauth' || provider.authRef.includes('oauth:provider:')) {
-    return 'keychain (OAuth)';
+    return 'keychain (OAuth)'
   }
   if (provider.authRef.startsWith('keyring:global:opencode')) {
-    return 'keychain (OpenCode API key)';
+    return 'keychain (OpenCode API key)'
   }
   if (provider.authType === 'none') {
-    return 'gcloud / manual credentials';
+    return 'gcloud / manual credentials'
   }
   if (provider.authRef.startsWith('keyring:')) {
-    return 'keychain (API key)';
+    return 'keychain (API key)'
   }
   if (provider.authRef.startsWith('env:')) {
-    return provider.authRef;
+    return provider.authRef
   }
-  return provider.authRef;
+  return provider.authRef
 }
 
 /** Row for providers list / hub. */
 export interface ProviderDisplayEntry {
-  id: string;
-  name: string;
-  modelCount: number;
-  enabled: boolean;
-  authLabel: string;
-  inRegistry: boolean;
+  id: string
+  name: string
+  modelCount: number
+  enabled: boolean
+  authLabel: string
+  inRegistry: boolean
 }
 
 export async function resolveProvidersForDisplay(): Promise<ProviderDisplayEntry[]> {
-  const reg = loadRegistry();
-  const entries: ProviderDisplayEntry[] = [];
+  const reg = loadRegistry()
+  const entries: ProviderDisplayEntry[] = []
 
   for (const provider of reg.providers) {
     entries.push({
@@ -130,10 +134,10 @@ export async function resolveProvidersForDisplay(): Promise<ProviderDisplayEntry
       enabled: provider.enabled,
       authLabel: formatRegistryAuthLabel(provider),
       inRegistry: true,
-    });
+    })
   }
 
-  return entries.sort((a, b) => a.name.localeCompare(b.name));
+  return entries.sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export function localProvidersToServerModels(localProviders: LocalProvider[]): ServerModelInfo[] {
@@ -152,7 +156,7 @@ export function localProvidersToServerModels(localProviders: LocalProvider[]): S
       cost: model.cost,
       baseUrl: model.baseUrl,
       completionsUrl: model.completionsUrl,
-      npm: model.modelFormat === 'openai' ? (model.npm || '@ai-sdk/openai-compatible') : model.npm,
+      npm: model.modelFormat === 'openai' ? model.npm || '@ai-sdk/openai-compatible' : model.npm,
       apiBaseUrl: model.apiBaseUrl,
       apiKey: provider.apiKey,
       authType: provider.authType,
@@ -166,15 +170,19 @@ export function localProvidersToServerModels(localProviders: LocalProvider[]): S
       headers: provider.headers,
       providerData: provider.providerData,
     }))
-  );
+  )
 }
 
 export function localModelToRoute(lp: LocalProvider, model: LocalProviderModel): ProxyRoute | null {
-  if (model.modelFormat === 'anthropic' && !model.baseUrl) return null;
-  if (model.modelFormat === 'openai' && !isSdkUpgradedNpm(model.npm) && !model.completionsUrl) return null;
-  const upstreamUrl = model.modelFormat === 'cloud-code'
-    ? (model.baseUrl ?? ANTIGRAVITY_BASE_URLS[0])
-    : (model.modelFormat === 'anthropic' ? model.baseUrl : model.completionsUrl);
+  if (model.modelFormat === 'anthropic' && !model.baseUrl) return null
+  if (model.modelFormat === 'openai' && !isSdkUpgradedNpm(model.npm) && !model.completionsUrl)
+    return null
+  const upstreamUrl =
+    model.modelFormat === 'cloud-code'
+      ? (model.baseUrl ?? ANTIGRAVITY_BASE_URLS[0])
+      : model.modelFormat === 'anthropic'
+        ? model.baseUrl
+        : model.completionsUrl
   return {
     aliasId: claudeCodeClientModelId(aliasModelId(model.id, lp.id), model.contextWindow),
     realModelId: model.upstreamModelId,
@@ -196,17 +204,17 @@ export function localModelToRoute(lp: LocalProvider, model: LocalProviderModel):
     useResponsesLite: model.useResponsesLite,
     preferWebSockets: model.preferWebSockets,
     inputTypes: resolveInputTypes(model.family, lp.id, model.id),
-  };
+  }
 }
 
 export function makeRouteResolver(
-  localProviders: LocalProvider[] | null,
+  localProviders: LocalProvider[] | null
 ): (providerId: string, modelId: string) => ProxyRoute | undefined {
   return (providerId, modelId) => {
-    const provider = localProviders?.find(lp => lp.id === providerId);
-    const model = provider?.models.find(m => m.id === modelId);
-    return provider && model ? localModelToRoute(provider, model) ?? undefined : undefined;
-  };
+    const provider = localProviders?.find(lp => lp.id === providerId)
+    const model = provider?.models.find(m => m.id === modelId)
+    return provider && model ? (localModelToRoute(provider, model) ?? undefined) : undefined
+  }
 }
 
 /**
@@ -214,93 +222,90 @@ export function makeRouteResolver(
  * ResolveContext) and returns built ProxyRoute[] — does NOT delegate to
  * `buildFavoritesList` in `./favorites-resolver.ts` because the input/output
  * shapes are different (closure-based lookup vs. ResolveContext, ProxyRoute
- * vs. ResolvedFavorite). The dedup+cap pattern is duplicated here on purpose;
- * cross-surface shared resolution lives in `favorites-resolver.ts` and is
- * intended to be consumed by other call sites (Codex, Server) that need a
- * route-shape-agnostic intermediate result.
+ * vs. ResolvedFavorite). The dedup+cap step delegates to the shared
+ * `dedupeByKey` utility in `src/utils/array.ts`, consistent with
+ * `buildFavoritesList` in `favorites-resolver.ts`.
  */
 export function buildCatalogRoutes(
   startingRoute: ProxyRoute,
   favorites: FavoriteModel[],
   resolveRoute: (providerId: string, modelId: string) => ProxyRoute | undefined,
-  max = MAX_MODEL_CATALOG,
+  max = MAX_MODEL_CATALOG
 ): { routes: ProxyRoute[]; droppedFavorites: FavoriteModel[] } {
-  const droppedFavorites: FavoriteModel[] = [];
+  const droppedFavorites: FavoriteModel[] = []
   const tail = favorites
     .map(fav => {
-      const route = resolveRoute(fav.providerId, fav.modelId);
-      if (!route) droppedFavorites.push(fav);
-      return route;
+      const route = resolveRoute(fav.providerId, fav.modelId)
+      if (!route) droppedFavorites.push(fav)
+      return route
     })
-    .filter((route): route is ProxyRoute => route !== undefined);
-  const routes = [
-    startingRoute,
-    ...tail.filter(route => route.aliasId !== startingRoute.aliasId),
-  ].slice(0, max);
-  return { routes, droppedFavorites };
+    .filter((route): route is ProxyRoute => route !== undefined)
+  // Dedup by aliasId (preserving first occurrence: startingRoute first) and cap to max.
+  const routes = dedupeByKey([startingRoute, ...tail], route => route.aliasId, max)
+  return { routes, droppedFavorites }
 }
 
 // ── Raw provider / OpenCode serve helpers (upgraded from deleted src/providers.ts) ──
 
 interface RawModel {
-  id: string;
-  name?: string;
-  family?: string;
-  api?: { id?: string; npm?: string; url?: string };
-  cost?: { input: number; output: number };
-  limit?: { context?: number; output?: number };
-  supported_parameters?: string[];
-  supportedParameters?: string[];
-  reasoning?: boolean;
-  interleaved?: { field?: string };
+  id: string
+  name?: string
+  family?: string
+  api?: { id?: string; npm?: string; url?: string }
+  cost?: { input: number; output: number }
+  limit?: { context?: number; output?: number }
+  supported_parameters?: string[]
+  supportedParameters?: string[]
+  reasoning?: boolean
+  interleaved?: { field?: string }
 }
 
 export interface RawProvider {
-  id: string;
-  name: string;
-  key?: string;
-  models?: Record<string, RawModel>;
+  id: string
+  name: string
+  key?: string
+  models?: Record<string, RawModel>
 }
 
 export function resolveEndpoint(
   npm: string,
-  apiUrl: string,
+  apiUrl: string
 ): { format: 'anthropic' | 'openai'; baseUrl?: string; completionsUrl?: string } | null {
-  if (!npm) return null;
+  if (!npm) return null
   if (npm === '@ai-sdk/anthropic') {
     return {
       format: 'anthropic',
       baseUrl: (apiUrl || 'https://api.anthropic.com').replace(/\/v1\/?$/, ''),
-    };
+    }
   }
   if (npm === '@ai-sdk/openai-compatible') {
-    if (!apiUrl) return null;
+    if (!apiUrl) return null
     return {
       format: 'openai',
       completionsUrl: apiUrl.replace(/\/$/, '') + '/chat/completions',
-    };
+    }
   }
   // Any other npm OpenCode assigns — SDK adapter owns endpoints.
-  return { format: 'openai' };
+  return { format: 'openai' }
 }
 
 export function normalizeProviders(
   raw: RawProvider[],
-  opts?: { includeOAuthPlaceholders?: boolean; agent?: CompatibilityAgent },
+  opts?: { includeOAuthPlaceholders?: boolean; agent?: CompatibilityAgent }
 ): LocalProvider[] {
-  const agent = opts?.agent ?? 'claude';
-  const result: LocalProvider[] = [];
+  const agent = opts?.agent ?? 'claude'
+  const result: LocalProvider[] = []
 
   for (const provider of raw) {
-    const hasKey = !!provider.key?.trim();
-    if (!hasKey && !opts?.includeOAuthPlaceholders) continue;
+    const hasKey = !!provider.key?.trim()
+    if (!hasKey && !opts?.includeOAuthPlaceholders) continue
 
-    const models: LocalProviderModel[] = [];
+    const models: LocalProviderModel[] = []
 
     for (const model of Object.values(provider.models ?? {})) {
-      if (shouldHideModel({ providerId: provider.id, modelId: model.id, agent })) continue;
-      const endpoint = resolveEndpoint(model.api?.npm ?? '', model.api?.url ?? '');
-      if (endpoint === null) continue;
+      if (shouldHideModel({ providerId: provider.id, modelId: model.id, agent })) continue
+      const endpoint = resolveEndpoint(model.api?.npm ?? '', model.api?.url ?? '')
+      if (endpoint === null) continue
 
       models.push({
         id: model.id,
@@ -318,18 +323,18 @@ export function normalizeProviders(
         supportedParameters: model.supportedParameters ?? model.supported_parameters,
         reasoning: model.reasoning,
         interleavedReasoningField: model.interleaved?.field,
-      });
+      })
     }
 
-    if (models.length === 0) continue;
+    if (models.length === 0) continue
 
     result.push({
       id: provider.id,
       name: provider.name,
       apiKey: provider.key?.trim() ?? '',
       models,
-    });
+    })
   }
 
-  return result;
+  return result
 }

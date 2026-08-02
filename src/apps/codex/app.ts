@@ -1,27 +1,27 @@
 // codex-app.ts — anygate codex-app / chatgpt: launch the ChatGPT desktop app (Codex mode) with registry providers
-import pc from 'picocolors';
-import * as p from '@clack/prompts';
-import { fetchProviderCatalog, providersForPicker } from '../../../src/registry/provider-catalog.js';
-import { resolveLocalProviderApiKey } from '../../../src/storage/credentials.js';
-import { CredentialUnavailableError } from '../../../src/shared/errors.js';
-import { loadPreferences, savePreferences } from '../../../src/storage/config.js';
-import { resolveApiKey, readFromCredentialStore } from '../../../src/config/env.js';
-import { resolveOrCollectApiKey } from '../../apps/shared/key-setup.js';
-import { startCodexProxy } from './proxy.js';
-import type { CodexProxyHandle, CodexProxyRoute } from './proxy.js';
-import { getCodexProxyDebugLogPath, printTraceLog } from '../../apps/shared/trace-log.js';
-import { buildAppCatalogFile, formatCodexModelLabel, serializeCatalog } from './catalog.js';
-import { pickCodexProvider, pickCodexModel, confirmCodexLaunch } from './prompts.js';
+import pc from 'picocolors'
+import * as p from '@clack/prompts'
+import { fetchProviderCatalog, providersForPicker } from '../../../src/registry/provider-catalog.js'
+import { resolveLocalProviderApiKey } from '../../../src/storage/credentials.js'
+import { CredentialUnavailableError } from '../../../src/shared/errors.js'
+import { loadPreferences, savePreferences } from '../../../src/storage/config.js'
+import { resolveApiKey, readFromCredentialStore } from '../../../src/config/env.js'
+import { resolveOrCollectApiKey } from '../../apps/shared/key-setup.js'
+import { startCodexProxy } from './proxy.js'
+import type { CodexProxyHandle, CodexProxyRoute } from './proxy.js'
+import { getCodexProxyDebugLogPath, printTraceLog } from '../../apps/shared/trace-log.js'
+import { buildAppCatalogFile, formatCodexModelLabel, serializeCatalog } from './catalog.js'
+import { pickCodexProvider, pickCodexModel, confirmCodexLaunch } from './prompts.js'
 import {
   codexCompatibleProviders,
   resolveCodexRoute,
   routableModelsForProvider,
   type CodexRoute,
-} from './routing.js';
-import { buildCodexAppProviderCatalogRoutes } from './app-provider-routes.js';
-import { applyAppConfigPatch, previewAppConfigToml } from './app-config.js';
-import { PREVIEW_PROXY_PORT, type CodexAppConfigSpec } from './app-profile.js';
-import type { LocalProvider, LocalProviderModel } from '../../../src/types/index.js';
+} from './routing.js'
+import { buildCodexAppProviderCatalogRoutes } from './app-provider-routes.js'
+import { applyAppConfigPatch, previewAppConfigToml } from './app-config.js'
+import { PREVIEW_PROXY_PORT, type CodexAppConfigSpec } from './app-profile.js'
+import type { LocalProvider, LocalProviderModel } from '../../../src/types/index.js'
 import {
   backupConfigToml,
   checkAppSessionLock,
@@ -33,42 +33,51 @@ import {
   saveAppRestoreStateBeforePatch,
   waitForShutdown,
   writeAppSessionLock,
-} from './app-session.js';
-import { writeOverlayFile } from './session.js';
-import { codexAppInstallHint, codexAppSupported, launchOrRestartCodexApp, isCodexAppRunning, quitCodexAppGracefully } from './app-launch.js';
+} from './app-session.js'
+import { writeOverlayFile } from './session.js'
+import {
+  codexAppInstallHint,
+  codexAppSupported,
+  launchOrRestartCodexApp,
+  isCodexAppRunning,
+  quitCodexAppGracefully,
+} from './app-launch.js'
 import {
   codexAppIntro,
   codexAppOutro,
   logCodexActiveModel,
   logCodexProxy,
   printCodexAppSessionPanel,
-} from './ui.js';
-import type { ResolvedFavorite } from '../../apps/shared/favorites-resolver.js';
-import { resolveFirstAvailableFavorite } from '../../apps/shared/favorites-resolver.js';
-import { buildFavoritesAppCatalog, codexCliFavoritesSlug } from './favorites-catalog.js';
+} from './ui.js'
+import type { ResolvedFavorite } from '../../apps/shared/favorites-resolver.js'
+import { resolveFirstAvailableFavorite } from '../../apps/shared/favorites-resolver.js'
+import { buildFavoritesAppCatalog, codexCliFavoritesSlug } from './favorites-catalog.js'
 import {
   buildVertexRuntimeConfig,
   hasApplicationDefaultCredentials,
   type VertexModelEntry,
-} from '../../../src/gateway/adapters/vertex.js';
-import { VERTEX_ANTHROPIC_NPM } from '../../../src/config/constants.js';
-import { resolveContextWindow } from '../../apps/shared/context-window.js';
+} from '../../../src/gateway/adapters/vertex.js'
+import { VERTEX_ANTHROPIC_NPM } from '../../../src/config/constants.js'
+import { resolveContextWindow } from '../../apps/shared/context-window.js'
 import {
   buildCodexProxyRoutesFromResolved,
   pickFavoriteStartingModel,
   resolveBootSelection,
   resolveCodexFavorites,
-} from './favorites-launch.js';
-import { getFavoritesAppCatalogPath } from './profile.js';
+} from './favorites-launch.js'
+import { getFavoritesAppCatalogPath } from './profile.js'
 import {
   buildCloudCodeProxyRoute,
   buildOAuthAnthropicProxyRoute,
   startCloudCodeCatalogBackend,
   type CloudCodeBackend,
-} from '../shared/cloud-code-backend.js';
-import type { ProxyRoute } from '../../../src/gateway/proxy/anthropic-proxy.js';
+} from '../shared/cloud-code-backend.js'
+import type { ProxyRoute } from '../../../src/gateway/proxy/anthropic-proxy.js'
 
-function codexProxyRouteToCodexRoute(route: CodexProxyRoute, fallbackProviderId: string): CodexRoute {
+function codexProxyRouteToCodexRoute(
+  route: CodexProxyRoute,
+  fallbackProviderId: string
+): CodexRoute {
   return {
     tier: 'proxy',
     modelId: route.modelId,
@@ -84,33 +93,33 @@ function codexProxyRouteToCodexRoute(route: CodexProxyRoute, fallbackProviderId:
     reasoning: route.reasoning,
     interleavedReasoningField: route.interleavedReasoningField,
     headers: route.headers,
-  };
+  }
 }
 
 async function waitForShutdownWithConfirm(): Promise<void> {
   while (true) {
-    const signal = await waitForShutdown();
-    if (signal !== 'sigint') break; // SIGTERM/SIGHUP: close immediately, no one to ask
-    console.log('');
+    const signal = await waitForShutdown()
+    if (signal !== 'sigint') break // SIGTERM/SIGHUP: close immediately, no one to ask
+    console.log('')
     const choice = await p.select({
       message: 'Close ChatGPT Desktop and restore your Codex config?',
       options: [
         { value: 'yes', label: 'Yes, close ChatGPT Desktop and restore config' },
         { value: 'no', label: 'No, keep session running' },
       ],
-    });
-    if (p.isCancel(choice) || choice === 'yes') break; // Ctrl+C or Yes = close
+    })
+    if (p.isCancel(choice) || choice === 'yes') break // Ctrl+C or Yes = close
     // choice === 'no' → loop back and keep waiting
   }
 }
 
 export async function maybeCloseRunningCodexApp(): Promise<void> {
-  if (!isCodexAppRunning()) return;
+  if (!isCodexAppRunning()) return
 
-  const shouldClose = await p.confirm({ message: 'ChatGPT Desktop is still running. Close it?' });
+  const shouldClose = await p.confirm({ message: 'ChatGPT Desktop is still running. Close it?' })
   if (shouldClose && !p.isCancel(shouldClose)) {
-    p.log.step('Stopping ChatGPT Desktop...');
-    quitCodexAppGracefully();
+    p.log.step('Stopping ChatGPT Desktop...')
+    quitCodexAppGracefully()
   }
 }
 
@@ -161,14 +170,16 @@ ${pc.bold('Examples:')}
 ${pc.bold('Favorites:')}
   When you have saved favorites via ${pc.cyan('anygate models')}, the Codex App
   picker will show your starting model + favorites for mid-session switching.
-  Zen/Go favorites are included when an OpenCode API key is available.`;
+  Zen/Go favorites are included when an OpenCode API key is available.`
 }
 
 function providerForCodexPicker(provider: LocalProvider): LocalProvider {
-  return { ...provider, models: routableModelsForProvider(provider, 'codex-app') };
+  return { ...provider, models: routableModelsForProvider(provider, 'codex-app') }
 }
 
-function vertexEntryToLocalModel(entry: VertexModelEntry): import('../../types/index.js').LocalProviderModel {
+function vertexEntryToLocalModel(
+  entry: VertexModelEntry
+): import('../../types/index.js').LocalProviderModel {
   return {
     id: entry.id,
     name: entry.display_name,
@@ -179,41 +190,44 @@ function vertexEntryToLocalModel(entry: VertexModelEntry): import('../../types/i
     baseUrl: '',
     npm: VERTEX_ANTHROPIC_NPM,
     contextWindow: resolveContextWindow(entry.id),
-  };
+  }
 }
 
 async function runCodexAppVertexLaunch(configOnly: boolean, trace = false): Promise<number> {
   if (!hasApplicationDefaultCredentials()) {
-    p.log.error('Google Application Default Credentials not found.');
-    p.log.info('Run: gcloud auth application-default login');
-    return 1;
+    p.log.error('Google Application Default Credentials not found.')
+    p.log.info('Run: gcloud auth application-default login')
+    return 1
   }
 
-  const config = buildVertexRuntimeConfig();
+  const config = buildVertexRuntimeConfig()
   if (!config) {
-    p.log.error('ANTHROPIC_VERTEX_PROJECT_ID (or GOOGLE_CLOUD_PROJECT) is not set.');
-    p.log.info('Set your project: export ANTHROPIC_VERTEX_PROJECT_ID=your-project-id');
-    return 1;
+    p.log.error('ANTHROPIC_VERTEX_PROJECT_ID (or GOOGLE_CLOUD_PROJECT) is not set.')
+    p.log.info('Set your project: export ANTHROPIC_VERTEX_PROJECT_ID=your-project-id')
+    return 1
   }
 
-  let selectedEntry: VertexModelEntry;
+  let selectedEntry: VertexModelEntry
   if (config.models.length === 1) {
-    selectedEntry = config.models[0]!;
+    selectedEntry = config.models[0]!
   } else {
     const choice = await p.select({
       message: 'Select a starting Vertex AI model:',
       options: config.models.map(m => ({ value: m, label: m.display_name, hint: m.id })),
-    });
-    if (p.isCancel(choice)) { p.cancel('Cancelled.'); return 0; }
-    selectedEntry = choice as VertexModelEntry;
+    })
+    if (p.isCancel(choice)) {
+      p.cancel('Cancelled.')
+      return 0
+    }
+    selectedEntry = choice as VertexModelEntry
   }
 
-  process.env['ANTHROPIC_VERTEX_PROJECT_ID'] = config.project;
-  process.env['GOOGLE_CLOUD_LOCATION'] = config.location;
+  process.env['ANTHROPIC_VERTEX_PROJECT_ID'] = config.project
+  process.env['GOOGLE_CLOUD_LOCATION'] = config.location
 
-  const vertexConfig = { project: config.project, location: config.location };
-  const vertexModels = config.models.map(vertexEntryToLocalModel);
-  const catalogPath = getAppCatalogPath('vertex');
+  const vertexConfig = { project: config.project, location: config.location }
+  const vertexModels = config.models.map(vertexEntryToLocalModel)
+  const catalogPath = getAppCatalogPath('vertex')
 
   const route = {
     tier: 'proxy' as const,
@@ -223,31 +237,33 @@ async function runCodexAppVertexLaunch(configOnly: boolean, trace = false): Prom
     apiKey: '',
     providerId: 'vertex',
     contextWindow: resolveContextWindow(selectedEntry.id),
-  };
-
-  if (configOnly) {
-    const home = process.env['HOME'] ?? '';
-    const shortenPath = (fp: string) => home ? fp.replace(home, '~') : fp;
-    console.log('');
-    console.log(pc.bold(pc.cyan('  CONFIG PREVIEW — anygate codex-app --vertex')));
-    console.log('');
-    console.log(`  ${pc.bold('Mode:')}     Vertex AI`);
-    console.log(`  ${pc.bold('Project:')} ${config.project}`);
-    console.log(`  ${pc.bold('Location:')} ${config.location}`);
-    console.log(`  ${pc.bold('Model:')}    ${selectedEntry.display_name}`);
-    console.log(`  ${pc.bold('Catalog:')} ${vertexModels.length} model${vertexModels.length !== 1 ? 's' : ''} available`);
-    console.log('');
-    console.log(`  ${pc.bold('Catalog file:')}`);
-    console.log(`    ${pc.dim(shortenPath(catalogPath))}`);
-    console.log('');
-    console.log(pc.dim('  No app was launched.'));
-    console.log(pc.dim('  Run ') + pc.cyan('anygate codex-app --vertex') + pc.dim(' to launch.'));
-    console.log('');
-    return 0;
   }
 
-  let proxyHandle: CodexProxyHandle | null = null;
-  let sessionActive = false;
+  if (configOnly) {
+    const home = process.env['HOME'] ?? ''
+    const shortenPath = (fp: string) => (home ? fp.replace(home, '~') : fp)
+    console.log('')
+    console.log(pc.bold(pc.cyan('  CONFIG PREVIEW — anygate codex-app --vertex')))
+    console.log('')
+    console.log(`  ${pc.bold('Mode:')}     Vertex AI`)
+    console.log(`  ${pc.bold('Project:')} ${config.project}`)
+    console.log(`  ${pc.bold('Location:')} ${config.location}`)
+    console.log(`  ${pc.bold('Model:')}    ${selectedEntry.display_name}`)
+    console.log(
+      `  ${pc.bold('Catalog:')} ${vertexModels.length} model${vertexModels.length !== 1 ? 's' : ''} available`
+    )
+    console.log('')
+    console.log(`  ${pc.bold('Catalog file:')}`)
+    console.log(`    ${pc.dim(shortenPath(catalogPath))}`)
+    console.log('')
+    console.log(pc.dim('  No app was launched.'))
+    console.log(pc.dim('  Run ') + pc.cyan('anygate codex-app --vertex') + pc.dim(' to launch.'))
+    console.log('')
+    return 0
+  }
+
+  let proxyHandle: CodexProxyHandle | null = null
+  let sessionActive = false
   try {
     proxyHandle = await startCodexProxy(
       vertexModels.map(m => ({
@@ -259,22 +275,22 @@ async function runCodexAppVertexLaunch(configOnly: boolean, trace = false): Prom
         vertex: vertexConfig,
         contextWindow: m.contextWindow,
       })),
-      { requireAuth: false, debug: trace },
-    );
-    const proxyPort = proxyHandle.port;
+      { requireAuth: false, debug: trace }
+    )
+    const proxyPort = proxyHandle.port
 
-    const catalogFile = buildAppCatalogFile(vertexModels, 'Vertex AI', selectedEntry.id);
-    writeOverlayFile(catalogPath, serializeCatalog(catalogFile));
+    const catalogFile = buildAppCatalogFile(vertexModels, 'Vertex AI', selectedEntry.id)
+    writeOverlayFile(catalogPath, serializeCatalog(catalogFile))
 
     const spec: CodexAppConfigSpec = {
       route,
       proxyPort,
       catalogPath,
-    };
+    }
 
-    saveAppRestoreStateBeforePatch();
-    const backupPath = backupConfigToml();
-    applyAppConfigPatch(spec);
+    saveAppRestoreStateBeforePatch()
+    const backupPath = backupConfigToml()
+    applyAppConfigPatch(spec)
 
     writeAppSessionLock({
       pid: process.pid,
@@ -284,18 +300,20 @@ async function runCodexAppVertexLaunch(configOnly: boolean, trace = false): Prom
       restoreStatePath: getAppRestoreStatePath(),
       backupPath,
       proxyPort,
-    });
-    sessionActive = true;
+    })
+    sessionActive = true
 
-    p.log.info(`Vertex AI · ${selectedEntry.display_name} — project: ${config.project} / location: ${config.location}`);
-    logCodexProxy(proxyPort);
-    logCodexActiveModel(selectedEntry.display_name, selectedEntry.id);
+    p.log.info(
+      `Vertex AI · ${selectedEntry.display_name} — project: ${config.project} / location: ${config.location}`
+    )
+    logCodexProxy(proxyPort)
+    logCodexActiveModel(selectedEntry.display_name, selectedEntry.id)
 
     try {
-      await launchOrRestartCodexApp();
+      await launchOrRestartCodexApp()
     } catch (err) {
-      p.log.warn(String(err instanceof Error ? err.message : err));
-      p.log.info(codexAppInstallHint());
+      p.log.warn(String(err instanceof Error ? err.message : err))
+      p.log.info(codexAppInstallHint())
     }
 
     printCodexAppSessionPanel({
@@ -303,152 +321,167 @@ async function runCodexAppVertexLaunch(configOnly: boolean, trace = false): Prom
       modelId: selectedEntry.id,
       providerName: 'Vertex AI',
       restoreCommand: 'anygate codex-app --restore',
-    });
+    })
 
-    codexAppOutro(selectedEntry.display_name);
-    await waitForShutdownWithConfirm();
-    console.log('');
+    codexAppOutro(selectedEntry.display_name)
+    await waitForShutdownWithConfirm()
+    console.log('')
 
     if (sessionActive) {
-      restoreCodexAppOverlay();
-      sessionActive = false;
+      restoreCodexAppOverlay()
+      sessionActive = false
     }
-    await maybeCloseRunningCodexApp();
-    return 0;
+    await maybeCloseRunningCodexApp()
+    return 0
   } finally {
-    proxyHandle?.close();
-    if (sessionActive) restoreCodexAppOverlay();
+    proxyHandle?.close()
+    if (sessionActive) restoreCodexAppOverlay()
   }
 }
 
-export async function runCodexAppCommand(args: string[], opts: { vertex?: boolean; launchProvider?: string; launchModel?: string } = {}): Promise<number> {
+export async function runCodexAppCommand(
+  args: string[],
+  opts: { vertex?: boolean; launchProvider?: string; launchModel?: string } = {}
+): Promise<number> {
   if (args.includes('--help') || args.includes('-h')) {
-    console.log(codexAppHelpText());
-    return 0;
+    console.log(codexAppHelpText())
+    return 0
   }
 
   if (args.includes('--restore')) {
-    const result = restoreCodexAppOverlay();
-    console.log(result.message);
-    return result.liveSession ? 1 : 0;
+    const result = restoreCodexAppOverlay()
+    console.log(result.message)
+    return result.liveSession ? 1 : 0
   }
 
   try {
-    codexAppSupported();
+    codexAppSupported()
   } catch (err) {
-    console.error(pc.red(String(err instanceof Error ? err.message : err)));
-    return 1;
+    console.error(pc.red(String(err instanceof Error ? err.message : err)))
+    return 1
   }
 
-  const interrupted = recoverInterruptedCodexAppSession();
-  const configOnly = args.includes('--config');
-  const trace = args.includes('--trace');
-  const debugLogPath = getCodexProxyDebugLogPath();
+  const interrupted = recoverInterruptedCodexAppSession()
+  const configOnly = args.includes('--config')
+  const trace = args.includes('--trace')
+  const debugLogPath = getCodexProxyDebugLogPath()
   if (trace && !configOnly) {
-    p.log.info(`Debug log: ${debugLogPath}`);
+    p.log.info(`Debug log: ${debugLogPath}`)
   }
 
-  const isTty = Boolean(process.stdin.isTTY);
+  const isTty = Boolean(process.stdin.isTTY)
   if (!configOnly) {
-    const sessionCheck = checkAppSessionLock(isTty);
+    const sessionCheck = checkAppSessionLock(isTty)
     if (!sessionCheck.ok) {
       if (sessionCheck.reason === 'non_tty') {
-        console.error(pc.red('anygate codex-app requires an interactive terminal.'));
-        return 1;
+        console.error(pc.red('anygate codex-app requires an interactive terminal.'))
+        return 1
       }
-      console.error(pc.yellow(`Another anygate codex-app session may be running (pid ${sessionCheck.lock.pid}).`));
-      console.error('Stop it with Ctrl+C in that terminal, or run anygate codex-app --restore after it exits.');
-      return 1;
+      console.error(
+        pc.yellow(
+          `Another anygate codex-app session may be running (pid ${sessionCheck.lock.pid}).`
+        )
+      )
+      console.error(
+        'Stop it with Ctrl+C in that terminal, or run anygate codex-app --restore after it exits.'
+      )
+      return 1
     }
   }
 
   if (!configOnly) {
-    codexAppIntro();
+    codexAppIntro()
     if (interrupted.recovered) {
-      p.log.warn('Recovered from an interrupted codex-app session (restored Codex config).');
+      p.log.warn('Recovered from an interrupted codex-app session (restored Codex config).')
     }
   }
 
   if (opts.vertex) {
-    return runCodexAppVertexLaunch(configOnly, trace);
+    return runCodexAppVertexLaunch(configOnly, trace)
   }
 
-  const catalogSpinner = p.spinner();
-  catalogSpinner.start('Loading your providers...');
-  let catalog;
+  const catalogSpinner = p.spinner()
+  catalogSpinner.start('Loading your providers...')
+  let catalog
   try {
-    catalog = await fetchProviderCatalog({ agent: 'codex-app' });
+    catalog = await fetchProviderCatalog({ agent: 'codex-app' })
   } catch (err) {
-    catalogSpinner.stop('');
-    console.error(pc.red(String(err instanceof Error ? err.message : err)));
-    return 1;
+    catalogSpinner.stop('')
+    console.error(pc.red(String(err instanceof Error ? err.message : err)))
+    return 1
   }
-  catalogSpinner.stop('');
+  catalogSpinner.stop('')
 
-  const compatible = codexCompatibleProviders(providersForPicker(catalog), 'codex-app');
+  const compatible = codexCompatibleProviders(providersForPicker(catalog), 'codex-app')
   if (compatible.length === 0) {
     if (!configOnly) {
-      p.log.warn('No Codex-compatible providers in your registry.');
-      p.log.info('Add a provider with anygate providers add.');
+      p.log.warn('No Codex-compatible providers in your registry.')
+      p.log.info('Add a provider with anygate providers add.')
     }
-    return 0;
+    return 0
   }
 
-  const prefs = loadPreferences();
-  const favorites = prefs.favoriteModels ?? [];
-  const favoritesActive = favorites.length > 0;
+  const prefs = loadPreferences()
+  const favorites = prefs.favoriteModels ?? []
+  const favoritesActive = favorites.length > 0
   // Non-interactive favorites launch: when --favorites is passed (e.g. from the
   // web UI "All favorites" mode), skip the picker + launch-confirm prompts and
   // go straight into the favorites catalog.
-  const useFavoritesCatalog = args.includes('--favorites');
+  const useFavoritesCatalog = args.includes('--favorites')
 
   if (favoritesActive && !configOnly) {
     p.log.info(
-      `Favorites mode active — Codex App picker will show ${favorites.length + 1} models (1 starting + ${favorites.length} favorites).`,
-    );
-    p.log.info('Edit with `anygate models`.');
+      `Favorites mode active — Codex App picker will show ${favorites.length + 1} models (1 starting + ${favorites.length} favorites).`
+    )
+    p.log.info('Edit with `anygate models`.')
   }
 
   let activeProvider = providerForCodexPicker(
-    compatible.find(lp => lp.id === prefs.lastCodexProvider) ?? compatible[0]!,
-  );
-  let selectedModel = activeProvider.models.find(m => m.id === prefs.lastCodexModel)
-    ?? activeProvider.models[0]!;
+    compatible.find(lp => lp.id === prefs.lastCodexProvider) ?? compatible[0]!
+  )
+  let selectedModel =
+    activeProvider.models.find(m => m.id === prefs.lastCodexModel) ?? activeProvider.models[0]!
 
   if (!configOnly && opts.launchProvider && opts.launchModel) {
     const bootSelection = resolveBootSelection(
       compatible,
       opts.launchProvider,
       opts.launchModel,
-      providerForCodexPicker,
-    );
+      providerForCodexPicker
+    )
     if ('error' in bootSelection) {
-      p.log.error(bootSelection.error);
-      return 1;
+      p.log.error(bootSelection.error)
+      return 1
     }
-    activeProvider = bootSelection.provider;
-    selectedModel = bootSelection.model;
+    activeProvider = bootSelection.provider
+    selectedModel = bootSelection.model
   } else if (!configOnly) {
     if (useFavoritesCatalog && favoritesActive) {
       // Non-interactive favorites launch: pick the first available favorite as the
       // starting model instead of prompting.
       const firstFavorite = resolveFirstAvailableFavorite(
         favorites,
-        compatible.map(providerForCodexPicker),
-      );
+        compatible.map(providerForCodexPicker)
+      )
       if (!firstFavorite) {
-        p.log.warn('No saved favorites are currently available.');
-        return 0;
+        p.log.warn('No saved favorites are currently available.')
+        return 0
       }
-      activeProvider = providerForCodexPicker(firstFavorite.provider);
-      selectedModel = firstFavorite.model;
+      activeProvider = providerForCodexPicker(firstFavorite.provider)
+      selectedModel = firstFavorite.model
     } else {
-      let currentInitialProvider = prefs.lastCodexProvider && compatible.some(o => o.id === prefs.lastCodexProvider)
-        ? prefs.lastCodexProvider
-        : compatible[0]!.id;
+      let currentInitialProvider =
+        prefs.lastCodexProvider && compatible.some(o => o.id === prefs.lastCodexProvider)
+          ? prefs.lastCodexProvider
+          : compatible[0]!.id
       while (true) {
-        const pickedProvider = await pickCodexProvider(compatible, prefs, favoritesActive, currentInitialProvider);
-        if (!pickedProvider) return 0;
+        const pickedProvider = await pickCodexProvider(
+          compatible,
+          prefs,
+          favoritesActive,
+          currentInitialProvider
+        )
+        if (!pickedProvider) return 0
 
         if (pickedProvider === '__favorites__') {
           const favoritePick = await pickFavoriteStartingModel(
@@ -456,160 +489,179 @@ export async function runCodexAppCommand(args: string[], opts: { vertex?: boolea
             favorites,
             'codex-app',
             'Codex App',
-            providerForCodexPicker,
-          );
-          if (favoritePick === 'cancelled' || favoritePick === 'unavailable') return 0;
-          activeProvider = favoritePick.provider;
-          selectedModel = favoritePick.model;
-          break;
+            providerForCodexPicker
+          )
+          if (favoritePick === 'cancelled' || favoritePick === 'unavailable') return 0
+          activeProvider = favoritePick.provider
+          selectedModel = favoritePick.model
+          break
         } else {
-          activeProvider = providerForCodexPicker(pickedProvider as LocalProvider);
-          const pickedModelResult = await pickCodexModel(activeProvider, prefs);
+          activeProvider = providerForCodexPicker(pickedProvider as LocalProvider)
+          const pickedModelResult = await pickCodexModel(activeProvider, prefs)
           if (pickedModelResult === 'back') {
-            currentInitialProvider = activeProvider.id;
-            continue;
+            currentInitialProvider = activeProvider.id
+            continue
           }
-          if (!pickedModelResult) return 0;
-          selectedModel = pickedModelResult;
-          break;
+          if (!pickedModelResult) return 0
+          selectedModel = pickedModelResult
+          break
         }
       }
     }
   }
 
-  const apiKey = await resolveLocalProviderApiKey(activeProvider);
+  const apiKey = await resolveLocalProviderApiKey(activeProvider)
   if (!apiKey) {
     if (!configOnly) {
-      p.log.error(new CredentialUnavailableError(activeProvider.id).userMessage);
+      p.log.error(new CredentialUnavailableError(activeProvider.id).userMessage)
     }
-    return 1;
+    return 1
   }
 
-  activeProvider.apiKey = apiKey;
+  activeProvider.apiKey = apiKey
 
-  let cloudCodeBackend: CloudCodeBackend | null = null;
-  let cloudCodeBackendFav: CloudCodeBackend | null = null;
+  let cloudCodeBackend: CloudCodeBackend | null = null
+  let cloudCodeBackendFav: CloudCodeBackend | null = null
   const appProviderRoutes = favoritesActive
     ? null
-    : await buildCodexAppProviderCatalogRoutes(activeProvider, apiKey, selectedModel.id, trace);
-  cloudCodeBackend = appProviderRoutes?.backend ?? null;
+    : await buildCodexAppProviderCatalogRoutes(activeProvider, apiKey, selectedModel.id, trace)
+  cloudCodeBackend = appProviderRoutes?.backend ?? null
 
   const route = appProviderRoutes
     ? codexProxyRouteToCodexRoute(appProviderRoutes.selectedRoute, activeProvider.id)
-    : resolveCodexRoute(activeProvider, selectedModel, apiKey);
-  const appRoute = { ...route, tier: 'proxy' as const };
-  const routable = appProviderRoutes?.routable ?? routableModelsForProvider(activeProvider, 'codex-app');
-  const catalogModels = appProviderRoutes?.catalogModels ?? routable;
+    : resolveCodexRoute(activeProvider, selectedModel, apiKey)
+  const appRoute = { ...route, tier: 'proxy' as const }
+  const routable =
+    appProviderRoutes?.routable ?? routableModelsForProvider(activeProvider, 'codex-app')
+  const catalogModels = appProviderRoutes?.catalogModels ?? routable
 
-  let resolvedFavorites: ResolvedFavorite[] = [];
-  let providersById: Map<string, LocalProvider> = new Map();
+  let resolvedFavorites: ResolvedFavorite[] = []
+  let providersById: Map<string, LocalProvider> = new Map()
 
   if (favoritesActive) {
-    const res = await resolveCodexFavorites(activeProvider, selectedModel, compatible, favorites, 'codex-app');
-    resolvedFavorites = res.resolvedFavorites;
-    providersById = res.providersById;
+    const res = await resolveCodexFavorites(
+      activeProvider,
+      selectedModel,
+      compatible,
+      favorites,
+      'codex-app'
+    )
+    resolvedFavorites = res.resolvedFavorites
+    providersById = res.providersById
   }
 
   if (!configOnly) {
-    const modelLabel = formatCodexModelLabel(selectedModel);
-    const confirmed = useFavoritesCatalog || await confirmCodexLaunch(
-      activeProvider.name,
-      modelLabel,
-      selectedModel.id,
-      appRoute,
-    );
+    const modelLabel = formatCodexModelLabel(selectedModel)
+    const confirmed =
+      useFavoritesCatalog ||
+      (await confirmCodexLaunch(activeProvider.name, modelLabel, selectedModel.id, appRoute))
     if (!confirmed) {
-      cloudCodeBackend?.handle.close();
-      return 0;
+      cloudCodeBackend?.handle.close()
+      return 0
     }
   }
 
-  let proxyHandle: CodexProxyHandle | null = null;
-  let sessionActive = false;
+  let proxyHandle: CodexProxyHandle | null = null
+  let sessionActive = false
   try {
-    const catalogPath = favoritesActive && resolvedFavorites.length > 0
-      ? getFavoritesAppCatalogPath()
-      : getAppCatalogPath(route.providerId);
+    const catalogPath =
+      favoritesActive && resolvedFavorites.length > 0
+        ? getFavoritesAppCatalogPath()
+        : getAppCatalogPath(route.providerId)
 
-    const activeRoute = favoritesActive && resolvedFavorites.length > 0 ? {
-      tier: 'proxy' as const,
-      modelId: codexCliFavoritesSlug(activeProvider.id, selectedModel.id),
-      providerId: activeProvider.id,
-      npm: '',
-      upstreamModelId: '',
-      apiKey: '',
-      contextWindow: selectedModel.contextWindow,
-    } : appRoute;
+    const activeRoute =
+      favoritesActive && resolvedFavorites.length > 0
+        ? {
+            tier: 'proxy' as const,
+            modelId: codexCliFavoritesSlug(activeProvider.id, selectedModel.id),
+            providerId: activeProvider.id,
+            npm: '',
+            upstreamModelId: '',
+            apiKey: '',
+            contextWindow: selectedModel.contextWindow,
+          }
+        : appRoute
 
-    const specBase = { route: activeRoute, catalogPath };
+    const specBase = { route: activeRoute, catalogPath }
 
     if (configOnly) {
-      const home = process.env['HOME'] ?? '';
-      const shortenPath = (fp: string) => home ? fp.replace(home, '~') : fp;
+      const home = process.env['HOME'] ?? ''
+      const shortenPath = (fp: string) => (home ? fp.replace(home, '~') : fp)
 
-      console.log('');
-      console.log(pc.bold(pc.cyan('  CONFIG PREVIEW — anygate codex-app')));
-      console.log('');
+      console.log('')
+      console.log(pc.bold(pc.cyan('  CONFIG PREVIEW — anygate codex-app')))
+      console.log('')
 
       if (favoritesActive) {
-        console.log(`  ${pc.bold('Mode:')}     Favorites Catalog (${resolvedFavorites.length} model${resolvedFavorites.length !== 1 ? 's' : ''})`);
-        console.log('');
-        console.log(`  ${pc.bold('Models:')}`);
+        console.log(
+          `  ${pc.bold('Mode:')}     Favorites Catalog (${resolvedFavorites.length} model${resolvedFavorites.length !== 1 ? 's' : ''})`
+        )
+        console.log('')
+        console.log(`  ${pc.bold('Models:')}`)
         for (const r of resolvedFavorites) {
-          console.log(`    ${pc.cyan(r.model.id)}  ${pc.dim(`(${r.providerName})`)}`);
+          console.log(`    ${pc.cyan(r.model.id)}  ${pc.dim(`(${r.providerName})`)}`)
         }
       } else {
-        console.log(`  ${pc.bold('Mode:')}     Single model`);
-        console.log(`  ${pc.bold('Provider:')} ${activeProvider.name}`);
-        console.log(`  ${pc.bold('Model:')}    ${formatCodexModelLabel(selectedModel)}`);
-        console.log(`  ${pc.bold('Catalog:')}  ${routable.length} model${routable.length !== 1 ? 's' : ''} available`);
+        console.log(`  ${pc.bold('Mode:')}     Single model`)
+        console.log(`  ${pc.bold('Provider:')} ${activeProvider.name}`)
+        console.log(`  ${pc.bold('Model:')}    ${formatCodexModelLabel(selectedModel)}`)
+        console.log(
+          `  ${pc.bold('Catalog:')}  ${routable.length} model${routable.length !== 1 ? 's' : ''} available`
+        )
       }
 
-      console.log('');
-      console.log(`  ${pc.bold('config.toml patch preview:')}`);
+      console.log('')
+      console.log(`  ${pc.bold('config.toml patch preview:')}`)
       const tomlPreview = previewAppConfigToml({
         ...specBase,
         proxyPort: PREVIEW_PROXY_PORT,
-      });
+      })
       for (const line of tomlPreview.split('\n')) {
-        console.log(`    ${pc.dim(line)}`);
+        console.log(`    ${pc.dim(line)}`)
       }
 
-      console.log('');
-      console.log(`  ${pc.bold('Catalog file:')}`);
-      console.log(`    ${pc.dim(shortenPath(catalogPath))}`);
-      console.log('');
-      console.log(pc.dim('  No app was launched.'));
-      console.log(pc.dim('  Run ') + pc.cyan('anygate codex-app') + pc.dim(' to launch.'));
-      console.log('');
+      console.log('')
+      console.log(`  ${pc.bold('Catalog file:')}`)
+      console.log(`    ${pc.dim(shortenPath(catalogPath))}`)
+      console.log('')
+      console.log(pc.dim('  No app was launched.'))
+      console.log(pc.dim('  Run ') + pc.cyan('anygate codex-app') + pc.dim(' to launch.'))
+      console.log('')
 
-      return 0;
+      return 0
     }
 
-    let proxyPort: number;
+    let proxyPort: number
     if (favoritesActive && resolvedFavorites.length > 0) {
-      const needsBackend = (r: typeof resolvedFavorites[0]) => {
-        const m = r.model as LocalProviderModel;
-        const prov = providersById.get(r.providerId);
-        return m.modelFormat === 'cloud-code'
-          || (m.modelFormat === 'anthropic' && prov?.authType === 'oauth');
-      };
-      const backendResolved = resolvedFavorites.filter(needsBackend);
-      const regularResolved = resolvedFavorites.filter(r => !needsBackend(r));
+      const needsBackend = (r: (typeof resolvedFavorites)[0]) => {
+        const m = r.model as LocalProviderModel
+        const prov = providersById.get(r.providerId)
+        return (
+          m.modelFormat === 'cloud-code' ||
+          (m.modelFormat === 'anthropic' && prov?.authType === 'oauth')
+        )
+      }
+      const backendResolved = resolvedFavorites.filter(needsBackend)
+      const regularResolved = resolvedFavorites.filter(r => !needsBackend(r))
 
-      let backendCodexRoutes: import('./proxy.js').CodexProxyRoute[] = [];
+      let backendCodexRoutes: import('./proxy.js').CodexProxyRoute[] = []
       if (backendResolved.length > 0) {
         const backendRoutes: ProxyRoute[] = backendResolved.map(r => {
-          const provider = providersById.get(r.providerId);
-          const providerData = (provider?.providerData ?? {}) as Record<string, unknown>;
-          const m = r.model as LocalProviderModel;
-          const route = m.modelFormat === 'cloud-code'
-            ? buildCloudCodeProxyRoute(m, r.apiKey, providerData)
-            : buildOAuthAnthropicProxyRoute(m, r.apiKey, r.providerId, providerData);
-          return { ...route, oauthAccountId: provider?.oauthAccountId, providerData };
-        });
-        const startingAlias = backendRoutes[0]!.aliasId;
-        cloudCodeBackendFav = await startCloudCodeCatalogBackend(backendRoutes, startingAlias, trace);
+          const provider = providersById.get(r.providerId)
+          const providerData = (provider?.providerData ?? {}) as Record<string, unknown>
+          const m = r.model as LocalProviderModel
+          const route =
+            m.modelFormat === 'cloud-code'
+              ? buildCloudCodeProxyRoute(m, r.apiKey, providerData)
+              : buildOAuthAnthropicProxyRoute(m, r.apiKey, r.providerId, providerData)
+          return { ...route, oauthAccountId: provider?.oauthAccountId, providerData }
+        })
+        const startingAlias = backendRoutes[0]!.aliasId
+        cloudCodeBackendFav = await startCloudCodeCatalogBackend(
+          backendRoutes,
+          startingAlias,
+          trace
+        )
         backendCodexRoutes = backendRoutes.map(cr => ({
           modelId: cr.aliasId,
           npm: '@ai-sdk/anthropic',
@@ -621,42 +673,43 @@ export async function runCodexAppCommand(args: string[], opts: { vertex?: boolea
           oauthAccountId: cr.oauthAccountId,
           providerData: cr.providerData,
           contextWindow: cr.contextWindow,
-        }));
+        }))
       }
 
-      const regularRoutes = buildCodexProxyRoutesFromResolved(regularResolved, providersById);
-      proxyHandle = await startCodexProxy(
-        [...backendCodexRoutes, ...regularRoutes],
-        { requireAuth: false, debug: trace },
-      );
-      proxyPort = proxyHandle.port;
+      const regularRoutes = buildCodexProxyRoutesFromResolved(regularResolved, providersById)
+      proxyHandle = await startCodexProxy([...backendCodexRoutes, ...regularRoutes], {
+        requireAuth: false,
+        debug: trace,
+      })
+      proxyPort = proxyHandle.port
     } else {
       if (!appProviderRoutes) {
-        throw new Error('Codex App provider routes were not initialized');
+        throw new Error('Codex App provider routes were not initialized')
       }
-      proxyHandle = await startCodexProxy(
-        appProviderRoutes.routes,
-        { requireAuth: false, debug: trace },
-      );
-      proxyPort = proxyHandle.port;
+      proxyHandle = await startCodexProxy(appProviderRoutes.routes, {
+        requireAuth: false,
+        debug: trace,
+      })
+      proxyPort = proxyHandle.port
     }
 
-    const modelLabel = formatCodexModelLabel(selectedModel);
-    const catalogFile = favoritesActive && resolvedFavorites.length > 0
-      ? buildFavoritesAppCatalog(resolvedFavorites)
-      : buildAppCatalogFile(catalogModels, activeProvider.name, appRoute.modelId);
+    const modelLabel = formatCodexModelLabel(selectedModel)
+    const catalogFile =
+      favoritesActive && resolvedFavorites.length > 0
+        ? buildFavoritesAppCatalog(resolvedFavorites)
+        : buildAppCatalogFile(catalogModels, activeProvider.name, appRoute.modelId)
 
-    writeOverlayFile(catalogPath, serializeCatalog(catalogFile));
+    writeOverlayFile(catalogPath, serializeCatalog(catalogFile))
 
     const spec: CodexAppConfigSpec = {
       route: activeRoute,
       proxyPort,
       catalogPath,
-    };
+    }
 
-    saveAppRestoreStateBeforePatch();
-    const backupPath = backupConfigToml();
-    applyAppConfigPatch(spec);
+    saveAppRestoreStateBeforePatch()
+    const backupPath = backupConfigToml()
+    applyAppConfigPatch(spec)
 
     writeAppSessionLock({
       pid: process.pid,
@@ -666,26 +719,32 @@ export async function runCodexAppCommand(args: string[], opts: { vertex?: boolea
       restoreStatePath: getAppRestoreStatePath(),
       backupPath,
       proxyPort,
-    });
-    sessionActive = true;
+    })
+    sessionActive = true
 
-    const prevRecent = prefs.recentModelsByProvider?.[activeProvider.id] ?? [];
-    const updatedRecent = [selectedModel.id, ...prevRecent.filter(id => id !== selectedModel.id)].slice(0, 3);
+    const prevRecent = prefs.recentModelsByProvider?.[activeProvider.id] ?? []
+    const updatedRecent = [
+      selectedModel.id,
+      ...prevRecent.filter(id => id !== selectedModel.id),
+    ].slice(0, 3)
     savePreferences({
       lastCodexProvider: activeProvider.id,
       lastCodexModel: selectedModel.id,
-      recentModelsByProvider: { ...prefs.recentModelsByProvider, [activeProvider.id]: updatedRecent },
-    });
+      recentModelsByProvider: {
+        ...prefs.recentModelsByProvider,
+        [activeProvider.id]: updatedRecent,
+      },
+    })
 
-    logCodexProxy(proxyPort);
+    logCodexProxy(proxyPort)
 
-    logCodexActiveModel(modelLabel, selectedModel.id);
+    logCodexActiveModel(modelLabel, selectedModel.id)
 
     try {
-      await launchOrRestartCodexApp();
+      await launchOrRestartCodexApp()
     } catch (err) {
-      p.log.warn(String(err instanceof Error ? err.message : err));
-      p.log.info(codexAppInstallHint());
+      p.log.warn(String(err instanceof Error ? err.message : err))
+      p.log.info(codexAppInstallHint())
     }
 
     printCodexAppSessionPanel({
@@ -693,27 +752,27 @@ export async function runCodexAppCommand(args: string[], opts: { vertex?: boolea
       modelId: selectedModel.id,
       providerName: activeProvider.name,
       restoreCommand: 'anygate codex-app --restore',
-    });
+    })
 
-    codexAppOutro(modelLabel);
-    await waitForShutdownWithConfirm();
-    if (trace) printTraceLog(debugLogPath);
-    console.log('');
+    codexAppOutro(modelLabel)
+    await waitForShutdownWithConfirm()
+    if (trace) printTraceLog(debugLogPath)
+    console.log('')
 
     if (sessionActive) {
-      restoreCodexAppOverlay();
-      sessionActive = false;
+      restoreCodexAppOverlay()
+      sessionActive = false
     }
-    await maybeCloseRunningCodexApp();
-    return 0;
+    await maybeCloseRunningCodexApp()
+    return 0
   } finally {
-    proxyHandle?.close();
+    proxyHandle?.close()
     if (cloudCodeBackend) {
-      cloudCodeBackend.handle.close();
+      cloudCodeBackend.handle.close()
     }
     if (cloudCodeBackendFav) {
-      cloudCodeBackendFav.handle.close();
+      cloudCodeBackendFav.handle.close()
     }
-    if (sessionActive) restoreCodexAppOverlay();
+    if (sessionActive) restoreCodexAppOverlay()
   }
 }

@@ -1,60 +1,66 @@
 // model_catalog_json for Codex — schema from codex-rs ModelInfo.
-import type { LocalProviderModel } from '../../../src/types/index.js';
-import { stripGoogleModelPrefix } from '../../../src/registry/resolver/google-model-id.js';
+import type { LocalProviderModel } from '../../../src/types/index.js'
+import { stripGoogleModelPrefix } from '../../../src/registry/resolver/google-model-id.js'
 import {
   buildCodexReasoningLevels,
   getReasoningCapabilities,
   type ReasoningMetadata,
-} from '../../../src/gateway/providers/provider-factory.js';
-import { codexAppModelSlug } from './app-profile.js';
+} from '../../../src/gateway/providers/provider-factory.js'
+import { codexAppModelSlug } from './app-profile.js'
 
 export interface CodexCatalogModel {
-  slug: string;
-  display_name: string;
-  supported_reasoning_levels: unknown[];
-  default_reasoning_level: string;
-  default_reasoning_summary: string;
-  shell_type: string;
-  visibility: string;
-  supported_in_api: boolean;
-  priority: number;
-  availability_nux: null;
-  upgrade: null;
-  base_instructions: string;
-  supports_reasoning_summaries: boolean;
-  support_verbosity: boolean;
-  default_verbosity: null;
-  apply_patch_tool_type: null;
-  truncation_policy: { mode: string; limit: number };
-  supports_parallel_tool_calls: boolean;
-  experimental_supported_tools: unknown[];
-  context_window?: number;
-  max_context_window?: number;
-  input_modalities?: string[];
-  description?: string;
+  slug: string
+  display_name: string
+  supported_reasoning_levels: unknown[]
+  default_reasoning_level: string
+  default_reasoning_summary: string
+  shell_type: string
+  visibility: string
+  supported_in_api: boolean
+  priority: number
+  availability_nux: null
+  upgrade: null
+  base_instructions: string
+  supports_reasoning_summaries: boolean
+  support_verbosity: boolean
+  default_verbosity: null
+  apply_patch_tool_type: null
+  truncation_policy: { mode: string; limit: number }
+  supports_parallel_tool_calls: boolean
+  experimental_supported_tools: unknown[]
+  context_window?: number
+  max_context_window?: number
+  input_modalities?: string[]
+  description?: string
 }
 
 export interface CodexCatalogFile {
-  models: CodexCatalogModel[];
+  models: CodexCatalogModel[]
 }
 
-const DEFAULT_CONTEXT = 128_000;
+const DEFAULT_CONTEXT = 128_000
 /** Codex picker requires at least one effort level to close after model selection. */
-const CODEX_NO_REASONING_EFFORT = 'none';
+const CODEX_NO_REASONING_EFFORT = 'none'
 
 export function codexCatalogReasoningFields(
   npm: string,
   wireId: string,
-  metadata?: ReasoningMetadata,
-): Pick<CodexCatalogModel, 'supported_reasoning_levels' | 'default_reasoning_level' | 'supports_reasoning_summaries' | 'default_reasoning_summary'> {
-  const reasoning = getReasoningCapabilities(npm, wireId, metadata);
+  metadata?: ReasoningMetadata
+): Pick<
+  CodexCatalogModel,
+  | 'supported_reasoning_levels'
+  | 'default_reasoning_level'
+  | 'supports_reasoning_summaries'
+  | 'default_reasoning_summary'
+> {
+  const reasoning = getReasoningCapabilities(npm, wireId, metadata)
   if (reasoning.levels.length > 0) {
     return {
       supported_reasoning_levels: buildCodexReasoningLevels(reasoning),
       default_reasoning_level: reasoning.defaultLevel,
       supports_reasoning_summaries: reasoning.supportsSummaries,
       default_reasoning_summary: reasoning.supportsSummaries ? 'auto' : 'none',
-    };
+    }
   }
   return {
     supported_reasoning_levels: buildCodexReasoningLevels({
@@ -63,30 +69,36 @@ export function codexCatalogReasoningFields(
     default_reasoning_level: CODEX_NO_REASONING_EFFORT,
     supports_reasoning_summaries: false,
     default_reasoning_summary: 'none',
-  };
+  }
 }
 
 /** Human-readable label for Codex catalog / provider name (registry names are often raw ids). */
 export function formatCodexModelLabel(model: LocalProviderModel): string {
-  const trimmed = model.name.trim();
-  if (trimmed && trimmed !== model.id) return trimmed;
+  const trimmed = model.name.trim()
+  if (trimmed && trimmed !== model.id) return trimmed
 
-  const id = stripGoogleModelPrefix(model.id);
-  const claude = id.match(/^claude-([\w-]+?)-(\d+)-(\d+)(?:-\d{8})?$/);
+  const id = stripGoogleModelPrefix(model.id)
+  const claude = id.match(/^claude-([\w-]+?)-(\d+)-(\d+)(?:-\d{8})?$/)
   if (claude) {
-    const tier = claude[1]!.split('-').map(part =>
-      part.charAt(0).toUpperCase() + part.slice(1),
-    ).join(' ');
-    return `Claude ${tier} ${claude[2]}.${claude[3]}`;
+    const tier = claude[1]!
+      .split('-')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ')
+    return `Claude ${tier} ${claude[2]}.${claude[3]}`
   }
 
-  const gpt = id.match(/^gpt-(\d+(?:\.\d+)?)(?:-([\w-]+))?$/i);
+  const gpt = id.match(/^gpt-(\d+(?:\.\d+)?)(?:-([\w-]+))?$/i)
   if (gpt) {
-    const suffix = gpt[2] ? ` ${gpt[2].split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}` : '';
-    return `GPT-${gpt[1]}${suffix}`;
+    const suffix = gpt[2]
+      ? ` ${gpt[2]
+          .split('-')
+          .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ')}`
+      : ''
+    return `GPT-${gpt[1]}${suffix}`
   }
 
-  return id;
+  return id
 }
 
 export function catalogEntryFromModel(
@@ -94,22 +106,19 @@ export function catalogEntryFromModel(
   providerName: string,
   priority: number,
   appCatalog = false,
-  slugOverride?: string,
+  slugOverride?: string
 ): CodexCatalogModel {
-  const slug = slugOverride ?? (
-    appCatalog
-      ? codexAppModelSlug(model.id)
-      : stripGoogleModelPrefix(model.id)
-  );
-  const context = model.contextWindow ?? DEFAULT_CONTEXT;
-  const label = formatCodexModelLabel(model);
-  const wireId = model.upstreamModelId ?? model.id;
+  const slug =
+    slugOverride ?? (appCatalog ? codexAppModelSlug(model.id) : stripGoogleModelPrefix(model.id))
+  const context = model.contextWindow ?? DEFAULT_CONTEXT
+  const label = formatCodexModelLabel(model)
+  const wireId = model.upstreamModelId ?? model.id
   const reasoningFields = codexCatalogReasoningFields(model.npm ?? '', wireId, {
     apiBaseUrl: model.apiBaseUrl,
     supportedParameters: model.supportedParameters,
     reasoning: model.reasoning,
     interleavedReasoningField: model.interleavedReasoningField,
-  });
+  })
   return {
     slug,
     display_name: label,
@@ -133,36 +142,39 @@ export function catalogEntryFromModel(
     max_context_window: context,
     input_modalities: model.modalities ?? ['text', 'image'],
     description: `${label} · ${providerName}`,
-  };
+  }
 }
 
-export function modelToCatalogEntry(model: LocalProviderModel, providerName: string): CodexCatalogModel {
-  return catalogEntryFromModel(model, providerName, 0);
+export function modelToCatalogEntry(
+  model: LocalProviderModel,
+  providerName: string
+): CodexCatalogModel {
+  return catalogEntryFromModel(model, providerName, 0)
 }
 
 export function buildCatalogFile(
   models: LocalProviderModel[],
-  providerName: string,
+  providerName: string
 ): CodexCatalogFile {
   return {
     models: models.map((m, i) => catalogEntryFromModel(m, providerName, i)),
-  };
+  }
 }
 
 /** App catalog: selected model first (priority 0) for Codex picker when upstream supports it. */
 export function buildAppCatalogFile(
   models: LocalProviderModel[],
   providerName: string,
-  selectedModelId: string,
+  selectedModelId: string
 ): CodexCatalogFile {
-  const selected = models.find(m => m.id === selectedModelId);
-  const rest = models.filter(m => m.id !== selectedModelId);
-  const ordered = selected ? [selected, ...rest] : models;
+  const selected = models.find(m => m.id === selectedModelId)
+  const rest = models.filter(m => m.id !== selectedModelId)
+  const ordered = selected ? [selected, ...rest] : models
   return {
     models: ordered.map((m, i) => catalogEntryFromModel(m, providerName, i, true)),
-  };
+  }
 }
 
 export function serializeCatalog(catalog: CodexCatalogFile): string {
-  return `${JSON.stringify(catalog, null, 2)}\n`;
+  return `${JSON.stringify(catalog, null, 2)}\n`
 }

@@ -1,12 +1,12 @@
 // src/cli/codex-app.ts — anygate codex-app / chatgpt command
-import type { ParsedArgs } from '../types/index.js';
-import { runCodexAppCommand } from '../apps/codex/app.js';
+import type { ParsedArgs } from '../types/index.js'
+import { runCodexAppCommand } from '../apps/codex/app.js'
 
 export async function handleCodexAppCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    const { VERSION } = await import('../config/constants.js');
-    console.log(VERSION);
-    return 0;
+    const { VERSION } = await import('../config/constants.js')
+    console.log(VERSION)
+    return 0
   }
   if (parsed.showHelp) {
     console.log(`
@@ -25,12 +25,12 @@ Options:
   -v, --version      Show version
 
 This command launches the ChatGPT Desktop app with anygate's provider registry.
-`);
-    return 0;
+`)
+    return 0
   }
   return runCodexAppCommand(parsed.claudeArgs ?? [], {
     vertex: parsed.vertex,
     launchProvider: parsed.launchProvider,
-    launchModel: parsed.launchModel
-  });
+    launchModel: parsed.launchModel,
+  })
 }

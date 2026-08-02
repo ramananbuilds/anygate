@@ -1,57 +1,85 @@
-import { chmodSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { getAppPathOverride } from '../../../src/storage/config.js';
-import { findBinaryOnPath } from '../shared/binary-lookup.js';
-import { findClaudeApp } from '../claude/desktop-launch.js';
-import { findCodexApp } from '../codex/app-launch.js';
+import { chmodSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { getAppPathOverride } from '../../../src/storage/config.js'
+import { findBinaryOnPath } from '../shared/binary-lookup.js'
+import { findClaudeApp } from '../claude/desktop-launch.js'
+import { findCodexApp } from '../codex/app-launch.js'
 
-const isWindows = process.platform === 'win32';
-const isMac = process.platform === 'darwin';
+const isWindows = process.platform === 'win32'
+const isMac = process.platform === 'darwin'
 
 export interface AppInfo {
-  id: string;
-  name: string;
-  type: 'cli' | 'app';
-  installed: boolean;
-  path: string | null;
-  pathSource: 'auto' | 'override' | null;
-  gatewayCommand: string;
-  launchCommand: string | null;
+  id: string
+  name: string
+  type: 'cli' | 'app'
+  installed: boolean
+  path: string | null
+  pathSource: 'auto' | 'override' | null
+  gatewayCommand: string
+  launchCommand: string | null
   /** Shell command to install this app (CLIs). Absent for desktop apps. */
-  installHint?: string;
+  installHint?: string
   /** Vendor download page for desktop apps. Absent for CLIs. */
-  installUrl?: string;
+  installUrl?: string
 }
 
 export interface GatewayLaunchOptions {
-  providerId?: string;
-  modelId?: string;
-  favorites?: boolean;
+  providerId?: string
+  modelId?: string
+  favorites?: boolean
   /** Launch the full favorites catalog (emits bare --favorites) instead of resolving to the first favorite. */
-  favoritesCatalog?: boolean;
-  cwd?: string;
-  trace?: boolean;
+  favoritesCatalog?: boolean
+  cwd?: string
+  trace?: boolean
 }
 
 interface SupportedAppDefinition {
-  id: string;
-  name: string;
-  type: 'cli' | 'app';
-  detectId: string;
-  gatewayCommand: string;
+  id: string
+  name: string
+  type: 'cli' | 'app'
+  detectId: string
+  gatewayCommand: string
   /** Shell command to install this app (CLIs). */
-  installHint?: string;
+  installHint?: string
   /** Vendor download page for desktop apps. */
-  installUrl?: string;
+  installUrl?: string
 }
 
 const SUPPORTED_APPS: SupportedAppDefinition[] = [
-  { id: 'claude', name: 'Claude Code CLI', type: 'cli', detectId: 'claude', gatewayCommand: 'claude', installHint: 'npm install -g @anthropic-ai/claude-code' },
-  { id: 'codex', name: 'Codex CLI', type: 'cli', detectId: 'codex', gatewayCommand: 'codex', installHint: 'npm install -g @openai/codex' },
-  { id: 'gemini', name: 'Gemini CLI', type: 'cli', detectId: 'gemini', gatewayCommand: 'gemini', installHint: 'npm install -g @google/gemini-cli' },
-  { id: 'agy', name: 'Antigravity CLI', type: 'cli', detectId: 'agy', gatewayCommand: 'agy', installHint: 'npm install -g @google/antigravity-cli' },
+  {
+    id: 'claude',
+    name: 'Claude Code CLI',
+    type: 'cli',
+    detectId: 'claude',
+    gatewayCommand: 'claude',
+    installHint: 'npm install -g @anthropic-ai/claude-code',
+  },
+  {
+    id: 'codex',
+    name: 'Codex CLI',
+    type: 'cli',
+    detectId: 'codex',
+    gatewayCommand: 'codex',
+    installHint: 'npm install -g @openai/codex',
+  },
+  {
+    id: 'gemini',
+    name: 'Gemini CLI',
+    type: 'cli',
+    detectId: 'gemini',
+    gatewayCommand: 'gemini',
+    installHint: 'npm install -g @google/gemini-cli',
+  },
+  {
+    id: 'agy',
+    name: 'Antigravity CLI',
+    type: 'cli',
+    detectId: 'agy',
+    gatewayCommand: 'agy',
+    installHint: 'npm install -g @google/antigravity-cli',
+  },
   {
     id: 'antigravity',
     name: 'Antigravity (App)',
@@ -84,51 +112,45 @@ const SUPPORTED_APPS: SupportedAppDefinition[] = [
     gatewayCommand: 'codex-app',
     installUrl: 'https://openai.com/chatgpt/desktop',
   },
-];
+]
 
-export function fallbackPathsForApp(id: string, platform: NodeJS.Platform = process.platform): string[] {
-  const windows = platform === 'win32';
-  const mac = platform === 'darwin';
-  const appData = process.env['APPDATA'] ?? homedir();
-  const localAppData = process.env['LOCALAPPDATA'] ?? join(homedir(), 'AppData', 'Local');
+export function fallbackPathsForApp(
+  id: string,
+  platform: NodeJS.Platform = process.platform
+): string[] {
+  const windows = platform === 'win32'
+  const mac = platform === 'darwin'
+  const appData = process.env['APPDATA'] ?? homedir()
+  const localAppData = process.env['LOCALAPPDATA'] ?? join(homedir(), 'AppData', 'Local')
 
   switch (id) {
     case 'claude':
       return windows
-        ? [
-            join(appData, 'npm', 'claude.cmd'),
-            join(appData, 'npm', 'claude'),
-          ]
+        ? [join(appData, 'npm', 'claude.cmd'), join(appData, 'npm', 'claude')]
         : [
             join(homedir(), '.local', 'bin', 'claude'),
             join(homedir(), '.npm', 'bin', 'claude'),
             '/usr/local/bin/claude',
             '/opt/homebrew/bin/claude',
-          ];
+          ]
     case 'codex':
       return windows
-        ? [
-            join(appData, 'npm', 'codex.cmd'),
-            join(appData, 'npm', 'codex'),
-          ]
+        ? [join(appData, 'npm', 'codex.cmd'), join(appData, 'npm', 'codex')]
         : [
             join(homedir(), '.local', 'bin', 'codex'),
             join(homedir(), '.npm', 'bin', 'codex'),
             '/usr/local/bin/codex',
             '/opt/homebrew/bin/codex',
-          ];
+          ]
     case 'gemini':
       return windows
-        ? [
-            join(appData, 'npm', 'gemini.cmd'),
-            join(appData, 'npm', 'gemini'),
-          ]
+        ? [join(appData, 'npm', 'gemini.cmd'), join(appData, 'npm', 'gemini')]
         : [
             join(homedir(), '.local', 'bin', 'gemini'),
             join(homedir(), '.npm', 'bin', 'gemini'),
             '/usr/local/bin/gemini',
             '/opt/homebrew/bin/gemini',
-          ];
+          ]
     case 'agy':
       return windows
         ? [
@@ -141,49 +163,50 @@ export function fallbackPathsForApp(id: string, platform: NodeJS.Platform = proc
             join(homedir(), '.npm', 'bin', 'agy'),
             '/usr/local/bin/agy',
             '/opt/homebrew/bin/agy',
-          ];
+          ]
     case 'antigravity-ide':
       if (mac) {
         return [
           '/Applications/Antigravity IDE.app/Contents/Resources/app/bin/antigravity-ide',
-          join(homedir(), 'Applications', 'Antigravity IDE.app', 'Contents', 'Resources', 'app', 'bin', 'antigravity-ide'),
-        ];
+          join(
+            homedir(),
+            'Applications',
+            'Antigravity IDE.app',
+            'Contents',
+            'Resources',
+            'app',
+            'bin',
+            'antigravity-ide'
+          ),
+        ]
       }
       if (windows) {
         return [
           join(localAppData, 'Programs', 'Antigravity IDE', 'Antigravity IDE.exe'),
           join(localAppData, 'Programs', 'antigravity-ide', 'Antigravity IDE.exe'),
           join(localAppData, 'Programs', 'Antigravity', 'Antigravity IDE.exe'),
-        ];
+        ]
       }
-      return ['/opt/antigravity-ide/Antigravity-IDE'];
+      return ['/opt/antigravity-ide/Antigravity-IDE']
     case 'antigravity':
       if (mac) {
         return [
           '/Applications/Antigravity.app/Contents/MacOS/Antigravity',
           join(homedir(), 'Applications', 'Antigravity.app', 'Contents', 'MacOS', 'Antigravity'),
-        ];
+        ]
       }
       if (windows) {
-        return [
-          join(localAppData, 'Programs', 'Antigravity', 'Antigravity.exe'),
-        ];
+        return [join(localAppData, 'Programs', 'Antigravity', 'Antigravity.exe')]
       }
-      return [
-        '/opt/antigravity/antigravity',
-        '/usr/local/bin/antigravity',
-        '/usr/bin/antigravity',
-      ];
+      return ['/opt/antigravity/antigravity', '/usr/local/bin/antigravity', '/usr/bin/antigravity']
     case 'claude-app':
       if (mac) {
         return [
           '/Applications/Claude.app/Contents/MacOS/Claude',
           join(homedir(), 'Applications', 'Claude.app', 'Contents', 'MacOS', 'Claude'),
-        ];
+        ]
       }
-      return windows
-        ? [join(localAppData, 'Programs', 'claude', 'Claude.exe')]
-        : [];
+      return windows ? [join(localAppData, 'Programs', 'claude', 'Claude.exe')] : []
     case 'codex-app':
       if (mac) {
         // OpenAI merged the Codex desktop app into the ChatGPT desktop app
@@ -194,7 +217,7 @@ export function fallbackPathsForApp(id: string, platform: NodeJS.Platform = proc
           join(homedir(), 'Applications', 'ChatGPT.app'),
           '/Applications/Codex.app',
           join(homedir(), 'Applications', 'Codex.app'),
-        ];
+        ]
       }
       // Windows exe/folder naming after the rename is unverified against a
       // real install (see src/codex/app-launch.ts) — best-effort guess
@@ -209,51 +232,55 @@ export function fallbackPathsForApp(id: string, platform: NodeJS.Platform = proc
             join(localAppData, 'Programs', 'OpenAI Codex', 'Codex.exe'),
             join(localAppData, 'openai-codex-electron', 'Codex.exe'),
           ]
-        : [];
+        : []
     default:
-      return [];
+      return []
   }
 }
 
 const FALLBACKS: Record<string, string[]> = Object.fromEntries(
-  SUPPORTED_APPS.map(app => [app.detectId, fallbackPathsForApp(app.detectId)]),
-);
+  SUPPORTED_APPS.map(app => [app.detectId, fallbackPathsForApp(app.detectId)])
+)
 
 export function getSupportedApp(id: string): SupportedAppDefinition | undefined {
-  return SUPPORTED_APPS.find(app => app.id === id);
+  return SUPPORTED_APPS.find(app => app.id === id)
 }
 
 // Check if a specific binary/app is installed
-export function detectApp(id: string): { installed: boolean; path: string | null; pathSource: 'auto' | 'override' | null } {
-  const override = getAppPathOverride(id);
+export function detectApp(id: string): {
+  installed: boolean
+  path: string | null
+  pathSource: 'auto' | 'override' | null
+} {
+  const override = getAppPathOverride(id)
   if (override) {
     return existsSync(override)
       ? { installed: true, path: override, pathSource: 'override' }
-      : { installed: false, path: override, pathSource: 'override' };
+      : { installed: false, path: override, pathSource: 'override' }
   }
 
-  const resolvedPath = findBinaryOnPath(id, FALLBACKS[id] ?? [], { verifyWhichResult: true });
+  const resolvedPath = findBinaryOnPath(id, FALLBACKS[id] ?? [], { verifyWhichResult: true })
   if (resolvedPath) {
-    return { installed: true, path: resolvedPath, pathSource: 'auto' };
+    return { installed: true, path: resolvedPath, pathSource: 'auto' }
   }
 
   // Microsoft Store (MSIX) installs live under version-stamped WindowsApps
   // paths the static fallback lists can't cover — the app-launch finders
   // handle them via Get-StartApps (returning a shell:AppsFolder moniker).
-  const appFinder = id === 'claude-app' ? findClaudeApp : id === 'codex-app' ? findCodexApp : null;
+  const appFinder = id === 'claude-app' ? findClaudeApp : id === 'codex-app' ? findCodexApp : null
   if (appFinder) {
-    const appPath = appFinder();
-    if (appPath) return { installed: true, path: appPath, pathSource: 'auto' };
+    const appPath = appFinder()
+    if (appPath) return { installed: true, path: appPath, pathSource: 'auto' }
   }
 
-  return { installed: false, path: null, pathSource: null };
+  return { installed: false, path: null, pathSource: null }
 }
 
 // Generate the shell command to open a new native terminal running the chosen tool/args
 export function getTerminalLaunchCommand(
   binPath: string,
   args: string[],
-  opts: { cwd?: string; displayCommand?: string } = {},
+  opts: { cwd?: string; displayCommand?: string } = {}
 ): string {
   const fullCmd = [binPath, ...args]
     .map(arg => {
@@ -263,33 +290,37 @@ export function getTerminalLaunchCommand(
       // identifiers, and there is no single escaping scheme that is safe for
       // all three downstream shells (macOS sh, Linux sh, Windows cmd.exe).
       if (!/^[a-zA-Z0-9\-_./:]+$/.test(arg)) {
-        throw new Error(`Unsafe launch argument: ${JSON.stringify(arg)}`);
+        throw new Error(`Unsafe launch argument: ${JSON.stringify(arg)}`)
       }
-      return arg;
+      return arg
     })
-    .join(' ');
-  const cwdPrefix = opts.cwd ? `cd ${quoteShellArg(opts.cwd)} && ` : '';
-  const runCmd = `${cwdPrefix}${fullCmd}`;
+    .join(' ')
+  const cwdPrefix = opts.cwd ? `cd ${quoteShellArg(opts.cwd)} && ` : ''
+  const runCmd = `${cwdPrefix}${fullCmd}`
 
   if (isMac) {
-    const dir = mkdtempSync(join(tmpdir(), 'anygate-launch-'));
-    const scriptPath = join(dir, 'launch.command');
-    const displayCommand = opts.displayCommand ?? [binPath, ...args].join(' ');
-    writeFileSync(scriptPath, [
-      '#!/bin/sh',
-      'trap \'rm -f "$0"; rmdir "$(dirname "$0")" 2>/dev/null\' EXIT',
-      'clear',
-      opts.cwd ? `cd ${quoteShellArg(opts.cwd)} || exit 1` : '',
-      `printf '%s\\n\\n' ${quoteShellArg(`$ ${displayCommand}`)}`,
-      fullCmd,
-      'status=$?',
-      'printf "\\nanygate session exited with code %s. Press Return to close this window. " "$status"',
-      'read _',
-      'exit "$status"',
-      '',
-    ].join('\n'), { encoding: 'utf8', mode: 0o700 });
-    chmodSync(scriptPath, 0o700);
-    return `open -a Terminal ${quoteShellArg(scriptPath)}`;
+    const dir = mkdtempSync(join(tmpdir(), 'anygate-launch-'))
+    const scriptPath = join(dir, 'launch.command')
+    const displayCommand = opts.displayCommand ?? [binPath, ...args].join(' ')
+    writeFileSync(
+      scriptPath,
+      [
+        '#!/bin/sh',
+        'trap \'rm -f "$0"; rmdir "$(dirname "$0")" 2>/dev/null\' EXIT',
+        'clear',
+        opts.cwd ? `cd ${quoteShellArg(opts.cwd)} || exit 1` : '',
+        `printf '%s\\n\\n' ${quoteShellArg(`$ ${displayCommand}`)}`,
+        fullCmd,
+        'status=$?',
+        'printf "\\nanygate session exited with code %s. Press Return to close this window. " "$status"',
+        'read _',
+        'exit "$status"',
+        '',
+      ].join('\n'),
+      { encoding: 'utf8', mode: 0o700 }
+    )
+    chmodSync(scriptPath, 0o700)
+    return `open -a Terminal ${quoteShellArg(scriptPath)}`
   }
 
   if (isWindows) {
@@ -299,64 +330,62 @@ export function getTerminalLaunchCommand(
     // cmd.exe does not understand the POSIX single-quoting used by
     // quoteShellArg ("The filename, directory name, or volume label
     // syntax is incorrect").
-    const dirFlag = opts.cwd ? `/d "${opts.cwd}" ` : '';
-    return `start "anygate Terminal" ${dirFlag}cmd.exe /k "${fullCmd}"`;
+    const dirFlag = opts.cwd ? `/d "${opts.cwd}" ` : ''
+    return `start "anygate Terminal" ${dirFlag}cmd.exe /k "${fullCmd}"`
   }
 
   // Linux: probe terminal emulators (fallback to generic execution)
   // Write runCmd to a script file rather than embedding it inline — runCmd may
   // itself contain single-quoted segments (from quoteShellArg), which breaks
   // nested single-quoting if interpolated directly into `sh -c '...'`.
-  const dir = mkdtempSync(join(tmpdir(), 'anygate-launch-'));
-  const scriptPath = join(dir, 'launch.sh');
-  writeFileSync(scriptPath, [
-    '#!/bin/sh',
-    runCmd,
-    'exec sh',
-    '',
-  ].join('\n'), { encoding: 'utf8', mode: 0o700 });
-  chmodSync(scriptPath, 0o700);
-  const scriptArg = quoteShellArg(scriptPath);
-  return `x-terminal-emulator -e sh ${scriptArg} || gnome-terminal -- sh ${scriptArg} || xterm -e sh ${scriptArg}`;
+  const dir = mkdtempSync(join(tmpdir(), 'anygate-launch-'))
+  const scriptPath = join(dir, 'launch.sh')
+  writeFileSync(scriptPath, ['#!/bin/sh', runCmd, 'exec sh', ''].join('\n'), {
+    encoding: 'utf8',
+    mode: 0o700,
+  })
+  chmodSync(scriptPath, 0o700)
+  const scriptArg = quoteShellArg(scriptPath)
+  return `x-terminal-emulator -e sh ${scriptArg} || gnome-terminal -- sh ${scriptArg} || xterm -e sh ${scriptArg}`
 }
 
 function quoteShellArg(value: string): string {
-  if (/^[a-zA-Z0-9\-_./]+$/.test(value)) return value;
-  return `'${value.replace(/'/g, "'\\''")}'`;
+  if (/^[a-zA-Z0-9\-_./]+$/.test(value)) return value
+  return `'${value.replace(/'/g, "'\\''")}'`
 }
 
 function gatewayCliPath(): string {
-  return 'anygate';
+  return 'anygate'
 }
 
 export function getGatewayLaunchCommand(appId: string, options: GatewayLaunchOptions = {}): string {
-  const app = getSupportedApp(appId);
-  if (!app) throw new Error(`Unsupported app: ${appId}`);
+  const app = getSupportedApp(appId)
+  if (!app) throw new Error(`Unsupported app: ${appId}`)
 
-  const args = [app.gatewayCommand];
+  const args = [app.gatewayCommand]
   if (options.trace) {
-    args.push('--trace');
+    args.push('--trace')
   }
   if (options.favoritesCatalog) {
     // Full favorites catalog: emit bare --favorites so the CLI builds the
     // multi-route proxy and the app's model picker shows every favorite.
-    args.push('--favorites');
+    args.push('--favorites')
   } else if (options.providerId && options.modelId) {
-    args.push('--provider', options.providerId, '--model', options.modelId);
+    args.push('--provider', options.providerId, '--model', options.modelId)
   } else if (options.providerId || options.modelId) {
-    throw new Error('Both providerId and modelId are required for an explicit anygate launch.');
+    throw new Error('Both providerId and modelId are required for an explicit anygate launch.')
   }
 
   return getTerminalLaunchCommand(gatewayCliPath(), args, {
     cwd: options.cwd,
     displayCommand: ['anygate', ...args].join(' '),
-  });
+  })
 }
 
 // Get lists of all supported apps and status
 export function getSupportedApps(): AppInfo[] {
   return SUPPORTED_APPS.map(app => {
-    const { installed, path, pathSource } = detectApp(app.detectId);
+    const { installed, path, pathSource } = detectApp(app.detectId)
     return {
       id: app.id,
       name: app.name,
@@ -368,6 +397,6 @@ export function getSupportedApps(): AppInfo[] {
       launchCommand: installed ? getGatewayLaunchCommand(app.id) : null,
       installHint: app.installHint,
       installUrl: app.installUrl,
-    };
-  });
+    }
+  })
 }

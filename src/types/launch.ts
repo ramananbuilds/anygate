@@ -1,6 +1,6 @@
 export interface LaunchConfig {
-  providerId: string;
-  modelId: string;
-  targetApp: string;
-  extraArgs: string[];
+  providerId: string
+  modelId: string
+  targetApp: string
+  extraArgs: string[]
 }

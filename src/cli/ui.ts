@@ -1,11 +1,11 @@
 // src/cli/ui.ts — anygate ui command
-import type { ParsedArgs } from '../types/index.js';
-import { VERSION } from '../config/constants.js';
+import type { ParsedArgs } from '../types/index.js'
+import { VERSION } from '../config/constants.js'
 
 export async function handleUiCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    console.log(VERSION);
-    return 0;
+    console.log(VERSION)
+    return 0
   }
   if (parsed.showHelp) {
     console.log(`
@@ -18,9 +18,9 @@ Options:
   --trace     Enable trace logging
   --help, -h  Show this help
   -v, --version  Show version
-`);
-    return 0;
+`)
+    return 0
   }
-  const { runUiCommand } = await import('../ui/command.js');
-  return runUiCommand({ trace: parsed.trace });
+  const { runUiCommand } = await import('../ui/command.js')
+  return runUiCommand({ trace: parsed.trace })
 }

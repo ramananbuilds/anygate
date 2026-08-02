@@ -3,4 +3,4 @@ export const openAiCapabilities = {
   toolCalling: true,
   vision: true,
   jsonMode: true,
-};
+}

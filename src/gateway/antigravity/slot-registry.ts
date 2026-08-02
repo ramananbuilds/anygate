@@ -1,6 +1,6 @@
-import type { CatalogFixture } from './types.js';
+import type { CatalogFixture } from './types.js'
 
-export type AgySlotStatus = 'validated' | 'reserved' | 'candidate' | 'unsafe';
+export type AgySlotStatus = 'validated' | 'reserved' | 'candidate' | 'unsafe'
 
 export type AgySlotRole =
   | 'agent-switch'
@@ -12,32 +12,32 @@ export type AgySlotRole =
   | 'tab'
   | 'chat'
   | 'image'
-  | 'unknown';
+  | 'unknown'
 
 export interface AgySlotDefinition {
-  slotId: string;
-  model: string;
-  role: AgySlotRole;
-  status: AgySlotStatus;
-  validatedWith: string;
-  notes?: string;
+  slotId: string
+  model: string
+  role: AgySlotRole
+  status: AgySlotStatus
+  validatedWith: string
+  notes?: string
 }
 
 export interface AgySlotValidationResult {
-  switchSlots: AgySlotDefinition[];
-  reservedSlots: AgySlotDefinition[];
-  candidateSlots: AgySlotDefinition[];
-  warnings: string[];
+  switchSlots: AgySlotDefinition[]
+  reservedSlots: AgySlotDefinition[]
+  candidateSlots: AgySlotDefinition[]
+  warnings: string[]
 }
 
 export interface AgySwitchCompatibility {
-  mode: 'multi-model' | 'single-model';
-  validatedSwitchSlotCount: number;
-  warnings: string[];
+  mode: 'multi-model' | 'single-model'
+  validatedSwitchSlotCount: number
+  warnings: string[]
 }
 
 export const AGY_SLOT_VALIDATION_SOURCE =
-  'AGY CLI 1.0.10 / Antigravity IDE 2.1.1 fixture capture 2026-06-23';
+  'AGY CLI 1.0.10 / Antigravity IDE 2.1.1 fixture capture 2026-06-23'
 
 const AGY_NATIVE_SLOT_REGISTRY: AgySlotDefinition[] = [
   {
@@ -187,92 +187,94 @@ const AGY_NATIVE_SLOT_REGISTRY: AgySlotDefinition[] = [
     status: 'unsafe',
     validatedWith: AGY_SLOT_VALIDATION_SOURCE,
   },
-];
+]
 
-const KNOWN_COMPATIBLE_AGY_VERSIONS = new Set(['1.0.10']);
-const KNOWN_INCOMPATIBLE_AGY_VERSIONS = new Set(['1.0.9']);
+const KNOWN_COMPATIBLE_AGY_VERSIONS = new Set(['1.0.10'])
+const KNOWN_INCOMPATIBLE_AGY_VERSIONS = new Set(['1.0.9'])
 
 function withFixtureModel(definition: AgySlotDefinition, model: string): AgySlotDefinition {
-  return model === definition.model ? definition : { ...definition, model };
+  return model === definition.model ? definition : { ...definition, model }
 }
 
 function assertNoDuplicateSwitchEnums(
   fixture: CatalogFixture,
-  definitions: AgySlotDefinition[],
+  definitions: AgySlotDefinition[]
 ): void {
-  const seen = new Map<string, string>();
+  const seen = new Map<string, string>()
   for (const definition of definitions) {
-    if (definition.status !== 'validated') continue;
-    const actualModel = fixture.models[definition.slotId]?.model;
-    if (!actualModel) continue;
+    if (definition.status !== 'validated') continue
+    const actualModel = fixture.models[definition.slotId]?.model
+    if (!actualModel) continue
 
-    const previousSlotId = seen.get(actualModel);
+    const previousSlotId = seen.get(actualModel)
     if (previousSlotId) {
       throw new Error(
-        `Duplicate AGY switch slot enum ${actualModel}: ${previousSlotId} and ${definition.slotId}`,
-      );
+        `Duplicate AGY switch slot enum ${actualModel}: ${previousSlotId} and ${definition.slotId}`
+      )
     }
-    seen.set(actualModel, definition.slotId);
+    seen.set(actualModel, definition.slotId)
   }
 }
 
 export function validateAgySlotRegistry(fixture: CatalogFixture): AgySlotValidationResult {
-  assertNoDuplicateSwitchEnums(fixture, AGY_NATIVE_SLOT_REGISTRY);
+  assertNoDuplicateSwitchEnums(fixture, AGY_NATIVE_SLOT_REGISTRY)
 
-  const switchSlots: AgySlotDefinition[] = [];
-  const reservedSlots: AgySlotDefinition[] = [];
-  const candidateSlots: AgySlotDefinition[] = [];
-  const warnings: string[] = [];
+  const switchSlots: AgySlotDefinition[] = []
+  const reservedSlots: AgySlotDefinition[] = []
+  const candidateSlots: AgySlotDefinition[] = []
+  const warnings: string[] = []
 
   for (const definition of AGY_NATIVE_SLOT_REGISTRY) {
-    const entry = fixture.models[definition.slotId];
+    const entry = fixture.models[definition.slotId]
     if (!entry) {
       if (definition.status === 'validated' || definition.status === 'reserved') {
-        warnings.push(`AGY slot ${definition.slotId} missing from fixture`);
+        warnings.push(`AGY slot ${definition.slotId} missing from fixture`)
       }
-      continue;
+      continue
     }
 
     if (entry.model !== definition.model) {
       warnings.push(
-        `AGY slot ${definition.slotId} expected ${definition.model} but fixture has ${entry.model}`,
-      );
-      continue;
+        `AGY slot ${definition.slotId} expected ${definition.model} but fixture has ${entry.model}`
+      )
+      continue
     }
 
     if (definition.status === 'validated') {
-      switchSlots.push(withFixtureModel(definition, entry.model));
+      switchSlots.push(withFixtureModel(definition, entry.model))
     } else if (definition.status === 'reserved') {
-      reservedSlots.push(withFixtureModel(definition, entry.model));
+      reservedSlots.push(withFixtureModel(definition, entry.model))
     } else if (definition.status === 'candidate') {
-      candidateSlots.push(withFixtureModel(definition, entry.model));
+      candidateSlots.push(withFixtureModel(definition, entry.model))
     }
   }
 
-  return { switchSlots, reservedSlots, candidateSlots, warnings };
+  return { switchSlots, reservedSlots, candidateSlots, warnings }
 }
 
 export function getValidatedAgySwitchSlots(fixture: CatalogFixture): AgySlotDefinition[] {
-  return validateAgySlotRegistry(fixture).switchSlots;
+  return validateAgySlotRegistry(fixture).switchSlots
 }
 
 export function isReservedAgyHelperSlot(slotId: string): boolean {
   return AGY_NATIVE_SLOT_REGISTRY.some(
-    definition => definition.slotId === slotId && definition.status === 'reserved',
-  );
+    definition => definition.slotId === slotId && definition.status === 'reserved'
+  )
 }
 
 export function evaluateAgySwitchCompatibility(opts: {
-  version?: string | null;
-  versionReadError?: string;
-  fixture: CatalogFixture;
+  version?: string | null
+  versionReadError?: string
+  fixture: CatalogFixture
 }): AgySwitchCompatibility {
-  const validation = validateAgySlotRegistry(opts.fixture);
-  const shapeMatches = validation.warnings.length === 0 && validation.switchSlots.length > 0;
-  const warnings: string[] = [];
+  const validation = validateAgySlotRegistry(opts.fixture)
+  const shapeMatches = validation.warnings.length === 0 && validation.switchSlots.length > 0
+  const warnings: string[] = []
 
   if (opts.versionReadError) {
-    warnings.push(`Could not read agy --version (${opts.versionReadError}); validating AGY fixture shape instead.`);
+    warnings.push(
+      `Could not read agy --version (${opts.versionReadError}); validating AGY fixture shape instead.`
+    )
   }
 
   if (opts.version && KNOWN_INCOMPATIBLE_AGY_VERSIONS.has(opts.version)) {
@@ -283,7 +285,7 @@ export function evaluateAgySwitchCompatibility(opts: {
         ...warnings,
         `Known-incompatible AGY version ${opts.version}; falling back to single-model mode.`,
       ],
-    };
+    }
   }
 
   if (!shapeMatches) {
@@ -295,18 +297,22 @@ export function evaluateAgySwitchCompatibility(opts: {
         ...validation.warnings,
         'AGY fixture shape does not match the validated slot registry; falling back to single-model mode.',
       ],
-    };
+    }
   }
 
   if (opts.version && !KNOWN_COMPATIBLE_AGY_VERSIONS.has(opts.version)) {
-    warnings.push(`Unvalidated AGY version ${opts.version}; fixture shape matches, so multi-model switching remains enabled.`);
+    warnings.push(
+      `Unvalidated AGY version ${opts.version}; fixture shape matches, so multi-model switching remains enabled.`
+    )
   } else if (!opts.version && !opts.versionReadError) {
-    warnings.push('AGY version is unknown; fixture shape matches, so multi-model switching remains enabled.');
+    warnings.push(
+      'AGY version is unknown; fixture shape matches, so multi-model switching remains enabled.'
+    )
   }
 
   return {
     mode: 'multi-model',
     validatedSwitchSlotCount: validation.switchSlots.length,
     warnings,
-  };
+  }
 }

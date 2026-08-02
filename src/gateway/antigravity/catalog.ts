@@ -1,55 +1,54 @@
-import { MAX_MODEL_CATALOG } from '../../config/constants.js';
-import type { ResolvedFavorite } from '../../apps/shared/favorites-resolver.js';
-import type { AntigravityRoute, CatalogFixture, CatalogModelEntry } from './types.js';
+import { MAX_MODEL_CATALOG } from '../../config/constants.js'
+import type { ResolvedFavorite } from '../../apps/shared/favorites-resolver.js'
+import type { AntigravityRoute, CatalogFixture, CatalogModelEntry } from './types.js'
 import {
   getValidatedAgySwitchSlots,
   validateAgySlotRegistry,
   type AgySlotValidationResult,
-} from './slot-registry.js';
-import { resolveInputTypes } from '../../registry/models-dev.js';
+} from './slot-registry.js'
+import { resolveInputTypes } from '../../registry/models-dev.js'
 
 /** Current Antigravity IDE flash-agent enum from fetchAvailableModels. */
-export const GATEWAY_CASCADE_PLAN_MODEL = 'MODEL_PLACEHOLDER_M132';
+export const GATEWAY_CASCADE_PLAN_MODEL = 'MODEL_PLACEHOLDER_M132'
 
 /** Current Antigravity IDE default agent enum from fetchAvailableModels. */
-export const GATEWAY_AGENT_PLACEHOLDER = 'MODEL_PLACEHOLDER_M20';
+export const GATEWAY_AGENT_PLACEHOLDER = 'MODEL_PLACEHOLDER_M20'
 
 /** Current checkpointer model enum from captured modelExperiments. */
-const GATEWAY_CASCADE_CHECKPOINT_MODEL = 'MODEL_PLACEHOLDER_M50';
+const GATEWAY_CASCADE_CHECKPOINT_MODEL = 'MODEL_PLACEHOLDER_M50'
 
 /** Current 2.5 Flash intent-model enum from fetchAvailableModels. */
-const GATEWAY_CASCADE_INTENT_MODEL = 'MODEL_GOOGLE_GEMINI_2_5_FLASH';
+const GATEWAY_CASCADE_INTENT_MODEL = 'MODEL_GOOGLE_GEMINI_2_5_FLASH'
 
 /** Fixture key for the hidden default agent anchor. */
-export const GATEWAY_CASCADE_ANCHOR_ID = 'gemini-3.5-flash-low';
+export const GATEWAY_CASCADE_ANCHOR_ID = 'gemini-3.5-flash-low'
 
 /** Fixture key for the hidden flash-agent anchor. */
-export const GATEWAY_CASCADE_PLAN_ANCHOR_ID = 'gemini-3-flash-agent';
-export const GATEWAY_CASCADE_FALLBACK_ID = 'gemini-2.5-flash-lite';
-export const GATEWAY_CASCADE_INTENT_MODEL_ID = 'gemini-2.5-flash';
+export const GATEWAY_CASCADE_PLAN_ANCHOR_ID = 'gemini-3-flash-agent'
+export const GATEWAY_CASCADE_FALLBACK_ID = 'gemini-2.5-flash-lite'
+export const GATEWAY_CASCADE_INTENT_MODEL_ID = 'gemini-2.5-flash'
 
 export interface GateCatalogSlot {
   /** The model ID Antigravity sees and sends back to the gateway. */
-  slotId: string;
+  slotId: string
   /** The Gateway route that slot should execute against. */
-  route: AntigravityRoute;
+  route: AntigravityRoute
 }
 
 export interface GateCatalogSlotPlan {
-  slots: GateCatalogSlot[];
-  switchableRoutes: AntigravityRoute[];
-  skippedRoutes: AntigravityRoute[];
-  validation: AgySlotValidationResult;
+  slots: GateCatalogSlot[]
+  switchableRoutes: AntigravityRoute[]
+  skippedRoutes: AntigravityRoute[]
+  validation: AgySlotValidationResult
 }
 
 function withCascadeCheckpointer(
   entry: CatalogModelEntry,
-  maxTokenLimit = 128000,
+  maxTokenLimit = 128000
 ): CatalogModelEntry {
-  const tokenThreshold = Math.min(50000, Math.floor(maxTokenLimit * 0.75));
+  const tokenThreshold = Math.min(50000, Math.floor(maxTokenLimit * 0.75))
   const existingModelExperiments = entry.modelExperiments as
-    | { experiments?: Record<string, unknown>; [key: string]: unknown }
-    | undefined;
+    { experiments?: Record<string, unknown>; [key: string]: unknown } | undefined
 
   entry.modelExperiments = {
     ...existingModelExperiments,
@@ -82,25 +81,22 @@ function withCascadeCheckpointer(
         }),
       },
     },
-  };
-  return entry;
+  }
+  return entry
 }
 
 function applyRouteContextBounds(
   entry: CatalogModelEntry,
-  route: AntigravityRoute,
+  route: AntigravityRoute
 ): CatalogModelEntry {
-  const maxTokenLimit = route.contextWindow ?? 128000;
-  const maxOutputTokens = Math.min(entry.maxOutputTokens ?? 65536, maxTokenLimit);
-  const checkpointTokenLimit = Math.min(
-    128000,
-    Math.max(1, maxTokenLimit - maxOutputTokens),
-  );
+  const maxTokenLimit = route.contextWindow ?? 128000
+  const maxOutputTokens = Math.min(entry.maxOutputTokens ?? 65536, maxTokenLimit)
+  const checkpointTokenLimit = Math.min(128000, Math.max(1, maxTokenLimit - maxOutputTokens))
 
-  entry.maxTokens = maxTokenLimit;
-  entry.maxOutputTokens = maxOutputTokens;
-  entry.supportsImages = route.inputTypes?.includes('image') ?? false;
-  return withCascadeCheckpointer(entry, checkpointTokenLimit);
+  entry.maxTokens = maxTokenLimit
+  entry.maxOutputTokens = maxOutputTokens
+  entry.supportsImages = route.inputTypes?.includes('image') ?? false
+  return withCascadeCheckpointer(entry, checkpointTokenLimit)
 }
 
 const GATEWAY_CASCADE_FALLBACK_ENTRY: CatalogModelEntry = withCascadeCheckpointer({
@@ -112,50 +108,50 @@ const GATEWAY_CASCADE_FALLBACK_ENTRY: CatalogModelEntry = withCascadeCheckpointe
   maxTokens: 1048576,
   maxOutputTokens: 65535,
   quotaInfo: { remainingFraction: 1 },
-});
+})
 
 const GATEWAY_CASCADE_INTENT_MODEL_ENTRY: CatalogModelEntry = withCascadeCheckpointer({
   ...GATEWAY_CASCADE_FALLBACK_ENTRY,
   model: GATEWAY_CASCADE_INTENT_MODEL,
-});
+})
 
 export function planGateCatalogSlots(
   catalog: CatalogFixture,
   routes: AntigravityRoute[],
-  templateKey: string,
+  templateKey: string
 ): GateCatalogSlotPlan {
-  const validation = validateAgySlotRegistry(catalog);
-  const switchSlots = getValidatedAgySwitchSlots(catalog);
-  const templateSlot = switchSlots.find(slot => slot.slotId === templateKey);
+  const validation = validateAgySlotRegistry(catalog)
+  const switchSlots = getValidatedAgySwitchSlots(catalog)
+  const templateSlot = switchSlots.find(slot => slot.slotId === templateKey)
   const orderedSlots = templateSlot
     ? [templateSlot, ...switchSlots.filter(slot => slot.slotId !== templateKey)]
-    : switchSlots;
+    : switchSlots
 
   if (routes.length > 0 && orderedSlots.length === 0) {
-    throw new Error('No validated AGY switch slots are available for the selected launch route');
+    throw new Error('No validated AGY switch slots are available for the selected launch route')
   }
 
-  const switchableRoutes = routes.slice(0, orderedSlots.length);
-  const skippedRoutes = routes.slice(orderedSlots.length);
+  const switchableRoutes = routes.slice(0, orderedSlots.length)
+  const skippedRoutes = routes.slice(orderedSlots.length)
   const slots = switchableRoutes.map((route, index) => ({
     slotId: orderedSlots[index]!.slotId,
     route,
-  }));
+  }))
 
   return {
     slots,
     switchableRoutes,
     skippedRoutes,
     validation,
-  };
+  }
 }
 
 export function resolveGateCatalogSlots(
   catalog: CatalogFixture,
   routes: AntigravityRoute[],
-  templateKey: string,
+  templateKey: string
 ): GateCatalogSlot[] {
-  return planGateCatalogSlots(catalog, routes, templateKey).slots;
+  return planGateCatalogSlots(catalog, routes, templateKey).slots
 }
 
 /**
@@ -163,32 +159,32 @@ export function resolveGateCatalogSlots(
  */
 export function buildGateCatalogEntry(
   route: AntigravityRoute,
-  template: CatalogModelEntry,
+  template: CatalogModelEntry
 ): CatalogModelEntry {
-  const entry: CatalogModelEntry = structuredClone(template);
+  const entry: CatalogModelEntry = structuredClone(template)
 
-  entry.displayName = route.displayName;
-  entry.model = template.model ?? GATEWAY_AGENT_PLACEHOLDER;
-  entry.requestedModelId = route.catalogId;
-  entry.modelVersion = route.catalogId;
-  entry.modelVersionId = route.catalogId;
-  entry.quotaInfo = { remainingFraction: 1, resetTime: '2026-06-23T02:00:57Z' };
-  return applyRouteContextBounds(entry, route);
+  entry.displayName = route.displayName
+  entry.model = template.model ?? GATEWAY_AGENT_PLACEHOLDER
+  entry.requestedModelId = route.catalogId
+  entry.modelVersion = route.catalogId
+  entry.modelVersionId = route.catalogId
+  entry.quotaInfo = { remainingFraction: 1, resetTime: '2026-06-23T02:00:57Z' }
+  return applyRouteContextBounds(entry, route)
 }
 
 function buildGateCatalogSlotEntry(
   route: AntigravityRoute,
-  template: CatalogModelEntry,
+  template: CatalogModelEntry
 ): CatalogModelEntry {
-  const entry: CatalogModelEntry = structuredClone(template);
+  const entry: CatalogModelEntry = structuredClone(template)
 
-  entry.displayName = route.displayName;
-  entry.quotaInfo = { remainingFraction: 1, resetTime: '2026-06-23T02:00:57Z' };
-  delete entry.requestedModelId;
-  delete entry.modelVersion;
-  delete entry.modelVersionId;
-  delete entry.isInternal;
-  return applyRouteContextBounds(entry, route);
+  entry.displayName = route.displayName
+  entry.quotaInfo = { remainingFraction: 1, resetTime: '2026-06-23T02:00:57Z' }
+  delete entry.requestedModelId
+  delete entry.modelVersion
+  delete entry.modelVersionId
+  delete entry.isInternal
+  return applyRouteContextBounds(entry, route)
 }
 
 /**
@@ -197,58 +193,62 @@ function buildGateCatalogSlotEntry(
 export function injectGatewayModels(
   fixture: CatalogFixture,
   routes: AntigravityRoute[],
-  templateKey: string,
+  templateKey: string
 ): CatalogFixture {
-  const result: CatalogFixture = structuredClone(fixture);
+  const result: CatalogFixture = structuredClone(fixture)
 
-  const template = fixture.models[templateKey];
+  const template = fixture.models[templateKey]
   if (!template) {
-    throw new Error(`Template model "${templateKey}" not found in catalog fixture`);
+    throw new Error(`Template model "${templateKey}" not found in catalog fixture`)
   }
 
-  const seen = new Set<string>();
+  const seen = new Set<string>()
   for (const route of routes) {
     if (seen.has(route.catalogId)) {
-      throw new Error(`Catalog ID collision: ${route.catalogId}`);
+      throw new Error(`Catalog ID collision: ${route.catalogId}`)
     }
     if (fixture.models[route.catalogId]) {
-      throw new Error(`Catalog ID collision with native model: ${route.catalogId}`);
+      throw new Error(`Catalog ID collision with native model: ${route.catalogId}`)
     }
-    seen.add(route.catalogId);
+    seen.add(route.catalogId)
   }
 
   if (routes.length > 0) {
     // Gateway picker catalog + hidden cascade anchors. Visible picker entries use
     // native Antigravity IDs; the gateway maps those slots back to Gateway routes.
-    result.models[GATEWAY_CASCADE_ANCHOR_ID] ??= structuredClone(template);
-    result.models[GATEWAY_CASCADE_FALLBACK_ID] ??= structuredClone(GATEWAY_CASCADE_FALLBACK_ENTRY);
-    result.models[GATEWAY_CASCADE_INTENT_MODEL_ID] ??= structuredClone(GATEWAY_CASCADE_INTENT_MODEL_ENTRY);
+    result.models[GATEWAY_CASCADE_ANCHOR_ID] ??= structuredClone(template)
+    result.models[GATEWAY_CASCADE_FALLBACK_ID] ??= structuredClone(GATEWAY_CASCADE_FALLBACK_ENTRY)
+    result.models[GATEWAY_CASCADE_INTENT_MODEL_ID] ??= structuredClone(
+      GATEWAY_CASCADE_INTENT_MODEL_ENTRY
+    )
     if (!result.models[GATEWAY_CASCADE_PLAN_ANCHOR_ID]) {
-      const planAnchor = withCascadeCheckpointer(structuredClone(template));
-      planAnchor.model = GATEWAY_CASCADE_PLAN_MODEL;
-      result.models[GATEWAY_CASCADE_PLAN_ANCHOR_ID] = planAnchor;
+      const planAnchor = withCascadeCheckpointer(structuredClone(template))
+      planAnchor.model = GATEWAY_CASCADE_PLAN_MODEL
+      result.models[GATEWAY_CASCADE_PLAN_ANCHOR_ID] = planAnchor
     }
 
-    const slotPlan = planGateCatalogSlots(result, routes, templateKey);
-    const slots = slotPlan.slots;
+    const slotPlan = planGateCatalogSlots(result, routes, templateKey)
+    const slots = slotPlan.slots
     for (const { slotId, route } of slots) {
-      const slotTemplate = result.models[slotId] ?? template;
+      const slotTemplate = result.models[slotId] ?? template
       if (result.models[slotId]) {
-        result.models[slotId] = buildGateCatalogSlotEntry(route, slotTemplate);
+        result.models[slotId] = buildGateCatalogSlotEntry(route, slotTemplate)
       }
-      result.models[route.catalogId] = buildGateCatalogEntry(route, slotTemplate);
+      result.models[route.catalogId] = buildGateCatalogEntry(route, slotTemplate)
     }
 
-    result.defaultAgentModelId = slots[0]?.slotId ?? GATEWAY_CASCADE_ANCHOR_ID;
+    result.defaultAgentModelId = slots[0]?.slotId ?? GATEWAY_CASCADE_ANCHOR_ID
     result.agentModelSorts = [
       {
         displayName: 'Recommended',
-        groups: [{
-          modelIds: slots.map(slot => slot.slotId),
-        }],
+        groups: [
+          {
+            modelIds: slots.map(slot => slot.slotId),
+          },
+        ],
       },
-    ];
-    return result;
+    ]
+    return result
   }
 
   if (!result.agentModelSorts?.[0]?.groups?.[0]) {
@@ -257,10 +257,10 @@ export function injectGatewayModels(
         displayName: 'Recommended',
         groups: [{ modelIds: [] }],
       },
-    ];
+    ]
   }
 
-  return result;
+  return result
 }
 
 /**
@@ -271,30 +271,30 @@ export function injectGatewayModels(
  */
 export function buildAntigravityRoutes(
   resolvedFavorites: ResolvedFavorite[],
-  maxRoutes = MAX_MODEL_CATALOG,
+  maxRoutes = MAX_MODEL_CATALOG
 ): AntigravityRoute[] {
-  const routes: AntigravityRoute[] = [];
-  const seen = new Set<string>();
+  const routes: AntigravityRoute[] = []
+  const seen = new Set<string>()
 
   for (const fav of resolvedFavorites) {
-    if (routes.length >= maxRoutes) break;
+    if (routes.length >= maxRoutes) break
 
-    const favModel = fav.model;
-    const modelId = favModel.id;
-    const catalogId = `anygate__${fav.providerId}__${modelId}`;
+    const favModel = fav.model
+    const modelId = favModel.id
+    const catalogId = `anygate__${fav.providerId}__${modelId}`
 
-    if (seen.has(catalogId)) continue;
-    seen.add(catalogId);
+    if (seen.has(catalogId)) continue
+    seen.add(catalogId)
 
     // Extract Vercel AI SDK npm package and upstream parameters
     // Handle both LocalProviderModel and ServerModelInfo shapes
-    const npm = (favModel as any).npm || '@ai-sdk/openai-compatible';
-    const upstreamModelId = (favModel as any).upstreamModelId || modelId;
-    const baseURL = (favModel as any).apiBaseUrl || (favModel as any).completionsUrl || undefined;
-    const contextWindow = (favModel as any).contextWindow;
-    const modelFormat = (favModel as any).modelFormat;
-    const family = (favModel as any).family || (favModel as any).brand || '';
-    const inputTypes = resolveInputTypes(family, fav.providerId, modelId);
+    const npm = (favModel as any).npm || '@ai-sdk/openai-compatible'
+    const upstreamModelId = (favModel as any).upstreamModelId || modelId
+    const baseURL = (favModel as any).apiBaseUrl || (favModel as any).completionsUrl || undefined
+    const contextWindow = (favModel as any).contextWindow
+    const modelFormat = (favModel as any).modelFormat
+    const family = (favModel as any).family || (favModel as any).brand || ''
+    const inputTypes = resolveInputTypes(family, fav.providerId, modelId)
 
     routes.push({
       catalogId,
@@ -309,106 +309,113 @@ export function buildAntigravityRoutes(
       ...(fav.authType ? { authType: fav.authType } : {}),
       ...(fav.oauthAccountId ? { oauthAccountId: fav.oauthAccountId } : {}),
       ...(fav.providerData ? { providerData: fav.providerData } : {}),
+      ...(fav.headers ? { headers: fav.headers } : {}),
       baseURL,
       contextWindow,
       inputTypes,
-    });
+    })
   }
 
-  return applyUniqueAntigravityRouteLabels(routes);
+  return applyUniqueAntigravityRouteLabels(routes)
 }
 
 function routeBaseModelName(route: AntigravityRoute): string {
-  const gatewayMatch = route.displayName.match(/^(.*) \(anygate(?: - .*)?\)$/);
-  return gatewayMatch?.[1] ?? route.displayName;
+  const gatewayMatch = route.displayName.match(/^(.*) \(anygate(?: - .*)?\)$/)
+  return gatewayMatch?.[1] ?? route.displayName
 }
 
 function authKindLabel(route: AntigravityRoute): string {
-  if (route.authType === 'oauth') return 'OAuth';
-  if (route.authType === 'api') return 'API key';
-  if (route.authType === 'none') return 'local';
-  return 'provider';
+  if (route.authType === 'oauth') return 'OAuth'
+  if (route.authType === 'api') return 'API key'
+  if (route.authType === 'none') return 'local'
+  return 'provider'
 }
 
 function duplicateCounts(values: string[]): Map<string, number> {
-  const counts = new Map<string, number>();
+  const counts = new Map<string, number>()
   for (const value of values) {
-    counts.set(value, (counts.get(value) ?? 0) + 1);
+    counts.set(value, (counts.get(value) ?? 0) + 1)
   }
-  return counts;
+  return counts
 }
 
 function assertUniqueRouteDisplayNames(routes: AntigravityRoute[]): void {
-  const counts = duplicateCounts(routes.map(route => route.displayName));
-  const duplicate = [...counts.entries()].find(([, count]) => count > 1);
+  const counts = duplicateCounts(routes.map(route => route.displayName))
+  const duplicate = [...counts.entries()].find(([, count]) => count > 1)
   if (duplicate) {
-    throw new Error(`Duplicate AGY model label after disambiguation: ${duplicate[0]}`);
+    throw new Error(`Duplicate AGY model label after disambiguation: ${duplicate[0]}`)
   }
 }
 
 export function applyUniqueAntigravityRouteLabels(routes: AntigravityRoute[]): AntigravityRoute[] {
-  const baseNames = routes.map(routeBaseModelName);
-  const baseNameCounts = duplicateCounts(baseNames);
-  const upstreamCounts = duplicateCounts(routes.map(route => route.upstreamModelId));
-  const providerNameCounts = duplicateCounts(routes.map(route => route.providerName));
+  const baseNames = routes.map(routeBaseModelName)
+  const baseNameCounts = duplicateCounts(baseNames)
+  const upstreamCounts = duplicateCounts(routes.map(route => route.upstreamModelId))
+  const providerNameCounts = duplicateCounts(routes.map(route => route.providerName))
 
   const labeled = routes.map((route, index) => {
-    const baseName = baseNames[index]!;
+    const baseName = baseNames[index]!
     const needsSuffix =
-      (baseNameCounts.get(baseName) ?? 0) > 1
-      || (upstreamCounts.get(route.upstreamModelId) ?? 0) > 1;
+      (baseNameCounts.get(baseName) ?? 0) > 1 ||
+      (upstreamCounts.get(route.upstreamModelId) ?? 0) > 1
 
     if (!needsSuffix) {
-      return { ...route, displayName: `${baseName} (anygate)` };
+      return { ...route, displayName: `${baseName} (anygate)` }
     }
 
-    const providerName = route.providerName || route.providerId;
-    const providerSuffix = (providerNameCounts.get(providerName) ?? 0) > 1
-      ? `${providerName} ${authKindLabel(route)}`
-      : providerName;
+    const providerName = route.providerName || route.providerId
+    const providerSuffix =
+      (providerNameCounts.get(providerName) ?? 0) > 1
+        ? `${providerName} ${authKindLabel(route)}`
+        : providerName
     return {
       ...route,
       displayName: `${baseName} (anygate - ${providerSuffix})`,
-    };
-  });
+    }
+  })
 
-  const firstPassCounts = duplicateCounts(labeled.map(route => route.displayName));
+  const firstPassCounts = duplicateCounts(labeled.map(route => route.displayName))
   const withProviderIds = labeled.map(route => {
-    if ((firstPassCounts.get(route.displayName) ?? 0) <= 1) return route;
+    if ((firstPassCounts.get(route.displayName) ?? 0) <= 1) return route
     return {
       ...route,
       displayName: route.displayName.replace(/\)$/, ` - ${route.providerId})`),
-    };
-  });
+    }
+  })
 
-  assertUniqueRouteDisplayNames(withProviderIds);
-  return withProviderIds;
+  assertUniqueRouteDisplayNames(withProviderIds)
+  return withProviderIds
 }
 
 function routeLabels(routes: AntigravityRoute[]): Map<string, string> {
-  assertUniqueRouteDisplayNames(routes);
+  assertUniqueRouteDisplayNames(routes)
 
-  const labels = new Map<string, string>();
+  const labels = new Map<string, string>()
   for (const route of routes) {
-    labels.set(route.catalogId, route.displayName);
+    labels.set(route.catalogId, route.displayName)
   }
-  return labels;
+  return labels
 }
 
 function buildClientModelConfigData(
   routes: AntigravityRoute[],
   catalog?: CatalogFixture,
   templateKey = GATEWAY_CASCADE_ANCHOR_ID,
-  precomputedSlots?: { slotId: string; route: AntigravityRoute }[],
+  precomputedSlots?: { slotId: string; route: AntigravityRoute }[]
 ): Record<string, unknown> {
-  const catalogRoutes = routes.slice(0, MAX_MODEL_CATALOG);
-  const slots = precomputedSlots ?? (catalog
-    ? resolveGateCatalogSlots(catalog, catalogRoutes, templateKey)
-    : catalogRoutes.map(route => ({ slotId: route.catalogId, route })));
-  const labels = routeLabels(catalogRoutes);
+  const catalogRoutes = routes.slice(0, MAX_MODEL_CATALOG)
+  const slots =
+    precomputedSlots ??
+    (catalog
+      ? resolveGateCatalogSlots(catalog, catalogRoutes, templateKey)
+      : catalogRoutes.map(route => ({ slotId: route.catalogId, route })))
+  const labels = routeLabels(catalogRoutes)
   const clientModelConfigs = slots.map(({ slotId, route }) => {
-    const entry = catalog?.models[slotId] ?? catalog?.models[route.catalogId] ?? catalog?.models[GATEWAY_CASCADE_ANCHOR_ID];
-    const label = labels.get(route.catalogId) ?? route.displayName;
+    const entry =
+      catalog?.models[slotId] ??
+      catalog?.models[route.catalogId] ??
+      catalog?.models[GATEWAY_CASCADE_ANCHOR_ID]
+    const label = labels.get(route.catalogId) ?? route.displayName
     return {
       label,
       modelOrAlias: {
@@ -421,8 +428,8 @@ function buildClientModelConfigData(
       tagTitle: entry?.tagTitle,
       tagDescription: entry?.tagDescription,
       supportsThoughtCirculation: entry?.supportsThoughtCirculation ?? false,
-    };
-  });
+    }
+  })
 
   return {
     clientModelConfigs,
@@ -438,7 +445,7 @@ function buildClientModelConfigData(
       },
     ],
     defaultOverrideModelConfig: clientModelConfigs[0] ?? {},
-  };
+  }
 }
 
 /**
@@ -448,43 +455,40 @@ function buildClientModelConfigData(
 export function buildListModelConfigsResponse(
   routes: AntigravityRoute[],
   catalog?: CatalogFixture,
-  templateKey = GATEWAY_CASCADE_ANCHOR_ID,
+  templateKey = GATEWAY_CASCADE_ANCHOR_ID
 ): Record<string, unknown> {
-  const catalogRoutes = routes.slice(0, MAX_MODEL_CATALOG);
+  const catalogRoutes = routes.slice(0, MAX_MODEL_CATALOG)
   const slots = catalog
     ? resolveGateCatalogSlots(catalog, catalogRoutes, templateKey)
-    : catalogRoutes.map(route => ({ slotId: route.catalogId, route }));
+    : catalogRoutes.map(route => ({ slotId: route.catalogId, route }))
   const config = slots.map(({ slotId }) => ({
     requestedModelId: slotId,
     planModel: GATEWAY_CASCADE_PLAN_MODEL,
     requestedModel: catalog?.models[slotId]?.model ?? GATEWAY_AGENT_PLACEHOLDER,
-  }));
+  }))
 
   return {
     ...buildClientModelConfigData(routes, catalog, templateKey, slots),
     allowedModelConfigs: config,
     defaultAgentModelConfig: config[0] ?? {},
-  };
+  }
 }
 
 const CURRENT_EXPERIMENT_IDS = [
-  105979552, 105979574, 106015351, 105979579, 105867471, 105979530, 105995634,
-  106121401, 106100625, 104638466, 101868197, 104817729, 105695344, 106064591,
-  104913215, 106324349, 106309078, 105821930, 104922093, 103012598, 106143956,
-  105856899, 106312323, 106064030, 105746183, 105757908, 104892493, 105822886,
-  105785683, 105721273, 105897325, 105658071, 106240758, 105943702, 106106760,
-  106283618, 105620019, 106038160, 106309520, 106281951, 106264532, 106222835,
-  106094629, 105887313, 105849474, 106032303, 106228452, 106113900, 106121607,
-  105979531, 105979553, 106015328, 105867469, 105979517, 106121399, 106100654,
-  104638459, 101551624, 104673683, 105695346, 106064590, 104913210, 105821928,
-  104922082, 103012592, 106064028, 105746181, 104892490, 105822881, 105721268,
-  105895316, 105658068, 106240748, 105943694, 106283614, 105620012, 106038153,
-  105887311, 106032301, 106113877, 106121604,
-] as const;
+  105979552, 105979574, 106015351, 105979579, 105867471, 105979530, 105995634, 106121401, 106100625,
+  104638466, 101868197, 104817729, 105695344, 106064591, 104913215, 106324349, 106309078, 105821930,
+  104922093, 103012598, 106143956, 105856899, 106312323, 106064030, 105746183, 105757908, 104892493,
+  105822886, 105785683, 105721273, 105897325, 105658071, 106240758, 105943702, 106106760, 106283618,
+  105620019, 106038160, 106309520, 106281951, 106264532, 106222835, 106094629, 105887313, 105849474,
+  106032303, 106228452, 106113900, 106121607, 105979531, 105979553, 106015328, 105867469, 105979517,
+  106121399, 106100654, 104638459, 101551624, 104673683, 105695346, 106064590, 104913210, 105821928,
+  104922082, 103012592, 106064028, 105746181, 104892490, 105822881, 105721268, 105895316, 105658068,
+  106240748, 105943694, 106283614, 105620012, 106038153, 105887311, 106032301, 106113877, 106121604,
+] as const
 
 /** Current Antigravity IDE listExperiments response shape. */
 export function buildListExperimentsResponse(): Record<string, unknown> {
   return {
     experimentIds: [...CURRENT_EXPERIMENT_IDS],
-  };
+  }
 }

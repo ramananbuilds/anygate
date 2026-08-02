@@ -1,29 +1,26 @@
-import type { CodexProxyRoute } from './proxy.js';
+import type { CodexProxyRoute } from './proxy.js'
 import {
   needsCloudCodeBackend,
   partitionAndStartCloudCodeBackend,
   type CloudCodeBackend,
-} from '../shared/cloud-code-backend.js';
-import type { LocalProvider, LocalProviderModel } from '../../../src/types/index.js';
-import {
-  resolveCodexRoute,
-  routableModelsForProvider,
-} from './routing.js';
+} from '../shared/cloud-code-backend.js'
+import type { LocalProvider, LocalProviderModel } from '../../../src/types/index.js'
+import { resolveCodexRoute, routableModelsForProvider } from './routing.js'
 
 export interface CodexAppProviderCatalogRoutes {
-  routable: LocalProviderModel[];
-  catalogModels: LocalProviderModel[];
-  routes: CodexProxyRoute[];
-  selectedRoute: CodexProxyRoute;
-  backend: CloudCodeBackend | null;
+  routable: LocalProviderModel[]
+  catalogModels: LocalProviderModel[]
+  routes: CodexProxyRoute[]
+  selectedRoute: CodexProxyRoute
+  backend: CloudCodeBackend | null
 }
 
 function codexRouteToProxyRoute(
   provider: LocalProvider,
   model: LocalProviderModel,
-  apiKey: string,
+  apiKey: string
 ): CodexProxyRoute {
-  const route = resolveCodexRoute(provider, model, apiKey);
+  const route = resolveCodexRoute(provider, model, apiKey)
   return {
     modelId: route.modelId,
     npm: route.npm,
@@ -39,29 +36,29 @@ function codexRouteToProxyRoute(
     reasoning: route.reasoning,
     interleavedReasoningField: route.interleavedReasoningField,
     headers: route.headers,
-  };
+  }
 }
 
 export async function buildCodexAppProviderCatalogRoutes(
   provider: LocalProvider,
   apiKey: string,
   selectedModelId: string,
-  trace?: boolean,
+  trace?: boolean
 ): Promise<CodexAppProviderCatalogRoutes> {
-  const routable = routableModelsForProvider(provider, 'codex-app');
+  const routable = routableModelsForProvider(provider, 'codex-app')
   const ordered = [
     ...routable.filter(model => model.id === selectedModelId),
     ...routable.filter(model => model.id !== selectedModelId),
-  ];
+  ]
 
-  const routeByModelId = new Map<string, CodexProxyRoute>();
-  const catalogModelByModelId = new Map<string, LocalProviderModel>();
-  const backendModels = ordered.filter(model => needsCloudCodeBackend(model, provider.authType));
-  const regularModels = ordered.filter(model => !needsCloudCodeBackend(model, provider.authType));
+  const routeByModelId = new Map<string, CodexProxyRoute>()
+  const catalogModelByModelId = new Map<string, LocalProviderModel>()
+  const backendModels = ordered.filter(model => needsCloudCodeBackend(model, provider.authType))
+  const regularModels = ordered.filter(model => !needsCloudCodeBackend(model, provider.authType))
 
   for (const model of regularModels) {
-    routeByModelId.set(model.id, codexRouteToProxyRoute(provider, model, apiKey));
-    catalogModelByModelId.set(model.id, model);
+    routeByModelId.set(model.id, codexRouteToProxyRoute(provider, model, apiKey))
+    catalogModelByModelId.set(model.id, model)
   }
 
   const partitioned = await partitionAndStartCloudCodeBackend(
@@ -87,30 +84,30 @@ export async function buildCodexAppProviderCatalogRoutes(
       interleavedReasoningField: original.model.interleavedReasoningField,
       headers: provider.headers,
     }),
-    trace,
-  );
+    trace
+  )
 
   for (let index = 0; index < backendModels.length; index++) {
-    const model = backendModels[index]!;
-    const route = partitioned.backendItems[index]!;
-    routeByModelId.set(model.id, route);
+    const model = backendModels[index]!
+    const route = partitioned.backendItems[index]!
+    routeByModelId.set(model.id, route)
     catalogModelByModelId.set(model.id, {
       ...model,
       id: route.modelId,
       upstreamModelId: route.upstreamModelId,
       npm: route.npm,
-    });
+    })
   }
 
   const routes = ordered
     .map(model => routeByModelId.get(model.id))
-    .filter((route): route is CodexProxyRoute => route !== undefined);
+    .filter((route): route is CodexProxyRoute => route !== undefined)
   const catalogModels = ordered
     .map(model => catalogModelByModelId.get(model.id))
-    .filter((model): model is LocalProviderModel => model !== undefined);
-  const selectedRoute = routeByModelId.get(selectedModelId) ?? routes[0];
+    .filter((model): model is LocalProviderModel => model !== undefined)
+  const selectedRoute = routeByModelId.get(selectedModelId) ?? routes[0]
   if (!selectedRoute) {
-    throw new Error(`No Codex App route available for selected model ${selectedModelId}`);
+    throw new Error(`No Codex App route available for selected model ${selectedModelId}`)
   }
 
   return {
@@ -119,5 +116,5 @@ export async function buildCodexAppProviderCatalogRoutes(
     routes,
     selectedRoute,
     backend: partitioned.backend,
-  };
+  }
 }

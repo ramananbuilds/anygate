@@ -4,4 +4,4 @@ export const googleProviderMeta = {
   brand: 'Google',
   defaultBaseUrl: 'https://generativelanguage.googleapis.com',
   npm: '@ai-sdk/google',
-};
+}

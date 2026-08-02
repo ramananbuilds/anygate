@@ -80,12 +80,8 @@ graph TD
 | **Auth** | `src/auth/` | OAuth device flows, PKCE, keyring adapters, token refresh |
 | **CLI** | `src/cli/` | Subcommand handlers dispatched from `src/cli.ts` |
 | **Config** | `src/config/` | Constants, paths, environment variable resolution |
-| **Core** | `src/core/` | Domain contracts: constants, errors, events, interfaces |
-| **Engine** | `src/engine/` | Routing decisions and target-compatibility filtering |
 | **Gateway** | `src/gateway/` | HTTP proxies, SDK adapters, API server, Cloud Code gateway |
-| **Launchers** | `src/launchers/` | OS-native process spawning (macOS, Windows, Linux) |
-| **Protocols** | `src/protocols/` | Wire format definitions (Anthropic, Google, OpenAI) |
-| **Providers** | `src/providers/` | Per-vendor LLM driver implementations |
+| **Providers** | `src/providers/` | OpenCode serve discovery only (per-vendor stubs removed) |
 | **Registry** | `src/registry/` | Provider/model catalog, templates, sync, storage, validation |
 | **Services** | `src/services/` | Cross-cutting: doctor, self-update, health, analytics |
 | **Shared** | `src/shared/` | HTTP utilities, error helpers, redaction |

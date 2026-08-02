@@ -6,28 +6,28 @@
 //   3. ID-pattern heuristics for models not in either cache
 //   4. Provider-level default (from PROVIDER_DEFAULTS, keyed by providerId)
 //   5. 200K default (Claude Code's own fallback for unknown models)
-import { readFileSync } from 'node:fs';
-import { OPENCODE_CACHE_PATH } from '../../../src/config/constants.js';
-import { loadModelsDevCache } from '../../registry/models-dev.js';
+import { readFileSync } from 'node:fs'
+import { OPENCODE_CACHE_PATH } from '../../../src/config/constants.js'
+import { loadModelsDevCache } from '../../registry/models-dev.js'
 
-export const DEFAULT_CONTEXT_WINDOW = 200_000;
+export const DEFAULT_CONTEXT_WINDOW = 200_000
 
 /** OpenCode cache file provider keys for Zen/Go (not anygate registry ids). */
-const CACHE_PROVIDER_PRIORITY = new Set(['opencode', 'opencode-go']);
+const CACHE_PROVIDER_PRIORITY = new Set(['opencode', 'opencode-go'])
 
 export interface OpencodeCacheModel {
-  id?: string;
-  name?: string;
-  family?: string;
-  status?: string;
-  provider?: { npm?: string };
-  cost?: { input: number; output: number };
-  limit?: { context?: number; output?: number };
-  reasoning?: boolean;
-  interleaved?: { field?: string };
+  id?: string
+  name?: string
+  family?: string
+  status?: string
+  provider?: { npm?: string }
+  cost?: { input: number; output: number }
+  limit?: { context?: number; output?: number }
+  reasoning?: boolean
+  interleaved?: { field?: string }
 }
 
-export type OpencodeCacheFile = Record<string, { models?: Record<string, OpencodeCacheModel> }>;
+export type OpencodeCacheFile = Record<string, { models?: Record<string, OpencodeCacheModel> }>
 
 // Ordered by specificity — first match wins.
 export const HEURISTIC_RULES: Array<[RegExp, number]> = [
@@ -59,7 +59,7 @@ export const HEURISTIC_RULES: Array<[RegExp, number]> = [
   [/solar-pro3/i, 131_072],
   [/solar-pro2/i, 65_536],
   [/solar/i, 32_768],
-];
+]
 
 /**
  * Provider-level default context windows.
@@ -109,106 +109,106 @@ export const PROVIDER_DEFAULTS: Record<string, number> = {
   'github-copilot': 200_000,
   'xai-oauth': 131_072,
   'openai-oauth': 128_000,
-};
+}
 
-let parsedCache: OpencodeCacheFile | null | undefined;
-let cacheIndex: Map<string, number> | undefined;
-const heuristicCache = new Map<string, number>();
+let parsedCache: OpencodeCacheFile | null | undefined
+let cacheIndex: Map<string, number> | undefined
+const heuristicCache = new Map<string, number>()
 
 /** Shared parse of ~/.cache/opencode/models.json — used by model list and context lookup. */
 export function loadOpencodeCache(): OpencodeCacheFile | null {
   if (parsedCache === undefined) {
     try {
-      parsedCache = JSON.parse(readFileSync(OPENCODE_CACHE_PATH, 'utf8')) as OpencodeCacheFile;
+      parsedCache = JSON.parse(readFileSync(OPENCODE_CACHE_PATH, 'utf8')) as OpencodeCacheFile
     } catch {
-      parsedCache = null;
+      parsedCache = null
     }
   }
-  return parsedCache;
+  return parsedCache
 }
 
 /** Build a model-id → context-window map from OpenCode cache data. Exported for tests. */
 export function buildContextWindowIndex(cache: OpencodeCacheFile): Map<string, number> {
-  const index = new Map<string, number>();
-  const allLimits = new Map<string, number[]>();
+  const index = new Map<string, number>()
+  const allLimits = new Map<string, number[]>()
 
   for (const [providerKey, providerData] of Object.entries(cache)) {
-    const models = providerData?.models;
-    if (!models) continue;
+    const models = providerData?.models
+    if (!models) continue
     for (const [modelId, entry] of Object.entries(models)) {
-      const ctx = entry.limit?.context;
-      if (typeof ctx !== 'number' || ctx <= 0) continue;
+      const ctx = entry.limit?.context
+      if (typeof ctx !== 'number' || ctx <= 0) continue
 
-      const limits = allLimits.get(modelId) ?? [];
-      limits.push(ctx);
-      allLimits.set(modelId, limits);
+      const limits = allLimits.get(modelId) ?? []
+      limits.push(ctx)
+      allLimits.set(modelId, limits)
 
       if (CACHE_PROVIDER_PRIORITY.has(providerKey)) {
-        index.set(modelId, ctx);
+        index.set(modelId, ctx)
       }
     }
   }
 
   for (const [modelId, limits] of allLimits) {
     if (!index.has(modelId)) {
-      index.set(modelId, Math.max(...limits));
+      index.set(modelId, Math.max(...limits))
     }
   }
 
-  return index;
+  return index
 }
 
 function getCacheIndex(): Map<string, number> {
   if (cacheIndex === undefined) {
-    const cache = loadOpencodeCache();
-    cacheIndex = cache ? buildContextWindowIndex(cache) : new Map();
+    const cache = loadOpencodeCache()
+    cacheIndex = cache ? buildContextWindowIndex(cache) : new Map()
   }
-  return cacheIndex;
+  return cacheIndex
 }
 
 /** Build a model-id → context-window map from the models.dev cache. */
 function buildModelsDevIndex(): Map<string, number> {
-  const index = new Map<string, number>();
+  const index = new Map<string, number>()
   try {
-    const cache = loadModelsDevCache();
+    const cache = loadModelsDevCache()
     for (const [providerSlug, providerData] of Object.entries(cache)) {
-      const models = providerData?.models;
-      if (!models) continue;
+      const models = providerData?.models
+      if (!models) continue
       for (const [modelId, entry] of Object.entries(models)) {
-        const ctx = entry.limit?.context;
-        if (typeof ctx !== 'number' || ctx <= 0) continue;
+        const ctx = entry.limit?.context
+        if (typeof ctx !== 'number' || ctx <= 0) continue
         // Prefer the first occurrence; if already present, keep the max.
-        const existing = index.get(modelId);
+        const existing = index.get(modelId)
         if (existing === undefined || ctx > existing) {
-          index.set(modelId, ctx);
+          index.set(modelId, ctx)
         }
       }
     }
   } catch {
     // fall through — return empty index
   }
-  return index;
+  return index
 }
 
-let modelsDevCacheIndex: Map<string, number> | null = null;
+let modelsDevCacheIndex: Map<string, number> | null = null
 function getModelsDevIndex(): Map<string, number> {
   if (modelsDevCacheIndex === null) {
-    modelsDevCacheIndex = buildModelsDevIndex();
+    modelsDevCacheIndex = buildModelsDevIndex()
   }
-  return modelsDevCacheIndex;
+  return modelsDevCacheIndex
 }
 
 export function contextWindowFromHeuristics(modelId: string): number {
-  const cached = heuristicCache.get(modelId);
-  if (cached !== undefined) return cached;
+  const cached = heuristicCache.get(modelId)
+  if (cached !== undefined) return cached
   for (const [pattern, size] of HEURISTIC_RULES) {
     if (pattern.test(modelId)) {
-      heuristicCache.set(modelId, size);
-      return size;
+      heuristicCache.set(modelId, size)
+      return size
     }
   }
-  heuristicCache.set(modelId, DEFAULT_CONTEXT_WINDOW);
-  return DEFAULT_CONTEXT_WINDOW;
+  heuristicCache.set(modelId, DEFAULT_CONTEXT_WINDOW)
+  return DEFAULT_CONTEXT_WINDOW
 }
 
 /**
@@ -223,28 +223,32 @@ export function contextWindowFromHeuristics(modelId: string): number {
  */
 export function lookupContextWindow(modelId: string, providerId?: string): number {
   // 1. OpenCode cache
-  const fromCache = getCacheIndex().get(modelId);
-  if (fromCache) return fromCache;
+  const fromCache = getCacheIndex().get(modelId)
+  if (fromCache) return fromCache
 
   // 2. models.dev cache
-  const fromModelsDev = getModelsDevIndex().get(modelId);
-  if (fromModelsDev) return fromModelsDev;
+  const fromModelsDev = getModelsDevIndex().get(modelId)
+  if (fromModelsDev) return fromModelsDev
 
   // 3. Heuristics
-  const fromHeuristics = contextWindowFromHeuristics(modelId);
-  if (fromHeuristics !== DEFAULT_CONTEXT_WINDOW) return fromHeuristics;
+  const fromHeuristics = contextWindowFromHeuristics(modelId)
+  if (fromHeuristics !== DEFAULT_CONTEXT_WINDOW) return fromHeuristics
 
   // 4. Provider-level default
   if (providerId && PROVIDER_DEFAULTS[providerId]) {
-    return PROVIDER_DEFAULTS[providerId];
+    return PROVIDER_DEFAULTS[providerId]
   }
 
   // 5. Fall back to default
-  return DEFAULT_CONTEXT_WINDOW;
+  return DEFAULT_CONTEXT_WINDOW
 }
 
 /** Prefer an explicit limit.context (or pre-resolved value), else resolve from cache/heuristics. */
-export function resolveContextWindow(modelId: string, explicit?: number, providerId?: string): number {
-  if (typeof explicit === 'number' && explicit > 0) return explicit;
-  return lookupContextWindow(modelId, providerId);
+export function resolveContextWindow(
+  modelId: string,
+  explicit?: number,
+  providerId?: string
+): number {
+  if (typeof explicit === 'number' && explicit > 0) return explicit
+  return lookupContextWindow(modelId, providerId)
 }

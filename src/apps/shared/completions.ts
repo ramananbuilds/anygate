@@ -1,5 +1,5 @@
 // src/apps/shared/completions.ts
-import pc from 'picocolors';
+import pc from 'picocolors'
 
 export const SUBCOMMANDS = [
   'claude',
@@ -19,31 +19,39 @@ export const SUBCOMMANDS = [
   'doctor',
   'completions',
   'update',
-];
+]
 
-const ROOT_FLAGS = ['--help', '--version', '--ai', '--ai --install', '--force'];
+const ROOT_FLAGS = ['--help', '--version', '--ai', '--ai --install', '--force']
 
-type Shell = 'bash' | 'zsh' | 'fish' | 'powershell';
+type Shell = 'bash' | 'zsh' | 'fish' | 'powershell'
 
 function detectShell(): Shell | undefined {
-  const shell = process.env['SHELL']?.toLowerCase() ?? '';
-  if (shell.includes('zsh')) return 'zsh';
-  if (shell.includes('bash')) return 'bash';
-  if (shell.includes('fish')) return 'fish';
-  if (process.env['PSModulePath'] || process.env['POWERSHELL_DISTRIBUTION_CHANNEL']) return 'powershell';
-  return undefined;
+  const shell = process.env['SHELL']?.toLowerCase() ?? ''
+  if (shell.includes('zsh')) return 'zsh'
+  if (shell.includes('bash')) return 'bash'
+  if (shell.includes('fish')) return 'fish'
+  if (process.env['PSModulePath'] || process.env['POWERSHELL_DISTRIBUTION_CHANNEL'])
+    return 'powershell'
+  return undefined
 }
 
 function normalizeShell(input: string | undefined): Shell | undefined {
-  const s = input?.toLowerCase().trim();
-  if (s === 'bash' || s === 'zsh' || s === 'fish' || s === 'powershell' || s === 'pwsh' || s === 'ps') {
-    return s === 'pwsh' || s === 'ps' ? 'powershell' : s;
+  const s = input?.toLowerCase().trim()
+  if (
+    s === 'bash' ||
+    s === 'zsh' ||
+    s === 'fish' ||
+    s === 'powershell' ||
+    s === 'pwsh' ||
+    s === 'ps'
+  ) {
+    return s === 'pwsh' || s === 'ps' ? 'powershell' : s
   }
-  return undefined;
+  return undefined
 }
 
 function bashScript(): string {
-  const cmds = SUBCOMMANDS.join(' ');
+  const cmds = SUBCOMMANDS.join(' ')
   return `# anygate bash completion
 _anygate() {
   local cur prev
@@ -60,11 +68,11 @@ _anygate() {
   return 0
 }
 complete -F _anygate anygate
-`;
+`
 }
 
 function zshScript(): string {
-  const cmds = SUBCOMMANDS.join(' ');
+  const cmds = SUBCOMMANDS.join(' ')
   return `# anygate zsh completion
 #compdef anygate
 _anygate() {
@@ -73,18 +81,21 @@ _anygate() {
   _arguments '1:subcommand:(\${subcommands})' '*:: :_gnu_generic'
 }
 _anygate "$@"
-`;
+`
 }
 
 function fishScript(): string {
-  const lines = SUBCOMMANDS.map(c => `complete -c anygate -n "not __fish_seen_subcommand_from ${SUBCOMMANDS.join(' ')}" -a ${c} -d 'anygate ${c}'`);
-  lines.push(`complete -c anygate -s h -l help -d 'Show help'`);
-  lines.push(`complete -c anygate -s v -l version -d 'Show version'`);
-  return `# anygate fish completion\n${lines.join('\n')}\n`;
+  const lines = SUBCOMMANDS.map(
+    c =>
+      `complete -c anygate -n "not __fish_seen_subcommand_from ${SUBCOMMANDS.join(' ')}" -a ${c} -d 'anygate ${c}'`
+  )
+  lines.push(`complete -c anygate -s h -l help -d 'Show help'`)
+  lines.push(`complete -c anygate -s v -l version -d 'Show version'`)
+  return `# anygate fish completion\n${lines.join('\n')}\n`
 }
 
 function powershellScript(): string {
-  const cmds = SUBCOMMANDS.map(c => `'${c}'`).join(', ');
+  const cmds = SUBCOMMANDS.map(c => `'${c}'`).join(', ')
   return `# anygate PowerShell completion
 Register-ArgumentCompleter -CommandName anygate -ScriptBlock {
   param($wordToComplete, $commandAst, $cursorPosition)
@@ -93,7 +104,7 @@ Register-ArgumentCompleter -CommandName anygate -ScriptBlock {
     [System.Management.Automation.CompletionResult]::new($_, $_, 'Command', "anygate $_")
   }
 }
-`;
+`
 }
 
 const SCRIPTS: Record<Shell, () => string> = {
@@ -101,15 +112,15 @@ const SCRIPTS: Record<Shell, () => string> = {
   zsh: zshScript,
   fish: fishScript,
   powershell: powershellScript,
-};
+}
 
 export function runCompletionsCommand(shellArg: string | undefined): Promise<number> {
-  const shell = normalizeShell(shellArg) ?? detectShell();
+  const shell = normalizeShell(shellArg) ?? detectShell()
   if (!shell) {
-    console.error(pc.red('\\nError: could not detect your shell.\\n'));
-    console.error('Pass one explicitly: anygate completions <bash|zsh|fish|powershell>\\n');
-    return Promise.resolve(1);
+    console.error(pc.red('\\nError: could not detect your shell.\\n'))
+    console.error('Pass one explicitly: anygate completions <bash|zsh|fish|powershell>\\n')
+    return Promise.resolve(1)
   }
-  process.stdout.write(SCRIPTS[shell]());
-  return Promise.resolve(0);
+  process.stdout.write(SCRIPTS[shell]())
+  return Promise.resolve(0)
 }

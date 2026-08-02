@@ -1,29 +1,29 @@
 // xai.ts — native xAI SuperGrok OAuth (RFC 8628 device code, ported from OpenCode)
 
-import { positiveSecondsToMs, sleepMs } from './pkce.js';
-import type { OAuthTokenResponse } from './types.js';
-import { VERSION } from '../config/constants.js';
-import { postOAuthRefresh } from './refresh-http.js';
+import { positiveSecondsToMs, sleepMs } from './pkce.js'
+import type { OAuthTokenResponse } from './types.js'
+import { VERSION } from '../config/constants.js'
+import { postOAuthRefresh } from './refresh-http.js'
 
-const CLIENT_ID = 'b1a00492-073a-47ea-816f-4c329264a828';
-const TOKEN_URL = 'https://auth.x.ai/oauth2/token';
-const DEVICE_AUTHORIZATION_URL = 'https://auth.x.ai/oauth2/device/code';
-const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code';
-const SCOPE = 'openid profile email offline_access grok-cli:access api:access';
+const CLIENT_ID = 'b1a00492-073a-47ea-816f-4c329264a828'
+const TOKEN_URL = 'https://auth.x.ai/oauth2/token'
+const DEVICE_AUTHORIZATION_URL = 'https://auth.x.ai/oauth2/device/code'
+const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
+const SCOPE = 'openid profile email offline_access grok-cli:access api:access'
 
-const DEVICE_CODE_DEFAULT_INTERVAL_MS = 5_000;
-const DEVICE_CODE_MIN_INTERVAL_MS = 1_000;
-const DEVICE_CODE_SLOW_DOWN_INCREMENT_MS = 5_000;
-const DEVICE_CODE_DEFAULT_EXPIRES_MS = 5 * 60 * 1000;
-const OAUTH_POLLING_SAFETY_MARGIN_MS = 3_000;
+const DEVICE_CODE_DEFAULT_INTERVAL_MS = 5_000
+const DEVICE_CODE_MIN_INTERVAL_MS = 1_000
+const DEVICE_CODE_SLOW_DOWN_INCREMENT_MS = 5_000
+const DEVICE_CODE_DEFAULT_EXPIRES_MS = 5 * 60 * 1000
+const OAUTH_POLLING_SAFETY_MARGIN_MS = 3_000
 
 export interface XaiDeviceCodeResponse {
-  device_code: string;
-  user_code: string;
-  verification_uri: string;
-  verification_uri_complete?: string;
-  expires_in?: number;
-  interval?: number;
+  device_code: string
+  user_code: string
+  verification_uri: string
+  verification_uri_complete?: string
+  expires_in?: number
+  interval?: number
 }
 
 function authHeaders(): Record<string, string> {
@@ -31,7 +31,7 @@ function authHeaders(): Record<string, string> {
     'Content-Type': 'application/x-www-form-urlencoded',
     Accept: 'application/json',
     'User-Agent': `anygate/${VERSION}`,
-  };
+  }
 }
 
 export async function requestXaiDeviceCode(): Promise<XaiDeviceCodeResponse> {
@@ -42,29 +42,31 @@ export async function requestXaiDeviceCode(): Promise<XaiDeviceCodeResponse> {
       client_id: CLIENT_ID,
       scope: SCOPE,
     }).toString(),
-  });
+  })
   if (!response.ok) {
-    const detail = await response.text().catch(() => '');
-    throw new Error(`xAI device code request failed (${response.status})${detail ? `: ${detail}` : ''}`);
+    const detail = await response.text().catch(() => '')
+    throw new Error(
+      `xAI device code request failed (${response.status})${detail ? `: ${detail}` : ''}`
+    )
   }
-  const json = await response.json() as XaiDeviceCodeResponse;
+  const json = (await response.json()) as XaiDeviceCodeResponse
   if (!json.device_code || !json.user_code || !json.verification_uri) {
-    throw new Error('xAI device code response is missing required fields');
+    throw new Error('xAI device code response is missing required fields')
   }
-  return json;
+  return json
 }
 
 export async function pollXaiDeviceCodeToken(
   device: XaiDeviceCodeResponse,
-  opts?: { sleep?: (ms: number) => Promise<void>; now?: () => number },
+  opts?: { sleep?: (ms: number) => Promise<void>; now?: () => number }
 ): Promise<OAuthTokenResponse> {
-  const sleep = opts?.sleep ?? sleepMs;
-  const now = opts?.now ?? (() => Date.now());
-  const deadline = now() + positiveSecondsToMs(device.expires_in, DEVICE_CODE_DEFAULT_EXPIRES_MS);
+  const sleep = opts?.sleep ?? sleepMs
+  const now = opts?.now ?? (() => Date.now())
+  const deadline = now() + positiveSecondsToMs(device.expires_in, DEVICE_CODE_DEFAULT_EXPIRES_MS)
   let intervalMs = Math.max(
     positiveSecondsToMs(device.interval, DEVICE_CODE_DEFAULT_INTERVAL_MS),
-    DEVICE_CODE_MIN_INTERVAL_MS,
-  );
+    DEVICE_CODE_MIN_INTERVAL_MS
+  )
 
   while (now() < deadline) {
     const response = await fetch(TOKEN_URL, {
@@ -75,23 +77,23 @@ export async function pollXaiDeviceCodeToken(
         client_id: CLIENT_ID,
         device_code: device.device_code,
       }).toString(),
-    });
-    if (response.ok) return response.json() as Promise<OAuthTokenResponse>;
+    })
+    if (response.ok) return response.json() as Promise<OAuthTokenResponse>
 
-    const body = await response.json().catch(() => ({})) as { error?: string };
-    const remaining = Math.max(0, deadline - now());
+    const body = (await response.json().catch(() => ({}))) as { error?: string }
+    const remaining = Math.max(0, deadline - now())
     if (body.error === 'authorization_pending') {
-      await sleep(Math.min(intervalMs + OAUTH_POLLING_SAFETY_MARGIN_MS, remaining));
-      continue;
+      await sleep(Math.min(intervalMs + OAUTH_POLLING_SAFETY_MARGIN_MS, remaining))
+      continue
     }
     if (body.error === 'slow_down') {
-      intervalMs += DEVICE_CODE_SLOW_DOWN_INCREMENT_MS;
-      await sleep(Math.min(intervalMs + OAUTH_POLLING_SAFETY_MARGIN_MS, remaining));
-      continue;
+      intervalMs += DEVICE_CODE_SLOW_DOWN_INCREMENT_MS
+      await sleep(Math.min(intervalMs + OAUTH_POLLING_SAFETY_MARGIN_MS, remaining))
+      continue
     }
-    throw new Error(`xAI device authorization failed${body.error ? `: ${body.error}` : ''}`);
+    throw new Error(`xAI device authorization failed${body.error ? `: ${body.error}` : ''}`)
   }
-  throw new Error('xAI device authorization timed out');
+  throw new Error('xAI device authorization timed out')
 }
 
 export async function refreshXaiAccessToken(refreshToken: string): Promise<OAuthTokenResponse> {
@@ -108,18 +110,18 @@ export async function refreshXaiAccessToken(refreshToken: string): Promise<OAuth
       includeStatus: true,
       includeBody: true,
       headers: authHeaders(),
-    },
-  );
+    }
+  )
 }
 
 export async function runXaiDeviceCodeFlow(
   onDeviceCode: (info: { url: string; userCode: string }) => void,
-  opts?: { sleep?: (ms: number) => Promise<void>; now?: () => number },
+  opts?: { sleep?: (ms: number) => Promise<void>; now?: () => number }
 ): Promise<OAuthTokenResponse> {
-  const device = await requestXaiDeviceCode();
+  const device = await requestXaiDeviceCode()
   onDeviceCode({
     url: device.verification_uri_complete ?? device.verification_uri,
     userCode: device.user_code,
-  });
-  return pollXaiDeviceCodeToken(device, opts);
+  })
+  return pollXaiDeviceCodeToken(device, opts)
 }

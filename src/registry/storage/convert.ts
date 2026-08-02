@@ -1,8 +1,8 @@
 // src/registry/convert.ts — LocalProvider ↔ RegistryProvider conversion
 
-import type { LocalProvider, LocalProviderModel } from '../../types/index.js';
-import type { CachedModel, RegistryProvider } from '../types.js';
-import { isValidProviderId } from '../validation/validate.js';
+import type { LocalProvider, LocalProviderModel } from '../../types/index.js'
+import type { CachedModel, RegistryProvider } from '../types.js'
+import { isValidProviderId } from '../validation/validate.js'
 
 function modelToCached(model: LocalProviderModel): CachedModel {
   return {
@@ -23,20 +23,20 @@ function modelToCached(model: LocalProviderModel): CachedModel {
     interleavedReasoningField: model.interleavedReasoningField,
     useResponsesLite: model.useResponsesLite,
     preferWebSockets: model.preferWebSockets,
-  };
+  }
 }
 
 /** Convert a normalized OpenCode/local provider into a registry entry (no secret write). */
 export function localProviderToRegistry(
   provider: LocalProvider,
-  opts?: { templateId?: string; authType?: 'api' | 'oauth'; authRef?: string },
+  opts?: { templateId?: string; authType?: 'api' | 'oauth'; authRef?: string }
 ): RegistryProvider | null {
-  if (!isValidProviderId(provider.id)) return null;
-  if (provider.models.length === 0) return null;
+  if (!isValidProviderId(provider.id)) return null
+  if (provider.models.length === 0) return null
 
-  const first = provider.models[0]!;
-  const apiUrl = (first.apiBaseUrl ?? first.baseUrl)?.trim();
-  const authType = opts?.authType ?? 'api';
+  const first = provider.models[0]!
+  const apiUrl = (first.apiBaseUrl ?? first.baseUrl)?.trim()
+  const authType = opts?.authType ?? 'api'
   return {
     id: provider.id,
     templateId: opts?.templateId ?? provider.id,
@@ -53,5 +53,5 @@ export function localProviderToRegistry(
       fetchedAt: new Date().toISOString(),
       models: provider.models.map(modelToCached),
     },
-  };
+  }
 }

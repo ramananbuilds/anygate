@@ -1,62 +1,70 @@
-import http from 'node:http';
-import { streamText, generateText } from 'ai';
+import http from 'node:http'
+import { streamText, generateText } from 'ai'
 import {
   createLanguageModel,
   deepMergeProviderOptions,
   effortProviderOptions,
   maxToolsForNpm,
   thinkingProviderOptions,
-} from '../providers/provider-factory.js';
-import { silenceSdkWarnings } from '../adapters/sdk-adapter.js';
-import { formatUpstreamError } from '../../shared/errors.js';
-import { readBody } from '../../shared/http.js';
-import { translateRequest, type TranslateRequestOptions } from './request-adapter.js';
-import { formatCloudCodeChunk, mapFinishReason, normalizeFunctionCallArgs } from './response-adapter.js';
-import { applyClaudeCodeOAuthIdentity } from '../../auth/claude-code-identity.js';
-import { ANTIGRAVITY_BASE_URLS } from '../../auth/antigravity-oauth.js';
-import type { AntigravityRoute, CatalogFixture } from './types.js';
-import { recordUsage } from '../../storage/analytics.js';
+} from '../providers/provider-factory.js'
+import { silenceSdkWarnings } from '../adapters/sdk-adapter.js'
+import { formatUpstreamError } from '../../shared/errors.js'
+import { readBody } from '../../shared/http.js'
+import { translateRequest, type TranslateRequestOptions } from './request-adapter.js'
+import {
+  formatCloudCodeChunk,
+  mapFinishReason,
+  normalizeFunctionCallArgs,
+} from './response-adapter.js'
+import { applyClaudeCodeOAuthIdentity } from '../../auth/claude-code-identity.js'
+import { ANTIGRAVITY_BASE_URLS } from '../../auth/antigravity-oauth.js'
+import type { AntigravityRoute, CatalogFixture } from './types.js'
+import { recordUsage } from '../../storage/analytics.js'
 import {
   injectGatewayModels,
   resolveGateCatalogSlots,
   buildListModelConfigsResponse,
   buildListExperimentsResponse,
-} from './catalog.js';
-import loadCodeAssistFixture from './fixtures/loadCodeAssist.json' with { type: 'json' };
-import catalogFixtureRaw from './fixtures/fetchAvailableModels.json' with { type: 'json' };
+} from './catalog.js'
+import loadCodeAssistFixture from './fixtures/loadCodeAssist.json' with { type: 'json' }
+import catalogFixtureRaw from './fixtures/fetchAvailableModels.json' with { type: 'json' }
 
 export interface CloudCodeGatewayHandle {
-  port: number;
-  url: string;
-  close: () => Promise<void>;
+  port: number
+  url: string
+  close: () => Promise<void>
 }
 
 export interface GatewayOptions {
-  templateKey?: string;
-  trace?: boolean;
+  templateKey?: string
+  trace?: boolean
   /** Experimental: route intent helpers to the last observed selected user-turn slot. */
-  trackActiveRoute?: boolean;
+  trackActiveRoute?: boolean
   /** When trace is enabled, all gateway log lines are written here instead of stdout/stderr. */
-  logFn?: (msg: string) => void;
+  logFn?: (msg: string) => void
 }
 
-type HelperRoutePolicy = 'launch' | 'launch-or-active';
+type HelperRoutePolicy = 'launch' | 'launch-or-active'
 
 const HELPER_ROUTE_POLICIES = new Map<string, HelperRoutePolicy>([
   ['gemini-2.5-flash', 'launch-or-active'],
   ['gemini-2.5-flash-lite', 'launch'],
   ['gemini-3-flash-agent', 'launch'],
   ['gemini-3.1-flash-lite', 'launch'],
-]);
+])
 
-const MAX_REASONING_ECHOES_PER_CONVERSATION = 20;
+const MAX_REASONING_ECHOES_PER_CONVERSATION = 20
 
 function isCloudCodeOAuthRoute(route: AntigravityRoute): boolean {
-  return route.providerId === 'antigravity' && route.authType === 'oauth' && route.modelFormat === 'cloud-code';
+  return (
+    route.providerId === 'antigravity' &&
+    route.authType === 'oauth' &&
+    route.modelFormat === 'cloud-code'
+  )
 }
 
 function isUserTurnRequest(parsed: Record<string, unknown> | undefined): boolean {
-  return typeof parsed?.requestId === 'string' && parsed.requestId.startsWith('agent/');
+  return typeof parsed?.requestId === 'string' && parsed.requestId.startsWith('agent/')
 }
 
 /**
@@ -76,334 +84,386 @@ function isUserTurnRequest(parsed: Record<string, unknown> | undefined): boolean
  */
 export async function startCloudCodeGateway(
   routes: AntigravityRoute[],
-  opts: GatewayOptions = {},
+  opts: GatewayOptions = {}
 ): Promise<CloudCodeGatewayHandle> {
-  silenceSdkWarnings();
-  const templateKey = opts.templateKey ?? 'gemini-3.5-flash-low';
-  const trace = opts.trace ?? false;
-  const trackActiveRoute = opts.trackActiveRoute ?? false;
-  const log = opts.logFn ?? (() => {});
+  silenceSdkWarnings()
+  const templateKey = opts.templateKey ?? 'gemini-3.5-flash-low'
+  const trace = opts.trace ?? false
+  const trackActiveRoute = opts.trackActiveRoute ?? false
+  const log = opts.logFn ?? (() => {})
 
-  const catalogFixture = catalogFixtureRaw as unknown as CatalogFixture;
-  const injectedCatalog = injectGatewayModels(catalogFixture, routes, templateKey);
+  const catalogFixture = catalogFixtureRaw as unknown as CatalogFixture
+  const injectedCatalog = injectGatewayModels(catalogFixture, routes, templateKey)
 
-  const selectedSlotRoutes = resolveGateCatalogSlots(injectedCatalog, routes, templateKey);
-  const selectedSlotIds = new Set<string>();
-  const routeMap = new Map<string, AntigravityRoute>();
-  const reasoningEchoesByConversation = new Map<string, string[]>();
+  const selectedSlotRoutes = resolveGateCatalogSlots(injectedCatalog, routes, templateKey)
+  const selectedSlotIds = new Set<string>()
+  const routeMap = new Map<string, AntigravityRoute>()
+  const reasoningEchoesByConversation = new Map<string, string[]>()
   for (const { slotId, route } of selectedSlotRoutes) {
-    selectedSlotIds.add(slotId);
-    routeMap.set(slotId, route);
-    routeMap.set(route.catalogId, route);
+    selectedSlotIds.add(slotId)
+    routeMap.set(slotId, route)
+    routeMap.set(route.catalogId, route)
   }
 
-  let activeRoute: AntigravityRoute | undefined;
-  const launchRoute = selectedSlotRoutes[0]?.route ?? routes[0];
+  let activeRoute: AntigravityRoute | undefined
+  const launchRoute = selectedSlotRoutes[0]?.route ?? routes[0]
   const resolveRouteForModel = (model: string | undefined): AntigravityRoute | undefined => {
-    if (!model) return undefined;
-    const directRoute = routeMap.get(model);
-    if (directRoute) return directRoute;
-    const helperPolicy = HELPER_ROUTE_POLICIES.get(model);
-    if (!helperPolicy || !launchRoute) return undefined;
+    if (!model) return undefined
+    const directRoute = routeMap.get(model)
+    if (directRoute) return directRoute
+    const helperPolicy = HELPER_ROUTE_POLICIES.get(model)
+    if (!helperPolicy || !launchRoute) return undefined
     if (helperPolicy === 'launch-or-active' && trackActiveRoute && activeRoute) {
-      return activeRoute;
+      return activeRoute
     }
-    return launchRoute;
-  };
+    return launchRoute
+  }
 
   // Pre-compute provider options per route (cheap, stateless; createLanguageModel called per-request
   // so credentials are always fresh — required for short-lived OAuth tokens)
-  const providerOptionsCache = new Map<string, any>();
+  const providerOptionsCache = new Map<string, any>()
   for (const route of routes) {
     providerOptionsCache.set(
       route.catalogId,
       deepMergeProviderOptions(
         thinkingProviderOptions(route.npm),
-        effortProviderOptions(route.npm, 'high', route.upstreamModelId),
-      ),
-    );
+        effortProviderOptions(route.npm, 'high', route.upstreamModelId)
+      )
+    )
   }
 
-
   // Pre-compute invariant endpoint responses (routes don't change after startup)
-  const experimentsResponse = buildListExperimentsResponse();
-  const modelConfigsResponse = buildListModelConfigsResponse(routes, injectedCatalog, templateKey);
+  const experimentsResponse = buildListExperimentsResponse()
+  const modelConfigsResponse = buildListModelConfigsResponse(routes, injectedCatalog, templateKey)
   const userSettings = {
     telemetryEnabled: false,
     userDataCollectionForceDisabled: true,
     marketingEmailsEnabled: false,
-  };
+  }
 
   const server = http.createServer((req, res) => {
-    readBody(req).then((bodyStr) => {
-      const url = req.url || '';
-      const method = req.method || 'GET';
-      const contentType = (req.headers['content-type'] ?? '').toLowerCase();
-      const lowerUrl = url.toLowerCase();
+    readBody(req)
+      .then(bodyStr => {
+        const url = req.url || ''
+        const method = req.method || 'GET'
+        const contentType = (req.headers['content-type'] ?? '').toLowerCase()
+        const lowerUrl = url.toLowerCase()
 
-      if (trace) {
-        log(`[gateway] ${method} ${url}`);
-        log(`[gateway]   content-type: ${contentType}`);
-        log(`[gateway]   body-size: ${bodyStr.length}`);
-      }
-
-      // --- Reject protobuf/grpc binary content types early ---
-      if (contentType.includes('proto') || (contentType.includes('grpc') && !contentType.includes('json'))) {
-        log(`[gateway] UNSUPPORTED content-type: ${contentType}`);
-        respondJson(res, 415, {
-          error: {
-            code: 415,
-            message: `Gateway only supports JSON. Received: ${contentType}`,
-          },
-        });
-        return;
-      }
-
-      let parsed: Record<string, unknown> | undefined;
-      try { parsed = JSON.parse(bodyStr) as Record<string, unknown>; } catch {}
-
-      if (trace && parsed) {
-        const preview = JSON.stringify(parsed).slice(0, 500);
-        log(`[gateway]   body-preview: ${preview}`);
-      }
-
-      // --- loadCodeAssist ---
-      if (lowerUrl.includes('loadcodeassist')) {
-        if (trace) log('[gateway] → loadCodeAssist');
-        // No cascadeModelConfigData — the real Google API doesn't return it here.
-        // The LS resolves cascade config internally from model registry + experiments.
-        respondJson(res, 200, loadCodeAssistFixture);
-        return;
-      }
-
-      // --- fetchAvailableModels / GetAvailableModels ---
-      if (lowerUrl.includes('fetchavailablemodels') || lowerUrl.includes('getavailablemodels')) {
-        if (trace) log('[gateway] → fetchAvailableModels');
-        respondJson(res, 200, injectedCatalog);
-        return;
-      }
-
-      // --- listModelConfigs / GetCascadeModelConfigs / GetCommandModelConfigs ---
-      if (lowerUrl.includes('modelconfigs')) {
-        if (trace) log('[gateway] → listModelConfigs');
-        respondJson(res, 200, modelConfigsResponse);
-        return;
-      }
-
-      // --- GenerateContent / GenerateChat (streaming and unary) ---
-      if (lowerUrl.includes('generatecontent') || lowerUrl.includes('generatechat')) {
-        const model = parsed?.model as string | undefined;
-        if (trace) log(`[gateway]   extracted model: ${model ?? 'N/A'}`);
-
-        const route = resolveRouteForModel(model);
-        if (route) {
-          if (trackActiveRoute && selectedSlotIds.has(model ?? '') && isUserTurnRequest(parsed)) {
-            activeRoute = route;
-            if (trace) log(`[gateway]   active route: ${route.catalogId} via ${model}`);
-          }
-          if (isCloudCodeOAuthRoute(route)) {
-            handleCloudCodeForwardRequest(res, route, parsed as Record<string, unknown>, lowerUrl, log).catch(err => {
-              log(`[gateway] cloud-code forward error: ${err instanceof Error ? err.stack || err.message : String(err)}`);
-              if (!res.headersSent) {
-                respondJson(res, 500, { error: { code: 500, message: formatUpstreamError(err) } });
-              } else if (!res.writableEnded) {
-                res.end();
-              }
-            });
-            return;
-          }
-          const baseProviderOptions = providerOptionsCache.get(route.catalogId);
-          const isStream = lowerUrl.includes('stream');
-          const conversationKey = conversationKeyFromRequest(parsed);
-          const requestOptions = reasoningEchoOptionsForRoute(route, parsed, reasoningEchoesByConversation);
-          const rememberReasoning = (reasoning: string) => {
-            if (!shouldEchoReasoningForRoute(route)) return;
-            rememberReasoningEcho(reasoningEchoesByConversation, conversationKey, reasoning);
-          };
-
-          if (isStream) {
-            handleStreamingRequest(res, route, baseProviderOptions, parsed as any, log, {
-              requestOptions,
-              onReasoningWithToolCall: rememberReasoning,
-            }).catch(err => {
-              log(`[gateway] stream error: ${err instanceof Error ? err.stack || err.message : String(err)}`);
-              if (!res.headersSent) {
-                respondJson(res, 500, { error: { code: 500, message: formatUpstreamError(err) } });
-              } else if (!res.writableEnded) {
-                res.end();
-              }
-            });
-          } else {
-            handleUnaryRequest(res, route, baseProviderOptions, parsed as any, log, {
-              requestOptions,
-              onReasoningWithToolCall: rememberReasoning,
-            }).catch(err => {
-              log(`[gateway] unary error: ${err instanceof Error ? err.stack || err.message : String(err)}`);
-              if (!res.headersSent) {
-                respondJson(res, 500, { error: { code: 500, message: formatUpstreamError(err) } });
-              }
-            });
-          }
-          return;
+        if (trace) {
+          log(`[gateway] ${method} ${url}`)
+          log(`[gateway]   content-type: ${contentType}`)
+          log(`[gateway]   body-size: ${bodyStr.length}`)
         }
 
-        respondJson(res, 403, {
+        // --- Reject protobuf/grpc binary content types early ---
+        if (
+          contentType.includes('proto') ||
+          (contentType.includes('grpc') && !contentType.includes('json'))
+        ) {
+          log(`[gateway] UNSUPPORTED content-type: ${contentType}`)
+          respondJson(res, 415, {
+            error: {
+              code: 415,
+              message: `Gateway only supports JSON. Received: ${contentType}`,
+            },
+          })
+          return
+        }
+
+        let parsed: Record<string, unknown> | undefined
+        try {
+          parsed = JSON.parse(bodyStr) as Record<string, unknown>
+        } catch {}
+
+        if (trace && parsed) {
+          const preview = JSON.stringify(parsed).slice(0, 500)
+          log(`[gateway]   body-preview: ${preview}`)
+        }
+
+        // --- loadCodeAssist ---
+        if (lowerUrl.includes('loadcodeassist')) {
+          if (trace) log('[gateway] → loadCodeAssist')
+          // No cascadeModelConfigData — the real Google API doesn't return it here.
+          // The LS resolves cascade config internally from model registry + experiments.
+          respondJson(res, 200, loadCodeAssistFixture)
+          return
+        }
+
+        // --- fetchAvailableModels / GetAvailableModels ---
+        if (lowerUrl.includes('fetchavailablemodels') || lowerUrl.includes('getavailablemodels')) {
+          if (trace) log('[gateway] → fetchAvailableModels')
+          respondJson(res, 200, injectedCatalog)
+          return
+        }
+
+        // --- listModelConfigs / GetCascadeModelConfigs / GetCommandModelConfigs ---
+        if (lowerUrl.includes('modelconfigs')) {
+          if (trace) log('[gateway] → listModelConfigs')
+          respondJson(res, 200, modelConfigsResponse)
+          return
+        }
+
+        // --- GenerateContent / GenerateChat (streaming and unary) ---
+        if (lowerUrl.includes('generatecontent') || lowerUrl.includes('generatechat')) {
+          const model = parsed?.model as string | undefined
+          if (trace) log(`[gateway]   extracted model: ${model ?? 'N/A'}`)
+
+          const route = resolveRouteForModel(model)
+          if (route) {
+            if (trackActiveRoute && selectedSlotIds.has(model ?? '') && isUserTurnRequest(parsed)) {
+              activeRoute = route
+              if (trace) log(`[gateway]   active route: ${route.catalogId} via ${model}`)
+            }
+            if (isCloudCodeOAuthRoute(route)) {
+              handleCloudCodeForwardRequest(
+                res,
+                route,
+                parsed as Record<string, unknown>,
+                lowerUrl,
+                log
+              ).catch(err => {
+                log(
+                  `[gateway] cloud-code forward error: ${err instanceof Error ? err.stack || err.message : String(err)}`
+                )
+                if (!res.headersSent) {
+                  respondJson(res, 500, { error: { code: 500, message: formatUpstreamError(err) } })
+                } else if (!res.writableEnded) {
+                  res.end()
+                }
+              })
+              return
+            }
+            const baseProviderOptions = providerOptionsCache.get(route.catalogId)
+            const isStream = lowerUrl.includes('stream')
+            const conversationKey = conversationKeyFromRequest(parsed)
+            const requestOptions = reasoningEchoOptionsForRoute(
+              route,
+              parsed,
+              reasoningEchoesByConversation
+            )
+            const rememberReasoning = (reasoning: string) => {
+              if (!shouldEchoReasoningForRoute(route)) return
+              rememberReasoningEcho(reasoningEchoesByConversation, conversationKey, reasoning)
+            }
+
+            if (isStream) {
+              handleStreamingRequest(res, route, baseProviderOptions, parsed as any, log, {
+                requestOptions,
+                onReasoningWithToolCall: rememberReasoning,
+              }).catch(err => {
+                log(
+                  `[gateway] stream error: ${err instanceof Error ? err.stack || err.message : String(err)}`
+                )
+                if (!res.headersSent) {
+                  respondJson(res, 500, { error: { code: 500, message: formatUpstreamError(err) } })
+                } else if (!res.writableEnded) {
+                  res.end()
+                }
+              })
+            } else {
+              handleUnaryRequest(res, route, baseProviderOptions, parsed as any, log, {
+                requestOptions,
+                onReasoningWithToolCall: rememberReasoning,
+              }).catch(err => {
+                log(
+                  `[gateway] unary error: ${err instanceof Error ? err.stack || err.message : String(err)}`
+                )
+                if (!res.headersSent) {
+                  respondJson(res, 500, { error: { code: 500, message: formatUpstreamError(err) } })
+                }
+              })
+            }
+            return
+          }
+
+          respondJson(res, 403, {
+            error: {
+              code: 403,
+              message: `Non-anygate model "${model ?? 'unknown'}" rejected in privacy mode`,
+            },
+          })
+          return
+        }
+
+        // --- Known endpoints with minimal local responses ---
+        if (lowerUrl.includes('fetchadmincontrols')) {
+          respondJson(res, 200, {})
+          return
+        }
+        if (lowerUrl.includes('userquota')) {
+          respondJson(res, 200, {
+            quotaSummary: {
+              remainingQueries: 9999,
+              totalQueries: 9999,
+              quotaType: 'GATEWAY_UNLIMITED',
+            },
+          })
+          return
+        }
+        if (lowerUrl.includes('userinfo')) {
+          respondJson(res, 200, {
+            userSettings,
+            regionCode: 'US',
+          })
+          return
+        }
+        if (lowerUrl.includes('usersettings')) {
+          respondJson(res, 200, { userSettings })
+          return
+        }
+        if (lowerUrl.includes('experiments') || lowerUrl.includes('experimentstatus')) {
+          respondJson(res, 200, experimentsResponse)
+          return
+        }
+        if (lowerUrl.includes('onboarduser')) {
+          respondJson(res, 200, {
+            name: 'operations/cmpf.DONE_OPERATION',
+            done: true,
+            response: {
+              '@type':
+                'type.googleapis.com/google.internal.cloud.code.v1internal.OnboardUserResponse',
+              cloudaicompanionProject: {
+                id: 'anygate-local-project',
+                name: 'anygate-local-project',
+                projectNumber: '0',
+              },
+              status: {
+                statusCode: 'NOTICE',
+                displayMessage:
+                  "You've successfully connected your Google Account and can now get started with Gemini Code Assist",
+                messageTitle: 'Welcome to Gemini Code Assist',
+              },
+            },
+          })
+          return
+        }
+        if (
+          lowerUrl.includes('record') ||
+          lowerUrl.includes('feedback') ||
+          lowerUrl.includes('metrics')
+        ) {
+          respondJson(res, 200, {})
+          return
+        }
+        if (lowerUrl.includes('snippet')) {
+          respondJson(res, 200, { snippets: [] })
+          return
+        }
+        if (lowerUrl.includes('cascadenux') || lowerUrl.includes('listcascade')) {
+          respondJson(res, 200, { cascadeNuxes: [] })
+          return
+        }
+        if (lowerUrl.includes('denylist') || lowerUrl.includes('checkurl')) {
+          respondJson(res, 200, { denied: false })
+          return
+        }
+        if (lowerUrl.includes('plugin')) {
+          respondJson(res, 200, { plugins: [] })
+          return
+        }
+        if (lowerUrl.includes('counttokens')) {
+          respondJson(res, 200, { tokenCount: 0, totalTokens: 0 })
+          return
+        }
+        if (
+          lowerUrl.includes('listremote') ||
+          lowerUrl.includes('listcloudai') ||
+          lowerUrl.includes('companionproject')
+        ) {
+          respondJson(res, 200, { projects: [] })
+          return
+        }
+        if (lowerUrl.includes('upgrade')) {
+          respondJson(res, 200, {})
+          return
+        }
+
+        // --- Health check ---
+        if (url === '/' || lowerUrl.includes('health')) {
+          respondJson(res, 200, { status: 'ok' })
+          return
+        }
+
+        // --- Unknown endpoints — permissive empty 200 ---
+        if (trace) {
+          log(`[gateway] unknown endpoint: ${url}`)
+        }
+        respondJson(res, 200, {})
+      })
+      .catch(err => {
+        respondJson(res, 400, {
           error: {
-            code: 403,
-            message: `Non-anygate model "${model ?? 'unknown'}" rejected in privacy mode`,
+            code: 400,
+            message: `Failed to read request: ${err instanceof Error ? err.message : String(err)}`,
           },
-        });
-        return;
-      }
-
-      // --- Known endpoints with minimal local responses ---
-      if (lowerUrl.includes('fetchadmincontrols')) {
-        respondJson(res, 200, {});
-        return;
-      }
-      if (lowerUrl.includes('userquota')) {
-        respondJson(res, 200, { quotaSummary: { remainingQueries: 9999, totalQueries: 9999, quotaType: 'GATEWAY_UNLIMITED' } });
-        return;
-      }
-      if (lowerUrl.includes('userinfo')) {
-        respondJson(res, 200, {
-          userSettings,
-          regionCode: 'US',
-        });
-        return;
-      }
-      if (lowerUrl.includes('usersettings')) {
-        respondJson(res, 200, { userSettings });
-        return;
-      }
-      if (lowerUrl.includes('experiments') || lowerUrl.includes('experimentstatus')) {
-        respondJson(res, 200, experimentsResponse);
-        return;
-      }
-      if (lowerUrl.includes('onboarduser')) {
-        respondJson(res, 200, {
-          name: 'operations/cmpf.DONE_OPERATION',
-          done: true,
-          response: {
-            '@type': 'type.googleapis.com/google.internal.cloud.code.v1internal.OnboardUserResponse',
-            cloudaicompanionProject: {
-              id: 'anygate-local-project',
-              name: 'anygate-local-project',
-              projectNumber: '0',
-            },
-            status: {
-              statusCode: 'NOTICE',
-              displayMessage: "You've successfully connected your Google Account and can now get started with Gemini Code Assist",
-              messageTitle: 'Welcome to Gemini Code Assist',
-            },
-          },
-        });
-        return;
-      }
-      if (lowerUrl.includes('record') || lowerUrl.includes('feedback') || lowerUrl.includes('metrics')) {
-        respondJson(res, 200, {});
-        return;
-      }
-      if (lowerUrl.includes('snippet')) {
-        respondJson(res, 200, { snippets: [] });
-        return;
-      }
-      if (lowerUrl.includes('cascadenux') || lowerUrl.includes('listcascade')) {
-        respondJson(res, 200, { cascadeNuxes: [] });
-        return;
-      }
-      if (lowerUrl.includes('denylist') || lowerUrl.includes('checkurl')) {
-        respondJson(res, 200, { denied: false });
-        return;
-      }
-      if (lowerUrl.includes('plugin')) {
-        respondJson(res, 200, { plugins: [] });
-        return;
-      }
-      if (lowerUrl.includes('counttokens')) {
-        respondJson(res, 200, { tokenCount: 0, totalTokens: 0 });
-        return;
-      }
-      if (lowerUrl.includes('listremote') || lowerUrl.includes('listcloudai') || lowerUrl.includes('companionproject')) {
-        respondJson(res, 200, { projects: [] });
-        return;
-      }
-      if (lowerUrl.includes('upgrade')) {
-        respondJson(res, 200, {});
-        return;
-      }
-
-      // --- Health check ---
-      if (url === '/' || lowerUrl.includes('health')) {
-        respondJson(res, 200, { status: 'ok' });
-        return;
-      }
-
-      // --- Unknown endpoints — permissive empty 200 ---
-      if (trace) {
-        log(`[gateway] unknown endpoint: ${url}`);
-      }
-      respondJson(res, 200, {});
-    }).catch(err => {
-      respondJson(res, 400, { error: { code: 400, message: `Failed to read request: ${err instanceof Error ? err.message : String(err)}` } });
-    });
-  });
+        })
+      })
+  })
 
   return new Promise((resolve, reject) => {
-    server.on('error', reject);
+    server.on('error', reject)
     server.listen(0, '127.0.0.1', () => {
-      const addr = server.address();
+      const addr = server.address()
       if (addr && typeof addr === 'object') {
-        const port = addr.port;
+        const port = addr.port
         resolve({
           port,
           url: `http://127.0.0.1:${port}`,
-          close: () => new Promise<void>((res, rej) => {
-            server.closeAllConnections();
-            server.close(err => { const code = (err as any)?.code; if (err && code !== "ERR_SERVER_NOT_RUNNING") { rej(err); } else { res(); } });
-          }),
-        });
+          close: () =>
+            new Promise<void>((res, rej) => {
+              server.closeAllConnections()
+              server.close(err => {
+                const code = (err as any)?.code
+                if (err && code !== 'ERR_SERVER_NOT_RUNNING') {
+                  rej(err)
+                } else {
+                  res()
+                }
+              })
+            }),
+        })
       } else {
-        reject(new Error('Failed to get server address'));
+        reject(new Error('Failed to get server address'))
       }
-    });
-  });
+    })
+  })
 }
 
-
-
 function reasoningDeltaText(part: Record<string, unknown>): string {
-  return String(part.text ?? part.textDelta ?? part.delta ?? '');
+  return String(part.text ?? part.textDelta ?? part.delta ?? '')
 }
 
 function reasoningOutputText(reasoning: unknown): string {
-  if (typeof reasoning === 'string') return reasoning;
+  if (typeof reasoning === 'string') return reasoning
   if (Array.isArray(reasoning)) {
-    return reasoning.map(item => {
-      if (typeof item === 'string') return item;
-      if (item && typeof item === 'object' && 'text' in item) {
-        return String((item as { text?: unknown }).text ?? '');
-      }
-      return '';
-    }).filter(Boolean).join('');
+    return reasoning
+      .map(item => {
+        if (typeof item === 'string') return item
+        if (item && typeof item === 'object' && 'text' in item) {
+          return String((item as { text?: unknown }).text ?? '')
+        }
+        return ''
+      })
+      .filter(Boolean)
+      .join('')
   }
   if (reasoning && typeof reasoning === 'object' && 'text' in reasoning) {
-    return String((reasoning as { text?: unknown }).text ?? '');
+    return String((reasoning as { text?: unknown }).text ?? '')
   }
-  return '';
+  return ''
 }
 
 function conversationKeyFromRequest(parsed: Record<string, unknown> | undefined): string {
-  const requestId = typeof parsed?.requestId === 'string' ? parsed.requestId : '';
-  const segments = requestId.split('/');
+  const requestId = typeof parsed?.requestId === 'string' ? parsed.requestId : ''
+  const segments = requestId.split('/')
   if (segments.length >= 2 && segments[0] && segments[1]) {
-    return `${segments[0]}/${segments[1]}`;
+    return `${segments[0]}/${segments[1]}`
   }
-  return 'global';
+  return 'global'
 }
 
 function shouldEchoReasoningForRoute(route: AntigravityRoute): boolean {
-  if (route.npm !== '@ai-sdk/openai-compatible') return false;
+  if (route.npm !== '@ai-sdk/openai-compatible') return false
   const routeIdentity = [
     route.providerId,
     route.providerName,
@@ -412,26 +472,26 @@ function shouldEchoReasoningForRoute(route: AntigravityRoute): boolean {
     route.upstreamModelId,
     route.displayName,
     route.baseURL,
-  ].join(' ');
-  return /deepseek/i.test(routeIdentity);
+  ].join(' ')
+  return /deepseek/i.test(routeIdentity)
 }
 
 function reasoningEchoOptionsForRoute(
   route: AntigravityRoute,
   parsed: Record<string, unknown> | undefined,
-  cache: Map<string, string[]>,
+  cache: Map<string, string[]>
 ): TranslateRequestOptions {
-  if (!shouldEchoReasoningForRoute(route)) return {};
-  const existing = cache.get(conversationKeyFromRequest(parsed));
-  return existing?.length ? { fallbackAssistantReasoning: existing } : {};
+  if (!shouldEchoReasoningForRoute(route)) return {}
+  const existing = cache.get(conversationKeyFromRequest(parsed))
+  return existing?.length ? { fallbackAssistantReasoning: existing } : {}
 }
 
 function rememberReasoningEcho(cache: Map<string, string[]>, key: string, reasoning: string): void {
-  const normalized = reasoning.trim();
-  if (!normalized) return;
-  const existing = cache.get(key) ?? [];
-  existing.push(normalized);
-  cache.set(key, existing.slice(-MAX_REASONING_ECHOES_PER_CONVERSATION));
+  const normalized = reasoning.trim()
+  if (!normalized) return
+  const existing = cache.get(key) ?? []
+  existing.push(normalized)
+  cache.set(key, existing.slice(-MAX_REASONING_ECHOES_PER_CONVERSATION))
 }
 
 async function handleCloudCodeForwardRequest(
@@ -439,28 +499,30 @@ async function handleCloudCodeForwardRequest(
   route: AntigravityRoute,
   parsed: Record<string, unknown>,
   lowerUrl: string,
-  log: (msg: string) => void,
+  log: (msg: string) => void
 ): Promise<void> {
-  const projectId = typeof route.providerData?.projectId === 'string' ? route.providerData.projectId : '';
+  const projectId =
+    typeof route.providerData?.projectId === 'string' ? route.providerData.projectId : ''
   if (!projectId) {
     respondJson(res, 500, {
       error: {
         code: 500,
-        message: 'Antigravity provider missing projectId — re-authenticate with anygate providers auth antigravity',
+        message:
+          'Antigravity provider missing projectId — re-authenticate with anygate providers auth antigravity',
       },
-    });
-    return;
+    })
+    return
   }
 
   const upstreamBody = {
     ...parsed,
     project: projectId,
     model: route.upstreamModelId,
-  };
-  const baseUrl = (route.baseURL || ANTIGRAVITY_BASE_URLS[0]!).replace(/\/+$/, '');
+  }
+  const baseUrl = (route.baseURL || ANTIGRAVITY_BASE_URLS[0]!).replace(/\/+$/, '')
   const endpoint = lowerUrl.includes('stream')
     ? `${baseUrl}/v1internal:streamGenerateContent?alt=sse`
-    : `${baseUrl}/v1internal:generateContent`;
+    : `${baseUrl}/v1internal:generateContent`
 
   const upstream = await fetch(endpoint, {
     method: 'POST',
@@ -470,15 +532,15 @@ async function handleCloudCodeForwardRequest(
       'User-Agent': 'vscode/1.X.X (Antigravity/4.2.0)',
     },
     body: JSON.stringify(upstreamBody),
-  });
+  })
 
   if (!upstream.ok) {
-    const errBody = await upstream.text();
-    log(`[gateway] cloud-code upstream error ${upstream.status}: ${errBody}`);
+    const errBody = await upstream.text()
+    log(`[gateway] cloud-code upstream error ${upstream.status}: ${errBody}`)
     respondJson(res, upstream.status >= 500 ? 502 : upstream.status, {
       error: { code: upstream.status, message: errBody || upstream.statusText },
-    });
-    return;
+    })
+    return
   }
 
   if (lowerUrl.includes('stream')) {
@@ -486,37 +548,47 @@ async function handleCloudCodeForwardRequest(
       'content-type': upstream.headers.get('content-type') ?? 'text/event-stream',
       'cache-control': 'no-cache',
       'grpc-status': '0',
-    });
+    })
     if (!upstream.body) {
-      res.end();
-      return;
+      res.end()
+      return
     }
-    let inputTokens = 0;
-    let outputTokens = 0;
+    let inputTokens = 0
+    let outputTokens = 0
     // Scan the SSE for the final usageMetadata object (Gemini reports it on the
     // last chunk). We tee the bytes through untouched and just read for token counts.
-    const decoder = new TextDecoder();
-    let buf = '';
+    const decoder = new TextDecoder()
+    let buf = ''
     for await (const chunk of upstream.body as any) {
-      const text = decoder.decode(chunk as Uint8Array, { stream: true });
-      buf += text;
-      const lines = buf.split('\n');
-      buf = lines.pop() ?? '';
+      const text = decoder.decode(chunk as Uint8Array, { stream: true })
+      buf += text
+      const lines = buf.split('\n')
+      buf = lines.pop() ?? ''
       for (const line of lines) {
-        const t = line.startsWith('data: ') ? line.slice(6).trim() : line.trim();
-        if (!t || t === '[DONE]') continue;
+        const t = line.startsWith('data: ') ? line.slice(6).trim() : line.trim()
+        if (!t || t === '[DONE]') continue
         try {
-          const obj = JSON.parse(t) as { response?: { usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } } };
-          const u = obj.response?.usageMetadata;
-          if (u) {
-            inputTokens = u.promptTokenCount ?? inputTokens;
-            outputTokens = u.candidatesTokenCount ?? outputTokens;
+          const obj = JSON.parse(t) as {
+            response?: {
+              usageMetadata?: {
+                promptTokenCount?: number
+                candidatesTokenCount?: number
+                totalTokenCount?: number
+              }
+            }
           }
-        } catch { /* not a JSON SSE line — ignore */ }
+          const u = obj.response?.usageMetadata
+          if (u) {
+            inputTokens = u.promptTokenCount ?? inputTokens
+            outputTokens = u.candidatesTokenCount ?? outputTokens
+          }
+        } catch {
+          /* not a JSON SSE line — ignore */
+        }
       }
-      res.write(chunk);
+      res.write(chunk)
     }
-    res.end();
+    res.end()
     recordUsage({
       ts: new Date().toISOString(),
       modelId: route.displayName,
@@ -524,28 +596,38 @@ async function handleCloudCodeForwardRequest(
       app: 'Antigravity',
       inputTokens,
       outputTokens,
-    });
-    return;
+    })
+    return
   }
 
-  const body = await upstream.text();
+  const body = await upstream.text()
   // Parse usageMetadata from the unary Cloud Code JSON response.
-  let inputTokens = 0;
-  let outputTokens = 0;
+  let inputTokens = 0
+  let outputTokens = 0
   try {
-    const obj = JSON.parse(body) as { response?: { usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } } };
-    const u = obj.response?.usageMetadata;
-    if (u) {
-      inputTokens = u.promptTokenCount ?? 0;
-      outputTokens = u.candidatesTokenCount ?? 0;
+    const obj = JSON.parse(body) as {
+      response?: {
+        usageMetadata?: {
+          promptTokenCount?: number
+          candidatesTokenCount?: number
+          totalTokenCount?: number
+        }
+      }
     }
-  } catch { /* ignore parse errors */ }
+    const u = obj.response?.usageMetadata
+    if (u) {
+      inputTokens = u.promptTokenCount ?? 0
+      outputTokens = u.candidatesTokenCount ?? 0
+    }
+  } catch {
+    /* ignore parse errors */
+  }
   res.writeHead(200, {
     'content-type': upstream.headers.get('content-type') ?? 'application/json',
     'content-length': String(Buffer.byteLength(body)),
     'grpc-status': '0',
-  });
-  res.end(body);
+  })
+  res.end(body)
   recordUsage({
     ts: new Date().toISOString(),
     modelId: route.displayName,
@@ -553,12 +635,12 @@ async function handleCloudCodeForwardRequest(
     app: 'Antigravity',
     inputTokens,
     outputTokens,
-  });
+  })
 }
 
 interface RequestHandlerOptions {
-  requestOptions?: TranslateRequestOptions;
-  onReasoningWithToolCall?: (reasoning: string) => void;
+  requestOptions?: TranslateRequestOptions
+  onReasoningWithToolCall?: (reasoning: string) => void
 }
 
 function emitThinkingDelta(
@@ -566,24 +648,24 @@ function emitThinkingDelta(
   route: AntigravityRoute,
   responseId: string,
   text: string,
-  startSse: () => void,
+  startSse: () => void
 ): void {
-  if (!text) return;
-  startSse();
+  if (!text) return
+  startSse()
   const chunk = formatCloudCodeChunk({
     thought: text,
     modelVersion: route.catalogId,
     responseId,
-  });
-  res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+  })
+  res.write(`data: ${JSON.stringify(chunk)}\n\n`)
 }
 
 /** Returns the length of the longest suffix of `text` that is also a prefix of `tag`. */
 function trailingPartial(text: string, tag: string): number {
   for (let len = Math.min(tag.length - 1, text.length); len > 0; len--) {
-    if (text.endsWith(tag.slice(0, len))) return len;
+    if (text.endsWith(tag.slice(0, len))) return len
   }
-  return 0;
+  return 0
 }
 
 /**
@@ -592,42 +674,46 @@ function trailingPartial(text: string, tag: string): number {
  * thought content. Handles `<think>`/`</think>` tags split across chunk boundaries.
  */
 function createThinkFilter(): (chunk: string) => { thought: string; text: string } {
-  let state: 'scanning' | 'inside' | 'passthrough' = 'scanning';
-  let partial = '';
+  let state: 'scanning' | 'inside' | 'passthrough' = 'scanning'
+  let partial = ''
   return function processChunk(chunk: string): { thought: string; text: string } {
-    if (state === 'passthrough') return { thought: '', text: chunk };
-    let src = partial + chunk;
-    partial = '';
-    let thought = '';
-    let text = '';
+    if (state === 'passthrough') return { thought: '', text: chunk }
+    let src = partial + chunk
+    partial = ''
+    let thought = ''
+    let text = ''
     while (src.length > 0) {
       if (state === 'scanning') {
-        const idx = src.indexOf('<think>');
+        const idx = src.indexOf('<think>')
         if (idx === -1) {
-          const len = trailingPartial(src, '<think>');
-          text += src.slice(0, src.length - len);
-          if (len > 0) { partial = src.slice(src.length - len); } else { state = 'passthrough'; }
-          break;
+          const len = trailingPartial(src, '<think>')
+          text += src.slice(0, src.length - len)
+          if (len > 0) {
+            partial = src.slice(src.length - len)
+          } else {
+            state = 'passthrough'
+          }
+          break
         }
-        text += src.slice(0, idx);
-        src = src.slice(idx + 7);
-        state = 'inside';
+        text += src.slice(0, idx)
+        src = src.slice(idx + 7)
+        state = 'inside'
       } else {
-        const idx = src.indexOf('</think>');
+        const idx = src.indexOf('</think>')
         if (idx === -1) {
-          const len = trailingPartial(src, '</think>');
-          thought += src.slice(0, src.length - len);
-          if (len > 0) partial = src.slice(src.length - len);
-          break;
+          const len = trailingPartial(src, '</think>')
+          thought += src.slice(0, src.length - len)
+          if (len > 0) partial = src.slice(src.length - len)
+          break
         }
-        thought += src.slice(0, idx);
-        src = src.slice(idx + 8);
-        if (src.startsWith('\n')) src = src.slice(1);
-        state = 'passthrough';
+        thought += src.slice(0, idx)
+        src = src.slice(idx + 8)
+        if (src.startsWith('\n')) src = src.slice(1)
+        state = 'passthrough'
       }
     }
-    return { thought, text };
-  };
+    return { thought, text }
+  }
 }
 
 function emitStreamError(
@@ -635,26 +721,26 @@ function emitStreamError(
   route: AntigravityRoute,
   responseId: string,
   message: string,
-  startSse: () => void,
+  startSse: () => void
 ): void {
-  startSse();
+  startSse()
   const chunk = formatCloudCodeChunk({
     text: `\n\n⚠ ${message}\n`,
     modelVersion: route.catalogId,
     responseId,
     finishReason: 'OTHER',
-  });
-  res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+  })
+  res.write(`data: ${JSON.stringify(chunk)}\n\n`)
 }
 
 function respondJson(res: http.ServerResponse, status: number, data: unknown): void {
-  const body = JSON.stringify(data);
+  const body = JSON.stringify(data)
   res.writeHead(status, {
     'content-type': 'application/json',
     'content-length': String(Buffer.byteLength(body)),
     'grpc-status': status < 400 ? '0' : '13',
-  });
-  res.end(body);
+  })
+  res.end(body)
 }
 
 /**
@@ -667,16 +753,19 @@ async function handleStreamingRequest(
   providerOptions: any,
   parsed: any,
   log: (msg: string) => void,
-  options: RequestHandlerOptions = {},
+  options: RequestHandlerOptions = {}
 ): Promise<void> {
-  const sdkParams = applyClaudeCodeOAuthIdentity(route, translateRequest(parsed, {
-    ...options.requestOptions,
-    maxTools: maxToolsForNpm(route.npm),
-  }));
+  const sdkParams = applyClaudeCodeOAuthIdentity(
+    route,
+    translateRequest(parsed, {
+      ...options.requestOptions,
+      maxTools: maxToolsForNpm(route.npm),
+    })
+  )
   const effectiveProviderOptions = deepMergeProviderOptions(
     providerOptions,
-    sdkParams.providerOptions,
-  );
+    sdkParams.providerOptions
+  )
   const langModel = await createLanguageModel({
     npm: route.npm,
     modelId: route.upstreamModelId,
@@ -686,8 +775,9 @@ async function handleStreamingRequest(
     authType: route.authType,
     oauthAccountId: route.oauthAccountId,
     providerData: route.providerData,
-  });
-  const responseId = `gateway-${Date.now()}`;
+    headers: route.headers,
+  })
+  const responseId = `gateway-${Date.now()}`
 
   const { fullStream } = streamText({
     model: langModel,
@@ -696,74 +786,78 @@ async function handleStreamingRequest(
     tools: sdkParams.tools,
     toolChoice: sdkParams.toolChoice,
     providerOptions: effectiveProviderOptions as any,
-  });
+  })
 
   const startSse = () => {
-    if (res.headersSent) return;
+    if (res.headersSent) return
     res.writeHead(200, {
       'content-type': 'text/event-stream',
       'cache-control': 'no-cache',
       'grpc-status': '0',
-    });
-  };
+    })
+  }
 
-  const thinkFilter = createThinkFilter();
+  const thinkFilter = createThinkFilter()
 
-  const toolCallBuffers = new Map<string, { name: string; json: string }>();
-  let responseReasoning = '';
-  let sawToolCall = false;
+  const toolCallBuffers = new Map<string, { name: string; json: string }>()
+  let responseReasoning = ''
+  let sawToolCall = false
   for await (const part of fullStream) {
-    const p = part as any;
+    const p = part as any
 
     if (p.type === 'reasoning-delta' || p.type === 'reasoning') {
-      const reasoning = reasoningDeltaText(p);
-      responseReasoning += reasoning;
-      emitThinkingDelta(res, route, responseId, reasoning, startSse);
-      continue;
+      const reasoning = reasoningDeltaText(p)
+      responseReasoning += reasoning
+      emitThinkingDelta(res, route, responseId, reasoning, startSse)
+      continue
     }
 
     if (p.type === 'text-delta') {
-      const { thought, text } = thinkFilter(reasoningDeltaText(p));
+      const { thought, text } = thinkFilter(reasoningDeltaText(p))
       if (thought) {
-        responseReasoning += thought;
-        emitThinkingDelta(res, route, responseId, thought, startSse);
+        responseReasoning += thought
+        emitThinkingDelta(res, route, responseId, thought, startSse)
       }
       if (text) {
-        log(`[gateway] text-delta: ${JSON.stringify(text.slice(0, 500))}`);
-        startSse();
+        log(`[gateway] text-delta: ${JSON.stringify(text.slice(0, 500))}`)
+        startSse()
         const chunk = formatCloudCodeChunk({
           text,
           modelVersion: route.catalogId,
           responseId,
-        });
-        res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+        })
+        res.write(`data: ${JSON.stringify(chunk)}\n\n`)
       }
     } else if (p.type === 'tool-input-start') {
-      const id = p.id ?? p.toolCallId;
-      toolCallBuffers.set(id, { name: p.toolName, json: '' });
+      const id = p.id ?? p.toolCallId
+      toolCallBuffers.set(id, { name: p.toolName, json: '' })
     } else if (p.type === 'tool-input-delta') {
-      const id = p.id ?? p.toolCallId;
-      const buf = toolCallBuffers.get(id);
-      if (buf) buf.json += p.delta;
+      const id = p.id ?? p.toolCallId
+      const buf = toolCallBuffers.get(id)
+      if (buf) buf.json += p.delta
     } else if (p.type === 'tool-call') {
-      sawToolCall = true;
-      const id = p.toolCallId ?? p.id;
-      const buf = toolCallBuffers.get(id);
-      let args: Record<string, unknown> = {};
-      try { args = buf ? JSON.parse(buf.json || '{}') : (p.input || {}); } catch { args = p.input || {}; }
-      const name = buf ? buf.name : p.toolName;
-      log(`[gateway] tool-call: ${name}`);
-      startSse();
+      sawToolCall = true
+      const id = p.toolCallId ?? p.id
+      const buf = toolCallBuffers.get(id)
+      let args: Record<string, unknown> = {}
+      try {
+        args = buf ? JSON.parse(buf.json || '{}') : p.input || {}
+      } catch {
+        args = p.input || {}
+      }
+      const name = buf ? buf.name : p.toolName
+      log(`[gateway] tool-call: ${name}`)
+      startSse()
       const chunk = formatCloudCodeChunk({
         functionCall: { name, args: normalizeFunctionCallArgs(args) },
         modelVersion: route.catalogId,
         responseId,
-      });
-      res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+      })
+      res.write(`data: ${JSON.stringify(chunk)}\n\n`)
     } else if (p.type === 'finish') {
-      log(`[gateway] finish: ${p.finishReason ?? 'unknown'}`);
-      startSse();
-      const reason = mapFinishReason(p.finishReason ?? '');
+      log(`[gateway] finish: ${p.finishReason ?? 'unknown'}`)
+      startSse()
+      const reason = mapFinishReason(p.finishReason ?? '')
       const chunk = formatCloudCodeChunk({
         modelVersion: route.catalogId,
         responseId,
@@ -772,8 +866,8 @@ async function handleStreamingRequest(
           promptTokens: p.totalUsage?.inputTokens || 0,
           completionTokens: p.totalUsage?.outputTokens || 0,
         },
-      });
-      res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+      })
+      res.write(`data: ${JSON.stringify(chunk)}\n\n`)
       // Log Antigravity usage for the dashboard (was previously never recorded).
       recordUsage({
         ts: new Date().toISOString(),
@@ -783,23 +877,23 @@ async function handleStreamingRequest(
         app: 'Antigravity',
         inputTokens: p.totalUsage?.inputTokens ?? 0,
         outputTokens: p.totalUsage?.outputTokens ?? 0,
-      });
+      })
     } else if (p.type === 'error') {
-      const message = formatUpstreamError(p.error);
-      log(`[gateway] stream provider error: ${message}`);
-      emitStreamError(res, route, responseId, message, startSse);
-      break;
+      const message = formatUpstreamError(p.error)
+      log(`[gateway] stream provider error: ${message}`)
+      emitStreamError(res, route, responseId, message, startSse)
+      break
     } else if (p.type === 'reasoning-start' || p.type === 'reasoning-end') {
-      log(`[gateway] ${p.type}`);
+      log(`[gateway] ${p.type}`)
     }
   }
   if (!res.headersSent) {
-    throw new Error('Provider returned an empty stream');
+    throw new Error('Provider returned an empty stream')
   }
   if (sawToolCall && responseReasoning.trim()) {
-    options.onReasoningWithToolCall?.(responseReasoning);
+    options.onReasoningWithToolCall?.(responseReasoning)
   }
-  res.end();
+  res.end()
 }
 
 /**
@@ -811,16 +905,19 @@ async function handleUnaryRequest(
   providerOptions: any,
   parsed: any,
   _log: (msg: string) => void,
-  options: RequestHandlerOptions = {},
+  options: RequestHandlerOptions = {}
 ): Promise<void> {
-  const sdkParams = applyClaudeCodeOAuthIdentity(route, translateRequest(parsed, {
-    ...options.requestOptions,
-    maxTools: maxToolsForNpm(route.npm),
-  }));
+  const sdkParams = applyClaudeCodeOAuthIdentity(
+    route,
+    translateRequest(parsed, {
+      ...options.requestOptions,
+      maxTools: maxToolsForNpm(route.npm),
+    })
+  )
   const effectiveProviderOptions = deepMergeProviderOptions(
     providerOptions,
-    sdkParams.providerOptions,
-  );
+    sdkParams.providerOptions
+  )
   const langModel = await createLanguageModel({
     npm: route.npm,
     modelId: route.upstreamModelId,
@@ -830,8 +927,9 @@ async function handleUnaryRequest(
     authType: route.authType,
     oauthAccountId: route.oauthAccountId,
     providerData: route.providerData,
-  });
-  const responseId = `gateway-${Date.now()}`;
+    headers: route.headers,
+  })
+  const responseId = `gateway-${Date.now()}`
 
   const result = await generateText({
     model: langModel,
@@ -840,35 +938,40 @@ async function handleUnaryRequest(
     tools: sdkParams.tools,
     toolChoice: sdkParams.toolChoice,
     providerOptions: effectiveProviderOptions as any,
-  });
+  })
 
-  const parts: any[] = [];
-  const reasoning = reasoningOutputText(result.reasoning);
+  const parts: any[] = []
+  const reasoning = reasoningOutputText(result.reasoning)
   if (reasoning) {
-    parts.push({ text: reasoning, thought: true });
+    parts.push({ text: reasoning, thought: true })
   }
   if (result.text) {
-    parts.push({ text: result.text });
+    parts.push({ text: result.text })
   }
   if (result.toolCalls?.length) {
     for (const tc of result.toolCalls) {
       parts.push({
-        functionCall: { name: tc.toolName, args: normalizeFunctionCallArgs(tc.input as Record<string, unknown>) },
-      });
+        functionCall: {
+          name: tc.toolName,
+          args: normalizeFunctionCallArgs(tc.input as Record<string, unknown>),
+        },
+      })
     }
   }
   if (reasoning && result.toolCalls?.length) {
-    options.onReasoningWithToolCall?.(reasoning);
+    options.onReasoningWithToolCall?.(reasoning)
   }
   if (parts.length === 0) {
-    parts.push({ text: '' });
+    parts.push({ text: '' })
   }
 
   const response = {
-    candidates: [{
-      content: { role: 'model', parts },
-      finishReason: mapFinishReason(result.finishReason ?? ''),
-    }],
+    candidates: [
+      {
+        content: { role: 'model', parts },
+        finishReason: mapFinishReason(result.finishReason ?? ''),
+      },
+    ],
     usageMetadata: {
       promptTokenCount: result.usage?.inputTokens || 0,
       candidatesTokenCount: result.usage?.outputTokens || 0,
@@ -876,9 +979,9 @@ async function handleUnaryRequest(
     },
     modelVersion: route.catalogId,
     responseId,
-  };
+  }
 
-  respondJson(res, 200, { response, traceId: 'gateway-trace', metadata: {} });
+  respondJson(res, 200, { response, traceId: 'gateway-trace', metadata: {} })
 
   // Log Antigravity usage for the dashboard (was previously never recorded).
   recordUsage({
@@ -889,5 +992,5 @@ async function handleUnaryRequest(
     app: 'Antigravity',
     inputTokens: result.usage?.inputTokens ?? 0,
     outputTokens: result.usage?.outputTokens ?? 0,
-  });
+  })
 }

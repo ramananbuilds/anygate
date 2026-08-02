@@ -1,17 +1,24 @@
 // src/favorites-resolver.ts
-import type { FavoriteModel, LocalProvider, LocalProviderModel, ModelInfo } from '../../../src/types/index.js';
-import type { ServerModelInfo } from '../../../src/gateway/server/models.js';
-import { shouldHideModel, type CompatibilityAgent } from '../shared/model-compatibility.js';
-import { resolveLocalProviderApiKey } from '../../../src/storage/credentials.js';
+import type {
+  FavoriteModel,
+  LocalProvider,
+  LocalProviderModel,
+  ModelInfo,
+} from '../../../src/types/index.js'
+import type { ServerModelInfo } from '../../../src/gateway/server/models.js'
+import { shouldHideModel, type CompatibilityAgent } from '../shared/model-compatibility.js'
+import { resolveLocalProviderApiKey } from '../../../src/storage/credentials.js'
 
 export interface ResolvedFavorite {
-  providerId: string;
-  providerName: string;
-  model: LocalProviderModel | ServerModelInfo;
-  apiKey: string;
-  authType?: 'api' | 'oauth' | 'none';
-  oauthAccountId?: string;
-  providerData?: Record<string, unknown>;
+  providerId: string
+  providerName: string
+  model: LocalProviderModel | ServerModelInfo
+  apiKey: string
+  authType?: 'api' | 'oauth' | 'none'
+  oauthAccountId?: string
+  providerData?: Record<string, unknown>
+  /** Custom upstream headers (e.g. a required User-Agent) carried from the registry provider. */
+  headers?: Record<string, string>
 }
 
 /**
@@ -21,37 +28,42 @@ export interface ResolvedFavorite {
  */
 export interface ResolveContext {
   /** When set, call shouldHideModel with this agent to filter blacklisted favorites. */
-  agent?: CompatibilityAgent;
+  agent?: CompatibilityAgent
   /** Claude: registry providers from opencode. */
-  localProviders?: LocalProvider[];
+  localProviders?: LocalProvider[]
   /** Server: pre-loaded server model list. */
-  serverModels?: ServerModelInfo[];
+  serverModels?: ServerModelInfo[]
   /** Lookup function for a registry model. Returns the model + its parent provider. */
-  findLocalModel?: LocalModelLookup;
+  findLocalModel?: LocalModelLookup
 }
 
 export interface LocalModelLookupResult {
-  provider: LocalProvider;
-  model: LocalProviderModel;
+  provider: LocalProvider
+  model: LocalProviderModel
 }
 
-export type LocalModelLookup =
-  (providerId: string, modelId: string) => LocalModelLookupResult | undefined;
+export type LocalModelLookup = (
+  providerId: string,
+  modelId: string
+) => LocalModelLookupResult | undefined
 
 const ZEN_GO_PROVIDER_NAME: Record<'zen' | 'go', string> = {
   zen: 'OpenCode Zen',
   go: 'OpenCode Go',
-};
+}
 
 export async function resolveFavorite(
   fav: FavoriteModel,
-  ctx: ResolveContext,
+  ctx: ResolveContext
 ): Promise<ResolvedFavorite | undefined> {
   if (ctx.findLocalModel) {
-    const found = ctx.findLocalModel(fav.providerId, fav.modelId);
-    if (!found) return undefined;
-    if (ctx.agent && shouldHideModel({ providerId: fav.providerId, modelId: fav.modelId, agent: ctx.agent })) {
-      return undefined;
+    const found = ctx.findLocalModel(fav.providerId, fav.modelId)
+    if (!found) return undefined
+    if (
+      ctx.agent &&
+      shouldHideModel({ providerId: fav.providerId, modelId: fav.modelId, agent: ctx.agent })
+    ) {
+      return undefined
     }
     return {
       providerId: fav.providerId,
@@ -61,15 +73,16 @@ export async function resolveFavorite(
       authType: found.provider.authType,
       oauthAccountId: found.provider.oauthAccountId,
       providerData: found.provider.providerData,
-    };
+      headers: found.provider.headers,
+    }
   }
 
-  return undefined;
+  return undefined
 }
 
 export interface BuildFavoritesListOptions {
-  dropEmptyApiKey?: boolean;
-  trackCapacitySkipped?: boolean;
+  dropEmptyApiKey?: boolean
+  trackCapacitySkipped?: boolean
 }
 
 export async function buildFavoritesList(
@@ -77,55 +90,56 @@ export async function buildFavoritesList(
   favorites: FavoriteModel[],
   ctx: ResolveContext,
   max = 20,
-  options: BuildFavoritesListOptions = {},
+  options: BuildFavoritesListOptions = {}
 ): Promise<{
-  resolved: ResolvedFavorite[];
-  droppedFavorites: FavoriteModel[];
-  capacitySkippedFavorites: FavoriteModel[];
+  resolved: ResolvedFavorite[]
+  droppedFavorites: FavoriteModel[]
+  capacitySkippedFavorites: FavoriteModel[]
 }> {
-  const seen = new Set<string>();
-  const out: ResolvedFavorite[] = [];
+  const out: ResolvedFavorite[] = []
+  const seen = new Set<string>()
 
   if (starting) {
-    seen.add(`${starting.providerId}::${starting.model.id}`);
-    out.push(starting);
+    seen.add(`${starting.providerId}::${starting.model.id}`)
+    out.push(starting)
   }
 
+  // Dedup using shared utility — key excludes the already-added starting model.
   const uniqueFavorites = favorites.filter(fav => {
-    const key = `${fav.providerId}::${fav.modelId}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+    const key = `${fav.providerId}::${fav.modelId}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 
-  const resolutions = await Promise.all(uniqueFavorites.map(fav => resolveFavorite(fav, ctx)));
+  const resolutions = await Promise.all(uniqueFavorites.map(fav => resolveFavorite(fav, ctx)))
 
-  const droppedFavorites: FavoriteModel[] = [];
-  const capacitySkippedFavorites: FavoriteModel[] = [];
+  const droppedFavorites: FavoriteModel[] = []
+  const capacitySkippedFavorites: FavoriteModel[] = []
   for (let i = 0; i < uniqueFavorites.length; i++) {
-    const resolved = resolutions[i];
+    const resolved = resolutions[i]
     if (!resolved || (options.dropEmptyApiKey && !resolved.apiKey.trim())) {
-      droppedFavorites.push(uniqueFavorites[i]!);
-      continue;
+      droppedFavorites.push(uniqueFavorites[i]!)
+      continue
     }
     if (out.length < max) {
-      out.push(resolved);
+      out.push(resolved)
     } else if (options.trackCapacitySkipped) {
-      capacitySkippedFavorites.push(uniqueFavorites[i]!);
+      capacitySkippedFavorites.push(uniqueFavorites[i]!)
     }
   }
 
-  return { resolved: out, droppedFavorites, capacitySkippedFavorites };
+  return { resolved: out, droppedFavorites, capacitySkippedFavorites }
 }
 
 export function resolveFirstAvailableFavorite(
   favorites: FavoriteModel[],
-  providers: LocalProvider[],
+  providers: LocalProvider[]
 ): LocalModelLookupResult | undefined {
   for (const fav of favorites) {
-    const provider = providers.find(lp => lp.id === fav.providerId);
-    const model = provider?.models.find(m => m.id === fav.modelId);
-    if (provider && model) return { provider, model };
+    const provider = providers.find(lp => lp.id === fav.providerId)
+    const model = provider?.models.find(m => m.id === fav.modelId)
+    if (provider && model) return { provider, model }
   }
-  return undefined;
+  return undefined
 }

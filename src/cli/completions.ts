@@ -1,12 +1,12 @@
 // src/cli/completions.ts — anygate completions command
-import type { ParsedArgs } from '../types/index.js';
-import { runCompletionsCommand } from '../apps/shared/completions.js';
+import type { ParsedArgs } from '../types/index.js'
+import { runCompletionsCommand } from '../apps/shared/completions.js'
 
 export async function handleCompletionsCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.showVersion) {
-    const { VERSION } = await import('../config/constants.js');
-    console.log(VERSION);
-    return 0;
+    const { VERSION } = await import('../config/constants.js')
+    console.log(VERSION)
+    return 0
   }
   if (parsed.showHelp) {
     console.log(`
@@ -23,8 +23,8 @@ Options:
 Examples:
   anygate completions bash > ~/.bash_completion.d/anygate
   anygate completions zsh > ~/.zsh/completions/_anygate
-`);
-    return 0;
+`)
+    return 0
   }
-  return runCompletionsCommand(parsed.completionsShell);
+  return runCompletionsCommand(parsed.completionsShell)
 }

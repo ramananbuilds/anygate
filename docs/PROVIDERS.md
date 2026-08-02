@@ -68,6 +68,12 @@ When you run `anygate providers add`, you can select from the following template
 - **Description**: Unified API proxy providing access to dozens of different models.
 - **Base URL**: `https://openrouter.ai/api/v1`
 
+### Agent Router
+- **Description**: Credit-based multi-model gateway (Claude, GPT, Gemini) behind one key.
+- **Base URL**: `https://agentrouter.org`
+- **Wire format**: Registered against `@ai-sdk/anthropic`, so requests go out as native Anthropic `/v1/messages`. This is deliberate — the gateway's content-moderation filter only scans its OpenAI `/v1/chat/completions` relay, so the OpenAI path returns HTTP 500 `sensitive_words_detected` on prompts that merely *mention* moderated topics (Claude Desktop's own system prompt trips it). The Anthropic path is not scanned. Serves the Claude launchers and Antigravity.
+- **Gotchas**: The gateway rejects unrecognized clients with `401 unauthorized client detected`, so the template ships `User-Agent` and `x-app` headers. The signup link is a referral link that grants $50 in bonus credits over registering directly; this is disclosed in the CLI and dashboard.
+
 ### Local Models (Ollama & LM Studio)
 - **Description**: Connects to locally running inference engines.
 - **Base URLs**: Custom prompts ask for your local URL (e.g., `http://127.0.0.1:11434/v1`).

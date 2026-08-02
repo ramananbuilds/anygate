@@ -1,36 +1,35 @@
 # Routing Engine
 
-> The engine decides which provider and model to use for a given launch, and whether that combination is compatible with the target app.
+> The routing layer decides which provider and model to use for a given launch,
+> and whether that combination is compatible with the target app.
 
 ## Location
 
+Routing logic is distributed across two domains:
+
 ```text
-src/engine/
-├── routing/
-│   ├── router.ts          # RouteRequest → RouteMatch resolution
-│   ├── resolver.ts        # Model ref parsing and provider+model lookup
-│   ├── dispatcher.ts      # Request dispatch coordination
-│   ├── strategy.ts        # Routing strategy selection
-│   ├── failover.ts        # Failover logic for unavailable routes
-│   ├── health.ts          # Provider health checking
-│   ├── middleware.ts       # Request/response middleware pipeline
-│   └── pipeline.ts        # Full routing pipeline orchestration
-├── selection/
-│   ├── selector.ts        # Model selection heuristics
-│   ├── target-compatibility.ts  # Target × model compatibility matrix
-│   └── launch-target.ts   # Launch target resolution and wizard planning
-└── context/
-    └── .gitkeep           # Reserved for context window estimation
+src/apps/shared/
+├── target-compatibility.ts  # Target × model compatibility matrix, GatewayLaunchTarget type
+├── launch-target.ts         # Launch target resolution, wizard planning, model slug parsing
+
+src/gateway/server/
+└── router.ts                 # HTTP request routing (routeRequest → handler dispatch)
 ```
+
+> **Historical note**: Previously, routing lived in `src/engine/routing/` and
+> `src/engine/selection/`. These were removed in Phase 1 as dead code — the
+> actual routing logic was always in `apps/shared/` and `gateway/server/`.
+> See [Component: Engine — DEPRECATED](../components/engine.md).
 
 ## Core Concepts
 
 ### GatewayLaunchTarget
 
-Every launch is associated with a target app. The `GatewayLaunchTarget` type defines the valid targets:
+Every launch is associated with a target app. The `GatewayLaunchTarget` type is
+defined in `src/apps/shared/target-compatibility.ts`:
 
 ```typescript
-type GatewayLaunchTarget =
+export type GatewayLaunchTarget =
   | 'claude'        // Claude Code CLI
   | 'claude-app'    // Claude Desktop
   | 'codex'         // OpenAI Codex CLI
@@ -58,7 +57,8 @@ Classification happens in `classifyModelFormat()` (`src/config/constants.ts`):
 
 ### Target Compatibility
 
-Not every model works with every target. `isTargetCompatibleModel()` checks:
+Not every model works with every target. `isTargetCompatibleModel()` in
+`src/apps/shared/target-compatibility.ts` checks:
 
 1. **Blacklist filter**: `shouldHideModel()` hides models known to be incompatible with a target (e.g., models requiring specific APIs that a target doesn't support).
 2. **Format check**:
@@ -84,35 +84,33 @@ planLaunchWizard(explicit, childArgs, agent, prefs)
 
 ### Model Slug Format
 
-Models can be referenced as `providerId__modelId` (double underscore). The `parseModelSlug()` function splits this:
+Models can be referenced as `providerId__modelId` (double underscore). The
+`parseModelSlug()` function in `src/apps/shared/launch-target.ts` splits this:
 
 ```typescript
 parseModelSlug("groq__llama-3.3-70b")
-// → { providerId: "groq", modelId: "llama-3.3-70b" }
+// → { providerId: "groq", modelId: "lllama-3.3-70b" }
 
 parseModelSlug("claude-3-5-sonnet")
 // → { modelId: "claude-3-5-sonnet" }  // no provider prefix
 ```
 
-## Route Resolution
+## Gateway Request Routing
 
-The `routeRequest()` function in `router.ts` matches a `RouteRequest` to a provider and model:
+The HTTP gateway server (`src/gateway/server/router.ts`) routes inbound requests
+based on URL path:
 
-```typescript
-interface RouteRequest {
-  providerId: string;
-  modelId: string;
-  target: GatewayLaunchTarget;
-}
-
-function routeRequest(providers: LocalProvider[], request: RouteRequest): RouteMatch | null
+```text
+GET  /health                  → Health check
+GET  /models                  → All models (internal format)
+GET  /anthropic/v1/models     → Models in Anthropic format
+GET  /openai/v1/models        → Models in OpenAI format
+POST /anthropic/v1/messages   → Chat completions (Anthropic format)
+POST /openai/v1/chat/completions → Chat completions (OpenAI format)
 ```
 
-Steps:
-1. Find provider by ID in the provider list
-2. Find model by ID within that provider
-3. Check target compatibility via `isTargetCompatibleModel()`
-4. Return `RouteMatch` or `null`
+- Anthropic-native models are forwarded directly to the backend.
+- Non-Anthropic models are translated through the Vercel AI SDK adapter.
 
 ## Non-Interactive Detection
 

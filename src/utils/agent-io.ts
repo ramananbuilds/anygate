@@ -1,11 +1,11 @@
 /** When true, anygate must not write UI to stdout (child owns NDJSON/JSONL). */
 
-let agentStdoutMode = false;
+let agentStdoutMode = false
 
 export function setAgentStdoutMode(enabled: boolean): void {
-  agentStdoutMode = enabled;
+  agentStdoutMode = enabled
 }
 
 export function isAgentStdoutMode(): boolean {
-  return agentStdoutMode;
+  return agentStdoutMode
 }

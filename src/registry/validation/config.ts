@@ -25,62 +25,62 @@ export const VALIDATION_CONFIG = {
 
   /** Path to the validation cache file (relative to app home). */
   CACHE_FILENAME: 'model-validation-cache.json',
-} as const;
+} as const
 
 /** Validation status for a model. */
-export type ValidationStatus = 'available' | 'deprecated' | 'error' | 'unverified';
+export type ValidationStatus = 'available' | 'deprecated' | 'error' | 'unverified'
 
 /** Result of validating a single model. */
 export interface ValidationResult {
   /** The model ID that was validated. */
-  modelId: string;
+  modelId: string
   /** The provider ID that owns this model. */
-  providerId: string;
+  providerId: string
   /** Current validation status. */
-  status: ValidationStatus;
+  status: ValidationStatus
   /** ISO timestamp of when this validation was performed. */
-  checkedAt: string;
+  checkedAt: string
   /** Error message if status is 'error' or 'unverified'. */
-  error?: string;
+  error?: string
   /** HTTP status code from the validation request. */
-  httpStatus?: number;
+  httpStatus?: number
   /** Latency of the validation request in milliseconds. */
-  latencyMs?: number;
+  latencyMs?: number
 }
 
 /** Cache entry key format: "providerId|modelId". */
-export type CacheKey = string;
+export type CacheKey = string
 
 /** Validation cache structure persisted to disk. */
 export interface ValidationCache {
-  schema_version: number;
-  results: Record<CacheKey, ValidationResult>;
+  schema_version: number
+  results: Record<CacheKey, ValidationResult>
 }
 
 /** Parameters for validating a single model. */
 export interface ValidateModelParams {
   /** The model ID to validate. */
-  modelId: string;
+  modelId: string
   /** The provider ID that owns this model. */
-  providerId: string;
+  providerId: string
   /** The base URL for the provider's API (e.g. https://api.groq.com/openai/v1). */
-  baseUrl: string;
+  baseUrl: string
   /** The API key for authentication. */
-  apiKey: string;
+  apiKey: string
   /** The model format: 'openai' or 'anthropic'. */
-  modelFormat: 'openai' | 'anthropic';
+  modelFormat: 'openai' | 'anthropic'
   /** Optional provider-specific headers to include. */
-  headers?: Record<string, string>;
+  headers?: Record<string, string>
   /** Optional override for the cache TTL. */
-  ttlMs?: number;
+  ttlMs?: number
 }
 
 /** Options for batch validation. */
 export interface ValidateModelsOptions {
   /** Maximum concurrent validations (default: VALIDATION_CONFIG.CONCURRENCY). */
-  concurrency?: number;
+  concurrency?: number
   /** Skip models that have a fresh cache entry. */
-  skipFresh?: boolean;
+  skipFresh?: boolean
   /** Optional override for the cache TTL. */
-  ttlMs?: number;
+  ttlMs?: number
 }

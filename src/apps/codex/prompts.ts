@@ -1,73 +1,79 @@
 // Codex-only picker UX — no Claude Code strings.
-import pc from 'picocolors';
-import * as p from '@clack/prompts';
-import type { LocalProvider, LocalProviderModel, UserPreferences } from '../../../src/types/index.js';
-import type { CodexRoute } from './routing.js';
+import pc from 'picocolors'
+import * as p from '@clack/prompts'
+import type {
+  LocalProvider,
+  LocalProviderModel,
+  UserPreferences,
+} from '../../../src/types/index.js'
+import type { CodexRoute } from './routing.js'
 import {
   confirmLaunchMessage,
   modelSelectOption,
   navOption,
   providerSelectOption,
-} from '../../apps/shared/ui.js';
-import { browseAllModels } from '../../apps/shared/prompts.js';
+} from '../../apps/shared/ui.js'
+import { browseAllModels } from '../../apps/shared/prompts.js'
 
 export async function pickCodexProvider(
   providers: LocalProvider[],
   prefs: UserPreferences,
   hasFavorites = false,
   initialProviderId?: string,
-  agentLabel = 'Codex',
+  agentLabel = 'Codex'
 ): Promise<LocalProvider | '__favorites__' | null> {
-  if (providers.length === 0 && !hasFavorites) return null;
+  if (providers.length === 0 && !hasFavorites) return null
 
-  const options: { value: string; label: string; hint?: string }[] = providers.map(lp => providerSelectOption(lp));
-  
+  const options: { value: string; label: string; hint?: string }[] = providers.map(lp =>
+    providerSelectOption(lp)
+  )
+
   if (hasFavorites) {
     options.unshift({
       value: '__favorites__',
       label: '⭐ Favorites Catalog',
       hint: `${prefs.favoriteModels?.length ?? 0} saved favorites`,
-    });
+    })
   }
 
   const initial =
     initialProviderId && options.some(o => o.value === initialProviderId)
       ? initialProviderId
-      // When favorites exist, default to the Favorites Catalog so the gateway
-      // exposes ALL saved models to the client picker — not just the last
-      // single-provider selection (remembered via lastCodexProvider), which
-      // would otherwise collapse the catalog to a single model.
-      : hasFavorites
+      : // When favorites exist, default to the Favorites Catalog so the gateway
+        // exposes ALL saved models to the client picker — not just the last
+        // single-provider selection (remembered via lastCodexProvider), which
+        // would otherwise collapse the catalog to a single model.
+        hasFavorites
         ? '__favorites__'
         : prefs.lastCodexProvider && options.some(o => o.value === prefs.lastCodexProvider)
           ? prefs.lastCodexProvider
-          : options[0]!.value;
+          : options[0]!.value
 
   const chosen = await p.select<string>({
     message: `Which provider for ${agentLabel}?`,
     options,
     initialValue: initial,
-  });
+  })
   if (p.isCancel(chosen)) {
-    p.cancel('Cancelled.');
-    return null;
+    p.cancel('Cancelled.')
+    return null
   }
 
-  if (chosen === '__favorites__') return '__favorites__';
+  if (chosen === '__favorites__') return '__favorites__'
 
-  return providers.find(lp => lp.id === chosen) ?? null;
+  return providers.find(lp => lp.id === chosen) ?? null
 }
 
 export async function pickCodexModel(
   provider: LocalProvider,
-  prefs: UserPreferences,
+  prefs: UserPreferences
 ): Promise<LocalProviderModel | 'back' | null> {
-  const recentIds = (prefs.recentModelsByProvider?.[provider.id] ?? []).slice(0, 3);
+  const recentIds = (prefs.recentModelsByProvider?.[provider.id] ?? []).slice(0, 3)
   const recentModels = recentIds
     .map(id => provider.models.find(m => m.id === id))
-    .filter((m): m is LocalProviderModel => m !== undefined);
+    .filter((m): m is LocalProviderModel => m !== undefined)
 
-  let selectedModel: LocalProviderModel | null = null;
+  let selectedModel: LocalProviderModel | null = null
 
   while (true) {
     if (recentModels.length > 0) {
@@ -75,82 +81,84 @@ export async function pickCodexModel(
         ...recentModels.map(m => modelSelectOption(m, 'recent')),
         navOption('__browse_all__', 'Browse all models →', `${provider.models.length} available`),
         navOption('__back__', '← Go back', 'Select a different provider'),
-      ];
+      ]
 
       const picked = await p.select({
         message: `Model for ${provider.name}?`,
         options,
         initialValue: recentModels[0].id,
-      });
+      })
 
       if (p.isCancel(picked) || String(picked) === '__back__') {
-        return 'back';
+        return 'back'
       }
 
       if (String(picked) === '__browse_all__') {
-        const browsed = await browseAllModels(provider, prefs);
+        const browsed = await browseAllModels(provider, prefs)
         if (browsed === 'back') {
-          continue;
+          continue
         }
-        if (!browsed) return null;
-        selectedModel = browsed;
-        break;
+        if (!browsed) return null
+        selectedModel = browsed
+        break
       } else {
-        selectedModel = recentModels.find(m => m.id === String(picked))!;
-        break;
+        selectedModel = recentModels.find(m => m.id === String(picked))!
+        break
       }
     } else {
-      const browsed = await browseAllModels(provider, prefs);
+      const browsed = await browseAllModels(provider, prefs)
       if (browsed === 'back') {
-        return 'back';
+        return 'back'
       }
-      if (!browsed) return null;
-      selectedModel = browsed;
-      break;
+      if (!browsed) return null
+      selectedModel = browsed
+      break
     }
   }
 
-  return selectedModel;
+  return selectedModel
 }
 
 export function confirmCodexLaunch(
   providerName: string,
   modelLabel: string,
   modelId: string,
-  route: CodexRoute,
+  route: CodexRoute
 ): Promise<boolean> {
-  const via = route.tier === 'direct'
-    ? pc.green('direct')
-    : `${pc.dim('via')} ${pc.yellow('anygate proxy')}`;
-  return p.confirm({
-    message: `${confirmLaunchMessage('Codex', modelLabel, modelId, providerName)} ${pc.dim('(')}${via}${pc.dim(')')}`,
-    initialValue: true,
-  }).then(answer => {
-    if (p.isCancel(answer)) {
-      p.cancel('Cancelled.');
-      return false;
-    }
-    return answer;
-  });
+  const via =
+    route.tier === 'direct' ? pc.green('direct') : `${pc.dim('via')} ${pc.yellow('anygate proxy')}`
+  return p
+    .confirm({
+      message: `${confirmLaunchMessage('Codex', modelLabel, modelId, providerName)} ${pc.dim('(')}${via}${pc.dim(')')}`,
+      initialValue: true,
+    })
+    .then(answer => {
+      if (p.isCancel(answer)) {
+        p.cancel('Cancelled.')
+        return false
+      }
+      return answer
+    })
 }
 
 export function rejectManagedFlags(codexArgs: string[]): string[] {
-  const blocked = new Set(['--profile', '-m', '--model', '--provider', '--trace', '-p']);
-  const takesValue = new Set(['--profile', '-m', '--model', '--provider', '-p']);
-  const out: string[] = [];
+  const blocked = new Set(['--profile', '-m', '--model', '--provider', '--trace', '-p'])
+  const takesValue = new Set(['--profile', '-m', '--model', '--provider', '-p'])
+  const out: string[] = []
   for (let i = 0; i < codexArgs.length; i++) {
-    const arg = codexArgs[i]!;
+    const arg = codexArgs[i]!
     if (blocked.has(arg)) {
-      if (takesValue.has(arg)) i++;
-      continue;
+      if (takesValue.has(arg)) i++
+      continue
     }
     if (
-      arg.startsWith('--profile=')
-      || arg.startsWith('--model=')
-      || arg.startsWith('--provider=')
-      || arg.startsWith('-m=')
-    ) continue;
-    out.push(arg);
+      arg.startsWith('--profile=') ||
+      arg.startsWith('--model=') ||
+      arg.startsWith('--provider=') ||
+      arg.startsWith('-m=')
+    )
+      continue
+    out.push(arg)
   }
-  return out;
+  return out
 }
