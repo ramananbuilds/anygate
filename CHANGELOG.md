@@ -1,6 +1,19 @@
 # Changelog
 
-## 0.5.12 (2026-07-30)
+## 0.6.0 (2026-08-03)
+
+### Features
+- **Agent Router provider**: New built-in template (`src/registry/data/templates/agentrouter.json`) for [Agent Router](https://agentrouter.org), a credit-based multi-model gateway (Claude, GPT, Gemini) behind a single key. Registered against `@ai-sdk/anthropic` with base URL `https://agentrouter.org`, so requests travel the native Anthropic Messages path (`/v1/messages`) rather than the OpenAI chat/completions relay. Models are discovered from `/v1/models`. Verified working with Claude Code, Claude Desktop, and Antigravity.
+- **Client-identity headers in templates**: The Agent Router template declares the `User-Agent: claude-cli/1.0.0 (external, cli)` and `x-app: cli` headers the gateway requires. Without them it answers `401 unauthorized client detected` on every request. These are now carried automatically instead of having to be entered by hand in the custom-provider form.
+- **Signup notes on provider templates**: New optional `signupNote` field on provider templates, surfaced next to the "Get an API key" link in both the CLI panel (`printApiKeyProviderPanel`) and the dashboard's add-provider form. Threaded through `ProviderTemplate`, `ProviderTemplateData`, `toProviderTemplate()`, `GET /api/providers/templates`, and the `UiTemplate` contract on both sides. Currently used only by Agent Router, to disclose that its signup link is a referral link carrying $50 in bonus credits over registering directly.
+
+### Bug Fixes
+- **Template headers were dropped when adding a provider**: `addProviderFromTemplate()` in `src/registry/templates/add-template.ts` built `api: { npm, url }` and silently discarded `template.headers`, but every runtime request reads them back from `provider.api.headers` via `materializeOne()`. The result was a provider that passed the connection test at add time and then failed on every subsequent call. Headers declared on a template are now persisted. This also fixes GitHub Copilot's `Editor-Version` header, which had the same exposure.
+- **Model listing failed on third-party Anthropic-compatible gateways**: `fetchTemplateModels()` sent only `x-api-key` for `@ai-sdk/anthropic` templates, but new-api/one-api forks serve `/v1/messages` in Anthropic format while authenticating model listing with a Bearer token. Off `api.anthropic.com`, both headers are now sent so listing succeeds either way; the official API ignores the extra `Authorization` header.
+- **Antigravity dropped custom provider headers**: Custom headers configured on a provider were not carried into Antigravity's request path, producing `401` responses from gateways that gate on client identity. Fixed across the launcher's header plumbing.
+- **OpenAI-compatible adapter overwrote configured headers**: `createOpenAICompatible` builds its own `User-Agent` and applied header options inconsistently between streaming and non-streaming requests. `src/gateway/providers/provider-factory.ts` now wraps `fetch` and forces the provider's configured headers onto every outbound request.
+- **`AI_TypeValidationError` on non-compliant SSE streams**: Some gateways emit `data: null` keepalive lines mid-stream, which the SDK's stream parser rejects. Added `createNullChunkStripper()` to drop these lines before parsing.
+- **GitHub Releases were published without their changelog notes**: The release-notes extraction in `.github/workflows/publish.yml` was double-escaped — inside the double-quoted shell string `\\s` collapsed to `\s`, which JavaScript then read as a literal `s`, making the pattern `##s+0.5.11`. It never matched any version, and because the workflow falls back to the commit message when extraction yields nothing, the failure was silent. Replaced with `scripts/changelog-notes.mjs`, which finds section boundaries by scanning lines (no regex, so version dots need no escaping and nothing depends on shell quoting) and exits non-zero when a section is missing so the fallback is deliberate and logged. Verified against all sections from 0.5.5 to 0.6.0.
 
 ### Phase 0: Context Window Safety & Self-Healing Validation
 - **Context window exceeded (HTTP 400)**: Enforced context fitting on ALL outbound SDK requests. `translateRequest()` now always resolves a context window (explicit option or model-id lookup via `resolveContextWindowFromModel`) and trims the conversation with an 85% safety margin. Previously, fitting only triggered when `contextWindow` was explicitly passed — many code paths left it undefined, causing small-window models (GPT-3.5, Nemotron 131K, etc.) to be rejected with "Input length exceeds maximum allowed tokens". `startProxy()` and `startProxyCatalog()` now resolve `route.contextWindow` with the same fallback before passing it to `sdkTranslateRequest()`.
@@ -17,6 +30,9 @@
 - **Security integration tests**: Added 14 tests in `tests/gateway/server-integration.test.ts` covering rate limiting (`checkRateLimit`), error handling (`sendError`), and security constants (`MAX_REQUEST_BODY_BYTES`).
 - **Fixed ESM violation**: Replaced `require()` in `src/apps/shared/app-launcher.ts` with static import (ESM modules don't support `require()`).
 - **Fixed pre-existing typecheck error**: Added `JSONSchema7` type assertion in `src/gateway/antigravity/request-adapter.ts`.
+
+### Notes
+- 0.5.12 was never published — `package.json` never left 0.5.11. Its changelog entry has been folded into this release, which is why this section carries the Phase 0 and Phase 1 headings above.
 
 ## 0.5.11 (2026-07-25)
 
