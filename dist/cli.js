@@ -171,7 +171,7 @@ import {
   validateModels,
   writeSecureLogLine,
   zenRegistryStub
-} from "./chunk-JH5UJLQZ.js";
+} from "./chunk-DGUIAUJV.js";
 import {
   BACKENDS,
   CONFLICTING_ENV_VARS,
@@ -179,14 +179,14 @@ import {
   MAX_MODEL_CATALOG,
   VERSION,
   VERTEX_ANTHROPIC_NPM
-} from "./chunk-H3Q4G6BB.js";
+} from "./chunk-FCPNXZKT.js";
 import {
   filterTemplates,
   getTemplateById,
   listAddableTemplates,
   listSupportedTemplates,
   listVisibleOAuthTemplates
-} from "./chunk-4ILOT7YG.js";
+} from "./chunk-4N4RDHGZ.js";
 import "./chunk-UT3JLF3M.js";
 
 // src/cli.ts
@@ -2503,6 +2503,36 @@ ${pc4.bold("Usage:")}
   anygate providers refresh-models  Refresh model catalog for all/specific provider
   anygate providers auth <id>       Sign in with OAuth (xAI, OpenAI, GitHub Copilot, \u2026)`;
 }
+async function promptTemplateBaseUrl(template) {
+  const entered = await p5.text({
+    message: template.urlPrompt ?? "API Base URL:",
+    placeholder: template.urlPlaceholder ?? template.defaultBaseUrl,
+    defaultValue: template.defaultBaseUrl ?? "",
+    validate: (v) => v.trim() || template.defaultBaseUrl ? void 0 : "URL is required"
+  });
+  if (p5.isCancel(entered)) return null;
+  const baseUrl = String(entered ?? "").trim() || (template.defaultBaseUrl ?? "");
+  if (!baseUrl) return null;
+  let allowInsecureLocal = false;
+  if (/^http:\/\//i.test(baseUrl)) {
+    p5.log.warn(
+      "HTTP is not encrypted. Only use it for a trusted local or LAN server, like Ollama on your own network."
+    );
+    const allowLocal = await p5.confirm({
+      message: "Allow insecure HTTP for this local/LAN server?",
+      initialValue: true
+    });
+    if (p5.isCancel(allowLocal)) return null;
+    allowInsecureLocal = allowLocal === true;
+  }
+  const valid = await validateCustomEndpointUrl(baseUrl, { allowInsecureLocal });
+  if (!valid.ok || !valid.normalizedUrl) {
+    p5.log.error(valid.error ?? "Invalid URL.");
+    if (valid.hint) p5.log.info(valid.hint);
+    return null;
+  }
+  return valid.normalizedUrl;
+}
 async function runTemplateAddFlow(t) {
   const template = t ?? await pickTemplateFromCatalog();
   if (!template) return 0;
@@ -2511,9 +2541,16 @@ async function runTemplateAddFlow(t) {
   });
   if (p5.isCancel(inputKey)) return 0;
   const apiKey = String(inputKey ?? "").trim();
-  const result = await addProviderFromTemplate(template, apiKey);
+  let baseUrl;
+  if (template.urlPrompt) {
+    const collected = await promptTemplateBaseUrl(template);
+    if (!collected) return 1;
+    baseUrl = collected;
+  }
+  const result = await addProviderFromTemplate(template, apiKey, { baseUrl });
   if (!result.added) {
     if (result.error) p5.log.error(result.error);
+    if (result.hint) p5.log.info(result.hint);
     return 1;
   }
   logConnected(template.name, result.modelCount ?? 0);
@@ -6400,7 +6437,7 @@ Error: ${launchPlan.error}
 // src/cli/codex.ts
 async function handleCodexCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
+    const { VERSION: VERSION2 } = await import("./constants-NMMR74AL.js");
     console.log(VERSION2);
     return 0;
   }
@@ -7495,7 +7532,7 @@ async function runCodexAppCommand(args, opts = {}) {
 // src/cli/codex-app.ts
 async function handleCodexAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
+    const { VERSION: VERSION2 } = await import("./constants-NMMR74AL.js");
     console.log(VERSION2);
     return 0;
   }
@@ -8015,7 +8052,7 @@ ${pc10.bold("Claude Desktop 3P Mode Active")}`);
 // src/cli/claude-app.ts
 async function handleClaudeAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
+    const { VERSION: VERSION2 } = await import("./constants-NMMR74AL.js");
     console.log(VERSION2);
     return 0;
   }
@@ -9230,7 +9267,7 @@ Error: ${launchPlan.error}
 // src/cli/gemini.ts
 async function handleGeminiCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
+    const { VERSION: VERSION2 } = await import("./constants-NMMR74AL.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12674,7 +12711,7 @@ Examples:
 `;
 async function handleAgyCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
+    const { VERSION: VERSION2 } = await import("./constants-NMMR74AL.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12689,7 +12726,7 @@ async function handleAgyCommand(parsed) {
 }
 async function handleAntigravityAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
+    const { VERSION: VERSION2 } = await import("./constants-NMMR74AL.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12704,7 +12741,7 @@ async function handleAntigravityAppCommand(parsed) {
 }
 async function handleAntigravityIdeCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
+    const { VERSION: VERSION2 } = await import("./constants-NMMR74AL.js");
     console.log(VERSION2);
     return 0;
   }
@@ -12809,7 +12846,7 @@ Options:
 `);
     return 0;
   }
-  const { runUiCommand } = await import("./command-4UTGFOVW.js");
+  const { runUiCommand } = await import("./command-YYVSCWF6.js");
   return runUiCommand({ trace: parsed.trace });
 }
 
@@ -13238,7 +13275,7 @@ async function runValidateSubcommand(parsed) {
 // src/cli/providers.ts
 async function handleProvidersCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
+    const { VERSION: VERSION2 } = await import("./constants-NMMR74AL.js");
     console.log(VERSION2);
     return 0;
   }
@@ -13351,7 +13388,7 @@ async function runDoctorCommand(_dryRun) {
 // src/cli/doctor.ts
 async function handleDoctorCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
+    const { VERSION: VERSION2 } = await import("./constants-NMMR74AL.js");
     console.log(VERSION2);
     return 0;
   }
@@ -13491,7 +13528,7 @@ function runCompletionsCommand(shellArg) {
 // src/cli/completions.ts
 async function handleCompletionsCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
+    const { VERSION: VERSION2 } = await import("./constants-NMMR74AL.js");
     console.log(VERSION2);
     return 0;
   }
@@ -13518,18 +13555,11 @@ Examples:
 
 // src/apps/shared/self-update.ts
 import pc17 from "picocolors";
-import { spawn as spawn5, execFileSync as execFileSync4 } from "child_process";
+import { spawn as spawn5 } from "child_process";
 import * as p17 from "@clack/prompts";
-function resolveNpmBin() {
-  if (process.platform === "win32") {
-    try {
-      const found = execFileSync4("where", ["npm"], { stdio: ["ignore", "pipe", "ignore"] }).toString().split(/\r?\n/).map((s) => s.trim()).find((s) => s.toLowerCase().endsWith(".cmd") || s.toLowerCase().endsWith("npm"));
-      if (found) return found;
-    } catch {
-    }
-    return "npm.cmd";
-  }
-  return "npm";
+var INSTALL_ARGS = ["install", "-g", "anygate@latest"];
+function resolveNpmSpawn() {
+  return { bin: "npm", shell: process.platform === "win32" };
 }
 async function runUpdateCommand(dryRun) {
   const update = await checkForUpdates();
@@ -13540,9 +13570,9 @@ async function runUpdateCommand(dryRun) {
   p17.log.info(
     `Update available: ${pc17.cyan(`v${update.currentVersion}`)} \u2192 ${pc17.green(`v${update.latestVersion}`)}`
   );
-  const npmBin = resolveNpmBin();
+  const { bin: npmBin, shell } = resolveNpmSpawn();
   if (dryRun) {
-    p17.log.step(`Would run: ${pc17.bold(`${npmBin} install -g anygate@latest`)}`);
+    p17.log.step(`Would run: ${pc17.bold(`${npmBin} ${INSTALL_ARGS.join(" ")}`)}`);
     p17.log.warn("Dry run \u2014 no changes made.");
     return 0;
   }
@@ -13554,15 +13584,24 @@ async function runUpdateCommand(dryRun) {
     p17.log.info(`Update skipped. Run ${pc17.cyan(UPDATE_COMMAND)} later if you change your mind.`);
     return 0;
   }
-  p17.log.info(`Running ${pc17.cyan(`${npmBin} install -g anygate@latest`)}...`);
-  const child = spawn5(npmBin, ["install", "-g", "anygate@latest"], {
+  p17.log.info(`Running ${pc17.cyan(`${npmBin} ${INSTALL_ARGS.join(" ")}`)}...`);
+  const child = spawn5(npmBin, [...INSTALL_ARGS], {
     stdio: "inherit",
+    shell,
     windowsHide: true
   });
   return new Promise((resolve) => {
+    let settled = false;
+    const settle = (code) => {
+      if (settled) return;
+      settled = true;
+      resolve(code);
+    };
     child.on("error", (err) => {
-      p17.log.error(`Failed to start npm: ${err instanceof Error ? err.message : String(err)}`);
-      resolve(1);
+      const msg = err instanceof Error ? err.message : String(err);
+      p17.log.error(`Could not start npm: ${msg}`);
+      p17.log.info(`Update anygate manually with: ${pc17.cyan(UPDATE_COMMAND)}`);
+      settle(1);
     });
     child.on("close", (code) => {
       if (code === 0) {
@@ -13572,7 +13611,7 @@ async function runUpdateCommand(dryRun) {
       } else {
         p17.log.error(`Update failed (exit ${code}). Try ${pc17.cyan(UPDATE_COMMAND)} manually.`);
       }
-      resolve(code ?? 1);
+      settle(code ?? 1);
     });
   });
 }
@@ -13580,7 +13619,7 @@ async function runUpdateCommand(dryRun) {
 // src/cli/update.ts
 async function handleUpdateCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import("./constants-44MPOADS.js");
+    const { VERSION: VERSION2 } = await import("./constants-NMMR74AL.js");
     console.log(VERSION2);
     return 0;
   }
