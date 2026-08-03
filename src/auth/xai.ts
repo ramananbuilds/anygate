@@ -80,7 +80,18 @@ export async function pollXaiDeviceCodeToken(
     })
     if (response.ok) return response.json() as Promise<OAuthTokenResponse>
 
-    const body = (await response.json().catch(() => ({}))) as { error?: string }
+    // Read as text first so a non-JSON error body (HTML error page, proxy or
+    // gateway failure) can be reported with its status instead of collapsing to
+    // an empty object and surfacing as an unexplained "authorization failed".
+    const raw = await response.text().catch(() => '')
+    let body: { error?: string; error_description?: string } = {}
+    try {
+      if (raw.trim().startsWith('{')) {
+        body = JSON.parse(raw) as { error?: string; error_description?: string }
+      }
+    } catch {
+      // leave body empty — reported with status and excerpt below
+    }
     const remaining = Math.max(0, deadline - now())
     if (body.error === 'authorization_pending') {
       await sleep(Math.min(intervalMs + OAUTH_POLLING_SAFETY_MARGIN_MS, remaining))
@@ -91,7 +102,17 @@ export async function pollXaiDeviceCodeToken(
       await sleep(Math.min(intervalMs + OAUTH_POLLING_SAFETY_MARGIN_MS, remaining))
       continue
     }
-    throw new Error(`xAI device authorization failed${body.error ? `: ${body.error}` : ''}`)
+    if (body.error === 'expired_token') {
+      throw new Error('xAI device code expired — run anygate providers auth xai again')
+    }
+    if (body.error) {
+      const detail = body.error_description ? ` — ${body.error_description}` : ''
+      throw new Error(`xAI device authorization failed: ${body.error}${detail}`)
+    }
+    throw new Error(
+      `xAI device authorization failed (HTTP ${response.status})` +
+        `${raw.trim() ? `: ${raw.replace(/\s+/g, ' ').trim().slice(0, 200)}` : ''}`
+    )
   }
   throw new Error('xAI device authorization timed out')
 }

@@ -207,16 +207,47 @@ function oauthDisplayName(registryId: string, fallbackName: string): string {
   return fallbackName
 }
 
+/**
+ * Template id for an OAuth provider, and the template itself.
+ *
+ * The bare id is tried first so `xai-oauth` shares `xai.json` (one catalog entry
+ * for both auth modes), but not every OAuth provider has a bare-id template:
+ * there is no `openai.json`, only `openai-oauth.json`. Stripping unconditionally
+ * therefore resolved `openai-oauth` → `openai` → undefined, and upsert threw
+ * "is not in your registry and has no template" — *after* the tokens had been
+ * written to the keychain, leaving the user signed in with no provider and
+ * hitting the same error on every retry. Fall back to the id as given.
+ */
+function resolveOAuthTemplate(providerId: string): {
+  templateId: string
+  template: ReturnType<typeof getTemplateById>
+} {
+  const stripped = providerId.replace(/-oauth$/, '') || providerId
+  const strippedTemplate = getTemplateById(stripped)
+  if (strippedTemplate) return { templateId: stripped, template: strippedTemplate }
+
+  const exact = getTemplateById(providerId)
+  if (exact) return { templateId: providerId, template: exact }
+
+  const registryId = toOAuthRegistryId(providerId)
+  const viaRegistryId = getTemplateById(registryId)
+  if (viaRegistryId) return { templateId: registryId, template: viaRegistryId }
+
+  return { templateId: stripped, template: undefined }
+}
+
+/** Exposed for tests — the resolution order above is the fix being pinned. */
+export const resolveOAuthTemplateForTest = resolveOAuthTemplate
+
 async function upsertOAuthProvider(
   providerId: string,
   cred: OpencodeOAuthCredential
 ): Promise<RegistryProvider> {
   const registryId = toOAuthRegistryId(providerId)
-  const templateId = providerId.replace(/-oauth$/, '') || providerId
+  const { templateId, template } = resolveOAuthTemplate(providerId)
 
   const registry = loadRegistry()
   const authRef = oauthAuthRef(registryId)
-  const template = getTemplateById(templateId)
   let entry: RegistryProvider | undefined = registry.providers.find(pr => pr.id === registryId)
 
   if (!entry) {

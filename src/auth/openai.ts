@@ -96,14 +96,26 @@ export async function pollOpenAiDeviceCodeToken(
         }).toString(),
       })
       if (!tokenResponse.ok) {
-        throw new Error(`OpenAI token exchange failed (${tokenResponse.status})`)
+        const detail = await tokenResponse.text().catch(() => '')
+        throw new Error(
+          `OpenAI token exchange failed (${tokenResponse.status})` +
+            `${detail.trim() ? `: ${detail.replace(/\s+/g, ' ').trim().slice(0, 200)}` : ''}`
+        )
       }
       const tokens = (await tokenResponse.json()) as OAuthTokenResponse
       return { tokens, accountId: extractOpenAiAccountId(tokens) }
     }
 
+    // 403/404 mean "not authorized yet" for this endpoint — keep polling.
+    // Anything else is terminal; include the body so a rejected client id,
+    // revoked device auth, or upstream outage is diagnosable rather than a
+    // bare status code.
     if (response.status !== 403 && response.status !== 404) {
-      throw new Error(`OpenAI device authorization failed (${response.status})`)
+      const detail = await response.text().catch(() => '')
+      throw new Error(
+        `OpenAI device authorization failed (${response.status})` +
+          `${detail.trim() ? `: ${detail.replace(/\s+/g, ' ').trim().slice(0, 200)}` : ''}`
+      )
     }
 
     await sleep(
