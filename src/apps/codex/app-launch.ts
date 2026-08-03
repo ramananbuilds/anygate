@@ -1,10 +1,6 @@
 // Find, open, quit, and restart the ChatGPT desktop app / Codex mode (macOS + Windows).
-import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
 import { AppLauncher } from '../shared/app-launcher.js'
-import * as p from '@clack/prompts'
 
 const CODEX_BUNDLE_ID = 'com.openai.codex'
 // OpenAI merged the Codex desktop app into the ChatGPT desktop app (2026-07-09).
@@ -41,6 +37,26 @@ export class CodexAppLauncher extends AppLauncher {
     }
   }
 
+  /**
+   * Find a Microsoft Store (MSIX) install via Get-StartApps. Store installs have
+   * no .exe at any fixed path, so the static winInstallBases search cannot see
+   * them. Returns a version-independent shell:AppsFolder moniker, which
+   * AppLauncher.openApp() launches via `cmd /c start`.
+   */
+  protected findWinAppExtra(): string | null {
+    for (const name of this.winAppNames) {
+      try {
+        const appId = this.runPowerShell(
+          `(Get-StartApps | Where-Object { $_.Name -eq '${name}' -or $_.Name -like '${name}*' } | Select-Object -First 1 -ExpandProperty AppID)`
+        )
+        if (appId) return `shell:AppsFolder\\${appId}`
+      } catch {
+        /* try the next name */
+      }
+    }
+    return null
+  }
+
   protected winQuitGracefulCommand(): string {
     const nameFilter = this.winAppNames.map(name => `'${name}'`).join(',')
     return `Get-Process ${nameFilter} -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | ForEach-Object { [void]$_.CloseMainWindow() }`
@@ -67,46 +83,11 @@ export function codexAppSupported(): void {
 }
 
 export function findCodexApp(): string | null {
-  // Sync version for backward compatibility (e.g., native-launcher.ts)
-  // Note: config override is handled by the async findApp() method
-  if (process.platform === 'darwin') {
-    for (const bundleName of launcher.darwinAppBundleNames) {
-      const paths = [`/Applications/${bundleName}`, join(homedir(), 'Applications', bundleName)]
-      for (const path of paths) {
-        if (existsSync(path)) return path
-      }
-    }
-    // mdfind fallback
-    try {
-      const out = execSync(`mdfind "kMDItemCFBundleIdentifier == '${CODEX_BUNDLE_ID}'"`, {
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }).trim()
-      const first = out
-        .split('\n')
-        .map(l => l.trim())
-        .find(Boolean)
-      if (first && existsSync(first)) return first
-    } catch {
-      /* ignore */
-    }
-  }
-  if (process.platform === 'win32') {
-    const localAppData = process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local')
-    for (const base of launcher.winInstallBases) {
-      for (const exe of launcher.winExeNames) {
-        const paths = [join(localAppData, 'Programs', base, exe), join(localAppData, base, exe)]
-        for (const path of paths) {
-          try {
-            if (existsSync(path)) return path
-          } catch {
-            /* ignore */
-          }
-        }
-      }
-    }
-  }
-  return null
+  // Delegates to the launcher rather than re-implementing the search — see the
+  // matching note in claude/desktop-launch.ts. The previous hand-rolled copy
+  // omitted findWinAppExtra(), hiding Microsoft Store (MSIX) installs from
+  // detectApp() and the web UI. Config override is handled inside findApp().
+  return launcher.findApp()
 }
 
 export async function findCodexAppAsync(): Promise<string | null> {
