@@ -35,7 +35,10 @@ anygate providers add → pick template → enter API key
 
 ### OAuth Device Code Flows
 
-Three providers use OAuth device code authorization:
+Three providers use OAuth device code authorization. Each has **two** distinct
+endpoints — the device-code request and the token poll — which are easy to conflate;
+GitHub's differ by a single path segment, and pointing the poll at the wrong one
+produces an HTML error page rather than a protocol error.
 
 #### GitHub Copilot
 ```text
@@ -44,25 +47,52 @@ requestGithubDeviceCode()
   → Return { device_code, user_code, verification_uri }
   → User visits URL, enters code
   → pollGithubDeviceCodeToken(device_code)
-  → Returns access_token
+    → POST https://github.com/login/oauth/access_token   (NOT /login/auth/...)
+    → Returns a ghu_ OAuth user token
+  → exchangeForCopilotToken(ghu_token)
+    → GET https://api.github.com/copilot_internal/v2/token
+    → Returns a short-lived Copilot session token
 ```
+
+The stored `refresh` value is the long-lived `ghu_` token, not an OAuth refresh
+token: renewal re-exchanges it for a fresh Copilot session token. Requests also
+require the `Editor-Version` header, which the template carries.
 
 #### OpenAI
 ```text
 requestOpenAiDeviceCode()
-  → POST to OpenAI device code endpoint
-  → Return { device_code, user_code, verification_uri }
-  → pollOpenAiDeviceCodeToken(device_code)
+  → POST https://auth.openai.com/api/accounts/deviceauth/usercode
+  → Return { device_auth_id, user_code, interval }
+  → pollOpenAiDeviceCodeToken(...)
+    → POST https://auth.openai.com/api/accounts/deviceauth/token
+    → 403/404 mean "not yet authorized" — keep polling
+    → On success, exchange the authorization_code at /auth/token
   → Returns OAuth tokens (access + refresh)
 ```
 
 #### xAI (Grok)
 ```text
 requestXaiDeviceCode()
-  → POST to xAI device code endpoint
+  → POST https://auth.x.ai/oauth2/device/code
   → pollXaiDeviceCodeToken(device_code)
-  → Returns API key or OAuth token
+    → POST https://auth.x.ai/oauth2/token
+  → Returns OAuth tokens (access + refresh)
 ```
+
+**Error handling.** Poll loops must not parse responses with a swallowing
+`.json().catch(() => ({}))`: a non-JSON body (HTML error page, proxy failure) then
+becomes an empty object indistinguishable from a valid pending response, and the
+real cause is lost. Read the body as text, parse it explicitly, and include the HTTP
+status plus an excerpt in any thrown error. A non-JSON body should fail immediately
+rather than polling to the deadline — an endpoint not speaking the device-flow
+protocol will not begin speaking it.
+
+**Template resolution.** After tokens are saved, `upsertOAuthProvider()` needs a
+template to build the registry entry. Do not assume stripping `-oauth` yields one:
+`xai-oauth` shares `xai.json`, but `openai-oauth` has no bare-id counterpart. The
+resolver tries the bare id, then the id as given, then the registry id. A provider
+that resolves to no template throws *after* its credential is persisted, stranding
+the user signed in with no usable provider.
 
 ### PKCE Flow (Claude Code)
 

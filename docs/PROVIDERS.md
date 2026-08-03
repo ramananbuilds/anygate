@@ -75,9 +75,10 @@ When you run `anygate providers add`, you can select from the following template
 - **Gotchas**: The gateway rejects unrecognized clients with `401 unauthorized client detected`, so the template ships `User-Agent` and `x-app` headers. The signup link is a referral link that grants $50 in bonus credits over registering directly; this is disclosed in the CLI and dashboard.
 
 ### Local Models (Ollama & LM Studio)
-- **Description**: Connects to locally running inference engines.
-- **Base URLs**: Custom prompts ask for your local URL (e.g., `http://127.0.0.1:11434/v1`).
-- **Gotchas**: You can skip providing an API key since local APIs generally don't require auth.
+- **Description**: Connects to locally running inference engines. Both are registered against `@ai-sdk/openai-compatible` and talk to the server's OpenAI-compatible `/v1` path.
+- **Base URLs**: Both templates carry a `urlPrompt`, so the CLI and the dashboard ask for your own URL instead of assuming the default port (`http://127.0.0.1:11434/v1` for Ollama, `http://127.0.0.1:1234/v1` for LM Studio). Plaintext `http://` is accepted for loopback and private-network addresses after an explicit confirmation; anything else is rejected by the SSRF guard in `src/registry/validation/url-security.ts`.
+- **API key**: Optional — leave it blank for a local server without auth. These providers materialize into the launchers with no stored credential at all, so you do not need a placeholder key.
+- **Context window**: A **server** setting, not a model property. Ollama serves `num_ctx` — 4096 unless you raised it — and silently truncates anything longer, so anygate reports the server's limit rather than the model's trained maximum. Reporting `llama3.1:8b` as 131K against a 4096-token server produces truncation that reads as incoherent output instead of an error. Export `OLLAMA_CONTEXT_LENGTH` (the same variable `ollama serve` reads) if you have raised your server default.
 
 ---
 

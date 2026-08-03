@@ -110,11 +110,19 @@ Two built-in backends that require an OpenCode API key:
 
 Models are fetched from the OpenCode registry API. Zen models can be filtered to free-only via `subscriptionFilter`.
 
-### SDK-Backed Providers (19+ Templates)
+### SDK-Backed Providers (23 Addable Templates)
 
 Providers routed through the Vercel AI SDK. Supported:
 
-Agent Router, Anthropic, Cerebras, Cohere, DeepInfra, DeepSeek, Fireworks, Groq, Kilo, LM Studio, Mistral, NVIDIA, Ollama, OpenCode Cloud, OpenRouter, OVH, Perplexity, Scaleway, Together AI, Venice, xAI
+Agent Router, Anthropic, Cerebras, Cohere, DeepInfra, DeepSeek, Fireworks, Groq, Kilo, LM Studio, Mistral, NVIDIA, Ollama, OpenCode Cloud, OpenRouter, OVH, Perplexity, SambaNova, Scaleway, Together AI, Venice, xAI
+
+Every template's `npm` field must name a package declared in `package.json` — a
+transitively-hoisted package resolves until a dependency bump drops it, and the failure
+then surfaces as a provider bug rather than a missing dependency. `tests/registry/provider-configuration.test.ts`
+enforces this, along with the JSON key schema and auth-type validity, across all templates.
+
+See [reference/supported-providers.md](../reference/supported-providers.md) for the full
+per-provider table (SDK package, base URL, auth type).
 
 ### OAuth Providers
 
