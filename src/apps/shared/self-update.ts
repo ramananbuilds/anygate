@@ -1,26 +1,39 @@
 // src/apps/shared/self-update.ts
 import pc from 'picocolors'
-import { spawn, execFileSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import * as p from '@clack/prompts'
 import { checkForUpdates, UPDATE_COMMAND } from './update-check.js'
 import { VERSION } from '../../../src/config/constants.js'
 
-/** Resolve the npm binary, accounting for Windows (npm.cmd). */
-function resolveNpmBin(): string {
-  if (process.platform === 'win32') {
-    try {
-      const found = execFileSync('where', ['npm'], { stdio: ['ignore', 'pipe', 'ignore'] })
-        .toString()
-        .split(/\r?\n/)
-        .map(s => s.trim())
-        .find(s => s.toLowerCase().endsWith('.cmd') || s.toLowerCase().endsWith('npm'))
-      if (found) return found
-    } catch {
-      // fall through to default
-    }
-    return 'npm.cmd'
-  }
-  return 'npm'
+/** Arguments for the global install. Fixed literals — nothing interpolated. */
+const INSTALL_ARGS = ['install', '-g', 'anygate@latest'] as const
+
+/**
+ * How to invoke npm on this platform.
+ *
+ * Windows previously resolved an absolute path via `where npm`, which was wrong
+ * three times over:
+ *
+ *  1. `where npm` lists the extensionless Unix shell script (`…\nodejs\npm`)
+ *     *before* `npm.cmd`, and the old predicate accepted anything ending in
+ *     "npm" — so it picked the one file CreateProcess cannot execute, failing
+ *     with `spawn …\nodejs\npm ENOENT`.
+ *  2. Since Node 18.20.2 / 20.12.2 / 21.7.3 (the CVE-2024-27980 fix), spawning
+ *     a `.cmd` or `.bat` requires `shell: true`. Even resolving `npm.cmd`
+ *     correctly would have failed with EINVAL without it.
+ *  3. With `shell: true`, an absolute path containing a space — the default
+ *     `C:\Program Files\nodejs\npm.cmd` — needs quoting, or cmd.exe treats
+ *     `C:\Program` as the command.
+ *
+ * Passing the bare name `npm` through the shell sidesteps all three: cmd.exe
+ * expands it via PATHEXT to `npm.cmd`, and with no absolute path there is no
+ * space to quote. On POSIX, spawn already resolves `npm` from PATH.
+ *
+ * `shell: true` is safe here because INSTALL_ARGS are compile-time constants;
+ * no user input reaches the command line.
+ */
+function resolveNpmSpawn(): { bin: string; shell: boolean } {
+  return { bin: 'npm', shell: process.platform === 'win32' }
 }
 
 /**
@@ -40,10 +53,10 @@ export async function runUpdateCommand(dryRun: boolean): Promise<number> {
     `Update available: ${pc.cyan(`v${update.currentVersion}`)} → ${pc.green(`v${update.latestVersion}`)}`
   )
 
-  const npmBin = resolveNpmBin()
+  const { bin: npmBin, shell } = resolveNpmSpawn()
 
   if (dryRun) {
-    p.log.step(`Would run: ${pc.bold(`${npmBin} install -g anygate@latest`)}`)
+    p.log.step(`Would run: ${pc.bold(`${npmBin} ${INSTALL_ARGS.join(' ')}`)}`)
     p.log.warn('Dry run — no changes made.')
     return 0
   }
@@ -58,19 +71,34 @@ export async function runUpdateCommand(dryRun: boolean): Promise<number> {
     return 0
   }
 
-  p.log.info(`Running ${pc.cyan(`${npmBin} install -g anygate@latest`)}...`)
+  p.log.info(`Running ${pc.cyan(`${npmBin} ${INSTALL_ARGS.join(' ')}`)}...`)
 
-  const child = spawn(npmBin, ['install', '-g', 'anygate@latest'], {
+  const child = spawn(npmBin, [...INSTALL_ARGS], {
     stdio: 'inherit',
+    shell,
     windowsHide: true,
   })
 
   return new Promise<number>(resolve => {
+    // Node emits BOTH 'error' and 'close' when a spawn fails to start, so a
+    // single failure reached both handlers: "Could not start npm: … ENOENT"
+    // followed by "Update failed (exit -4058)" (-4058 being the numeric ENOENT).
+    // The guard must cover the *logging*, not just resolve() — resolving once
+    // while both handlers still print leaves the user reading two unrelated
+    // errors for one cause, the second of which is a meaningless exit code.
+    let settled = false
+
     child.on('error', err => {
-      p.log.error(`Failed to start npm: ${err instanceof Error ? err.message : String(err)}`)
+      if (settled) return
+      settled = true
+      const msg = err instanceof Error ? err.message : String(err)
+      p.log.error(`Could not start npm: ${msg}`)
+      p.log.info(`Update anygate manually with: ${pc.cyan(UPDATE_COMMAND)}`)
       resolve(1)
     })
     child.on('close', code => {
+      if (settled) return
+      settled = true
       if (code === 0) {
         p.log.success(
           'anygate updated. Restart your shell or re-run anygate to use the new version.'
