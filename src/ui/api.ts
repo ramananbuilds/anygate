@@ -25,7 +25,6 @@ import { loadRegistry } from '../registry/storage/io.js'
 import { refreshProviderModels, refreshAllProviderModels } from '../registry/sync/refresh-models.js'
 import {
   listAddableTemplates,
-  listSupportedTemplates,
   listVisibleOAuthTemplates,
   PROVIDER_TEMPLATES,
   getTemplateById,
@@ -703,7 +702,12 @@ function handleGetTemplates(res: ServerResponse): void {
   const registry = loadRegistry()
   const configured = new Set(registry.providers.map(p => p.id))
 
-  const apiTemplates = listSupportedTemplates().map(t => ({
+  // Only offer providers the user has not configured yet. listSupportedTemplates()
+  // returns the whole catalog, so using it here listed providers that were already
+  // set up (with a working key) alongside genuinely new ones. listAddableTemplates
+  // applies the same exclusion the CLI's add flow uses, including the zen/go
+  // aliasing for opencode-cloud.
+  const apiTemplates = listAddableTemplates(configured).map(t => ({
     id: t.id,
     name: t.name,
     signupUrl: t.signupUrl ?? null,
@@ -787,12 +791,18 @@ async function handleAddProvider(req: IncomingMessage, res: ServerResponse): Pro
       sendJson(res, 400, { error: 'key must be a non-empty string' })
       return
     }
-    const keyText =
-      template.apiKeyOptional && !rawKey && !template.anonymousFreeModels ? template.id : rawKey
+    // Keyless self-hosted providers (Ollama, LM Studio) are stored with no
+    // credential at all. This used to persist template.id as a stand-in key to
+    // survive materializeOne's blank-key guard; that guard now honours
+    // apiKeyOptional, so the fake credential is unnecessary and misleading.
+    const keyText = rawKey
 
     let baseUrlOverride: string | undefined
     if (template.urlPrompt) {
-      baseUrlOverride = typeof baseUrl === 'string' ? baseUrl.trim() : ''
+      // Fall back to the template default so a user on the standard port can
+      // submit without retyping the URL the form already shows.
+      baseUrlOverride =
+        (typeof baseUrl === 'string' ? baseUrl.trim() : '') || (template.defaultBaseUrl ?? '')
       if (!baseUrlOverride) {
         sendJson(res, 400, { error: 'baseUrl required' })
         return

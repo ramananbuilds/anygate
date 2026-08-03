@@ -77,9 +77,9 @@
       {#each templates as t (t.id)}<option value={t.id}>{t.name}{t.anonymousFreeModels ? ' (free)' : ''}{t.subscriptionRisk ? ' ⚠' : ''}</option>{/each}
     </select>
 
-    {#if current && current.authType === 'api' && !current.apiKeyOptional && !customOpenai && !customAnthropic}
-      <span class="lbl" style="margin-top:14px">API key</span>
-      <Input bind:value={apiKey} placeholder={current.apiKeyOptional ? 'optional' : 'Paste your key'} />
+    {#if current && current.authType === 'api' && !customOpenai && !customAnthropic}
+      <span class="lbl" style="margin-top:14px">API key{#if current.apiKeyOptional} <span style="color:var(--text-3)">(optional)</span>{/if}</span>
+      <Input bind:value={apiKey} placeholder={current.apiKeyOptional ? 'Leave blank for a local server without auth' : 'Paste your key'} />
       {#if current.signupUrl}
         <a class="hint-link" href={current.signupUrl} target="_blank" rel="noopener noreferrer">Get an API key →</a>
       {/if}

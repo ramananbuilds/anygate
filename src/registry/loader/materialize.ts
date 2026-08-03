@@ -38,7 +38,7 @@ export function cachedModelToLocal(
       brand: cached.brand ?? deriveBrand(cached.family ?? ''),
       modelFormat: 'cloud-code',
       upstreamModelId: cached.upstreamModelId ?? cached.id,
-      contextWindow: cached.contextWindow ?? resolveContextWindow(id),
+      contextWindow: cached.contextWindow ?? resolveContextWindow(id, undefined, provider.id),
       isFree: isFreeStatus(freeStatus),
       freeStatus,
       reasoning: cached.reasoning,
@@ -76,7 +76,7 @@ export function cachedModelToLocal(
     cost: cached.cost,
     isFree: isFreeStatus(freeStatus),
     freeStatus,
-    contextWindow: cached.contextWindow ?? resolveContextWindow(id),
+    contextWindow: cached.contextWindow ?? resolveContextWindow(id, undefined, provider.id),
     supportedParameters: cached.supportedParameters,
     reasoning: cached.reasoning ?? modelsDev?.reasoning,
     interleavedReasoningField: cached.interleavedReasoningField ?? modelsDev?.interleaved?.field,
@@ -88,6 +88,19 @@ export function cachedModelToLocal(
 function providerAllowsAnonymousFreeModels(provider: RegistryProvider): boolean {
   const template = getTemplateById(provider.templateId) ?? getTemplateById(provider.id)
   return template?.anonymousFreeModels === true
+}
+
+/**
+ * True for providers that legitimately have no credential — self-hosted servers
+ * like Ollama and LM Studio, which serve every model without auth.
+ *
+ * Without this, a keyless Ollama is dropped by the `!apiKey.trim()` guard below
+ * and silently disappears from every launcher despite being configured.
+ */
+function providerAllowsMissingKey(provider: RegistryProvider): boolean {
+  if (provider.authType === 'none') return true
+  const template = getTemplateById(provider.templateId) ?? getTemplateById(provider.id)
+  return template?.apiKeyOptional === true
 }
 
 function materializeOne(
@@ -116,7 +129,7 @@ function materializeOne(
   }
   if (models.length === 0) return null
 
-  if (!apiKey.trim() && !anonymousFreeOnly) return null
+  if (!apiKey.trim() && !anonymousFreeOnly && !providerAllowsMissingKey(provider)) return null
 
   return {
     id: provider.id,

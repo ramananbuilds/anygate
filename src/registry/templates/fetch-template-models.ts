@@ -129,8 +129,14 @@ function parseModelList(
     const freeStatus = classifyFreeStatus({
       model: { cost, isFree: row.isFree },
     })
+    // providerId matters here: self-hosted servers (Ollama, LM Studio) report no
+    // context_length at all, and without the provider the generic ID heuristics
+    // advertise a model's trained maximum instead of what the server will serve.
     const contextWindow =
-      row.context_length ?? row.contextWindow ?? row.context_window ?? resolveContextWindow(id)
+      row.context_length ??
+      row.contextWindow ??
+      row.context_window ??
+      resolveContextWindow(id, undefined, providerId)
     models.push({
       id,
       name: normalizeGoogleDisplayName(row.name, id),
@@ -191,7 +197,7 @@ export async function fetchTemplateModels(
         upstreamModelId: sm.id,
         family,
         brand: deriveBrand(family),
-        contextWindow: resolveContextWindow(sm.id),
+        contextWindow: resolveContextWindow(sm.id, undefined, template.id),
         modelFormat: modelFormatForNpm(template.npm),
         npm: template.npm,
       }
