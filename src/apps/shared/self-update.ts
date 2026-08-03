@@ -80,25 +80,27 @@ export async function runUpdateCommand(dryRun: boolean): Promise<number> {
   })
 
   return new Promise<number>(resolve => {
-    // Node emits BOTH 'error' and 'close' when a spawn fails to start, so a
-    // single failure reached both handlers: "Could not start npm: … ENOENT"
-    // followed by "Update failed (exit -4058)" (-4058 being the numeric ENOENT).
-    // The guard must cover the *logging*, not just resolve() — resolving once
-    // while both handlers still print leaves the user reading two unrelated
-    // errors for one cause, the second of which is a meaningless exit code.
+    // Node emits BOTH 'error' and 'close' when a spawn fails to start, so
+    // without this guard one failure printed two messages ("Could not start
+    // npm: … ENOENT" followed by "Update failed (exit -4058)", -4058 being the
+    // numeric ENOENT). The guard must gate each handler's log side-effects, not
+    // just resolve() — otherwise both messages still print. Report the first
+    // outcome only.
     let settled = false
+    const settle = (code: number): void => {
+      settled = true
+      resolve(code)
+    }
 
     child.on('error', err => {
       if (settled) return
-      settled = true
       const msg = err instanceof Error ? err.message : String(err)
       p.log.error(`Could not start npm: ${msg}`)
       p.log.info(`Update anygate manually with: ${pc.cyan(UPDATE_COMMAND)}`)
-      resolve(1)
+      settle(1)
     })
     child.on('close', code => {
       if (settled) return
-      settled = true
       if (code === 0) {
         p.log.success(
           'anygate updated. Restart your shell or re-run anygate to use the new version.'
@@ -106,7 +108,7 @@ export async function runUpdateCommand(dryRun: boolean): Promise<number> {
       } else {
         p.log.error(`Update failed (exit ${code}). Try ${pc.cyan(UPDATE_COMMAND)} manually.`)
       }
-      resolve(code ?? 1)
+      settle(code ?? 1)
     })
   })
 }
