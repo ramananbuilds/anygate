@@ -2,12 +2,18 @@
 
 ## 0.6.1 (2026-08-04)
 
-Provider configuration and OAuth fixes. GitHub Copilot and OpenAI ChatGPT sign-in
-could never complete — one posted to a non-existent GitHub endpoint, the other threw
-on a missing template after already saving its tokens. Ollama and LM Studio were
-unusable on any non-default port, a keyless local server disappeared from every
-launcher, and three templates (SambaNova, Fireworks, Cohere) were mis-declared. The
-dashboard also offered providers you had already configured as new ones to add.
+Provider, OAuth, launcher, and self-update fixes — mostly cases where a feature
+could never have worked, not edge cases.
+
+GitHub Copilot and OpenAI ChatGPT sign-in could never complete: one posted to a
+non-existent GitHub endpoint, the other threw on a missing template *after* already
+saving its tokens. Ollama and LM Studio were unusable on any non-default port, a
+keyless local server disappeared from every launcher, and three templates
+(SambaNova, Fireworks, Cohere) were mis-declared badly enough that two of them could
+not be added at all. The dashboard offered providers you had already configured as
+new ones to add. `anygate update` was broken for every Windows user on a default Node
+install, and Microsoft Store installs of Claude Desktop and ChatGPT were reported as
+not installed.
 
 ### Bug Fixes — self-hosted providers (Ollama, LM Studio)
 
@@ -31,12 +37,20 @@ dashboard also offered providers you had already configured as new ones to add.
 - **Cohere relied on a fallback for its SDK package**: `cohere.json` omitted `npm` entirely and depended on the `NPM_PACKAGES` lookup in `provider-templates.ts`. Now declared explicitly, alongside the `signupUrl` and `modelSource` it was also missing.
 - **`@ai-sdk/anthropic` and `@ai-sdk/provider-utils` were imported but never declared**: both resolved only by transitive hoisting through `@ai-sdk/amazon-bedrock` and `@ai-sdk/google-vertex`. `provider-factory.ts` dynamically imports the former for every Anthropic-format provider (Anthropic, Agent Router, Claude Code), so a dependency bump that dropped or renamed it would have broken Anthropic routing at runtime — presenting as a provider bug rather than a missing dependency. Both are now direct dependencies at their already-resolved versions (3.0.81 and 4.0.27), so no version changed.
 
+### Bug Fixes — launchers and self-update
+
+- **`anygate update` failed on Windows with `spawn …\nodejs\npm ENOENT`**: `resolveNpmBin()` shelled out to `where npm` and accepted the first line ending in `.cmd` *or* `npm` — but `where` lists the extensionless Unix shell script (`C:\Program Files\nodejs\npm`) before `npm.cmd`, so it always chose the one file `CreateProcess` cannot execute. Two further latent bugs sat behind it: spawning a `.cmd` has required `shell: true` since Node 18.20.2 (the CVE-2024-27980 fix), and under `shell: true` the unquoted default path would have split at `C:\Program`. npm is now invoked by bare name with `shell: true` on Windows, letting cmd.exe resolve it via PATHEXT — no absolute path, nothing to quote. The self-update path was effectively broken for every Windows user on a default Node install.
+- **One failed update printed two errors**: Node emits both `error` and `close` when a child cannot start, so a single failure produced `Could not start npm: … ENOENT` followed by `Update failed (exit -4058)` — `-4058` being the numeric ENOENT. The existing `settled` guard covered only `resolve()` while both handlers logged before consulting it, so the user still read two unrelated errors for one cause, the second a meaningless exit code. The guard now gates the logging as well. Applied to the unreferenced duplicate in `src/services/self-update.ts` too, which carried the identical bug and whose header comment asks that it be kept in sync.
+- **Microsoft Store installs of Claude Desktop and ChatGPT were reported as not installed**: `findClaudeApp()` and `findCodexApp()` re-implemented the app search by hand, checking two static `%LOCALAPPDATA%` paths and never calling `findWinAppExtra()`. Store (MSIX) installs have no `.exe` at any fixed path, so `detectApp()` and the web dashboard showed both apps as missing even though `findApp()` could locate them. Both now delegate to `launcher.findApp()`, and `CodexAppLauncher` gained a `findWinAppExtra()` that resolves a Store install through `Get-StartApps` to a version-independent `shell:AppsFolder` moniker.
+- **A stale path override made an installed app look missing**: `detectApp()` treated an override that no longer exists as proof the app was absent. Store paths are version-stamped (`…\WindowsApps\Claude_1.24012.1.0_x64__…`), so every Store auto-update invalidated a previously-working override and left users permanently stuck — re-browsing to the new path only re-armed the same trap on the next update. A stale override now falls through to auto-detection, which resolves the version-independent moniker.
+
 ### Tests
 
 - **`tests/registry/ollama-provider.test.ts`** (15 tests): `urlPrompt` survives template loading for both self-hosted providers; a keyless `apiKeyOptional` provider materializes while one that genuinely requires a key is still dropped; context windows report the server limit rather than the trained maximum, honour `OLLAMA_CONTEXT_LENGTH`, ignore malformed values, and do not clamp hosted providers; the same model id is clamped under Ollama but not under its hosted provider; `ollamaProviderMeta` matches the template.
 - **`tests/auth/oauth-provider-setup.test.ts`** (14 tests): GitHub posts to the correct token endpoint, reports status and body on a non-JSON response, fails fast rather than polling to the deadline, and still retries `authorization_pending`; xAI reports non-JSON bodies with status, surfaces `error_description`, gives an actionable `expired_token` message, and still retries `authorization_pending`/`slow_down`; every native OAuth provider resolves to a template, `openai-oauth` falls back correctly while `xai-oauth` keeps sharing `xai.json`, the canonical and registry ids resolve identically, and Copilot's `Editor-Version` header survives. Existing response doubles in `tests/auth/oauth-github.test.ts` and `oauth-openai.test.ts` supplied only `json()`; they now also supply `text()`, matching real `Response` objects, rather than the product being weakened to fit incomplete fixtures.
 - **`tests/registry/provider-configuration.test.ts`** (14 tests): every supported template names an SDK package the factory can construct **and** that is a declared dependency; every `api-list` template resolves a base URL or asks for one; no template carries an invalid auth type or degrades to anonymous while advertising a key; `http://` base URLs are restricted to key-optional, `urlPrompt`-carrying local servers. The Add-provider endpoint is driven end-to-end against a real registry, asserting configured providers are excluded, unconfigured ones are still offered, the custom-endpoint entries always survive, and the UI's list matches the CLI's for identical registry state.
-- The Add-list test was verified red-capable: reverting the one-line fix turns 2 of the 14 red, then green again when restored. The same was done for both OAuth fixes — restoring the wrong GitHub URL fails the endpoint test, and restoring the unconditional `-oauth` strip fails two resolution tests.
+- **`tests/apps/detect-app-override.test.ts`** (6 tests): a live override is honoured, a stale one falls through to auto-detection rather than reporting the app missing, and Store-install detection resolves through `Get-StartApps`.
+- Fixes were verified red-capable rather than assumed: reverting the Add-list change turns 2 of its 14 tests red; restoring the wrong GitHub URL fails the endpoint test; restoring the unconditional `-oauth` strip fails two resolution tests; removing the log guard from the `close` handler fails the double-error test. Each goes green again when restored.
 
 ### Documentation
 
