@@ -13593,17 +13593,18 @@ async function runUpdateCommand(dryRun) {
   return new Promise((resolve) => {
     let settled = false;
     const settle = (code) => {
-      if (settled) return;
       settled = true;
       resolve(code);
     };
     child.on("error", (err) => {
+      if (settled) return;
       const msg = err instanceof Error ? err.message : String(err);
       p17.log.error(`Could not start npm: ${msg}`);
       p17.log.info(`Update anygate manually with: ${pc17.cyan(UPDATE_COMMAND)}`);
       settle(1);
     });
     child.on("close", (code) => {
+      if (settled) return;
       if (code === 0) {
         p17.log.success(
           "anygate updated. Restart your shell or re-run anygate to use the new version."
