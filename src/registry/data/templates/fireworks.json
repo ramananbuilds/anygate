@@ -9,5 +9,5 @@
   "modelsEndpoint": "/models",
   "signupUrl": "https://fireworks.ai/account/api-keys",
   "modelSource": "api-list",
-  "npm": "@ai-sdk/fireworks"
+  "npm": "@ai-sdk/openai-compatible"
 }
