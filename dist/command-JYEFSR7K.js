@@ -546,7 +546,7 @@ async function doStartGatewayServer(req) {
   }
   setServerFavoritesOnly(req.favoritesOnly)
   setServerFreeModelsOnly(req.freeModelsOnly)
-  if (req.exposedProviders) setServerExposedProviders(req.exposedProviders)
+  setServerExposedProviders(req.exposedProviders ?? [])
   setServerMaskGatewayIds(req.maskGatewayIds)
   setServerListenMode(req.listenMode)
   const host = req.listenMode === 'network' ? '0.0.0.0' : '127.0.0.1'
@@ -2198,4 +2198,4 @@ async function runUiCommand(opts = {}) {
   return 0
 }
 export { formatUiServerLifecycleMessage, isUiApiRoute, resolveUiShutdownDecision, runUiCommand }
-//# sourceMappingURL=command-Y6RSWLKD.js.map
+//# sourceMappingURL=command-JYEFSR7K.js.map

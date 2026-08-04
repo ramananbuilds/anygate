@@ -13287,7 +13287,7 @@ Options:
 `)
     return 0
   }
-  const { runUiCommand } = await import('./command-Y6RSWLKD.js')
+  const { runUiCommand } = await import('./command-JYEFSR7K.js')
   return runUiCommand({ trace: parsed.trace })
 }
 

@@ -56,7 +56,12 @@ vi.mock('../../src/storage/config.js', async () => {
     setSavedServerPassword: vi.fn(async (password: string) => {
       state.savedPassword = password
     }),
-    getServerExposedProviders: vi.fn(() => state.exposedProviders),
+    // Mirror the real implementation, which treats an empty list as "all
+    // providers" (null). A mock that returned [] verbatim would diverge from
+    // production and could hide round-trip bugs.
+    getServerExposedProviders: vi.fn(() =>
+      state.exposedProviders && state.exposedProviders.length > 0 ? state.exposedProviders : null
+    ),
     setServerExposedProviders: vi.fn((ids: string[]) => {
       state.exposedProviders = ids
     }),
@@ -429,6 +434,32 @@ describe('UI API Server endpoints', () => {
 
       const status = await call('GET', '/api/server/status')
       expect(status.body.saved.exposedProviders).toEqual(['zen'])
+    })
+
+    it('clears a saved subset when switching back to all providers', async () => {
+      state.models = [testModel, otherModel]
+      // Narrow to one provider, then widen back to all.
+      await call('POST', '/api/server/start', {
+        favoritesOnly: false,
+        freeModelsOnly: false,
+        exposedProviders: ['zen'],
+        maskGatewayIds: false,
+        listenMode: 'local',
+      })
+      await call('POST', '/api/server/stop')
+      await call('POST', '/api/server/start', {
+        favoritesOnly: false,
+        freeModelsOnly: false,
+        exposedProviders: null,
+        maskGatewayIds: false,
+        listenMode: 'local',
+      })
+      await call('POST', '/api/server/stop')
+
+      // Previously `null` skipped persistence, so the stale ['zen'] subset
+      // survived and the panel restored it.
+      const status = await call('GET', '/api/server/status')
+      expect(status.body.saved.exposedProviders).toBeNull()
     })
 
     it('reports the selection back on the running status', async () => {

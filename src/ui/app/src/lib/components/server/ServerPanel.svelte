@@ -44,6 +44,10 @@
     return providerOptions.filter((p) => allowed.has(p.id)).reduce((n, p) => n + p.modelCount, 0);
   });
 
+  // Plain variable, not $state: the effect below both reads and writes it, and
+  // tracking it would re-trigger the effect.
+  let syncedKey: string | null = null;
+
   function sync() {
     if (!status) return;
     favoritesOnly = status.saved.favoritesOnly;
@@ -53,7 +57,17 @@
     // Restore the saved provider selection instead of silently resetting to all.
     selectedProviders = status.saved.exposedProviders ?? null;
   }
-  $effect(() => { if (status) sync(); });
+
+  // Adopt saved config only when it actually changes. Syncing on every status
+  // update would discard edits in progress, because status now refreshes
+  // frequently (SSE events plus the fallback poll).
+  $effect(() => {
+    if (!status) return;
+    const key = JSON.stringify(status.saved);
+    if (key === syncedKey) return;
+    syncedKey = key;
+    sync();
+  });
 
   async function loadProviders() {
     providersLoading = true;
