@@ -71,7 +71,7 @@ import {
   summarizeServerProviders,
   validateCustomEndpointUrl,
   writeSecureLogLine,
-} from './chunk-YQLTCKDA.js'
+} from './chunk-BY4AKT2X.js'
 import { BACKENDS, GATEWAY_PORT, MAX_MODEL_CATALOG } from './chunk-UE2I2ETX.js'
 import {
   getTemplateById,
@@ -369,6 +369,8 @@ function getGatewayLaunchCommand(appId, options = {}) {
   }
   if (options.favoritesCatalog) {
     args.push('--favorites')
+  } else if (options.allModels && options.providerId) {
+    args.push('--provider', options.providerId, '--all-models')
   } else if (options.providerId && options.modelId) {
     args.push('--provider', options.providerId, '--model', options.modelId)
   } else if (options.providerId || options.modelId) {
@@ -1750,7 +1752,7 @@ var AGY_APP_IDS = /* @__PURE__ */ new Set(['antigravity', 'agy', 'antigravity-id
 async function handleLaunchApp(req, res, opts) {
   try {
     const body = JSON.parse(await readBody(req))
-    const { appId, favorites, favoritesCatalog, cwd } = body
+    const { appId, favorites, favoritesCatalog, allModels, cwd } = body
     let { providerId, modelId } = body
     if (!appId) {
       sendJson(res, 400, { error: 'Missing appId' })
@@ -1765,7 +1767,11 @@ async function handleLaunchApp(req, res, opts) {
       sendJson(res, 400, { error: `App ${appId} is not installed on this system.` })
       return
     }
-    if (!favorites && (providerId || modelId) && (!providerId || !modelId)) {
+    if (allModels && !providerId) {
+      sendJson(res, 400, { error: 'providerId is required when allModels is true.' })
+      return
+    }
+    if (!allModels && !favorites && (providerId || modelId) && (!providerId || !modelId)) {
       sendJson(res, 400, {
         error: 'Both providerId and modelId are required to launch a specific anygate model.',
       })
@@ -1774,6 +1780,8 @@ async function handleLaunchApp(req, res, opts) {
     const fullCatalog = Boolean(favoritesCatalog)
     if (fullCatalog) {
       providerId = void 0
+      modelId = void 0
+    } else if (allModels) {
       modelId = void 0
     } else if (favorites && !providerId && !modelId) {
       const prefs = loadPreferences()
@@ -1801,13 +1809,14 @@ async function handleLaunchApp(req, res, opts) {
     const launchCmd = getGatewayLaunchCommand(appId, {
       providerId,
       modelId,
+      allModels: Boolean(allModels) && Boolean(providerId),
       favoritesCatalog: fullCatalog,
       cwd: launchFolder,
       trace: opts.trace,
     })
     traceUi(
       opts,
-      `launch app=${appId} provider=${providerId ?? ''} model=${modelId ?? ''} favorites=${Boolean(favorites)} catalog=${fullCatalog} cwd=${launchFolder ?? ''} command=${launchCmd}`
+      `launch app=${appId} provider=${providerId ?? ''} model=${modelId ?? ''} allModels=${Boolean(allModels)} favorites=${Boolean(favorites)} catalog=${fullCatalog} cwd=${launchFolder ?? ''} command=${launchCmd}`
     )
     exec(launchCmd, err => {
       if (err) {
@@ -2198,4 +2207,4 @@ async function runUiCommand(opts = {}) {
   return 0
 }
 export { formatUiServerLifecycleMessage, isUiApiRoute, resolveUiShutdownDecision, runUiCommand }
-//# sourceMappingURL=command-JYEFSR7K.js.map
+//# sourceMappingURL=command-XIDZGWNR.js.map

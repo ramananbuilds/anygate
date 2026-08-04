@@ -218,6 +218,24 @@ export function makeRouteResolver(
 }
 
 /**
+ * Build proxy routes for every routable model on a single provider, suitable for
+ * launching with the full provider catalog in the app's /model switcher.
+ * The starting model is placed first so the agent boots on it.
+ */
+export function buildProviderAllModelRoutes(
+  provider: LocalProvider,
+  startingRoute: ProxyRoute,
+  resolveRoute: (providerId: string, modelId: string) => ProxyRoute | undefined,
+  max = MAX_MODEL_CATALOG
+): ProxyRoute[] {
+  const tail = provider.models
+    .map(model => resolveRoute(provider.id, model.id))
+    .filter((route): route is ProxyRoute => route !== undefined)
+    .filter(route => route.aliasId !== startingRoute.aliasId)
+  return dedupeByKey([startingRoute, ...tail], route => route.aliasId, max)
+}
+
+/**
  * Claude-specific catalog builder. Takes a `resolveRoute` function (not a
  * ResolveContext) and returns built ProxyRoute[] — does NOT delegate to
  * `buildFavoritesList` in `./favorites-resolver.ts` because the input/output

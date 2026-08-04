@@ -94366,6 +94366,18 @@ function makeRouteResolver(localProviders) {
     return provider && model ? (localModelToRoute(provider, model) ?? void 0) : void 0
   }
 }
+function buildProviderAllModelRoutes(
+  provider,
+  startingRoute,
+  resolveRoute2,
+  max = MAX_MODEL_CATALOG
+) {
+  const tail = provider.models
+    .map(model => resolveRoute2(provider.id, model.id))
+    .filter(route => route !== void 0)
+    .filter(route => route.aliasId !== startingRoute.aliasId)
+  return dedupeByKey([startingRoute, ...tail], route => route.aliasId, max)
+}
 function buildCatalogRoutes(startingRoute, favorites, resolveRoute2, max = MAX_MODEL_CATALOG) {
   const droppedFavorites = []
   const tail = favorites
@@ -98375,6 +98387,7 @@ export {
   resolveProvidersForDisplay,
   localProvidersToServerModels,
   makeRouteResolver,
+  buildProviderAllModelRoutes,
   buildCatalogRoutes,
   findBinaryOnPath,
   findClaudeBinary,
@@ -98428,4 +98441,4 @@ export {
   runServerCommand,
   favoriteProviderDisplayName,
 }
-//# sourceMappingURL=chunk-YQLTCKDA.js.map
+//# sourceMappingURL=chunk-BY4AKT2X.js.map

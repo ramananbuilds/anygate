@@ -39,6 +39,7 @@ export async function launch(opts: {
   modelId?: string
   cwd?: string
   favoritesCatalog?: boolean
+  allModels?: boolean
 }): Promise<void> {
   try {
     const res = await api.launchApp(opts)

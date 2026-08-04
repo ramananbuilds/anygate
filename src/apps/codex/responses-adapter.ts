@@ -616,6 +616,10 @@ export interface ResponsesStreamSummary {
   aborted?: boolean
   /** Set when the stream ended with an upstream error part (e.g. HTTP 4xx/5xx). */
   errorMessage?: string
+  /** Prompt tokens reported by the upstream, for usage analytics. */
+  inputTokens?: number
+  /** Completion tokens reported by the upstream, for usage analytics. */
+  outputTokens?: number
 }
 
 export interface ResponsesStreamProgress {
@@ -1155,6 +1159,8 @@ export async function writeResponsesStream(
     toolNames: toolStates.map(t => t.name),
     loopDetected,
     dsmlToolCallsRecovered: dsml?.calls.length,
+    inputTokens: usage.input_tokens,
+    outputTokens: usage.output_tokens,
   })
 
   emit('response.completed', {

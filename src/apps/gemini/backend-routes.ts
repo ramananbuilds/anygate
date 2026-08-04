@@ -67,7 +67,8 @@ export async function rewriteGeminiBackendRoutes(
       backendUrl: `http://127.0.0.1:${backend.port}`,
       apiKey: backend.token,
     }),
-    trace
+    trace,
+    'gemini'
   )
 
   if (!partitioned.backend) {

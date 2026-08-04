@@ -1326,7 +1326,7 @@ async function handleLaunchApp(
 ): Promise<void> {
   try {
     const body = JSON.parse(await readBody(req))
-    const { appId, favorites, favoritesCatalog, cwd } = body
+    const { appId, favorites, favoritesCatalog, allModels, cwd } = body
     let { providerId, modelId } = body as { providerId?: string; modelId?: string }
     if (!appId) {
       sendJson(res, 400, { error: 'Missing appId' })
@@ -1343,23 +1343,23 @@ async function handleLaunchApp(
       return
     }
 
-    if (!favorites && (providerId || modelId) && (!providerId || !modelId)) {
+    // allModels (provider catalog mode): requires providerId, no modelId needed
+    if (allModels && !providerId) {
+      sendJson(res, 400, { error: 'providerId is required when allModels is true.' })
+      return
+    }
+    if (!allModels && !favorites && (providerId || modelId) && (!providerId || !modelId)) {
       sendJson(res, 400, {
         error: 'Both providerId and modelId are required to launch a specific anygate model.',
       })
       return
     }
 
-    // Favorites launch modes:
-    //  - favoritesCatalog: emit a bare --favorites so the CLI builds the full
-    //    multi-route proxy and the app's model picker shows every favorite.
-    //  - favorites (legacy, default when only the checkbox was ticked): resolve
-    //    to the first favorite so non-catalog agents (or bare --model launches)
-    //    still get a concrete model without an interactive wizard.
     const fullCatalog = Boolean(favoritesCatalog)
     if (fullCatalog) {
-      // No --provider/--model needed; the CLI owns the catalog.
       providerId = undefined
+      modelId = undefined
+    } else if (allModels) {
       modelId = undefined
     } else if (favorites && !providerId && !modelId) {
       const prefs = loadPreferences()
@@ -1389,13 +1389,14 @@ async function handleLaunchApp(
     const launchCmd = getGatewayLaunchCommand(appId, {
       providerId,
       modelId,
+      allModels: Boolean(allModels) && Boolean(providerId),
       favoritesCatalog: fullCatalog,
       cwd: launchFolder,
       trace: opts.trace,
     })
     traceUi(
       opts,
-      `launch app=${appId} provider=${providerId ?? ''} model=${modelId ?? ''} favorites=${Boolean(favorites)} catalog=${fullCatalog} cwd=${launchFolder ?? ''} command=${launchCmd}`
+      `launch app=${appId} provider=${providerId ?? ''} model=${modelId ?? ''} allModels=${Boolean(allModels)} favorites=${Boolean(favorites)} catalog=${fullCatalog} cwd=${launchFolder ?? ''} command=${launchCmd}`
     )
 
     // Execute command asynchronously to open the terminal window detached

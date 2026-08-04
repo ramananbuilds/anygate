@@ -28,6 +28,8 @@ export interface AppInfo {
 export interface GatewayLaunchOptions {
   providerId?: string
   modelId?: string
+  /** Launch with all routable models from `providerId` (emits --all-models). */
+  allModels?: boolean
   favorites?: boolean
   /** Launch the full favorites catalog (emits bare --favorites) instead of resolving to the first favorite. */
   favoritesCatalog?: boolean
@@ -372,9 +374,9 @@ export function getGatewayLaunchCommand(appId: string, options: GatewayLaunchOpt
     args.push('--trace')
   }
   if (options.favoritesCatalog) {
-    // Full favorites catalog: emit bare --favorites so the CLI builds the
-    // multi-route proxy and the app's model picker shows every favorite.
     args.push('--favorites')
+  } else if (options.allModels && options.providerId) {
+    args.push('--provider', options.providerId, '--all-models')
   } else if (options.providerId && options.modelId) {
     args.push('--provider', options.providerId, '--model', options.modelId)
   } else if (options.providerId || options.modelId) {

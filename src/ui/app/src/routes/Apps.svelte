@@ -9,7 +9,7 @@
   type LaunchMode = 'specific' | 'favorites' | 'open';
 
   let launchAppId = $state<string | null>(null);
-  let mode = $state<LaunchMode>('favorites');
+  let mode = $state<LaunchMode>('specific');
   let selProvider = $state('');
   let selModel = $state('');
   let cwd = $state('');
@@ -28,7 +28,7 @@
 
   async function openLaunch(a: UiApp) {
     launchAppId = a.id;
-    mode = favCount > 0 ? 'favorites' : 'specific';
+    mode = 'specific';
     selProvider = ''; selModel = ''; cwd = '';
     const recents = apps.recentFolders;
     cwd = recents[0] ?? '';
@@ -39,7 +39,11 @@
     if (mode === 'favorites') {
       await launch({ appId: launchAppId, favoritesCatalog: true, cwd: cwd || undefined });
     } else if (mode === 'specific') {
-      await launch({ appId: launchAppId, providerId: selProvider || undefined, modelId: selModel || undefined, cwd: cwd || undefined });
+      if (selModel === '__all__' && selProvider) {
+        await launch({ appId: launchAppId, providerId: selProvider, allModels: true, cwd: cwd || undefined });
+      } else {
+        await launch({ appId: launchAppId, providerId: selProvider || undefined, modelId: selModel || undefined, cwd: cwd || undefined });
+      }
     } else {
       await launch({ appId: launchAppId, cwd: cwd || undefined });
     }
@@ -108,12 +112,12 @@
         <span class="lbl">Provider</span>
         <Select bind:value={selProvider} options={[{ value: '', label: 'All' }, ...providers.list.map(p => ({ value: p.id, label: p.name }))]} />
 
-        <span class="lbl">Model</span>
-        <Select
-          bind:value={selModel}
-          disabled={!selProvider}
-          options={selProvider ? [{ value: '', label: 'All' }, ...modelOptions] : [{ value: '', label: '— pick a provider first —' }]}
-        />
+         <span class="lbl">Model</span>
+         <Select
+           bind:value={selModel}
+           disabled={!selProvider}
+           options={selProvider ? [{ value: '__all__', label: 'All models' }, ...modelOptions] : [{ value: '', label: '— pick a provider first —' }]}
+         />
       </div>
     {:else if mode === 'favorites'}
       <div class="hintbox">

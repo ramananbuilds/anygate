@@ -140,6 +140,7 @@ export function launchApp(body: {
   modelId?: string
   cwd?: string
   favoritesCatalog?: boolean
+  allModels?: boolean
 }): Promise<{ ok: boolean; command: string }> {
   if (useMockApi) return Promise.resolve({ ok: true, command: `${body.appId} --mock` })
   return postJson('/api/apps/launch', body)

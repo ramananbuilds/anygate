@@ -40,6 +40,10 @@ function parseGatewayLaunchFlag(
   index: number,
   parsed: ParsedArgs
 ): number | 'error' {
+  if (arg === '--all-models') {
+    parsed.launchAllModels = true
+    return index
+  }
   if (arg === '--provider' || arg === '--model') {
     const value = rest[index + 1]
     if (!value || value.startsWith('-')) {

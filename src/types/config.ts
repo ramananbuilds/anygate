@@ -47,6 +47,12 @@ export interface ParsedArgs {
   claudeArgs: string[]
   launchProvider?: string
   launchModel?: string
+  /**
+   * Launch with every model from `launchProvider` in the app's switcher,
+   * instead of a single `launchModel`. Mirrors how `--favorites` builds a
+   * catalog, but scoped to one provider.
+   */
+  launchAllModels?: boolean
   vertex?: boolean
   completionsShell?: string
   serverQuick?: boolean
