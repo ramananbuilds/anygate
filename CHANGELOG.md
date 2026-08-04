@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.1 (2026-08-05)
 
 Web dashboard: four defects where a feature was broken or showing invented data,
 plus live push updates and previously-discarded analytics.
@@ -26,8 +26,6 @@ plus live push updates and previously-discarded analytics.
 
 - Global `prefers-reduced-motion` guard in `styles/tokens.css`, collapsing the shared duration tokens so every component that animates through them is covered.
 - Fixed `a11y_no_noninteractive_tabindex` in `ModelRow.svelte` by splitting the interactive and static cases instead of toggling `role`/`tabindex` dynamically, keeping non-clickable rows out of the tab order. Removed dead `.open` CSS.
-
-## 0.6.1 (2026-08-04)
 
 Provider, OAuth, launcher, and self-update fixes — mostly cases where a feature
 could never have worked, not edge cases.
@@ -90,6 +88,20 @@ not installed.
 - `dist/` is committed and the installed CLI loads templates from `dist/registry/data/templates/`, so template JSON edits do not reach users until `npm run build` copies them. The three template fixes in this release were stale in `dist/` until rebuilt; verified afterwards through the built bundle that `urlPrompt` survives, all SDK packages resolve, and the Add-list exclusion holds.
 - Verified against a mock server matching Ollama's documented `/v1/models` shape — Ollama was not installed on the machine these fixes were developed on. SambaNova and Fireworks templates load and construct correctly, but their live model listing was not exercised against real keys.
 - The OAuth fixes were verified against the live provider endpoints (device-code and token URLs probed directly for GitHub and xAI) and through the real code paths under test, but **not** end-to-end with active Copilot, ChatGPT, or SuperGrok subscriptions. The GitHub URL and the OpenAI template resolution were both hard blockers that no subscription could work around, so those paths could not have succeeded before; whether any further issue sits behind them is unverified.
+
+### Features — all-models catalog mode
+
+- **`--all-models` / `--model "All"` across every launcher**: `claude`, `codex`, `codex-app` (ChatGPT Desktop), `claude-app` (Claude Desktop), `gemini`, `agy`, `antigravity-app`, and `antigravity-ide` all accept `--all-models` (or `--model "All"`) alongside `--provider <id>` to launch with every routable model from that provider in the model switcher, rather than a single pre-selected model.
+- **Interactive picker mode selection**: after choosing a provider in the Codex, Claude Desktop, and CLI pickers, the user now sees a "One model" / "All models (N)" choice (with a Back option) instead of only a model picker.
+- **UI All-models dropdown**: the web dashboard's Apps page "One model" mode now includes an "All models" entry in the provider's model dropdown, sending `allModels: true` to the launch API.
+- **Cloud-code backend routing**: all-models catalogs route cloud-code-format models through a backend proxy (e.g. Antigravity cloud-code models) while regular models are served directly from the provider.
+- **Backend catalog artifact**: the Codex CLI gained `writeAllModelsLaunchArtifacts()` to emit a provider catalog overlay file when launching in provider-all mode.
+
+### Bug Fixes — favoritesActive / catalog mode
+
+- **Selecting one model still launched with all favorites**: Codex CLI and Claude Desktop apps set `favoritesActive = favorites.length > 0 && !launchPlan.skip`, so even picking a specific model (not `__favorites__`) launched with the entire favorites catalog in the model switcher and built the multi-route proxy instead of a single route. Catalog mode is now tracked by an explicit `catalogMode` flag (`false | 'favorites' | 'provider-all'`) that is only set when the user explicitly chose the favorites catalog or the all-models mode.
+- **Antigravity app/IDE commands ignored `--all-models`**: the CLI handlers for `antigravity-app` and `antigravity-ide` didn't forward `launchAllModels`, and `--model "All"` wasn't normalized to `launchAllModels`. Now all three Antigravity CLI handlers normalize and pass through the flag, matching Claude/Codex behavior.
+- **App attribution for cloud-code backends**: `startCloudCodeCatalogBackend` and `partitionAndStartCloudCodeBackend` didn't thread the `app` label through to `startProxyCatalog`, so cloud-code proxy routes were attributed to 'Antigravity' regardless of which app launched them. The `app` parameter is now forwarded to the proxy and applied to each route.
 
 ## 0.6.0 (2026-08-03)
 
