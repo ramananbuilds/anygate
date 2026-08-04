@@ -2,7 +2,71 @@
 
 > Active development status and recent major architecture updates.
 
-## Current Version: 0.6.0
+## Current Version: 0.6.1
+
+## Recent Changes (Dashboard: correctness, live data, SSE)
+
+Four dashboard defects fixed, plus new live-data plumbing. Details:
+
+1. **OAuth from the UI was fully broken.** `b88a876` renamed the backend routes
+   `oauth/* → auth/*` but updated no client, so both the Svelte app and the
+   legacy `src/ui/public/app.js` 404'd on every OAuth sign-in (Claude Code, xAI,
+   GitHub Copilot, OpenAI, Antigravity). `src/ui/api.ts` now serves both
+   spellings as aliases, with a test asserting neither falls through to the
+   router's 404.
+2. **The health panel was fabricating data.** `GET /api/health` did not exist;
+   `getHealth()` swallowed the 404 and returned a hardcoded report claiming
+   `port17645Available: true` and no env conflicts. The diagnostics in
+   `src/services/doctor.ts` were trapped inside `runDoctorCommand`, which prints
+   ANSI and returns an exit code. Extracted `collectDoctorReport()` (structured,
+   no terminal output), wired it to a real `GET /api/health` shared with
+   `anygate doctor`, and deleted the client-side fallback so an unreachable
+   backend now reads "Unavailable" instead of green checks. Also fixed a latent
+   bug where `conflicts.join()` on `ConflictInfo[]` rendered `[object Object]`,
+   and taught the port check that our own running gateway holding 17645 is the
+   healthy case, not a conflict.
+3. **Analytics fetched twice per interaction.** `Dashboard.svelte` called
+   `loadAnalytics()` from the range handler *and* from an `$effect` tracking
+   `analytics.range`. The effect is now the single fetch trigger, and the store
+   carries a request sequence guard so fast range switching can't publish a
+   stale response.
+4. **Launch presets never left the browser.** They were `localStorage`-only.
+   Added `launchPresets` to `UserPreferences`, `load/saveLaunchPresets()` in
+   `src/storage/config.ts`, and `GET|POST /api/presets` with input sanitization
+   (unknown keys stripped, ids de-duplicated last-write-wins) so a malformed
+   client can't write arbitrary data into the shared config file. The store
+   rolls back its optimistic update when a save fails.
+5. **Silent analytics data loss (found while testing).** `appendAtomic()` in
+   `src/storage/analytics.ts` never created the app home directory, so on a
+   fresh install the earliest usage events were dropped with both write paths
+   failing ENOENT into a swallowing catch. Now `mkdir -p`s first.
+6. **Previously-discarded analytics dimensions exposed.** The aggregation
+   already computed a 24-hour histogram and carried a per-event `app` field, but
+   emitted only `peakHour` and dropped the rest. `DashboardAnalytics` now
+   includes `hourly[24]`, per-`app` token/message rollups, and separate
+   `inputTokens`/`outputTokens`, surfaced by two new panels
+   (`HourlyActivity.svelte`, `AppBreakdown.svelte`).
+7. **SSE replaces status polling.** New `src/services/event-bus.ts` — placed
+   outside `ui/` so storage and gateway producers don't import the UI layer —
+   backs `GET /api/events`. `recordUsage` emits `usage`, the server lifecycle
+   notifier emits `server`. The client keeps one `EventSource` for the whole app
+   (`lib/stores/events.svelte.ts`) and only falls back to interval polling after
+   repeated connection failures. Server tracking moved from `Server.svelte` to
+   `App.svelte` so the dashboard's "server on" badge stays accurate on every
+   route.
+8. **Visual/UX correctness.** The sidebar's status dot was hardcoded green with
+   a "Health check available" tooltip regardless of state — it now reflects the
+   real report with neutral/ok/warn/error states. Below 760px the sidebar was
+   still `height: 100dvh`, pushing all content below a full screen of nav; it
+   now collapses to a horizontally-scrolling bar. Added a global
+   `prefers-reduced-motion` guard in `styles/tokens.css`, and fixed the
+   `a11y_no_noninteractive_tabindex` warning plus unused CSS in
+   `ModelRow.svelte`.
+
+Coverage: `tests/ui/ui-api-dashboard-fixes.test.ts` (15),
+`tests/ui/ui-api-events.test.ts` (9), `tests/services/event-bus.test.ts` (7).
+`tests/helpers/ui-api-test-utils.ts` gained EventEmitter + `writableEnded`
+support so streaming handlers are testable.
 
 ### Recent Architectural Refactoring
 1. **17-Domain `src/` Restructuring**: Clean, single-responsibility domain subdirectories.

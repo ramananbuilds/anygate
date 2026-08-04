@@ -16,6 +16,8 @@ import {
   recordLaunchFolder,
   savePreferences,
   setAppPathOverride,
+  loadLaunchPresets,
+  saveLaunchPresets,
 } from '../storage/config.js'
 import { fetchProviderCatalog } from '../registry/provider-catalog.js'
 import { favoriteProviderDisplayName } from '../apps/claude/favorites-provider-display.ts'
@@ -61,6 +63,9 @@ import { writeSecureLogLine } from '../apps/shared/trace-log.js'
 import { freeStatusLabel } from '../apps/shared/free-models.ts'
 import { checkForUpdates } from '../apps/shared/update-check.ts'
 import { aggregateAnalytics, type RangeId } from '../storage/analytics.js'
+import { collectDoctorReport } from '../services/doctor.js'
+import { subscribeToAppEvents, emitAppEvent, type AppEvent } from '../services/event-bus.js'
+import type { LaunchPreset } from '../types/index.js'
 import { resolveInputTypes } from '../registry/models-dev.js'
 
 const MODELS_TIMEOUT_MS = 30_000
@@ -134,6 +139,18 @@ function traceUi(opts: UiApiOptions | undefined, message: string): void {
 }
 
 function notifyServerLifecycle(opts: UiApiOptions, event: UiServerLifecycleEvent): void {
+  // Push to live dashboards before the terminal callback, so a throwing
+  // console handler can't suppress the UI update.
+  emitAppEvent(
+    event.type === 'started'
+      ? {
+          type: 'server',
+          running: true,
+          listenMode: event.listenMode,
+          modelCount: event.modelCount,
+        }
+      : { type: 'server', running: false }
+  )
   try {
     opts.onServerLifecycle?.(event)
   } catch {
@@ -180,9 +197,20 @@ export function handleUiApiRequest(
     handleAddCustomProvider(req, res)
   } else if (url === '/api/providers/delete' && req.method === 'POST') {
     handleDeleteProvider(req, res)
-  } else if (url === '/api/providers/auth/start' && req.method === 'POST') {
+    // Both spellings are served: `oauth/*` is what every shipped client calls
+    // (the Svelte app and the legacy public/app.js), while `auth/*` is the
+    // name introduced by the b88a876 rename. Keeping both means the rename
+    // can finish without stranding any client.
+  } else if (
+    (url === '/api/providers/oauth/start' || url === '/api/providers/auth/start') &&
+    req.method === 'POST'
+  ) {
     handleOAuthStart(req, res)
-  } else if (url.startsWith('/api/providers/auth/status') && req.method === 'GET') {
+  } else if (
+    (url.startsWith('/api/providers/oauth/status') ||
+      url.startsWith('/api/providers/auth/status')) &&
+    req.method === 'GET'
+  ) {
     handleOAuthStatus(req, res)
   } else if (url.startsWith('/auth/callback') && req.method === 'GET') {
     handleOAuthCallback(req, res)
@@ -202,10 +230,144 @@ export function handleUiApiRequest(
     handleStartServer(req, res, opts)
   } else if (url === '/api/server/stop' && req.method === 'POST') {
     handleStopServer(res, opts)
+  } else if (url === '/api/events' && req.method === 'GET') {
+    handleEventStream(req, res)
+  } else if (url === '/api/presets' && req.method === 'GET') {
+    handleGetPresets(res)
+  } else if (url === '/api/presets' && req.method === 'POST') {
+    handleSavePresets(req, res)
+  } else if (url === '/api/health' && req.method === 'GET') {
+    handleGetHealth(res)
   } else if (url.startsWith('/api/analytics') && req.method === 'GET') {
     handleGetAnalytics(res, req)
   } else {
     sendJson(res, 404, { error: 'Not found' })
+  }
+}
+
+/** Interval between SSE keepalive comments. Keeps proxies from idling us out. */
+const SSE_KEEPALIVE_MS = 25_000
+
+/**
+ * `GET /api/events` — Server-Sent Events stream of live app activity.
+ *
+ * Replaces the dashboard's 5s status polling: the client opens one stream and
+ * receives usage/server/provider events as they happen. EventSource reconnects
+ * on its own, so a dropped connection needs no client-side retry logic.
+ */
+function handleEventStream(req: IncomingMessage, res: ServerResponse): void {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    // Defeats proxy buffering that would otherwise delay events.
+    'X-Accel-Buffering': 'no',
+  })
+
+  const send = (event: AppEvent): void => {
+    // `writable` guards the race where the client disconnects between the
+    // event firing and this write.
+    if (!res.writableEnded) res.write(`data: ${JSON.stringify(event)}\n\n`)
+  }
+
+  res.write(': connected\n\n')
+
+  const unsubscribe = subscribeToAppEvents(send)
+  const keepalive = setInterval(() => {
+    if (!res.writableEnded) res.write(': keepalive\n\n')
+  }, SSE_KEEPALIVE_MS)
+  if (typeof keepalive.unref === 'function') keepalive.unref()
+
+  const cleanup = (): void => {
+    clearInterval(keepalive)
+    unsubscribe()
+  }
+  req.on('close', cleanup)
+  req.on('error', cleanup)
+  res.on('close', cleanup)
+}
+
+/**
+ * Coerce one untrusted preset object into a `LaunchPreset`, or null if it lacks
+ * the required identity fields. Unknown keys are dropped so a malformed client
+ * can't write arbitrary data into the shared config file.
+ */
+function sanitizePreset(raw: unknown): LaunchPreset | null {
+  if (!raw || typeof raw !== 'object') return null
+  const p = raw as Record<string, unknown>
+  const str = (v: unknown): string | undefined =>
+    typeof v === 'string' && v.trim() ? v.trim() : undefined
+  const id = str(p['id'])
+  const appId = str(p['appId'])
+  if (!id || !appId) return null
+  const flags = Array.isArray(p['flags'])
+    ? p['flags'].filter((f): f is string => typeof f === 'string')
+    : undefined
+  const preset: LaunchPreset = { id, appId }
+  const providerId = str(p['providerId'])
+  const modelId = str(p['modelId'])
+  const folder = str(p['folder'])
+  const label = str(p['label'])
+  if (providerId) preset.providerId = providerId
+  if (modelId) preset.modelId = modelId
+  if (folder) preset.folder = folder
+  if (label) preset.label = label
+  if (flags?.length) preset.flags = flags
+  return preset
+}
+
+function handleGetPresets(res: ServerResponse): void {
+  try {
+    sendJson(res, 200, { presets: loadLaunchPresets() })
+  } catch (err) {
+    sendJson(res, 500, { error: String(err) })
+  }
+}
+
+async function handleSavePresets(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  try {
+    const body = JSON.parse(await readBody(req)) as { presets?: unknown }
+    if (!Array.isArray(body.presets)) {
+      sendJson(res, 400, { error: 'presets must be an array' })
+      return
+    }
+    const seen = new Map<string, LaunchPreset>()
+    for (const raw of body.presets) {
+      const preset = sanitizePreset(raw)
+      // Last write wins per id, so a duplicated id can't create two rows.
+      if (preset) seen.set(preset.id, preset)
+    }
+    sendJson(res, 200, { ok: true, presets: saveLaunchPresets([...seen.values()]) })
+  } catch (err) {
+    sendJson(res, 500, { error: String(err) })
+  }
+}
+
+/**
+ * `GET /api/health` — real system diagnostics, shared with `anygate doctor`.
+ *
+ * Shape matches the UI's `HealthReport` contract. `providerReachability` is
+ * deliberately omitted: it would require a network round-trip per provider, and
+ * reporting an empty array here would read as "all providers unreachable".
+ * Live provider checks live behind their own explicit endpoint instead.
+ */
+async function handleGetHealth(res: ServerResponse): Promise<void> {
+  try {
+    const gatewayRunning = (await getServerStatus()).running
+    const report = await collectDoctorReport({ gatewayRunning })
+    sendJson(res, 200, {
+      ok: report.ok,
+      checks: report.checks,
+      nodeVersion: report.nodeVersion,
+      keychain: report.keychain,
+      conflictingEnvVars: report.conflictingEnvVars,
+      gatewayPort: report.gatewayPort,
+      // Busy-but-ours counts as available to the UI: nothing is blocking a start.
+      port17645Available: report.gatewayPortAvailable || report.gatewayPortOwnedByAnygate,
+      gatewayPortOwnedByAnygate: report.gatewayPortOwnedByAnygate,
+    })
+  } catch (err) {
+    sendJson(res, 500, { error: String(err) })
   }
 }
 

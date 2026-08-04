@@ -1,10 +1,14 @@
 <script lang="ts">
-  import { server, startPolling, stopPolling } from '../lib/stores/server.svelte';
+  import { server, loadStatus } from '../lib/stores/server.svelte';
   import ServerPanel from '../lib/components/server/ServerPanel.svelte';
   import { Card, Spinner } from '../lib/components/primitives';
   import { onMount } from 'svelte';
 
-  onMount(() => { startPolling(); return () => stopPolling(); });
+  // Live tracking is owned by App.svelte for the whole session; this route only
+  // forces one fresh read on entry so the panel never shows a stale payload.
+  onMount(() => {
+    void loadStatus();
+  });
 </script>
 
 <div class="page">

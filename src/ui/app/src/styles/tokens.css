@@ -123,3 +123,29 @@ a {
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
 }
+
+/* Respect the OS "reduce motion" setting globally. Collapsing the duration
+   tokens covers every component that animates via var(--dur-*), so individual
+   components don't each need their own media query. The !important overrides
+   are needed for animations declared with literal durations. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-xs: 0ms;
+    --dur-sm: 0ms;
+    --dur-md: 0ms;
+    --dur-lg: 0ms;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

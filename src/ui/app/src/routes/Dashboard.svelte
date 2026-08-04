@@ -12,7 +12,10 @@
   import ActivityHeatmap from '../lib/components/dashboard/ActivityHeatmap.svelte';
   import TokenBarChart from '../lib/components/dashboard/TokenBarChart.svelte';
   import ModelBreakdownList from '../lib/components/dashboard/ModelBreakdownList.svelte';
-  import type { RangeId } from '../lib/api/analytics';
+  import HourlyActivity from '../lib/components/dashboard/HourlyActivity.svelte';
+  import AppBreakdown from '../lib/components/dashboard/AppBreakdown.svelte';
+  import { onMount } from 'svelte';
+  import { onAppEvent, events } from '../lib/stores/events.svelte';
 
   let { showSampleBadge = true }: { showSampleBadge?: boolean } = $props();
 
@@ -21,12 +24,30 @@
   const totalProviders = $derived(providers.list.length);
   const installedApps = $derived(apps.list.filter((a) => a.installed));
 
-  function onRange(r: RangeId) {
-    void loadAnalytics(r);
-  }
-
+  // Single source of truth for fetching: the effect tracks `analytics.range`,
+  // so TimeRangeFilter only sets the range. Calling loadAnalytics() here too
+  // would fire every request twice.
   $effect(() => {
     void loadAnalytics(analytics.range);
+  });
+
+  // Live refresh on usage. Debounced because a streaming response emits one
+  // event per completed request and a burst would otherwise cause a
+  // re-aggregation storm against the analytics log.
+  const LIVE_REFRESH_DEBOUNCE_MS = 1500;
+  onMount(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const off = onAppEvent((event) => {
+      if (event.type !== 'usage') return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void loadAnalytics(analytics.range);
+      }, LIVE_REFRESH_DEBOUNCE_MS);
+    });
+    return () => {
+      if (timer) clearTimeout(timer);
+      off();
+    };
   });
 </script>
 
@@ -35,12 +56,13 @@
     <div class="title">
       <div class="title-row">
         <h2>Dashboard</h2>
+        {#if events.connected}<span class="live" title="Receiving live updates"><i></i>Live</span>{/if}
         {#if analytics.error}<span class="offline" title={analytics.error}>Offline</span>{/if}
         {#if !analytics.error && !analytics.hasData}<span class="empty" title="No usage recorded yet — use anygate with a provider to populate real stats">No data yet</span>{/if}
       </div>
       <p>Usage analytics for your local gateway · {analytics.range === 'all' ? 'all time' : analytics.range}</p>
     </div>
-    <TimeRangeFilter value={analytics.range} onchange={onRange} />
+    <TimeRangeFilter value={analytics.range} onchange={(r) => (analytics.range = r)} />
   </div>
 
   <Tabs tabs={[{ id: 'overview', label: 'Overview' }, { id: 'models', label: 'Models' }]} bind:active={tab} />
@@ -61,6 +83,10 @@
         <div class="sec-head"><h3>Activity</h3><span class="hint">Daily activity over {analytics.range === 'all' ? 'the last year' : analytics.range}</span></div>
         <ActivityHeatmap days={analytics.report.heatmap} />
       </Card>
+      <Card padding="20px" class="mt">
+        <div class="sec-head"><h3>When you work</h3><span class="hint">Requests by hour (UTC)</span></div>
+        <HourlyActivity hourly={analytics.report.hourly} peakHour={analytics.report.peakHour} />
+      </Card>
     {:else}
       <Card padding="20px" class="mt">
         <div class="sec-head"><h3>Token volume</h3><span class="hint">Total tokens per day</span></div>
@@ -69,6 +95,14 @@
       <Card padding="20px" class="mt">
         <div class="sec-head"><h3>Model breakdown</h3><span class="hint">Share of total usage</span></div>
         <ModelBreakdownList models={analytics.report.models} />
+      </Card>
+      <Card padding="20px" class="mt">
+        <div class="sec-head"><h3>By app</h3><span class="hint">Which launcher spent the tokens</span></div>
+        <AppBreakdown
+          apps={analytics.report.apps}
+          inputTokens={analytics.report.inputTokens}
+          outputTokens={analytics.report.outputTokens}
+        />
       </Card>
     {/if}
   {/if}
@@ -130,6 +164,34 @@
     display: flex;
     align-items: center;
     gap: 10px;
+  }
+  .live {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--success);
+    background: var(--success-bg);
+    border: 1px solid color-mix(in srgb, var(--success) 35%, transparent);
+    padding: 2px 9px;
+    border-radius: 999px;
+  }
+  .live i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: livePulse 2s var(--ease) infinite;
+  }
+  @keyframes livePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .live i { animation: none; }
   }
   .offline {
     font-size: 10.5px;

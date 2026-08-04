@@ -1,7 +1,10 @@
-// Server gateway store: polls GET /api/server/status every 5s while mounted.
+// Server gateway store. Status changes arrive over the SSE event stream; the
+// 5s poll is kept only as a fallback for when SSE can't connect (mock mode, or
+// a proxy that strips text/event-stream).
 import * as api from '../api/endpoints'
 import type { ServerStatusPayload, ServerStartRequest } from '../api/types'
 import { toast } from './ui.svelte'
+import { connectEvents, onAppEvent, events } from './events.svelte'
 
 export const server = $state<{
   status: ServerStatusPayload | null
@@ -11,6 +14,9 @@ export const server = $state<{
 }>({ status: null, loading: false, starting: false, error: null })
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let degradedWatch: ReturnType<typeof setInterval> | null = null
+let unsubscribe: (() => void) | null = null
+let fallbackIntervalMs = 5000
 
 export async function loadStatus(): Promise<void> {
   try {
@@ -21,19 +27,57 @@ export async function loadStatus(): Promise<void> {
   }
 }
 
-export function startPolling(intervalMs = 5000): void {
+function startFallbackPolling(): void {
   if (pollTimer) return
-  void loadStatus()
   pollTimer = setInterval(() => {
     void loadStatus()
-  }, intervalMs)
+  }, fallbackIntervalMs)
+}
+
+function stopFallbackPolling(): void {
+  if (!pollTimer) return
+  clearInterval(pollTimer)
+  pollTimer = null
+}
+
+/**
+ * Begin tracking server status. Prefers the push stream and only polls while
+ * the stream is unavailable.
+ *
+ * @param intervalMs Fallback poll interval, used only when SSE is degraded.
+ */
+export function startPolling(intervalMs = 5000): void {
+  fallbackIntervalMs = intervalMs
+  void loadStatus()
+  connectEvents()
+
+  if (!unsubscribe) {
+    unsubscribe = onAppEvent(event => {
+      // Re-read the full payload rather than patching from the event: status
+      // carries saved config and network URLs the event doesn't include.
+      if (event.type === 'server') void loadStatus()
+    })
+  }
+
+  // Poll only while the stream isn't carrying events for us. Checked on a
+  // timer rather than an $effect so this stays a plain module function with no
+  // component lifecycle to own (and no effect roots to leak).
+  if (!degradedWatch) {
+    degradedWatch = setInterval(() => {
+      if (events.degraded) startFallbackPolling()
+      else stopFallbackPolling()
+    }, 1000)
+  }
 }
 
 export function stopPolling(): void {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
+  stopFallbackPolling()
+  if (degradedWatch) {
+    clearInterval(degradedWatch)
+    degradedWatch = null
   }
+  unsubscribe?.()
+  unsubscribe = null
 }
 
 export async function start(req: ServerStartRequest): Promise<boolean> {

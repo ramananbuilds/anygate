@@ -19,22 +19,6 @@ import type {
 const PRESETS_KEY = 'anygate-presets'
 const RECENT_FOLDERS_KEY = 'anygate-recent-folders'
 
-// ── Health ───────────────────────────────────────────────────────────
-export function healthFallback(err: unknown): HealthReport {
-  const status = (err as { status?: number })?.status
-  const degraded = status === 404
-  return {
-    ok: degraded,
-    keychain: {
-      available: false,
-      note: degraded ? 'Health check needs a newer anygate' : 'Unable to reach backend',
-    },
-    conflictingEnvVars: [],
-    port17645Available: true,
-    providerReachability: [],
-  }
-}
-
 // ── Presets (localStorage) ──────────────────────────────────────────
 export function loadPresets(): Preset[] {
   try {

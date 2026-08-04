@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased
+
+Web dashboard: four defects where a feature was broken or showing invented data,
+plus live push updates and previously-discarded analytics.
+
+### Bug Fixes — dashboard
+
+- **OAuth sign-in from the dashboard always failed**: `b88a876` renamed the backend routes `oauth/* → auth/*` without updating a single client. Both the Svelte app (`endpoints.ts`) and the legacy `src/ui/public/app.js` still posted to `/api/providers/oauth/start` and polled `/api/providers/oauth/status`, so every OAuth provider — Claude Code, xAI, GitHub Copilot, OpenAI, Antigravity — 404'd at the router before reaching the fully-working handlers behind it. Both spellings are now served as aliases, and a test asserts each reaches its handler rather than the router's fallback.
+- **The health panel invented its results**: `GET /api/health` was never implemented. The client caught the 404 and substituted a fabricated report that hardcoded `port17645Available: true` and an empty conflicting-env-var list, and declared the keychain unavailable — so the dashboard confidently displayed values it had never checked. The real diagnostics existed in `src/services/doctor.ts` but were welded to `runDoctorCommand`, which prints ANSI and returns an exit code. Extracted `collectDoctorReport()` and wired it to a real `GET /api/health` shared with `anygate doctor`; the client fallback is deleted, so an unreachable backend now reports "Unavailable" instead of green checks.
+- **Doctor rendered `[object Object]` for env conflicts**: `detectConflicts()` returns `ConflictInfo[]`, but the conflict message interpolated `conflicts.join(', ')` directly. Now joins the names, and the API returns names only so env var *values* never leave the process.
+- **Doctor flagged our own gateway as a port conflict**: the port check reported 17645 as "In use by another process" whenever anygate's own gateway was running. It now distinguishes our gateway from a foreign process.
+- **Every time-range click fetched analytics twice**: `Dashboard.svelte` triggered `loadAnalytics()` from both the range handler and an `$effect` tracking `analytics.range`. The effect is now the sole trigger, and the store carries a sequence guard so rapid switching can't publish a stale response over a newer one.
+- **Launch presets never persisted**: they were written to `localStorage` only, so they vanished across browsers and were invisible to the CLI. Added `launchPresets` to `UserPreferences` and `GET|POST /api/presets`, with sanitization that strips unknown keys and de-duplicates ids so a malformed client cannot write arbitrary data into the shared config file. Failed saves now roll back instead of falsely reporting success.
+- **Analytics silently dropped events on a fresh install**: `appendAtomic()` never created the app home directory, so both write paths failed with ENOENT into a swallowing catch and the earliest usage was lost with no diagnostic. It now creates the directory first.
+- **Sidebar status dot was always green**: hardcoded to `--success` with a "Health check available" tooltip regardless of actual state. It now reflects the real health report, staying neutral until a result arrives rather than defaulting to healthy.
+- **Sidebar consumed a full screen on mobile**: below 760px the shell collapses to one column, but the sidebar kept `height: 100dvh`, pushing all page content below a screenful of navigation. It now collapses to a horizontally-scrolling bar.
+
+### Features — dashboard
+
+- **Live updates over SSE**: new `GET /api/events` replaces the 5-second status polling. Producers publish through `src/services/event-bus.ts`, deliberately placed outside `ui/` so storage and gateway code can emit without importing the UI layer; `recordUsage` emits `usage` and the server lifecycle notifier emits `server`. The client holds one `EventSource` for the whole app and falls back to polling only after repeated failures. Server tracking moved from `Server.svelte` to `App.svelte`, so the dashboard's "server on" badge is now accurate on every route rather than only while the Server page is open.
+- **Analytics dimensions that were collected but discarded**: the aggregation already built a 24-hour histogram and carried a per-event `app` field, then returned only `peakHour`. `DashboardAnalytics` now also exposes `hourly[24]`, per-app token/message rollups, and separate prompt/completion totals, surfaced by two new panels (`HourlyActivity`, `AppBreakdown`).
+
+### Accessibility
+
+- Global `prefers-reduced-motion` guard in `styles/tokens.css`, collapsing the shared duration tokens so every component that animates through them is covered.
+- Fixed `a11y_no_noninteractive_tabindex` in `ModelRow.svelte` by splitting the interactive and static cases instead of toggling `role`/`tabindex` dynamically, keeping non-clickable rows out of the tab order. Removed dead `.open` CSS.
+
 ## 0.6.1 (2026-08-04)
 
 Provider, OAuth, launcher, and self-update fixes — mostly cases where a feature

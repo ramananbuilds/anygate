@@ -70,6 +70,21 @@ export interface FavoriteModel {
   modelId: string
 }
 
+/**
+ * A saved launch configuration (app + optional provider/model/folder), created
+ * from the UI's Settings page. Persisted in the shared config file so presets
+ * survive browser changes and stay visible to the CLI.
+ */
+export interface LaunchPreset {
+  id: string
+  appId: string
+  providerId?: string
+  modelId?: string
+  folder?: string
+  flags?: string[]
+  label?: string
+}
+
 export interface UserPreferences {
   lastBackend?: 'zen' | 'go'
   lastModel?: string
@@ -91,6 +106,7 @@ export interface UserPreferences {
   serverFavoritesOnly?: boolean
   savedServerPassword?: string
   appPathOverrides?: Record<string, string>
+  launchPresets?: LaunchPreset[]
   server?: {
     exposedProviders?: string[]
     maskGatewayIds?: boolean

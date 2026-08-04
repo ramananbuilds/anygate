@@ -185,12 +185,26 @@ export interface UiServerProvidersResponse {
 
 // ── New / backend-later endpoints (typed contract) ─────────────────────
 
+export interface HealthCheck {
+  id: 'node' | 'keychain' | 'opencode-key' | 'env-conflicts' | 'gateway-port'
+  label: string
+  ok: boolean
+  detail: string
+  critical: boolean
+}
+
 export interface HealthReport {
   ok: boolean
   note?: string
+  /** Full per-check breakdown from `anygate doctor`. */
+  checks?: HealthCheck[]
+  nodeVersion?: string
   keychain?: { available: boolean; note?: string }
   conflictingEnvVars?: string[]
+  gatewayPort?: number
   port17645Available?: boolean
+  /** True when the gateway port is busy because anygate's own gateway holds it. */
+  gatewayPortOwnedByAnygate?: boolean
   providerReachability?: { id: string; ok: boolean; error?: string }[]
 }
 

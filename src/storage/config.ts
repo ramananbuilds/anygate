@@ -1,4 +1,4 @@
-import type { UserPreferences, FavoriteModel } from '../types/index.js'
+import type { UserPreferences, FavoriteModel, LaunchPreset } from '../types/index.js'
 import { dirname, join } from 'node:path'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { getAppHome, getConfigPath } from '../config/paths.js'
@@ -48,6 +48,7 @@ export function loadPreferences(): UserPreferences {
     antigravityCliFavoriteModels: config.antigravityCliFavoriteModels,
     antigravityCliFavoritesHintShown: config.antigravityCliFavoritesHintShown,
     appPathOverrides: config.appPathOverrides,
+    launchPresets: config.launchPresets,
     recentLaunchFolders: config.recentLaunchFolders,
     server: config.server,
   }
@@ -98,6 +99,24 @@ export function savePreferences(
   if (prefs.recentLaunchFolders !== undefined)
     config.recentLaunchFolders = prefs.recentLaunchFolders
   writeConfig(config)
+}
+
+const MAX_LAUNCH_PRESETS = 50
+
+/** Saved launch presets, newest-first as stored. */
+export function loadLaunchPresets(): LaunchPreset[] {
+  const presets = readConfig().launchPresets
+  return Array.isArray(presets) ? presets : []
+}
+
+/** Replace the full preset list (the UI edits and submits the whole array). */
+export function saveLaunchPresets(presets: LaunchPreset[]): LaunchPreset[] {
+  const config = readConfig()
+  const next = presets.slice(0, MAX_LAUNCH_PRESETS)
+  if (next.length === 0) delete config.launchPresets
+  else config.launchPresets = next
+  writeConfig(config)
+  return next
 }
 
 export function getAppPathOverride(appId: string): string | undefined {

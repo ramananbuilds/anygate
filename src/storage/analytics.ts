@@ -6,9 +6,18 @@
 // no tool arguments, no responses. Storage is an append-only JSONL file under
 // the app home (~/.anygate, or ANYGATE_HOME). Aggregation happens on read.
 
-import { appendFileSync, openSync, writeSync, closeSync, readFileSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import {
+  appendFileSync,
+  openSync,
+  writeSync,
+  closeSync,
+  readFileSync,
+  existsSync,
+  mkdirSync,
+} from 'node:fs'
+import { join, dirname } from 'node:path'
 import { getAppHome } from '../config/paths.js'
+import { emitAppEvent } from '../services/event-bus.js'
 
 export type RangeId = 'all' | '30d' | '7d'
 
@@ -48,6 +57,14 @@ function analyticsPath(): string {
 
 function appendAtomic(path: string, line: string): void {
   try {
+    // The app home may not exist yet on a fresh install — without this the
+    // first usage events are silently dropped (both write paths below fail
+    // with ENOENT and the catch swallows it).
+    mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
+  } catch {
+    // Fall through; the write attempts below will fail harmlessly if this did.
+  }
+  try {
     const fd = openSync(path, 'a', 0o600)
     try {
       writeSync(fd, line + '\n')
@@ -81,6 +98,21 @@ export function recordUsage(event: UsageEvent): void {
   if (event.npm) clean.npm = event.npm
   if (event.providerId) clean.providerId = event.providerId
   appendAtomic(analyticsPath(), JSON.stringify(clean))
+  // Push to any live dashboard. Emitting is best-effort and must not throw
+  // into the request path that produced the usage.
+  try {
+    emitAppEvent({
+      type: 'usage',
+      app: clean.app,
+      modelId: clean.modelId,
+      ...(clean.providerId ? { providerId: clean.providerId } : {}),
+      inputTokens: clean.inputTokens,
+      outputTokens: clean.outputTokens,
+      ts: clean.ts,
+    })
+  } catch {
+    // Ignore — analytics must never break a request.
+  }
 }
 
 /** Parse the analytics jsonl into typed events (skips blank/malformed lines). */
@@ -138,19 +170,37 @@ export interface ModelUsage {
   color: string
 }
 
+export interface AppUsage {
+  /** Source app: 'gateway' | 'claude' | 'codex' | 'gemini' | 'antigravity'. */
+  app: string
+  inputTokens: number
+  outputTokens: number
+  messages: number
+  share: number // 0..1 of total tokens
+  color: string
+}
+
 export interface DashboardAnalytics {
   range: RangeId
   sessions: number
   messages: number
   totalTokens: number
+  /** Prompt tokens across the range (already collected per event). */
+  inputTokens: number
+  /** Completion tokens across the range (already collected per event). */
+  outputTokens: number
   activeDays: number
   currentStreakDays: number
   longestStreakDays: number
   peakHour: number // 0..23
+  /** Message counts per UTC hour, index 0..23. Drives the hourly rhythm chart. */
+  hourly: number[]
   favoriteModel: string
   heatmap: HeatDay[]
   dailyTokens: { date: string; tokens: number }[]
   models: ModelUsage[]
+  /** Token/message split by the app that originated the request. */
+  apps: AppUsage[]
 }
 
 function rangeDays(range: RangeId): number {
@@ -209,12 +259,27 @@ export function aggregateAnalytics(range: RangeId): DashboardAnalytics {
 
   let totalTokens = 0
   let messages = 0
+  let totalInputTokens = 0
+  let totalOutputTokens = 0
+
+  // app → token/message rollup (the log records `app` on every event, but the
+  // aggregate previously dropped it).
+  const appMap = new Map<string, { inputTokens: number; outputTokens: number; messages: number }>()
 
   for (const e of events) {
     const day = dayKey(e.ts)
     const tok = e.inputTokens + e.outputTokens
     totalTokens += tok
+    totalInputTokens += e.inputTokens
+    totalOutputTokens += e.outputTokens
     messages += 1
+
+    const appKey = e.app || 'unknown'
+    const a = appMap.get(appKey) ?? { inputTokens: 0, outputTokens: 0, messages: 0 }
+    a.inputTokens += e.inputTokens
+    a.outputTokens += e.outputTokens
+    a.messages += 1
+    appMap.set(appKey, a)
 
     eventsByDay.set(day, (eventsByDay.get(day) ?? 0) + 1)
     tokensByDay.set(day, (tokensByDay.get(day) ?? 0) + tok)
@@ -316,18 +381,34 @@ export function aggregateAnalytics(range: RangeId): DashboardAnalytics {
 
   const favoriteModel = models.length > 0 ? `${models[0].provider}: ${models[0].model}` : ''
 
+  // ── apps ──
+  const apps: AppUsage[] = [...appMap.entries()]
+    .map(([app, a], idx) => ({
+      app,
+      inputTokens: a.inputTokens,
+      outputTokens: a.outputTokens,
+      messages: a.messages,
+      share: totalTokens > 0 ? (a.inputTokens + a.outputTokens) / totalTokens : 0,
+      color: MODEL_PALETTE[idx % MODEL_PALETTE.length],
+    }))
+    .sort((x, y) => y.share - x.share)
+
   return {
     range,
     sessions: activeDaySet.size,
     messages,
     totalTokens,
+    inputTokens: totalInputTokens,
+    outputTokens: totalOutputTokens,
     activeDays: activeDaySet.size,
     currentStreakDays: currentStreak,
     longestStreakDays: longestStreak,
     peakHour,
+    hourly: hourCounts,
     favoriteModel,
     heatmap,
     dailyTokens,
     models,
+    apps,
   }
 }
