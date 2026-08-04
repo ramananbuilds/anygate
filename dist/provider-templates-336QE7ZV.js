@@ -9,7 +9,7 @@ import {
   loadTemplateSync,
   loadTemplatesSync,
   toProviderTemplate
-} from "./chunk-4ILOT7YG.js";
+} from "./chunk-4N4RDHGZ.js";
 import "./chunk-UT3JLF3M.js";
 export {
   PROVIDER_TEMPLATES,
@@ -22,4 +22,4 @@ export {
   loadTemplatesSync,
   toProviderTemplate
 };
-//# sourceMappingURL=provider-templates-STJ2AFGY.js.map
+//# sourceMappingURL=provider-templates-336QE7ZV.js.map

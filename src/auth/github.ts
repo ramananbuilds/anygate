@@ -10,7 +10,13 @@ import { VERSION } from '../config/constants.js'
 // Public OAuth App client ID used by VS Code GitHub Copilot extension
 const CLIENT_ID = 'Iv1.b507a08c87ecfe98'
 const DEVICE_CODE_URL = 'https://github.com/login/device/code'
-const TOKEN_URL = 'https://github.com/login/auth/access_token'
+// GitHub's device-flow token endpoint is /login/oauth/access_token. This read
+// /login/auth/access_token, which answers HTTP 422 with an HTML error page —
+// and because the poll loop parses with `.json().catch(() => ({}))`, the HTML
+// collapsed to an empty object carrying neither `error` nor `access_token`, so
+// every attempt fell through to a bare "GitHub device authorization failed"
+// with no status and no detail. Copilot sign-in could never complete.
+const TOKEN_URL = 'https://github.com/login/oauth/access_token'
 const COPILOT_TOKEN_URL = 'https://api.github.com/copilot_internal/v2/token'
 const SCOPE = 'copilot'
 
@@ -119,11 +125,29 @@ export async function pollGithubDeviceCodeToken(
       }).toString(),
     })
 
-    const body = (await response.json().catch(() => ({}) as Record<string, unknown>)) as Record<
-      string,
-      unknown
-    >
+    // Read as text first: a misrouted or failing endpoint answers with HTML, and
+    // parsing straight to JSON with a swallowing catch turns that into an empty
+    // object indistinguishable from a valid pending response. Keeping the raw
+    // text lets the throw below carry the status and body.
+    const raw = await response.text().catch(() => '')
+    let body: Record<string, unknown> = {}
+    try {
+      if (raw.trim().startsWith('{')) body = JSON.parse(raw) as Record<string, unknown>
+    } catch {
+      // leave body empty — reported with status and excerpt below
+    }
     const error = body['error'] as string | undefined
+
+    // Non-JSON body: the endpoint is not speaking the device-flow protocol at
+    // all, so no amount of polling will help. Fail immediately with the detail.
+    if (!error && !body['access_token']) {
+      if (!raw.trim().startsWith('{')) {
+        throw new Error(
+          `GitHub device authorization got a non-JSON response (HTTP ${response.status}) from ${TOKEN_URL}` +
+            `${raw.trim() ? `: ${raw.replace(/\s+/g, ' ').trim().slice(0, 200)}` : ''}`
+        )
+      }
+    }
 
     if (!error && body['access_token']) {
       const ghuToken = body['access_token'] as string

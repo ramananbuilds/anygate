@@ -140,6 +140,7 @@ export function launchApp(body: {
   modelId?: string
   cwd?: string
   favoritesCatalog?: boolean
+  allModels?: boolean
 }): Promise<{ ok: boolean; command: string }> {
   if (useMockApi) return Promise.resolve({ ok: true, command: `${body.appId} --mock` })
   return postJson('/api/apps/launch', body)
@@ -180,21 +181,22 @@ export async function getHealth(): Promise<HealthReport> {
       port17645Available: true,
       providerReachability: [],
     }
-  try {
-    return await getJson<HealthReport>('/api/health')
-  } catch (err) {
-    // 404 (backend not yet implemented) → degrade gracefully.
-    return mock.healthFallback(err)
-  }
+  // No fallback: /api/health is a real endpoint. A failure must surface as an
+  // error so the panel shows "unavailable" instead of invented green checks.
+  return getJson<HealthReport>('/api/health')
 }
 
-export function getPresets(): Promise<Preset[]> {
-  // Backend GET /api/presets not yet implemented → localStorage.
-  return Promise.resolve(mock.loadPresets())
+export async function getPresets(): Promise<Preset[]> {
+  if (useMockApi) return mock.loadPresets()
+  const res = await getJson<{ presets: Preset[] }>('/api/presets')
+  return res.presets ?? []
 }
-export function savePresets(presets: Preset[]): Promise<{ ok: boolean }> {
-  mock.storePresets(presets)
-  return Promise.resolve({ ok: true })
+export async function savePresets(presets: Preset[]): Promise<{ ok: boolean }> {
+  if (useMockApi) {
+    mock.storePresets(presets)
+    return { ok: true }
+  }
+  return postJson<{ ok: boolean }>('/api/presets', { presets })
 }
 
 // Favorites-only export/import (portable backup) via /api/config today.

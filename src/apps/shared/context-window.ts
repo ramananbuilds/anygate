@@ -111,6 +111,37 @@ export const PROVIDER_DEFAULTS: Record<string, number> = {
   'openai-oauth': 128_000,
 }
 
+/**
+ * Providers whose context window is a *server* setting, not a model property.
+ *
+ * Ollama and LM Studio serve whatever `num_ctx` the local server was started
+ * with — 4096 by default for Ollama — and silently truncate anything longer.
+ * The model's trained maximum says nothing about what the server will accept,
+ * so ID heuristics (which would read `llama3.1:8b` as 131K) must NOT win here:
+ * over-reporting makes Claude Code pack requests the server quietly truncates,
+ * which surfaces as incoherent replies and tool-call loops rather than an error.
+ *
+ * For these providers the provider-level default is consulted before heuristics.
+ * Users who raised their server default can say so via OLLAMA_CONTEXT_LENGTH.
+ */
+const SERVER_CONFIGURED_CONTEXT_PROVIDERS = new Set(['ollama', 'lmstudio'])
+
+/** Ollama's built-in default when OLLAMA_CONTEXT_LENGTH is unset. */
+export const OLLAMA_DEFAULT_CONTEXT_LENGTH = 4_096
+
+/**
+ * The context window a self-hosted server will actually serve.
+ *
+ * Honours OLLAMA_CONTEXT_LENGTH — the same variable `ollama serve` reads — so a
+ * user who raised their server default gets that value instead of the built-in.
+ */
+export function serverConfiguredContextWindow(providerId: string): number | undefined {
+  if (!SERVER_CONFIGURED_CONTEXT_PROVIDERS.has(providerId)) return undefined
+  const fromEnv = Number(process.env.OLLAMA_CONTEXT_LENGTH?.trim())
+  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv
+  return PROVIDER_DEFAULTS[providerId] ?? OLLAMA_DEFAULT_CONTEXT_LENGTH
+}
+
 let parsedCache: OpencodeCacheFile | null | undefined
 let cacheIndex: Map<string, number> | undefined
 const heuristicCache = new Map<string, number>()
@@ -215,6 +246,7 @@ export function contextWindowFromHeuristics(modelId: string): number {
  * Resolve a model's context window.
  *
  * Priority:
+ *   0. Server-configured limit for self-hosted providers (Ollama, LM Studio)
  *   1. OpenCode cache (limit.context)
  *   2. models.dev cache (limit.context)
  *   3. ID-pattern heuristics
@@ -222,6 +254,18 @@ export function contextWindowFromHeuristics(modelId: string): number {
  *   5. DEFAULT_CONTEXT_WINDOW (200K)
  */
 export function lookupContextWindow(modelId: string, providerId?: string): number {
+  // 0. A self-hosted server's num_ctx is a hard ceiling: it truncates anything
+  //    longer regardless of what the model could theoretically handle. Both
+  //    caches below describe the *hosted* provider's limits (models.dev lists
+  //    deepseek-r1 at 163K because DeepSeek serves it that way), which says
+  //    nothing about the local server. So this wins over every model-derived
+  //    source. A limit the server itself reported still wins over this — that
+  //    arrives as the `explicit` argument to resolveContextWindow().
+  if (providerId) {
+    const fromServer = serverConfiguredContextWindow(providerId)
+    if (fromServer) return fromServer
+  }
+
   // 1. OpenCode cache
   const fromCache = getCacheIndex().get(modelId)
   if (fromCache) return fromCache

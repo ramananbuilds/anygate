@@ -17,14 +17,7 @@
   }
 </script>
 
-<div
-  class="row"
-  class:clickable={!!onOpen}
-  role={onOpen ? 'button' : undefined}
-  tabindex={onOpen ? 0 : undefined}
-  onclick={() => onOpen?.()}
-  onkeydown={(e) => { if (onOpen && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpen(); } }}
->
+{#snippet body()}
   <div class="info">
     <div class="name">{model.name ?? model.id}<span class="pid">· {providerId}</span></div>
     <div class="meta">ctx {fmt(model.contextWindow)} · {cost(model.cost)}</div>
@@ -33,7 +26,24 @@
   {#if onToggleFav}
     <button class="star" class:on={favorited} title={favorited ? 'Remove favorite' : 'Add favorite'} aria-label={favorited ? 'Remove favorite' : 'Add favorite'} onclick={(e) => { e.stopPropagation(); onToggleFav(); }}>{favorited ? '★' : '☆'}</button>
   {/if}
-</div>
+{/snippet}
+
+<!-- Split rather than toggling role/tabindex dynamically: a static role lets
+     Svelte verify the element is genuinely interactive, and non-clickable rows
+     stay out of the tab order entirely. -->
+{#if onOpen}
+  <div
+    class="row clickable"
+    role="button"
+    tabindex="0"
+    onclick={() => onOpen()}
+    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+  >
+    {@render body()}
+  </div>
+{:else}
+  <div class="row">{@render body()}</div>
+{/if}
 
 <style>
   .row { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: var(--radius-sm); border: 1px solid transparent; transition: background var(--dur-sm) var(--ease), border-color var(--dur-sm) var(--ease); }
@@ -46,7 +56,5 @@
   .tags { flex-shrink: 0; }
   .star { background: none; border: none; font-size: 17px; color: var(--text-3); cursor: pointer; transition: color var(--dur-sm) var(--ease); }
   .star.on { color: var(--accent); }
-  .open { flex-shrink: 0; padding: 5px 11px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); font-size: 12px; cursor: pointer; transition: border-color var(--dur-sm) var(--ease), color var(--dur-sm) var(--ease); }
-  .open:hover { border-color: var(--border-bright); color: var(--text-1); }
   .star:hover { color: var(--accent); }
 </style>

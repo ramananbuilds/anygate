@@ -30,5 +30,6 @@ This command launches the Claude Desktop app with anygate's provider registry.
   return runClaudeAppCommand(parsed.claudeArgs ?? [], {
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
+    launchAllModels: parsed.launchAllModels || parsed.launchModel === 'All',
   })
 }

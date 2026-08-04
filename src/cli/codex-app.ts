@@ -32,5 +32,6 @@ This command launches the ChatGPT Desktop app with anygate's provider registry.
     vertex: parsed.vertex,
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
+    launchAllModels: parsed.launchAllModels || parsed.launchModel === 'All',
   })
 }

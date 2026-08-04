@@ -5,6 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Socket } from 'node:net'
 import type { LanguageModel } from 'ai'
 import { readBody, extractApiKey, sendJson } from '../../../src/shared/http.js'
+import { recordUsage } from '../../../src/storage/analytics.js'
 import { routeLookupIds } from '../../apps/shared/context-model-id.js'
 import {
   CODEX_APP_AUTO_COMPACT_RATIO,
@@ -262,6 +263,12 @@ export interface CodexProxyOptions {
   debug?: boolean
   /** Default true. App mode passes false — GUI cannot inherit ANYGATE_CODEX_KEY. */
   requireAuth?: boolean
+  /**
+   * Analytics label for traffic through this proxy ('codex' for the CLI,
+   * 'codex-app' for the desktop app). Codex usage was previously never
+   * recorded at all, so it was invisible on the dashboard.
+   */
+  app?: string
 }
 
 export async function startCodexProxy(
@@ -271,6 +278,28 @@ export async function startCodexProxy(
   const opts: CodexProxyOptions = typeof options === 'boolean' ? { debug: options } : options
   const debug = opts.debug ?? false
   const requireAuth = opts.requireAuth ?? true
+  const analyticsApp = opts.app ?? 'codex'
+  const routeByModelId = new Map(routes.map(r => [r.modelId, r]))
+
+  /** Log one completed request. Never allowed to disturb the response path. */
+  const trackUsage = (modelId: string, inputTokens: number, outputTokens: number): void => {
+    if (inputTokens <= 0 && outputTokens <= 0) return
+    try {
+      const route = routeByModelId.get(modelId)
+      recordUsage({
+        ts: new Date().toISOString(),
+        modelId: route?.upstreamModelId ?? modelId,
+        npm: route?.npm,
+        providerId: route?.providerId,
+        app: analyticsApp,
+        inputTokens,
+        outputTokens,
+      })
+    } catch {
+      // Analytics must never break a Codex response.
+    }
+  }
+
   silenceSdkWarnings()
 
   const models = new Map<string, LanguageModel>()
@@ -541,6 +570,7 @@ export async function startCodexProxy(
                 modelId,
                 write,
                 summary => {
+                  trackUsage(modelId, summary.inputTokens ?? 0, summary.outputTokens ?? 0)
                   if (debug) {
                     const failure = `${summary.aborted ? ' aborted=yes' : ''}${summary.errorMessage ? ` error=${JSON.stringify(summary.errorMessage)}` : ''}`
                     log(
@@ -570,6 +600,9 @@ export async function startCodexProxy(
           } else {
             try {
               const response = await generateResponsesResponse(languageModel, params, modelId)
+              const u = response['usage'] as
+                { input_tokens?: number; output_tokens?: number } | undefined
+              trackUsage(modelId, u?.input_tokens ?? 0, u?.output_tokens ?? 0)
               sendJson(res, 200, response)
             } catch (err) {
               const msg = formatUpstreamError(err)
@@ -833,6 +866,7 @@ export async function startCodexProxy(
               modelId,
               sendWsEvent,
               summary => {
+                trackUsage(modelId, summary.inputTokens ?? 0, summary.outputTokens ?? 0)
                 if (debug) {
                   const failure = `${summary.aborted ? ' aborted=yes' : ''}${summary.errorMessage ? ` error=${JSON.stringify(summary.errorMessage)}` : ''}`
                   log(

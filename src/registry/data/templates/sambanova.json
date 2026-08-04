@@ -1,12 +1,13 @@
 {
   "id": "sambanova",
   "name": "SambaNova",
-  "authType": "api",
-  "npm": "@ai-sdk/sambanova",
-  "defaultBaseUrl": "https://api.sambanova.ai/v1",
-  "modelsPath": "/models",
+  "description": "SambaNova Cloud AI Platform",
+  "addable": true,
+  "supported": true,
+  "authType": "apiKey",
+  "apiBaseUrl": "https://api.sambanova.ai/v1",
+  "modelsEndpoint": "/models",
   "signupUrl": "https://cloud.sambanova.ai",
   "modelSource": "api-list",
-  "addable": true,
-  "supported": true
+  "npm": "@ai-sdk/openai-compatible"
 }

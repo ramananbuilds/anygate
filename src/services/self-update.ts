@@ -1,24 +1,17 @@
 import pc from 'picocolors'
-import { spawn, execFileSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import * as p from '@clack/prompts'
 import { checkForUpdates, UPDATE_COMMAND } from './update-check.js'
 import { VERSION } from '../config/constants.js'
 
-function resolveNpmBin(): string {
-  if (process.platform === 'win32') {
-    try {
-      const found = execFileSync('where', ['npm'], { stdio: ['ignore', 'pipe', 'ignore'] })
-        .toString()
-        .split(/\r?\n/)
-        .map(s => s.trim())
-        .find(s => s.toLowerCase().endsWith('.cmd') || s.toLowerCase().endsWith('npm'))
-      if (found) return found
-    } catch {
-      // fall through to default
-    }
-    return 'npm.cmd'
-  }
-  return 'npm'
+// NOTE: this module is an unreferenced duplicate of
+// src/apps/shared/self-update.ts (which is what src/cli/update.ts actually
+// imports). Kept in sync so it does not become a trap; see that file for the
+// full explanation of why npm is spawned by bare name through the shell.
+const INSTALL_ARGS = ['install', '-g', 'anygate@latest'] as const
+
+function resolveNpmSpawn(): { bin: string; shell: boolean } {
+  return { bin: 'npm', shell: process.platform === 'win32' }
 }
 
 export async function runUpdateCommand(dryRun: boolean): Promise<number> {
@@ -33,10 +26,10 @@ export async function runUpdateCommand(dryRun: boolean): Promise<number> {
     `Update available: ${pc.cyan(`v${update.currentVersion}`)} → ${pc.green(`v${update.latestVersion}`)}`
   )
 
-  const npmBin = resolveNpmBin()
+  const { bin: npmBin, shell } = resolveNpmSpawn()
 
   if (dryRun) {
-    p.log.step(`Would run: ${pc.bold(`${npmBin} install -g anygate@latest`)}`)
+    p.log.step(`Would run: ${pc.bold(`${npmBin} ${INSTALL_ARGS.join(' ')}`)}`)
     p.log.warn('Dry run — no changes made.')
     return 0
   }
@@ -51,15 +44,22 @@ export async function runUpdateCommand(dryRun: boolean): Promise<number> {
     return 0
   }
 
-  p.log.step(`Running ${pc.bold(`${npmBin} install -g anygate@latest`)}...`)
+  p.log.step(`Running ${pc.bold(`${npmBin} ${INSTALL_ARGS.join(' ')}`)}...`)
 
   return new Promise(resolve => {
-    const child = spawn(npmBin, ['install', '-g', 'anygate@latest'], {
+    const child = spawn(npmBin, [...INSTALL_ARGS], {
       stdio: 'inherit',
-      shell: process.platform === 'win32',
+      shell,
     })
 
+    // Node emits both 'error' and 'exit' when a spawn fails to start. The guard
+    // must cover the logging, not just resolve(): otherwise one failure prints
+    // "Could not start npm: … ENOENT" followed by a meaningless exit code.
+    let settled = false
+
     child.on('exit', code => {
+      if (settled) return
+      settled = true
       if (code === 0) {
         p.log.success(`Updated successfully to v${update.latestVersion}! 🎉`)
         resolve(0)
@@ -70,7 +70,9 @@ export async function runUpdateCommand(dryRun: boolean): Promise<number> {
     })
 
     child.on('error', err => {
-      p.log.error(`Failed to spawn npm: ${err.message}`)
+      if (settled) return
+      settled = true
+      p.log.error(`Could not start npm: ${err.message}`)
       p.log.info(`Try running manually: ${UPDATE_COMMAND}`)
       resolve(1)
     })

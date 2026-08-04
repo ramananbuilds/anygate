@@ -1,0 +1,26 @@
+# Line endings are pinned to LF for every text file, in the repository *and* in
+# the working tree.
+#
+# Why this file exists: this repo has no .gitattributes, so line endings were
+# left to each contributor's `core.autocrlf`. On Windows that defaults to true,
+# which checks every file out as CRLF — while .prettierrc sets
+# `endOfLine: "lf"`. The result was `npm run format:check` failing on all 255
+# tracked source files, including ones nobody had ever edited, which made the
+# check useless for spotting genuine style problems. The committed content was
+# already LF; only the Windows working copy differed.
+#
+# `eol=lf` overrides core.autocrlf per-repository, so everyone gets identical
+# line endings regardless of platform or personal git config.
+* text=auto eol=lf
+
+# Binary files must never be line-ending converted — doing so corrupts them.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

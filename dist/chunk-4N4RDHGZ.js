@@ -6831,6 +6831,11 @@ function toProviderTemplate(data) {
     modelsPath: data.modelsPath ?? data.modelsEndpoint,
     signupUrl: data.signupUrl,
     signupNote: data.signupNote,
+    // Self-hosted providers (Ollama, LM Studio) ship a urlPrompt so the add
+    // flows collect the user's real endpoint. Dropping it here silently pinned
+    // every install to the hardcoded default port.
+    urlPrompt: data.urlPrompt,
+    urlPlaceholder: data.urlPlaceholder,
     modelSource: data.modelSource ?? "api-list",
     staticModels: data.staticModels,
     supported: data.supported,
@@ -6879,8 +6884,12 @@ var NPM_PACKAGES = {
   "xai-oauth": "@ai-sdk/xai",
   "openai-oauth": "@ai-sdk/openai",
   "github-copilot": "@ai-sdk/openai-compatible",
-  sambanova: "@ai-sdk/sambanova",
-  fireworks: "@ai-sdk/fireworks",
+  // SambaNova and Fireworks both serve an OpenAI-compatible /v1. There is no
+  // published @ai-sdk/sambanova at all, and @ai-sdk/fireworks is not a
+  // dependency here — pointing at either made addProviderFromTemplate reject
+  // the provider outright ("Could not load …").
+  sambanova: "@ai-sdk/openai-compatible",
+  fireworks: "@ai-sdk/openai-compatible",
   ovh: "@ai-sdk/openai-compatible",
   scaleway: "@ai-sdk/openai-compatible"
 };
@@ -6937,4 +6946,4 @@ export {
   getTemplateById,
   filterTemplates
 };
-//# sourceMappingURL=chunk-4ILOT7YG.js.map
+//# sourceMappingURL=chunk-4N4RDHGZ.js.map

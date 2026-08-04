@@ -105,6 +105,7 @@ export async function handleAgyCommand(parsed: ParsedArgs): Promise<number> {
   return runAgyCommand(parsed.claudeArgs ?? [], parsed.trace ?? false, {
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
+    launchAllModels: parsed.launchAllModels || parsed.launchModel === 'All',
   })
 }
 
@@ -121,6 +122,7 @@ export async function handleAntigravityAppCommand(parsed: ParsedArgs): Promise<n
   return runAntigravityAppCommand(parsed.claudeArgs ?? [], parsed.trace ?? false, {
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
+    launchAllModels: parsed.launchAllModels || parsed.launchModel === 'All',
   })
 }
 
@@ -137,5 +139,6 @@ export async function handleAntigravityIdeCommand(parsed: ParsedArgs): Promise<n
   return runAntigravityIdeCommand(parsed.claudeArgs ?? [], parsed.trace ?? false, {
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
+    launchAllModels: parsed.launchAllModels || parsed.launchModel === 'All',
   })
 }

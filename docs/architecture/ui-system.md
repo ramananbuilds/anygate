@@ -6,38 +6,55 @@
 
 ```text
 src/ui/
-├── api.ts                # REST API route handler (1200+ lines, all /api/* endpoints)
+├── api.ts                # REST API route handler (all /api/* endpoints incl. SSE)
 ├── api-types.ts          # API request/response type definitions
 ├── command.ts            # `anygate ui` CLI subcommand handler
 ├── server-control.ts     # In-process gateway server start/stop management
 ├── app/                  # Svelte 5 frontend application
 │   ├── src/
-│   │   ├── App.svelte    # Root component with routing
+│   │   ├── App.svelte    # Root component: routing, app-wide stores, SSE connect
 │   │   ├── main.ts       # Entry point
 │   │   ├── app.css       # Global styles
+│   │   ├── styles/
+│   │   │   └── tokens.css        # Design tokens + reduced-motion guard
 │   │   ├── routes/       # Page components
 │   │   │   ├── Dashboard.svelte
-│   │   │   ├── Apps.svelte
+│   │   │   ├── Providers.svelte
 │   │   │   ├── Models.svelte
-│   │   │   ├── Providers.svelte (implied)
-│   │   │   ├── Server.svelte (implied)
+│   │   │   ├── Apps.svelte
+│   │   │   ├── Server.svelte
+│   │   │   ├── Tester.svelte
 │   │   │   └── Settings.svelte
-│   │   ├── components/   # Reusable UI components
-│   │   │   ├── CommandPalette.svelte
-│   │   │   └── models/ModelRow.svelte
-│   │   ├── stores/       # Svelte stores (state management)
-│   │   │   └── favorites.svelte.ts
-│   │   └── lib/          # Shared utilities
+│   │   ├── lib/
+│   │   │   ├── api/              # Typed client: client, endpoints, analytics, types
+│   │   │   ├── components/
+│   │   │   │   ├── primitives/   # 14 shared primitives (Button, Card, Modal, …)
+│   │   │   │   ├── layout/       # Sidebar (live health dot), Topbar
+│   │   │   │   ├── dashboard/    # StatGrid, ActivityHeatmap, TokenBarChart,
+│   │   │   │   │                 # ModelBreakdownList, HourlyActivity, AppBreakdown
+│   │   │   │   ├── models/       # ModelRow, ModelFilters, ModelDetailDrawer
+│   │   │   │   ├── providers/    # ProviderCard, ProviderForm, ProviderLogo
+│   │   │   │   ├── favorites/    # FavoriteList, FavoriteItem, CapacityMeter
+│   │   │   │   ├── server/       # ServerPanel, ServerStatusBadge
+│   │   │   │   └── health/       # DoctorPanel (real /api/health data)
+│   │   │   └── stores/           # Rune stores (.svelte.ts), incl. events.svelte.ts
+│   │   └── app.d.ts
 │   ├── dist/             # Built SPA output
 │   ├── vite.config.ts    # Vite build configuration
 │   └── package.json      # UI package (anygate-ui)
 ├── dist/                 # Copied SPA for dist bundle
-└── public/               # Static assets
+└── public/               # Legacy vanilla UI + static assets
 ```
+
+Live-update plumbing lives outside this tree, in `src/services/event-bus.ts`, so
+producers in `storage/` and `gateway/` can publish without importing `ui/`.
+
 
 ## REST API Endpoints
 
-The API is defined in `api.ts` and serves as the backend for the Svelte 5 SPA:
+The API is defined in `api.ts` and serves as the backend for the Svelte 5 SPA.
+The table below mirrors the route table in `handleUiApiRequest`; anything not
+listed here returns `404 {"error":"Not found"}`.
 
 ### Apps
 
@@ -45,58 +62,78 @@ The API is defined in `api.ts` and serves as the backend for the Svelte 5 SPA:
 |--------|----------|---------|
 | GET | `/api/apps` | List supported apps with install status |
 | POST | `/api/apps/launch` | Launch an app with provider/model selection |
-| POST | `/api/apps/set-path` | Override app binary path |
+| POST | `/api/apps/path` | Override app binary path |
+| POST | `/api/apps/browse-folder` | Open a native folder picker |
 
 ### Providers
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| GET | `/api/providers` | List configured providers with models |
 | GET | `/api/providers/templates` | List all supported provider templates |
 | POST | `/api/providers/add` | Add provider from template |
 | POST | `/api/providers/add-custom` | Add custom endpoint provider |
-| POST | `/api/providers/remove` | Remove a configured provider |
-| POST | `/api/providers/refresh-models` | Refresh model list for a provider |
-| POST | `/api/providers/refresh-all-models` | Refresh all provider model lists |
+| POST | `/api/providers/delete` | Remove a configured provider |
+| POST | `/api/providers/refresh` | Refresh model list for one provider |
+| POST | `/api/providers/refresh-all` | Refresh all provider model lists |
+| POST | `/api/keys` | Save an API key for a provider |
 
 ### Models
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| GET | `/api/models` | List all models across providers |
-| GET | `/api/favorites` | List favorite models |
-| POST | `/api/favorites` | Save favorite models list |
+| GET | `/api/models` | List all providers with their models |
+| POST | `/api/models/test` | Live latency/TTFT benchmark for one model |
+
+Favorites are read and written through `/api/config`, not a `/api/favorites` route.
 
 ### Server (Gateway)
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | GET | `/api/server/status` | Gateway server status |
+| GET | `/api/server/providers` | Providers exposed by the gateway |
 | POST | `/api/server/start` | Start in-process gateway server |
 | POST | `/api/server/stop` | Stop in-process gateway server |
 
 ### OAuth
 
+One pair of routes handles every provider; the provider is chosen by the
+`providerId` field in the body. Both the `oauth/*` and `auth/*` spellings are
+served as aliases — shipped clients call `oauth/*`, and dropping it strands them
+(this regressed once in `b88a876`).
+
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| POST | `/api/oauth/xai/start` | Start xAI device code flow |
-| GET | `/api/oauth/xai/poll/:session` | Poll xAI auth status |
-| POST | `/api/oauth/openai/start` | Start OpenAI device code flow |
-| GET | `/api/oauth/openai/poll/:session` | Poll OpenAI auth status |
-| POST | `/api/oauth/github/start` | Start GitHub device code flow |
-| GET | `/api/oauth/github/poll/:session` | Poll GitHub auth status |
-| POST | `/api/oauth/claude-code/start` | Start Claude Code PKCE flow |
-| POST | `/api/oauth/antigravity/start` | Start Antigravity Google OAuth |
-| POST | `/api/oauth/antigravity/callback` | Handle Antigravity OAuth callback |
+| POST | `/api/providers/oauth/start` (alias `/api/providers/auth/start`) | Start a device-code or PKCE flow |
+| GET | `/api/providers/oauth/status?sessionId=` (alias `/api/providers/auth/status`) | Poll a flow's status |
+| GET | `/auth/callback` | Browser redirect target for PKCE flows |
 
 ### System
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| GET | `/api/config` | Read user preferences |
+| GET | `/api/config` | Read user preferences (incl. favorites) |
 | POST | `/api/config` | Update user preferences |
 | GET | `/api/update-status` | Check for anygate updates |
-| GET | `/api/analytics` | Usage analytics data |
+| GET | `/api/analytics?range=all\|30d\|7d` | Aggregated usage analytics |
+| GET | `/api/health` | Real system diagnostics (shares `services/doctor.ts`) |
+| GET | `/api/presets` | List saved launch presets |
+| POST | `/api/presets` | Replace the saved launch preset list |
+| GET | `/api/events` | SSE stream of live usage/server/provider events |
+
+### Live updates (SSE)
+
+`GET /api/events` is a Server-Sent Events stream that replaced the dashboard's
+5-second status polling. Producers publish through `services/event-bus.ts`,
+which lives outside `ui/` so gateway and storage code can emit without importing
+the UI layer:
+
+- `usage` — emitted by `recordUsage` on every recorded request
+- `server` — emitted when the gateway starts or stops
+- `providers` — emitted on provider catalog changes
+
+The client (`lib/stores/events.svelte.ts`) owns one `EventSource` for the whole
+app and falls back to interval polling only after repeated connection failures.
 
 ## Server Control
 

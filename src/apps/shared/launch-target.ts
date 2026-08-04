@@ -7,6 +7,12 @@ import type {
 export interface LaunchTarget {
   providerId?: string
   modelId?: string
+  /**
+   * When true, launch with the full provider catalog (every routable model from
+   * {@link providerId}) instead of a single model. Set by `--all-models` or
+   * `--model All`.
+   */
+  allModels?: boolean
 }
 
 export interface LaunchWizardPlan {
@@ -153,6 +159,10 @@ export function resolveLaunchTarget(
         : agent === 'antigravity'
           ? prefs.lastAntigravityModel
           : prefs.lastGeminiModel)
+  if (explicit.allModels) {
+    if (!providerId) return null
+    return { providerId, allModels: true }
+  }
   if (!providerId || !modelId) return null
   return { providerId, modelId }
 }
@@ -170,6 +180,7 @@ export function findProviderAndModel(
 }
 
 export function hasCompleteExplicitLaunch(explicit: LaunchTarget): boolean {
+  if (explicit.allModels && explicit.providerId) return true
   if (explicit.providerId && explicit.modelId) return true
   if (explicit.modelId) {
     const slug = parseModelSlug(explicit.modelId)
@@ -201,18 +212,19 @@ export function planLaunchWizard(opts: {
       return {
         skip: false,
         target: null,
-        error:
-          'Both --provider and --model are required (or use provider__model slug with --model).',
+        error: 'A provider is required — use --provider, --all-models, or a saved preference.',
       }
     }
     return { skip: true, target }
   }
 
-  if (explicit.providerId || explicit.modelId) {
+  if (explicit.providerId || explicit.modelId || explicit.allModels) {
     return {
       skip: false,
       target: null,
-      error: 'Both --provider and --model are required (or use provider__model slug with --model).',
+      error: explicit.allModels
+        ? 'Use --all-models with --provider to launch every model from a provider.'
+        : 'Both --provider and --model are required (or use provider__model slug with --model).',
     }
   }
 

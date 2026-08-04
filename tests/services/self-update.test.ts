@@ -115,4 +115,96 @@ describe('update command', () => {
     expect(args).toEqual(['install', '-g', 'anygate@latest']);
     expect(String(bin)).toMatch(/npm(\.cmd)?$/);
   });
+
+  // Regression: `anygate update` on Windows died with
+  // "spawn C:\Program Files\nodejs\npm ENOENT". `where npm` lists the
+  // extensionless Unix shell script before npm.cmd, and the old predicate
+  // (`endsWith('.cmd') || endsWith('npm')`) picked the first line — the one
+  // file CreateProcess cannot execute. npm is now invoked by bare name through
+  // the shell, so cmd.exe resolves it via PATHEXT.
+  describe('npm invocation on Windows', () => {
+    const realPlatform = process.platform;
+
+    function setPlatform(value: string): void {
+      Object.defineProperty(process, 'platform', { value, configurable: true });
+    }
+
+    afterEach(() => {
+      setPlatform(realPlatform);
+    });
+
+    async function runConfirmedUpdate(): Promise<unknown[]> {
+      const { checkForUpdates } = await import('../../src/apps/shared/update-check.js');
+      (checkForUpdates as unknown as vi.Mock).mockResolvedValueOnce({
+        currentVersion: '0.5.3',
+        latestVersion: '0.6.0',
+        updateAvailable: true,
+      });
+      const { confirm } = await import('@clack/prompts');
+      (confirm as unknown as vi.Mock).mockResolvedValueOnce(true);
+
+      const fakeChild = {
+        on(event: string, cb: (arg: unknown) => void) {
+          if (event === 'close') queueMicrotask(() => cb(0));
+          return fakeChild;
+        },
+      };
+      hoisted.spawnMock.mockReturnValueOnce(
+        fakeChild as unknown as ReturnType<typeof hoisted.spawnMock>
+      );
+
+      await runUpdateCommand(false);
+      return hoisted.spawnMock.mock.calls[0];
+    }
+
+    it('never hands Windows an absolute path, and enables the shell', async () => {
+      setPlatform('win32');
+      const [bin, args, opts] = await runConfirmedUpdate();
+
+      // A bare name only — an absolute path reintroduces both the ENOENT and
+      // the unquoted "C:\Program Files" splitting bug.
+      expect(bin).toBe('npm');
+      expect(String(bin)).not.toMatch(/[\\/]/);
+      // Required since Node 18.20.2 to run npm.cmd at all.
+      expect((opts as { shell?: boolean }).shell).toBe(true);
+      expect(args).toEqual(['install', '-g', 'anygate@latest']);
+    });
+
+    it('does not enable the shell off Windows', async () => {
+      setPlatform('linux');
+      const [bin, , opts] = await runConfirmedUpdate();
+      expect(bin).toBe('npm');
+      expect((opts as { shell?: boolean }).shell).toBe(false);
+    });
+
+    it('reports a failed spawn once, not twice', async () => {
+      setPlatform('win32');
+      const { checkForUpdates } = await import('../../src/apps/shared/update-check.js');
+      (checkForUpdates as unknown as vi.Mock).mockResolvedValueOnce({
+        currentVersion: '0.5.3',
+        latestVersion: '0.6.0',
+        updateAvailable: true,
+      });
+      const { confirm, log } = await import('@clack/prompts');
+      (confirm as unknown as vi.Mock).mockResolvedValueOnce(true);
+      (log.error as unknown as vi.Mock).mockClear();
+
+      // Node emits BOTH 'error' and 'close' when the binary cannot be started;
+      // -4058 is the numeric ENOENT the user saw as a second error line.
+      const fakeChild = {
+        on(event: string, cb: (arg: unknown) => void) {
+          if (event === 'error') queueMicrotask(() => cb(new Error('spawn npm ENOENT')));
+          if (event === 'close') queueMicrotask(() => cb(-4058));
+          return fakeChild;
+        },
+      };
+      hoisted.spawnMock.mockReturnValueOnce(
+        fakeChild as unknown as ReturnType<typeof hoisted.spawnMock>
+      );
+
+      const exit = await runUpdateCommand(false);
+      expect(exit).toBe(1);
+      expect((log.error as unknown as vi.Mock).mock.calls).toHaveLength(1);
+    });
+  });
 });

@@ -73,6 +73,7 @@ import {
   type CloudCodeBackend,
 } from '../shared/cloud-code-backend.js'
 import type { ProxyRoute } from '../../../src/gateway/proxy/anthropic-proxy.js'
+import { navOption } from '../../apps/shared/ui.js'
 
 function codexProxyRouteToCodexRoute(
   route: CodexProxyRoute,
@@ -275,7 +276,7 @@ async function runCodexAppVertexLaunch(configOnly: boolean, trace = false): Prom
         vertex: vertexConfig,
         contextWindow: m.contextWindow,
       })),
-      { requireAuth: false, debug: trace }
+      { requireAuth: false, debug: trace, app: 'codex-app' }
     )
     const proxyPort = proxyHandle.port
 
@@ -341,7 +342,12 @@ async function runCodexAppVertexLaunch(configOnly: boolean, trace = false): Prom
 
 export async function runCodexAppCommand(
   args: string[],
-  opts: { vertex?: boolean; launchProvider?: string; launchModel?: string } = {}
+  opts: {
+    vertex?: boolean
+    launchProvider?: string
+    launchModel?: string
+    launchAllModels?: boolean
+  } = {}
 ): Promise<number> {
   if (args.includes('--help') || args.includes('-h')) {
     console.log(codexAppHelpText())
@@ -423,18 +429,16 @@ export async function runCodexAppCommand(
 
   const prefs = loadPreferences()
   const favorites = prefs.favoriteModels ?? []
-  const favoritesActive = favorites.length > 0
+  const hasFavorites = favorites.length > 0
+  // Bug fix: favoritesMode is only true when the user explicitly chose the
+  // favorites catalog — not merely because favorites exist. Previously,
+  // selecting a specific model still launched with all favorites.
+  let favoritesMode = false
+  let useProviderAll = false
   // Non-interactive favorites launch: when --favorites is passed (e.g. from the
   // web UI "All favorites" mode), skip the picker + launch-confirm prompts and
   // go straight into the favorites catalog.
   const useFavoritesCatalog = args.includes('--favorites')
-
-  if (favoritesActive && !configOnly) {
-    p.log.info(
-      `Favorites mode active — Codex App picker will show ${favorites.length + 1} models (1 starting + ${favorites.length} favorites).`
-    )
-    p.log.info('Edit with `anygate models`.')
-  }
 
   let activeProvider = providerForCodexPicker(
     compatible.find(lp => lp.id === prefs.lastCodexProvider) ?? compatible[0]!
@@ -442,21 +446,38 @@ export async function runCodexAppCommand(
   let selectedModel =
     activeProvider.models.find(m => m.id === prefs.lastCodexModel) ?? activeProvider.models[0]!
 
-  if (!configOnly && opts.launchProvider && opts.launchModel) {
-    const bootSelection = resolveBootSelection(
-      compatible,
-      opts.launchProvider,
-      opts.launchModel,
-      providerForCodexPicker
-    )
-    if ('error' in bootSelection) {
-      p.log.error(bootSelection.error)
-      return 1
+  if (
+    (!configOnly && opts.launchProvider && opts.launchModel) ||
+    (opts.launchProvider && (opts.launchAllModels || opts.launchModel === 'All'))
+  ) {
+    if (opts.launchAllModels || opts.launchModel === 'All') {
+      const foundProvider = compatible.find(lp => lp.id === opts.launchProvider)
+      if (!foundProvider) {
+        p.log.error(`Provider not found: ${opts.launchProvider}`)
+        return 1
+      }
+      activeProvider = providerForCodexPicker(foundProvider)
+      selectedModel = activeProvider.models[0]!
+      useProviderAll = true
+      if (!configOnly) {
+        p.log.step(`Using all ${activeProvider.models.length} models from ${activeProvider.name}`)
+      }
+    } else {
+      const bootSelection = resolveBootSelection(
+        compatible,
+        opts.launchProvider,
+        opts.launchModel!,
+        providerForCodexPicker
+      )
+      if ('error' in bootSelection) {
+        p.log.error(bootSelection.error)
+        return 1
+      }
+      activeProvider = bootSelection.provider
+      selectedModel = bootSelection.model
     }
-    activeProvider = bootSelection.provider
-    selectedModel = bootSelection.model
   } else if (!configOnly) {
-    if (useFavoritesCatalog && favoritesActive) {
+    if (useFavoritesCatalog && hasFavorites) {
       // Non-interactive favorites launch: pick the first available favorite as the
       // starting model instead of prompting.
       const firstFavorite = resolveFirstAvailableFavorite(
@@ -469,6 +490,7 @@ export async function runCodexAppCommand(
       }
       activeProvider = providerForCodexPicker(firstFavorite.provider)
       selectedModel = firstFavorite.model
+      favoritesMode = true
     } else {
       let currentInitialProvider =
         prefs.lastCodexProvider && compatible.some(o => o.id === prefs.lastCodexProvider)
@@ -478,7 +500,7 @@ export async function runCodexAppCommand(
         const pickedProvider = await pickCodexProvider(
           compatible,
           prefs,
-          favoritesActive,
+          hasFavorites,
           currentInitialProvider
         )
         if (!pickedProvider) return 0
@@ -494,9 +516,39 @@ export async function runCodexAppCommand(
           if (favoritePick === 'cancelled' || favoritePick === 'unavailable') return 0
           activeProvider = favoritePick.provider
           selectedModel = favoritePick.model
+          favoritesMode = true
           break
         } else {
-          activeProvider = providerForCodexPicker(pickedProvider as LocalProvider)
+          activeProvider = providerForCodexPicker(pickedProvider)
+
+          // Ask: pick a specific model, or launch all models from this provider
+          const modelModeChoice = await p.select<string>({
+            message: `Launch mode for ${activeProvider.name}?`,
+            options: [
+              {
+                value: 'specific',
+                label: 'One model',
+                hint: 'Pick a specific model',
+              },
+              {
+                value: 'all',
+                label: `All models (${activeProvider.models.length})`,
+                hint: 'Every model from this provider in the model switcher',
+              },
+              navOption('__back__', '← Back', 'Choose a different provider'),
+            ],
+          })
+          if (p.isCancel(modelModeChoice) || modelModeChoice === '__back__') {
+            currentInitialProvider = activeProvider.id
+            continue
+          }
+
+          if (modelModeChoice === 'all') {
+            useProviderAll = true
+            selectedModel = activeProvider.models[0]!
+            break
+          }
+
           const pickedModelResult = await pickCodexModel(activeProvider, prefs)
           if (pickedModelResult === 'back') {
             currentInitialProvider = activeProvider.id
@@ -520,11 +572,18 @@ export async function runCodexAppCommand(
 
   activeProvider.apiKey = apiKey
 
+  if (hasFavorites && !configOnly && !useProviderAll) {
+    p.log.info(
+      `Favorites mode active — Codex App picker will show ${favorites.length + 1} models (1 starting + ${favorites.length} favorites).`
+    )
+    p.log.info('Edit with `anygate models`.')
+  }
+
   let cloudCodeBackend: CloudCodeBackend | null = null
   let cloudCodeBackendFav: CloudCodeBackend | null = null
-  const appProviderRoutes = favoritesActive
-    ? null
-    : await buildCodexAppProviderCatalogRoutes(activeProvider, apiKey, selectedModel.id, trace)
+  const appProviderRoutes = !favoritesMode
+    ? await buildCodexAppProviderCatalogRoutes(activeProvider, apiKey, selectedModel.id, trace)
+    : null
   cloudCodeBackend = appProviderRoutes?.backend ?? null
 
   const route = appProviderRoutes
@@ -538,7 +597,7 @@ export async function runCodexAppCommand(
   let resolvedFavorites: ResolvedFavorite[] = []
   let providersById: Map<string, LocalProvider> = new Map()
 
-  if (favoritesActive) {
+  if (favoritesMode) {
     const res = await resolveCodexFavorites(
       activeProvider,
       selectedModel,
@@ -552,8 +611,11 @@ export async function runCodexAppCommand(
 
   if (!configOnly) {
     const modelLabel = formatCodexModelLabel(selectedModel)
+    const isExplicitLaunch =
+      Boolean(opts.launchProvider) && Boolean(opts.launchModel || opts.launchAllModels)
     const confirmed =
       useFavoritesCatalog ||
+      isExplicitLaunch ||
       (await confirmCodexLaunch(activeProvider.name, modelLabel, selectedModel.id, appRoute))
     if (!confirmed) {
       cloudCodeBackend?.handle.close()
@@ -565,12 +627,12 @@ export async function runCodexAppCommand(
   let sessionActive = false
   try {
     const catalogPath =
-      favoritesActive && resolvedFavorites.length > 0
+      favoritesMode && resolvedFavorites.length > 0
         ? getFavoritesAppCatalogPath()
         : getAppCatalogPath(route.providerId)
 
     const activeRoute =
-      favoritesActive && resolvedFavorites.length > 0
+      favoritesMode && resolvedFavorites.length > 0
         ? {
             tier: 'proxy' as const,
             modelId: codexCliFavoritesSlug(activeProvider.id, selectedModel.id),
@@ -592,7 +654,7 @@ export async function runCodexAppCommand(
       console.log(pc.bold(pc.cyan('  CONFIG PREVIEW — anygate codex-app')))
       console.log('')
 
-      if (favoritesActive) {
+      if (favoritesMode) {
         console.log(
           `  ${pc.bold('Mode:')}     Favorites Catalog (${resolvedFavorites.length} model${resolvedFavorites.length !== 1 ? 's' : ''})`
         )
@@ -632,7 +694,7 @@ export async function runCodexAppCommand(
     }
 
     let proxyPort: number
-    if (favoritesActive && resolvedFavorites.length > 0) {
+    if (favoritesMode && resolvedFavorites.length > 0) {
       const needsBackend = (r: (typeof resolvedFavorites)[0]) => {
         const m = r.model as LocalProviderModel
         const prov = providersById.get(r.providerId)
@@ -680,6 +742,7 @@ export async function runCodexAppCommand(
       proxyHandle = await startCodexProxy([...backendCodexRoutes, ...regularRoutes], {
         requireAuth: false,
         debug: trace,
+        app: 'codex-app',
       })
       proxyPort = proxyHandle.port
     } else {
@@ -689,13 +752,14 @@ export async function runCodexAppCommand(
       proxyHandle = await startCodexProxy(appProviderRoutes.routes, {
         requireAuth: false,
         debug: trace,
+        app: 'codex-app',
       })
       proxyPort = proxyHandle.port
     }
 
     const modelLabel = formatCodexModelLabel(selectedModel)
     const catalogFile =
-      favoritesActive && resolvedFavorites.length > 0
+      favoritesMode && resolvedFavorites.length > 0
         ? buildFavoritesAppCatalog(resolvedFavorites)
         : buildAppCatalogFile(catalogModels, activeProvider.name, appRoute.modelId)
 

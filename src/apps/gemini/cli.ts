@@ -65,7 +65,7 @@ ${pc.bold('Examples:')}
 export async function runGeminiCommand(
   geminiArgs: string[],
   trace = false,
-  launch: { launchProvider?: string; launchModel?: string } = {}
+  launch: { launchProvider?: string; launchModel?: string; launchAllModels?: boolean } = {}
 ): Promise<number> {
   if (geminiArgs.includes('--help') || geminiArgs.includes('-h')) {
     console.log(geminiHelpText())
@@ -85,8 +85,11 @@ export async function runGeminiCommand(
   setAgentStdoutMode(agentStdout)
 
   const prefs = loadPreferences()
+  const launchAllModels = Boolean(launch.launchAllModels || launch.launchModel === 'All')
   const launchPlan = planLaunchWizard({
-    explicit: { providerId: launch.launchProvider, modelId: launch.launchModel },
+    explicit: launchAllModels
+      ? { providerId: launch.launchProvider, allModels: true }
+      : { providerId: launch.launchProvider, modelId: launch.launchModel },
     childArgs: passthroughArgs,
     agent: 'gemini',
     prefs,
@@ -305,6 +308,13 @@ export async function runGeminiCommand(
   if (!agentStdout) {
     p.log.info(`Gemini proxy started on port ${proxyHandle.port}`)
     p.log.info(`💡 Type ${pc.bold('.model <id>')} in the chat to switch models mid-session.`)
+    if (launchAllModels) {
+      p.log.info(
+        pc.dim(
+          `All ${activeProvider.models.length} ${activeProvider.name} models are available — type .model <id> to switch.`
+        )
+      )
+    }
   }
 
   let exitCode = 1

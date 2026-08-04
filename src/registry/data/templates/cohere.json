@@ -6,5 +6,8 @@
   "supported": true,
   "authType": "apiKey",
   "apiBaseUrl": "https://api.cohere.com/v1",
-  "modelsEndpoint": "/models"
+  "modelsEndpoint": "/models",
+  "signupUrl": "https://dashboard.cohere.com/api-keys",
+  "modelSource": "api-list",
+  "npm": "@ai-sdk/cohere"
 }

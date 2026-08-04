@@ -1,5 +1,6 @@
 <script lang="ts">
   import { router, navigate, type RouteId } from '../../stores/router.svelte';
+  import { health } from '../../stores/health.svelte';
 
   const items: { id: RouteId; label: string; icon: string }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: 'M3 12l9-9 9 9M5 10v10h5v-6h4v6h5V10' },
@@ -12,6 +13,18 @@
   ];
 
   const version = __APP_VERSION__;
+
+  // Reflects the real /api/health result. Previously this dot was hardcoded
+  // green, so it claimed a passing system even when checks were failing.
+  const dot = $derived.by(() => {
+    if (health.loading && !health.report) return { tone: 'unknown', label: 'Checking system health…' };
+    if (health.error || !health.report) return { tone: 'unknown', label: 'System health unavailable' };
+    const failing = health.report.checks?.filter((c) => !c.ok) ?? [];
+    if (!health.report.ok) return { tone: 'error', label: 'Critical check failing' };
+    if (failing.length > 0)
+      return { tone: 'warn', label: `${failing.length} check${failing.length === 1 ? '' : 's'} need attention` };
+    return { tone: 'ok', label: 'All health checks passing' };
+  });
 </script>
 
 <aside class="sidebar">
@@ -25,7 +38,7 @@
 
   <div class="version-row">
     <span class="version">v{version}</span>
-    <span class="health-dot" title="Health check available"></span>
+    <span class="health-dot" class:ok={dot.tone === 'ok'} class:warn={dot.tone === 'warn'} class:error={dot.tone === 'error'} title={dot.label} role="img" aria-label={dot.label}></span>
   </div>
 
   <nav class="nav" aria-label="Sections">
@@ -111,8 +124,21 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
+    /* Neutral until a real health result arrives — never claim "healthy" by default. */
+    background: var(--text-3);
+    transition: background var(--dur-sm) var(--ease), box-shadow var(--dur-sm) var(--ease);
+  }
+  .health-dot.ok {
     background: var(--success);
     box-shadow: 0 0 8px var(--success);
+  }
+  .health-dot.warn {
+    background: var(--warning);
+    box-shadow: 0 0 8px var(--warning);
+  }
+  .health-dot.error {
+    background: var(--error);
+    box-shadow: 0 0 8px var(--error);
   }
   .nav {
     display: flex;
@@ -143,5 +169,40 @@
   }
   .nav-item svg {
     flex-shrink: 0;
+  }
+
+  /* On narrow screens the shell collapses to one column. Keeping the sidebar
+     full-height there would push all content below a screenful of nav, so it
+     becomes a compact horizontally-scrolling bar instead. */
+  @media (max-width: 760px) {
+    .sidebar {
+      position: static;
+      height: auto;
+      overflow: visible;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding: 14px 14px 10px;
+    }
+    .sidebar::after {
+      display: none;
+    }
+    .version-row {
+      padding-bottom: 10px;
+    }
+    .nav {
+      flex-direction: row;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+    }
+    .nav::-webkit-scrollbar {
+      display: none;
+    }
+    .nav-item {
+      width: auto;
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
   }
 </style>

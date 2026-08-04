@@ -28,6 +28,8 @@ export interface AppInfo {
 export interface GatewayLaunchOptions {
   providerId?: string
   modelId?: string
+  /** Launch with all routable models from `providerId` (emits --all-models). */
+  allModels?: boolean
   favorites?: boolean
   /** Launch the full favorites catalog (emits bare --favorites) instead of resolving to the first favorite. */
   favoritesCatalog?: boolean
@@ -252,11 +254,16 @@ export function detectApp(id: string): {
   path: string | null
   pathSource: 'auto' | 'override' | null
 } {
+  // A manual override wins only while it still exists. A stale one must NOT be
+  // treated as "not installed": Microsoft Store (MSIX) installs live under
+  // version-stamped paths (…\WindowsApps\Claude_1.24012.1.0_x64__…\app\claude.exe),
+  // so every Store auto-update invalidates a previously-valid override. Reporting
+  // the app as missing left users permanently stuck, because re-browsing to the new
+  // path only re-armed the same trap on the next update. Fall through to
+  // auto-detection instead, which resolves the version-independent AppsFolder moniker.
   const override = getAppPathOverride(id)
-  if (override) {
-    return existsSync(override)
-      ? { installed: true, path: override, pathSource: 'override' }
-      : { installed: false, path: override, pathSource: 'override' }
+  if (override && existsSync(override)) {
+    return { installed: true, path: override, pathSource: 'override' }
   }
 
   const resolvedPath = findBinaryOnPath(id, FALLBACKS[id] ?? [], { verifyWhichResult: true })
@@ -367,9 +374,9 @@ export function getGatewayLaunchCommand(appId: string, options: GatewayLaunchOpt
     args.push('--trace')
   }
   if (options.favoritesCatalog) {
-    // Full favorites catalog: emit bare --favorites so the CLI builds the
-    // multi-route proxy and the app's model picker shows every favorite.
     args.push('--favorites')
+  } else if (options.allModels && options.providerId) {
+    args.push('--provider', options.providerId, '--all-models')
   } else if (options.providerId && options.modelId) {
     args.push('--provider', options.providerId, '--model', options.modelId)
   } else if (options.providerId || options.modelId) {

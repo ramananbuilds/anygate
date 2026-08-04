@@ -97,7 +97,13 @@ export async function partitionAndStartCloudCodeBackend<
 >(
   items: TInput[],
   toOutput: (proxyRoute: ProxyRoute, backend: CloudCodeBackend, original: TInput) => TOutput,
-  trace?: boolean
+  trace?: boolean,
+  /**
+   * Analytics label for the launching app. Without it these routes report
+   * themselves as 'Claude'/'Antigravity' regardless of who started them, so
+   * Codex's cloud-code traffic was attributed to another app entirely.
+   */
+  app?: string
 ): Promise<{ backendItems: TOutput[]; backend: CloudCodeBackend | null }> {
   if (items.length === 0) return { backendItems: [], backend: null }
 
@@ -111,7 +117,13 @@ export async function partitionAndStartCloudCodeBackend<
           item.providerData ?? {}
         )
   )
-  const backend = await startCloudCodeCatalogBackend(proxyRoutes, proxyRoutes[0]!.aliasId, trace)
+  if (app) for (const route of proxyRoutes) route.app = app
+  const backend = await startCloudCodeCatalogBackend(
+    proxyRoutes,
+    proxyRoutes[0]!.aliasId,
+    trace,
+    app
+  )
 
   return {
     backend,
@@ -140,8 +152,9 @@ export async function buildSingleModelCloudCodeRoute(
 export async function startCloudCodeCatalogBackend(
   routes: ProxyRoute[],
   startingAliasId: string,
-  trace?: boolean
+  trace?: boolean,
+  app?: string
 ): Promise<CloudCodeBackend> {
-  const handle = await startProxyCatalog(routes, startingAliasId, trace ?? false)
+  const handle = await startProxyCatalog(routes, startingAliasId, trace ?? false, { app })
   return { port: handle.port, token: handle.token, handle }
 }

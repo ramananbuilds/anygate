@@ -1,10 +1,6 @@
 // Find, open, quit, and restart the Claude Desktop app (macOS + Windows).
-import { execSync } from 'node:child_process'
-import { existsSync, readdirSync, statSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { existsSync } from 'node:fs'
 import { AppLauncher } from '../shared/app-launcher.js'
-import * as p from '@clack/prompts'
 
 const CLAUDE_BUNDLE_ID = 'com.anthropic.claudefordesktop'
 
@@ -58,50 +54,14 @@ export function claudeAppSupported(): void {
   }
 }
 
-import { getAppPathOverride } from '../../storage/config.js'
-
 export function findClaudeApp(): string | null {
-  const override = getAppPathOverride('claude-app')
-  if (override && existsSync(override)) return override
-
-  if (process.platform === 'darwin') {
-    for (const bundleName of launcher.darwinAppBundleNames) {
-      const paths = [`/Applications/${bundleName}`, join(homedir(), 'Applications', bundleName)]
-      for (const path of paths) {
-        if (existsSync(path)) return path
-      }
-    }
-    // mdfind fallback
-    try {
-      const out = execSync(`mdfind "kMDItemCFBundleIdentifier == '${CLAUDE_BUNDLE_ID}'"`, {
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }).trim()
-      const first = out
-        .split('\n')
-        .map(l => l.trim())
-        .find(Boolean)
-      if (first && existsSync(first)) return first
-    } catch {
-      /* ignore */
-    }
-  }
-  if (process.platform === 'win32') {
-    const localAppData = process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local')
-    for (const base of launcher.winInstallBases) {
-      for (const exe of launcher.winExeNames) {
-        const paths = [join(localAppData, 'Programs', base, exe), join(localAppData, base, exe)]
-        for (const path of paths) {
-          try {
-            if (existsSync(path)) return path
-          } catch {
-            /* ignore */
-          }
-        }
-      }
-    }
-  }
-  return null
+  // Delegates to the launcher rather than re-implementing the search. The old
+  // hand-rolled copy checked only two static %LOCALAPPDATA% paths and never ran
+  // findWinAppExtra(), so Microsoft Store (MSIX) installs — which have no .exe at
+  // any fixed path — were reported as "not installed" by detectApp()/the web UI,
+  // even though findApp() locates them via Get-StartApps. findApp() is synchronous;
+  // findClaudeAppAsync() below already delegates to this same method.
+  return launcher.findApp()
 }
 
 export async function findClaudeAppAsync(): Promise<string | null> {

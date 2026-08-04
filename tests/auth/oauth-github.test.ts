@@ -1,21 +1,51 @@
-import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest'
 import {
   requestGithubDeviceCode,
   exchangeForCopilotToken,
   refreshGithubCopilotToken,
   pollGithubDeviceCodeToken,
-} from '../../src/auth/github.js';
-import { oauthCredentialShouldRefresh, refreshStoredOAuthCredential } from '../../src/auth/refresh.js';
-import { positiveSecondsToMs } from '../../src/auth/pkce.js';
-import type { StoredOAuthCredential } from '../../src/auth/types.js';
+} from '../../src/auth/github.js'
+import {
+  oauthCredentialShouldRefresh,
+  refreshStoredOAuthCredential,
+} from '../../src/auth/refresh.js'
+import { positiveSecondsToMs } from '../../src/auth/pkce.js'
+import type { StoredOAuthCredential } from '../../src/auth/types.js'
 
-const mockFetch = vi.fn();
-global.fetch = mockFetch as unknown as typeof fetch;
+const mockFetch = vi.fn()
+global.fetch = mockFetch as unknown as typeof fetch
+
+/**
+ * A response double that behaves like a real one: the device-flow poll loop
+ * reads `.text()` and parses it itself (so a non-JSON error page can be
+ * reported with its status instead of collapsing to an empty object), while
+ * other call sites use `.json()`. Doubles supplying only `json` diverged from
+ * `Response` and broke when the loop started reading text.
+ */
+function jsonResponse(body: unknown, init?: { ok?: boolean; status?: number }) {
+  const text = JSON.stringify(body)
+  return {
+    ok: init?.ok ?? true,
+    status: init?.status ?? 200,
+    json: async () => JSON.parse(text),
+    text: async () => text,
+  }
+}
+
+/** Non-JSON body (e.g. an HTML error page from a misrouted endpoint). */
+function textResponse(body: string, init?: { ok?: boolean; status?: number }) {
+  return {
+    ok: init?.ok ?? false,
+    status: init?.status ?? 422,
+    json: async () => JSON.parse(body),
+    text: async () => body,
+  }
+}
 
 describe('GitHub Copilot OAuth', () => {
   beforeEach(() => {
-    mockFetch.mockReset();
-  });
+    mockFetch.mockReset()
+  })
 
   describe('requestGithubDeviceCode', () => {
     it('returns device code info on success', async () => {
@@ -28,22 +58,24 @@ describe('GitHub Copilot OAuth', () => {
           expires_in: 900,
           interval: 5,
         }),
-      });
+      })
 
-      const res = await requestGithubDeviceCode();
-      expect(res.device_code).toBe('dc_123');
-      expect(res.user_code).toBe('UC-456');
-    });
+      const res = await requestGithubDeviceCode()
+      expect(res.device_code).toBe('dc_123')
+      expect(res.user_code).toBe('UC-456')
+    })
 
     it('throws on API error', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
         text: async () => 'Bad Request',
-      });
+      })
 
-      await expect(requestGithubDeviceCode()).rejects.toThrow(/device code request failed \(400\): Bad Request/);
-    });
+      await expect(requestGithubDeviceCode()).rejects.toThrow(
+        /device code request failed \(400\): Bad Request/
+      )
+    })
 
     it('throws on missing fields', async () => {
       mockFetch.mockResolvedValueOnce({
@@ -51,39 +83,39 @@ describe('GitHub Copilot OAuth', () => {
         json: async () => ({
           user_code: 'UC-456',
         }), // missing device_code
-      });
+      })
 
-      await expect(requestGithubDeviceCode()).rejects.toThrow(/missing required fields/);
-    });
-  });
+      await expect(requestGithubDeviceCode()).rejects.toThrow(/missing required fields/)
+    })
+  })
 
   describe('exchangeForCopilotToken', () => {
     it('returns short-lived token on success', async () => {
-      const expiresAt = new Date(Date.now() + 1800 * 1000).toISOString();
+      const expiresAt = new Date(Date.now() + 1800 * 1000).toISOString()
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           token: 'tidv2_789',
           expires_at: expiresAt,
         }),
-      });
+      })
 
-      const res = await exchangeForCopilotToken('ghu_123');
-      expect(res.access_token).toBe('tidv2_789');
+      const res = await exchangeForCopilotToken('ghu_123')
+      expect(res.access_token).toBe('tidv2_789')
       // ~1800 seconds
-      expect(res.expires_in).toBeGreaterThan(1700);
-      expect(res.expires_in).toBeLessThanOrEqual(1800);
-    });
+      expect(res.expires_in).toBeGreaterThan(1700)
+      expect(res.expires_in).toBeLessThanOrEqual(1800)
+    })
 
     it('throws if response is missing token', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
-      });
+      })
 
-      await expect(exchangeForCopilotToken('ghu_123')).rejects.toThrow(/missing token field/);
-    });
-  });
+      await expect(exchangeForCopilotToken('ghu_123')).rejects.toThrow(/missing token field/)
+    })
+  })
 
   describe('refreshGithubCopilotToken', () => {
     it('wraps exchangeForCopilotToken and returns the same refresh token', async () => {
@@ -92,14 +124,14 @@ describe('GitHub Copilot OAuth', () => {
         json: async () => ({
           token: 'tidv2_new',
         }),
-      });
+      })
 
-      const res = await refreshGithubCopilotToken('ghu_123');
-      expect(res.access_token).toBe('tidv2_new');
-      expect(res.refresh_token).toBe('ghu_123');
-      expect(res.expires_in).toBe(1800); // default when no expires_at
-    });
-  });
+      const res = await refreshGithubCopilotToken('ghu_123')
+      expect(res.access_token).toBe('tidv2_new')
+      expect(res.refresh_token).toBe('ghu_123')
+      expect(res.expires_in).toBe(1800) // default when no expires_at
+    })
+  })
 
   describe('pollGithubDeviceCodeToken', () => {
     it('polls until access token is returned, then exchanges it for copilot token', async () => {
@@ -109,35 +141,29 @@ describe('GitHub Copilot OAuth', () => {
         verification_uri: 'url',
         expires_in: 900,
         interval: 1,
-      };
+      }
 
       // 1. First poll: authorization_pending
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ error: 'authorization_pending' }),
-      });
+      mockFetch.mockResolvedValueOnce(jsonResponse({ error: 'authorization_pending' }))
       // 2. Second poll: success
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ access_token: 'ghu_123' }),
-      });
+      mockFetch.mockResolvedValueOnce(jsonResponse({ access_token: 'ghu_123' }))
       // 3. Exchange call inside pollGithubDeviceCodeToken
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ token: 'tidv2_456' }),
-      });
+      })
 
-      const sleep = vi.fn().mockResolvedValue(undefined);
-      let time = 0;
-      const now = () => time; // fixed time
+      const sleep = vi.fn().mockResolvedValue(undefined)
+      let time = 0
+      const now = () => time // fixed time
 
-      const resPromise = pollGithubDeviceCodeToken(device, { sleep, now });
-      
-      const res = await resPromise;
-      expect(res.access_token).toBe('tidv2_456');
-      expect(res.refresh_token).toBe('ghu_123');
-      expect(sleep).toHaveBeenCalledTimes(1); // slept once for auth_pending
-    });
+      const resPromise = pollGithubDeviceCodeToken(device, { sleep, now })
+
+      const res = await resPromise
+      expect(res.access_token).toBe('tidv2_456')
+      expect(res.refresh_token).toBe('ghu_123')
+      expect(sleep).toHaveBeenCalledTimes(1) // slept once for auth_pending
+    })
 
     it('handles slow_down and expired_token', async () => {
       const device = {
@@ -146,26 +172,20 @@ describe('GitHub Copilot OAuth', () => {
         verification_uri: 'url',
         expires_in: 900,
         interval: 1,
-      };
+      }
 
       // 1. slow_down
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ error: 'slow_down' }),
-      });
+      mockFetch.mockResolvedValueOnce(jsonResponse({ error: 'slow_down' }))
       // 2. expired_token
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ error: 'expired_token' }),
-      });
+      mockFetch.mockResolvedValueOnce(jsonResponse({ error: 'expired_token' }))
 
-      const sleep = vi.fn().mockResolvedValue(undefined);
-      const resPromise = pollGithubDeviceCodeToken(device, { sleep, now: () => 0 });
-      await expect(resPromise).rejects.toThrow(/device code expired/);
-      expect(sleep).toHaveBeenCalledTimes(1); // slept once for slow_down
-    });
-  });
-});
+      const sleep = vi.fn().mockResolvedValue(undefined)
+      const resPromise = pollGithubDeviceCodeToken(device, { sleep, now: () => 0 })
+      await expect(resPromise).rejects.toThrow(/device code expired/)
+      expect(sleep).toHaveBeenCalledTimes(1) // slept once for slow_down
+    })
+  })
+})
 
 describe('OAuth Refresh Logic (GitHub)', () => {
   it('oauthCredentialShouldRefresh returns true if expiring for github-copilot', () => {
@@ -173,16 +193,16 @@ describe('OAuth Refresh Logic (GitHub)', () => {
       access: 'tidv2',
       refresh: 'ghu',
       expires: Date.now() + 10000, // < 5 minutes
-    };
-    expect(oauthCredentialShouldRefresh(cred, 'github-copilot')).toBe(true);
-  });
+    }
+    expect(oauthCredentialShouldRefresh(cred, 'github-copilot')).toBe(true)
+  })
 
   it('oauthCredentialShouldRefresh returns false if not expiring for github-copilot', () => {
     const cred: any = {
       access: 'tidv2',
       refresh: 'ghu',
       expires: Date.now() + 600000, // > 5 minutes
-    };
-    expect(oauthCredentialShouldRefresh(cred, 'github-copilot')).toBe(false);
-  });
-});
+    }
+    expect(oauthCredentialShouldRefresh(cred, 'github-copilot')).toBe(false)
+  })
+})

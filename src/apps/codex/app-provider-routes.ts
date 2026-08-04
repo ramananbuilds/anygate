@@ -84,7 +84,8 @@ export async function buildCodexAppProviderCatalogRoutes(
       interleavedReasoningField: original.model.interleavedReasoningField,
       headers: provider.headers,
     }),
-    trace
+    trace,
+    'codex-app'
   )
 
   for (let index = 0; index < backendModels.length; index++) {

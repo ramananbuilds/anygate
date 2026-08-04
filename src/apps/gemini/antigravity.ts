@@ -180,11 +180,12 @@ async function pickAntigravityCliFavoriteLaunchModel(
 
 async function resolveAntigravityLaunch(
   prefs: UserPreferences,
-  boot: { launchProvider?: string; launchModel?: string } | undefined
+  boot: { launchProvider?: string; launchModel?: string; launchAllModels?: boolean } | undefined
 ): Promise<{
   provider: LocalProvider
   model: LocalProviderModel
   allProviders: LocalProvider[]
+  allModels?: boolean
 } | null> {
   // Load the provider catalog
   let catalog
@@ -204,6 +205,16 @@ async function resolveAntigravityLaunch(
     p.log.warn('No providers available.')
     p.log.info(pc.dim('Run anygate providers add or import to get started.'))
     return null
+  }
+
+  if (boot?.launchProvider && boot?.launchAllModels) {
+    const provider = allProviders.find(p => p.id === boot.launchProvider)
+    if (!provider) {
+      p.log.error(`Provider not found: ${boot.launchProvider}`)
+      return null
+    }
+    const model = provider.models[0]!
+    return { provider, model, allProviders, allModels: true }
   }
 
   // Check for explicit --provider + --model
@@ -286,13 +297,21 @@ async function resolveAndBuildRoutes(
     validatedSlotCount: number
     pauseForCapacityWarning: boolean
     childArgs: string[]
+    allModels?: boolean
   }
 ): Promise<{ routes: ReturnType<typeof buildAntigravityRoutes>; apiKey: string } | null> {
+  const allModelsFavorites: FavoriteModel[] = opts.allModels
+    ? provider.models.map(m => ({
+        providerId: provider.id,
+        modelId: m.id,
+      }))
+    : []
+
   const result = await resolveAntigravityLaunchRoutes({
     provider,
     model,
     allProviders,
-    favorites: prefs.antigravityCliFavoriteModels ?? [],
+    favorites: opts.allModels ? allModelsFavorites : (prefs.antigravityCliFavoriteModels ?? []),
     maxRoutes: opts.maxRoutes,
   })
   if (!result) {
@@ -430,7 +449,12 @@ async function runAntigravityCommand(
 }
 
 async function launchWithSelection(
-  selection: { provider: LocalProvider; model: LocalProviderModel; allProviders: LocalProvider[] },
+  selection: {
+    provider: LocalProvider
+    model: LocalProviderModel
+    allProviders: LocalProvider[]
+    allModels?: boolean
+  },
   prefs: UserPreferences,
   opts: {
     childArgs?: string[]
@@ -465,6 +489,7 @@ async function launchWithSelection(
     validatedSlotCount: routeLimit,
     pauseForCapacityWarning: opts.pauseForCapacityWarning ?? false,
     childArgs: opts.childArgs ?? [],
+    allModels: selection.allModels,
   })
   if (!routeResult) return 1
 
@@ -507,7 +532,7 @@ async function launchWithSelection(
 export async function runAgyCommand(
   childArgs: string[],
   trace = false,
-  boot?: { launchProvider?: string; launchModel?: string }
+  boot?: { launchProvider?: string; launchModel?: string; launchAllModels?: boolean }
 ): Promise<number> {
   return runAntigravityCommand(
     'anygate agy — Antigravity CLI',
@@ -528,7 +553,7 @@ export async function runAgyCommand(
 export async function runAntigravityAppCommand(
   childArgs: string[],
   trace = false,
-  boot?: { launchProvider?: string; launchModel?: string }
+  boot?: { launchProvider?: string; launchModel?: string; launchAllModels?: boolean }
 ): Promise<number> {
   return runAntigravityCommand(
     'anygate antigravity — Antigravity app',
@@ -590,7 +615,7 @@ export async function runAntigravityAppCommand(
 export async function runAntigravityIdeCommand(
   childArgs: string[],
   trace = false,
-  boot?: { launchProvider?: string; launchModel?: string }
+  boot?: { launchProvider?: string; launchModel?: string; launchAllModels?: boolean }
 ): Promise<number> {
   return runAntigravityCommand(
     'anygate antigravity-ide — Antigravity IDE',

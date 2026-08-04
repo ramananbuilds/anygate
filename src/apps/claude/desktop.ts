@@ -14,6 +14,7 @@ import { pickCodexProvider, pickCodexModel } from '../codex/prompts.js'
 import { resolveBootSelection } from '../codex/favorites-launch.js'
 import { codexCompatibleProviders, routableModelsForProvider } from '../codex/routing.js'
 import { providersForTarget } from '../../apps/shared/target-compatibility.js'
+import { navOption } from '../../apps/shared/ui.js'
 import { startServer, type ServerHandle } from '../../../src/gateway/server/router.js'
 import {
   createGatewayModelCatalog,
@@ -116,7 +117,7 @@ export function modelToServerModelInfo(
 
 export async function runClaudeAppCommand(
   args: string[],
-  boot?: { launchProvider?: string; launchModel?: string }
+  boot?: { launchProvider?: string; launchModel?: string; launchAllModels?: boolean }
 ): Promise<number> {
   if (args.includes('--help') || args.includes('-h')) {
     console.log(claudeAppHelpText())
@@ -179,12 +180,23 @@ export async function runClaudeAppCommand(
   const prefs = loadPreferences()
   const favorites = prefs.favoriteModels ?? []
   const hasFavorites = favorites.length > 0
+  const launchAllModels = Boolean(boot?.launchAllModels || boot?.launchModel === 'All')
 
   let activeProvider: LocalProvider | null = null
   let selectedModel: any = null
   let useFavorites = false
+  let useProviderAll = false
 
-  if (boot?.launchProvider && boot?.launchModel) {
+  if (boot?.launchProvider && launchAllModels) {
+    const foundProvider = compatible.find(lp => lp.id === boot.launchProvider)
+    if (!foundProvider) {
+      p.log.error(`Provider not found: ${boot.launchProvider}`)
+      return 1
+    }
+    activeProvider = foundProvider
+    selectedModel = activeProvider.models[0]!
+    useProviderAll = true
+  } else if (boot?.launchProvider && boot?.launchModel) {
     const bootSelection = resolveBootSelection(
       compatible,
       boot.launchProvider,
@@ -215,10 +227,52 @@ export async function runClaudeAppCommand(
     if (pickedProvider === '__favorites__') {
       useFavorites = true
     } else {
-      activeProvider = providerForClaudePicker(pickedProvider)
-      const pickedModel = await pickCodexModel(activeProvider, prefs)
-      if (!pickedModel) return 0
-      selectedModel = pickedModel
+      while (true) {
+        const pickedProvider = await pickCodexProvider(
+          compatible,
+          prefs,
+          hasFavorites,
+          undefined,
+          'Claude'
+        )
+        if (!pickedProvider) return 0
+
+        if (pickedProvider === '__favorites__') {
+          useFavorites = true
+          break
+        } else {
+          activeProvider = providerForClaudePicker(pickedProvider)
+
+          const modelModeChoice = await p.select<string>({
+            message: `Launch mode for ${activeProvider.name}?`,
+            options: [
+              {
+                value: 'specific',
+                label: 'One model',
+                hint: 'Pick a specific model',
+              },
+              {
+                value: 'all',
+                label: `All models (${activeProvider.models.length})`,
+                hint: 'Every model from this provider in the model picker',
+              },
+              navOption('__back__', '← Back', 'Choose a different provider'),
+            ],
+          })
+          if (p.isCancel(modelModeChoice) || modelModeChoice === '__back__') continue
+
+          if (modelModeChoice === 'all') {
+            useProviderAll = true
+            selectedModel = activeProvider.models[0]!
+            break
+          }
+
+          const pickedModel = await pickCodexModel(activeProvider, prefs)
+          if (!pickedModel) return 0
+          selectedModel = pickedModel
+          break
+        }
+      }
     }
   }
 
@@ -308,6 +362,61 @@ export async function runClaudeAppCommand(
       seen.add(key)
       return true
     })
+  } else if (useProviderAll) {
+    // All models from the selected provider — build server models for every
+    // routable model, routing cloud-code models through a backend proxy.
+    const routableProvider = providersForTarget(catalog, 'claude-app').find(
+      lp => lp.id === activeProvider!.id
+    )
+    const allServerModels = localProvidersToServerModels(
+      routableProvider ? [routableProvider] : [activeProvider!]
+    )
+    const cloudCodeIndices = allServerModels
+      .map((m, i) => (m.modelFormat === 'cloud-code' ? i : -1))
+      .filter(i => i >= 0)
+
+    if (cloudCodeIndices.length > 0 && activeProvider!.apiKey) {
+      const providerData = (activeProvider!.providerData ?? {}) as Record<string, unknown>
+      const cloudCodeModels = cloudCodeIndices.map(i => allServerModels[i]!)
+      const cloudRoutes = cloudCodeModels.map(model =>
+        buildCloudCodeProxyRoute(
+          { id: model.id, name: model.name, modelFormat: 'cloud-code' } as LocalProviderModel,
+          activeProvider!.apiKey,
+          providerData
+        )
+      )
+      const startingAlias = cloudRoutes[0]!.aliasId
+      cloudCodeBackend = await startCloudCodeCatalogBackend(
+        cloudRoutes,
+        startingAlias,
+        trace,
+        'claude-desktop'
+      )
+      const backend = cloudCodeBackend
+      for (let idx of cloudCodeIndices) {
+        const m = allServerModels[idx]!
+        allServerModels[idx] = {
+          ...m,
+          modelFormat: 'anthropic',
+          baseUrl: `http://127.0.0.1:${backend.port}`,
+          apiBaseUrl: undefined,
+          apiKey: backend.token,
+          completionsUrl: undefined,
+          authType: undefined,
+          oauthAccountId: undefined,
+          headers: undefined,
+        }
+      }
+    }
+
+    // Drop duplicate (providerId, id) entries
+    const seen = new Set<string>()
+    serverModels = allServerModels.filter(m => {
+      const key = `${m.providerId}:${m.id}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
   } else if (selectedModel.modelFormat === 'cloud-code') {
     const providerData = (activeProvider!.providerData ?? {}) as Record<string, unknown>
     const cloudRoute = buildCloudCodeProxyRoute(selectedModel, activeProvider!.apiKey, providerData)
@@ -345,6 +454,9 @@ export async function runClaudeAppCommand(
       backends: BACKENDS,
       gateway: { maskGatewayIds: true },
       debugLogPath,
+      // Claude Desktop embeds the gateway router rather than running
+      // `anygate server`, so attribute its traffic to the app, not 'gateway'.
+      app: 'claude-desktop',
     })
 
     uuid = writeAnygateIConfig(proxyHandle.port)
@@ -385,6 +497,10 @@ export async function runClaudeAppCommand(
     console.log(`\n${pc.bold('Claude Desktop 3P Mode Active')}`)
     if (useFavorites) {
       console.log(`${pc.dim('Catalog:')}  Favorite models only`)
+    } else if (useProviderAll) {
+      console.log(
+        `${pc.dim('Catalog:')}  All ${activeProvider!.name} models (${serverModels.length})`
+      )
     } else {
       console.log(`${pc.dim('Model:')}    ${selectedModel.id}`)
       console.log(`${pc.dim('Provider:')} ${activeProvider!.name}`)

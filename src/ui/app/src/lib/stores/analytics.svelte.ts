@@ -12,15 +12,22 @@ export const analytics = $state<{
   hasData: boolean
 }>({ report: null, range: 'all', loading: false, error: null, hasData: false })
 
+// Monotonic request counter. Rapid range switching can resolve out of order, so
+// only the newest in-flight request is allowed to publish its result.
+let requestSeq = 0
+
 export async function loadAnalytics(range: RangeId = analytics.range): Promise<void> {
+  const seq = ++requestSeq
   analytics.range = range
   analytics.loading = true
   analytics.error = null
   try {
     const report = await fetchDashboardAnalytics(range)
+    if (seq !== requestSeq) return
     analytics.report = report
     analytics.hasData = report.totalTokens > 0 || report.messages > 0
   } catch (err) {
+    if (seq !== requestSeq) return
     analytics.report = null
     analytics.hasData = false
     analytics.error =
@@ -28,6 +35,6 @@ export async function loadAnalytics(range: RangeId = analytics.range): Promise<v
         ? `Couldn't reach the analytics backend (${err.message}). Run \`anygate ui\` and reload.`
         : 'Couldn’t reach the analytics backend. Run `anygate ui` and reload.'
   } finally {
-    analytics.loading = false
+    if (seq === requestSeq) analytics.loading = false
   }
 }

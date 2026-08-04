@@ -7,6 +7,9 @@
   import { loadApps } from './lib/stores/apps.svelte';
   import { loadConfig } from './lib/stores/config.svelte';
   import { loadPresets } from './lib/stores/presets.svelte';
+  import { loadHealth } from './lib/stores/health.svelte';
+  import { connectEvents, disconnectEvents } from './lib/stores/events.svelte';
+  import { startPolling as startServerTracking, stopPolling as stopServerTracking } from './lib/stores/server.svelte';
   import { router } from './lib/stores/router.svelte';
   import Sidebar from './lib/components/layout/Sidebar.svelte';
   import Topbar from './lib/components/layout/Topbar.svelte';
@@ -34,7 +37,18 @@
     void loadApps();
     void loadConfig();
     void loadPresets();
-    return () => window.removeEventListener('keydown', onKey);
+    // Loaded app-wide: the sidebar status dot reflects it on every route, not
+    // just the dashboard where DoctorPanel lives.
+    void loadHealth();
+    // One shared event stream for the whole app, so server state stays live on
+    // every route (the dashboard shows a "server on" badge too, not just /server).
+    connectEvents();
+    startServerTracking();
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      stopServerTracking();
+      disconnectEvents();
+    };
   });
 </script>
 

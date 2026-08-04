@@ -283,7 +283,11 @@ async function doStartGatewayServer(
   // panel stay in sync, matching the CLI wizard's own save-as-you-go behavior.
   setServerFavoritesOnly(req.favoritesOnly)
   setServerFreeModelsOnly(req.freeModelsOnly)
-  if (req.exposedProviders) setServerExposedProviders(req.exposedProviders)
+  // Always persist, including the "all providers" case: `null` must clear a
+  // previously saved subset, otherwise switching back to All leaves the old
+  // selection stored and the panel restores it on next load.
+  // getServerExposedProviders() reads an empty list back as null.
+  setServerExposedProviders(req.exposedProviders ?? [])
   setServerMaskGatewayIds(req.maskGatewayIds)
   setServerListenMode(req.listenMode)
 

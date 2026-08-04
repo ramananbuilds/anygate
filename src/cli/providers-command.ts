@@ -570,6 +570,50 @@ ${pc.bold('Usage:')}
   anygate providers auth <id>       Sign in with OAuth (xAI, OpenAI, GitHub Copilot, …)`
 }
 
+/**
+ * Collect the base URL for a self-hosted template (Ollama, LM Studio).
+ *
+ * These providers run on whatever host/port the user chose, so the template
+ * default is only a suggestion. Mirrors the http:// consent + SSRF validation
+ * the custom-endpoint flow performs.
+ *
+ * Returns the validated URL, or null when the user cancelled / it failed
+ * validation.
+ */
+async function promptTemplateBaseUrl(template: ProviderTemplate): Promise<string | null> {
+  const entered = await p.text({
+    message: template.urlPrompt ?? 'API Base URL:',
+    placeholder: template.urlPlaceholder ?? template.defaultBaseUrl,
+    defaultValue: template.defaultBaseUrl ?? '',
+    validate: v => (v.trim() || template.defaultBaseUrl ? undefined : 'URL is required'),
+  })
+  if (p.isCancel(entered)) return null
+
+  const baseUrl = String(entered ?? '').trim() || (template.defaultBaseUrl ?? '')
+  if (!baseUrl) return null
+
+  let allowInsecureLocal = false
+  if (/^http:\/\//i.test(baseUrl)) {
+    p.log.warn(
+      'HTTP is not encrypted. Only use it for a trusted local or LAN server, like Ollama on your own network.'
+    )
+    const allowLocal = await p.confirm({
+      message: 'Allow insecure HTTP for this local/LAN server?',
+      initialValue: true,
+    })
+    if (p.isCancel(allowLocal)) return null
+    allowInsecureLocal = allowLocal === true
+  }
+
+  const valid = await validateCustomEndpointUrl(baseUrl, { allowInsecureLocal })
+  if (!valid.ok || !valid.normalizedUrl) {
+    p.log.error(valid.error ?? 'Invalid URL.')
+    if (valid.hint) p.log.info(valid.hint)
+    return null
+  }
+  return valid.normalizedUrl
+}
+
 export async function runTemplateAddFlow(t?: ProviderTemplate): Promise<number> {
   const template = t ?? (await pickTemplateFromCatalog())
   if (!template) return 0
@@ -580,9 +624,18 @@ export async function runTemplateAddFlow(t?: ProviderTemplate): Promise<number> 
   if (p.isCancel(inputKey)) return 0
   const apiKey = String(inputKey ?? '').trim()
 
-  const result = await addProviderFromTemplate(template, apiKey)
+  // Self-hosted providers must be asked where their server actually lives.
+  let baseUrl: string | undefined
+  if (template.urlPrompt) {
+    const collected = await promptTemplateBaseUrl(template)
+    if (!collected) return 1
+    baseUrl = collected
+  }
+
+  const result = await addProviderFromTemplate(template, apiKey, { baseUrl })
   if (!result.added) {
     if (result.error) p.log.error(result.error)
+    if (result.hint) p.log.info(result.hint)
     return 1
   }
 

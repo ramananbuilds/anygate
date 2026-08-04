@@ -70,6 +70,14 @@ export interface ServerOptions {
   vertex?: VertexServerConfig
   /** When set, append structured debug lines to this file path. */
   debugLogPath?: string
+  /**
+   * Analytics label for traffic served by this instance. The router is used
+   * both by `anygate server` and by launchers that embed it (Claude Desktop),
+   * so without this everything was attributed to 'gateway' and the dashboard
+   * reported gateway usage for people who had never run the server.
+   * Defaults to 'gateway'.
+   */
+  app?: string
 }
 
 export interface ServerHandle {
@@ -345,7 +353,7 @@ async function handleAnthropicMessages(
           modelId: responseModelId,
           npm: model.npm,
           providerId: model.providerId,
-          app: 'gateway',
+          app: options.app ?? 'gateway',
           inputTokens: usage.inputTokens,
           outputTokens: usage.outputTokens,
         })
@@ -361,7 +369,7 @@ async function handleAnthropicMessages(
           modelId: responseModelId,
           npm: model.npm,
           providerId: model.providerId,
-          app: 'gateway',
+          app: options.app ?? 'gateway',
           inputTokens: (anthropicResponse as Record<string, any>)._usage?.inputTokens ?? 0,
           outputTokens: (anthropicResponse as Record<string, any>)._usage?.outputTokens ?? 0,
         })
@@ -462,7 +470,7 @@ async function handleOpenAIChatCompletions(
         modelId: responseModelId,
         npm: model.npm ?? (model.modelFormat === 'anthropic' ? '@ai-sdk/anthropic' : undefined),
         providerId: model.providerId,
-        app: 'gateway',
+        app: options.app ?? 'gateway',
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
       })
@@ -478,7 +486,7 @@ async function handleOpenAIChatCompletions(
         modelId: responseModelId,
         npm: model.npm ?? (model.modelFormat === 'anthropic' ? '@ai-sdk/anthropic' : undefined),
         providerId: model.providerId,
-        app: 'gateway',
+        app: options.app ?? 'gateway',
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
       })

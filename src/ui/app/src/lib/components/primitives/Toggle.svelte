@@ -5,6 +5,14 @@
     label?: string;
   }
   let { checked = $bindable(false), onchange, label = '' }: Props = $props();
+
+  // Must assign `checked`, not just fire onchange: without the assignment the
+  // $bindable prop never updates, so every `bind:checked` consumer silently
+  // did nothing when clicked.
+  function toggle() {
+    checked = !checked;
+    onchange?.(checked);
+  }
 </script>
 
 <label class="toggle-wrap">
@@ -15,7 +23,7 @@
     aria-checked={checked}
     class="toggle"
     class:on={checked}
-    onclick={() => onchange?.(!checked)}
+    onclick={toggle}
   >
     <span class="knob"></span>
   </button>
