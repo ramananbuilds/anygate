@@ -187,9 +187,18 @@ function lookupRoute(byAlias: Map<string, ProxyRoute>, id: string): ProxyRoute |
 export function startProxyCatalog(
   routes: ProxyRoute[],
   defaultAliasId: string,
-  debug = false
+  debug = false,
+  opts?: {
+    /**
+     * Analytics label for routes that don't carry their own `app`. Routes built
+     * by `localModelToRoute` have no app of their own, so without this the
+     * launcher's traffic was recorded as 'gateway'.
+     */
+    app?: string
+  }
 ): Promise<ProxyHandle> {
   const proxyToken = randomUUID()
+  const defaultApp = opts?.app
   silenceSdkWarnings()
 
   if (routes.length === 0) {
@@ -418,7 +427,7 @@ export function startProxyCatalog(
               modelId: route.realModelId,
               npm: route.npm,
               providerId: route.providerId,
-              app: route.app ?? 'gateway',
+              app: route.app ?? defaultApp ?? 'gateway',
               inputTokens: usage.inputTokens,
               outputTokens: usage.outputTokens,
             })
@@ -439,7 +448,7 @@ export function startProxyCatalog(
               modelId: route.realModelId,
               npm: route.npm,
               providerId: route.providerId,
-              app: route.app ?? 'gateway',
+              app: route.app ?? defaultApp ?? 'gateway',
               inputTokens: u?.inputTokens ?? 0,
               outputTokens: u?.outputTokens ?? 0,
             })
@@ -548,7 +557,7 @@ export function startProxyCatalog(
             ts: new Date().toISOString(),
             modelId: route.realModelId,
             providerId: route.providerId,
-            app: route.app ?? 'Antigravity',
+            app: route.app ?? defaultApp ?? 'Antigravity',
             inputTokens: usage.inputTokens,
             outputTokens: usage.outputTokens,
           })

@@ -19,11 +19,17 @@ let unsubscribe: (() => void) | null = null
 let fallbackIntervalMs = 5000
 
 export async function loadStatus(): Promise<void> {
+  // `loading` was declared but never assigned, so Server.svelte's initial
+  // spinner could never render. Only flag the first read — later refreshes are
+  // silent so live updates don't flicker the panel.
+  if (!server.status) server.loading = true
   try {
     server.status = await api.getServerStatus()
     server.error = null
   } catch (err) {
     server.error = err instanceof Error ? err.message : String(err)
+  } finally {
+    server.loading = false
   }
 }
 

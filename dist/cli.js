@@ -171,7 +171,7 @@ import {
   validateModels,
   writeSecureLogLine,
   zenRegistryStub,
-} from './chunk-CMMIDCOI.js'
+} from './chunk-YQLTCKDA.js'
 import {
   BACKENDS,
   CONFLICTING_ENV_VARS,
@@ -3364,7 +3364,9 @@ async function launchClaudeViaCatalog(
 ) {
   let proxyHandle
   try {
-    proxyHandle = await startProxyCatalog(catalogRoutes, startingRoute.aliasId, trace)
+    proxyHandle = await startProxyCatalog(catalogRoutes, startingRoute.aliasId, trace, {
+      app: 'Claude',
+    })
     p6.log.info(
       `Switch menu active \u2014 proxy on port ${proxyHandle.port} ` +
         pc5.dim(`(${catalogRoutes.length} model${catalogRoutes.length !== 1 ? 's' : ''} in /model)`)
@@ -8358,6 +8360,9 @@ async function runClaudeAppCommand(args, boot) {
       backends: BACKENDS,
       gateway: { maskGatewayIds: true },
       debugLogPath,
+      // Claude Desktop embeds the gateway router rather than running
+      // `anygate server`, so attribute its traffic to the app, not 'gateway'.
+      app: 'claude-desktop',
     })
     uuid = writeAnygateIConfig(proxyHandle.port)
     writeSessionLock2({
@@ -13282,7 +13287,7 @@ Options:
 `)
     return 0
   }
-  const { runUiCommand } = await import('./command-LLLQEB2N.js')
+  const { runUiCommand } = await import('./command-Y6RSWLKD.js')
   return runUiCommand({ trace: parsed.trace })
 }
 

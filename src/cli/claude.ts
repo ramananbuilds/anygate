@@ -542,7 +542,9 @@ async function launchClaudeViaCatalog(
 ): Promise<number> {
   let proxyHandle: ProxyHandle
   try {
-    proxyHandle = await startProxyCatalog(catalogRoutes, startingRoute.aliasId, trace)
+    proxyHandle = await startProxyCatalog(catalogRoutes, startingRoute.aliasId, trace, {
+      app: 'Claude',
+    })
     p.log.info(
       `Switch menu active — proxy on port ${proxyHandle.port} ` +
         pc.dim(`(${catalogRoutes.length} model${catalogRoutes.length !== 1 ? 's' : ''} in /model)`)

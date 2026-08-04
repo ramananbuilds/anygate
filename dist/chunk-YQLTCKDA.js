@@ -93192,6 +93192,10 @@ function normalizeModelKey(modelId) {
     .replace(/\s+/g, ' ')
     .trim()
 }
+function normalizeAppKey(app) {
+  const key = app.trim().toLowerCase().replace(/\s+/g, '-')
+  return key || 'unknown'
+}
 function analyticsPath() {
   return join8(getAppHome(), ANALYTICS_FILE)
 }
@@ -93307,7 +93311,7 @@ function aggregateAnalytics(range) {
     totalInputTokens += e.inputTokens
     totalOutputTokens += e.outputTokens
     messages += 1
-    const appKey = e.app || 'unknown'
+    const appKey = normalizeAppKey(e.app || 'unknown')
     const a = appMap.get(appKey) ?? { inputTokens: 0, outputTokens: 0, messages: 0 }
     a.inputTokens += e.inputTokens
     a.outputTokens += e.outputTokens
@@ -93498,8 +93502,9 @@ function lookupRoute(byAlias, id) {
   }
   return void 0
 }
-function startProxyCatalog(routes, defaultAliasId, debug = false) {
+function startProxyCatalog(routes, defaultAliasId, debug = false, opts) {
   const proxyToken = randomUUID5()
+  const defaultApp = opts?.app
   silenceSdkWarnings()
   if (routes.length === 0) {
     return Promise.reject(new Error('Proxy catalog requires at least one route'))
@@ -93698,7 +93703,7 @@ function startProxyCatalog(routes, defaultAliasId, debug = false) {
               modelId: route.realModelId,
               npm: route.npm,
               providerId: route.providerId,
-              app: route.app ?? 'gateway',
+              app: route.app ?? defaultApp ?? 'gateway',
               inputTokens: usage.inputTokens,
               outputTokens: usage.outputTokens,
             })
@@ -93716,7 +93721,7 @@ function startProxyCatalog(routes, defaultAliasId, debug = false) {
               modelId: route.realModelId,
               npm: route.npm,
               providerId: route.providerId,
-              app: route.app ?? 'gateway',
+              app: route.app ?? defaultApp ?? 'gateway',
               inputTokens: u?.inputTokens ?? 0,
               outputTokens: u?.outputTokens ?? 0,
             })
@@ -93806,7 +93811,7 @@ data: ${JSON.stringify({ type: 'error', error: { type: errorType, message } })}
             ts: /* @__PURE__ */ new Date().toISOString(),
             modelId: route.realModelId,
             providerId: route.providerId,
-            app: route.app ?? 'Antigravity',
+            app: route.app ?? defaultApp ?? 'Antigravity',
             inputTokens: usage.inputTokens,
             outputTokens: usage.outputTokens,
           })
@@ -97181,7 +97186,7 @@ async function handleAnthropicMessages(req, res, options, modelCache, plog) {
           modelId: responseModelId,
           npm: model.npm,
           providerId: model.providerId,
-          app: 'gateway',
+          app: options.app ?? 'gateway',
           inputTokens: usage.inputTokens,
           outputTokens: usage.outputTokens,
         })
@@ -97197,7 +97202,7 @@ async function handleAnthropicMessages(req, res, options, modelCache, plog) {
           modelId: responseModelId,
           npm: model.npm,
           providerId: model.providerId,
-          app: 'gateway',
+          app: options.app ?? 'gateway',
           inputTokens: anthropicResponse._usage?.inputTokens ?? 0,
           outputTokens: anthropicResponse._usage?.outputTokens ?? 0,
         })
@@ -97283,7 +97288,7 @@ async function handleOpenAIChatCompletions(req, res, options, modelCache, plog) 
         modelId: responseModelId,
         npm: model.npm ?? (model.modelFormat === 'anthropic' ? '@ai-sdk/anthropic' : void 0),
         providerId: model.providerId,
-        app: 'gateway',
+        app: options.app ?? 'gateway',
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
       })
@@ -97299,7 +97304,7 @@ async function handleOpenAIChatCompletions(req, res, options, modelCache, plog) 
         modelId: responseModelId,
         npm: model.npm ?? (model.modelFormat === 'anthropic' ? '@ai-sdk/anthropic' : void 0),
         providerId: model.providerId,
-        app: 'gateway',
+        app: options.app ?? 'gateway',
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
       })
@@ -98423,4 +98428,4 @@ export {
   runServerCommand,
   favoriteProviderDisplayName,
 }
-//# sourceMappingURL=chunk-CMMIDCOI.js.map
+//# sourceMappingURL=chunk-YQLTCKDA.js.map

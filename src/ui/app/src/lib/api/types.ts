@@ -179,8 +179,15 @@ export interface ServerStatusPayload {
   models?: ServerModelRow[]
 }
 
+export interface UiServerProviderOption {
+  id: string
+  name: string
+  /** Matches the backend's `providerOptionsFromCatalog` field name. */
+  modelCount: number
+}
+
 export interface UiServerProvidersResponse {
-  providers: { id: string; name: string; models: number }[]
+  providers: UiServerProviderOption[]
 }
 
 // ── New / backend-later endpoints (typed contract) ─────────────────────

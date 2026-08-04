@@ -13,7 +13,9 @@
   const APP_LABELS: Record<string, string> = {
     gateway: 'Server gateway',
     claude: 'Claude Code',
+    'claude-desktop': 'Claude Desktop',
     codex: 'Codex',
+    'codex-app': 'Codex app',
     gemini: 'Gemini',
     antigravity: 'Antigravity',
     unknown: 'Unknown source',

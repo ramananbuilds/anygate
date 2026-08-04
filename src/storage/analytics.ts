@@ -51,6 +51,17 @@ export function normalizeModelKey(modelId: string): string {
     .trim()
 }
 
+/**
+ * Normalize the recorded source app into a stable key. Producers have used
+ * mixed casing over time ('Claude' from the proxy routes, 'Antigravity' from
+ * the cloud-code gateway, 'gateway' from the server), which split the same app
+ * into separate dashboard rows. Applied on read so existing logs converge too.
+ */
+export function normalizeAppKey(app: string): string {
+  const key = app.trim().toLowerCase().replace(/\s+/g, '-')
+  return key || 'unknown'
+}
+
 function analyticsPath(): string {
   return join(getAppHome(), ANALYTICS_FILE)
 }
@@ -274,7 +285,7 @@ export function aggregateAnalytics(range: RangeId): DashboardAnalytics {
     totalOutputTokens += e.outputTokens
     messages += 1
 
-    const appKey = e.app || 'unknown'
+    const appKey = normalizeAppKey(e.app || 'unknown')
     const a = appMap.get(appKey) ?? { inputTokens: 0, outputTokens: 0, messages: 0 }
     a.inputTokens += e.inputTokens
     a.outputTokens += e.outputTokens

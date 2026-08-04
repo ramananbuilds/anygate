@@ -345,6 +345,9 @@ export async function runClaudeAppCommand(
       backends: BACKENDS,
       gateway: { maskGatewayIds: true },
       debugLogPath,
+      // Claude Desktop embeds the gateway router rather than running
+      // `anygate server`, so attribute its traffic to the app, not 'gateway'.
+      app: 'claude-desktop',
     })
 
     uuid = writeAnygateIConfig(proxyHandle.port)
