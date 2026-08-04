@@ -13,7 +13,7 @@ import {
   VERSION,
   VERTEX_ANTHROPIC_NPM,
   classifyModelFormat,
-} from './chunk-KEFRKMGW.js'
+} from './chunk-UE2I2ETX.js'
 import { getTemplateById, listAddableTemplates } from './chunk-4N4RDHGZ.js'
 
 // src/apps/shared/ui.ts
@@ -98423,4 +98423,4 @@ export {
   runServerCommand,
   favoriteProviderDisplayName,
 }
-//# sourceMappingURL=chunk-3JZYGRZJ.js.map
+//# sourceMappingURL=chunk-CMMIDCOI.js.map

@@ -71,8 +71,8 @@ import {
   summarizeServerProviders,
   validateCustomEndpointUrl,
   writeSecureLogLine,
-} from './chunk-3JZYGRZJ.js'
-import { BACKENDS, GATEWAY_PORT, MAX_MODEL_CATALOG } from './chunk-KEFRKMGW.js'
+} from './chunk-CMMIDCOI.js'
+import { BACKENDS, GATEWAY_PORT, MAX_MODEL_CATALOG } from './chunk-UE2I2ETX.js'
 import {
   getTemplateById,
   listAddableTemplates,
@@ -2198,4 +2198,4 @@ async function runUiCommand(opts = {}) {
   return 0
 }
 export { formatUiServerLifecycleMessage, isUiApiRoute, resolveUiShutdownDecision, runUiCommand }
-//# sourceMappingURL=command-LMRSIEHC.js.map
+//# sourceMappingURL=command-LLLQEB2N.js.map

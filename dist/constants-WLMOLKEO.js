@@ -14,7 +14,7 @@ import {
   VERSION,
   VERTEX_ANTHROPIC_NPM,
   classifyModelFormat,
-} from './chunk-KEFRKMGW.js'
+} from './chunk-UE2I2ETX.js'
 import './chunk-UT3JLF3M.js'
 export {
   BACKENDS,
@@ -32,4 +32,4 @@ export {
   VERTEX_ANTHROPIC_NPM,
   classifyModelFormat,
 }
-//# sourceMappingURL=constants-D4TKXEB3.js.map
+//# sourceMappingURL=constants-WLMOLKEO.js.map
