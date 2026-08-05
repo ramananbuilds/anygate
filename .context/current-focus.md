@@ -2,7 +2,7 @@
 
 > Active development status and recent major architecture updates.
 
-## Current Version: 0.6.1
+## Current Version: 0.6.2
 
 ## Recent Changes (Dashboard: correctness, live data, SSE)
 

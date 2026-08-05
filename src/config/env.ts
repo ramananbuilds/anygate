@@ -48,6 +48,7 @@ export function buildChildEnv(
   }
   env['ANTHROPIC_BASE_URL'] = proxyPort ? `http://127.0.0.1:${proxyPort}` : baseUrl
   env['ANTHROPIC_API_KEY'] = apiKey
+  env['ANTHROPIC_AUTH_TOKEN'] = apiKey
   const bareModel = stripOneMContextSuffix(model)
   env['ANTHROPIC_MODEL'] = claudeCodeClientModelId(model, contextWindow)
   // Claude Code defaults to 200K for non-api.anthropic.com base URLs; override with

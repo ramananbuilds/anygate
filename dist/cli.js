@@ -32,6 +32,7 @@ import {
   confirmLaunchMessage,
   createGatewayModelCatalog,
   createLanguageModel,
+  dedupeByKey,
   deepMergeProviderOptions,
   detectConflicts,
   effectiveProviderBaseUrl,
@@ -172,7 +173,7 @@ import {
   validateModels,
   writeSecureLogLine,
   zenRegistryStub,
-} from './chunk-BY4AKT2X.js'
+} from './chunk-EMBABL33.js'
 import {
   BACKENDS,
   CONFLICTING_ENV_VARS,
@@ -180,7 +181,7 @@ import {
   MAX_MODEL_CATALOG,
   VERSION,
   VERTEX_ANTHROPIC_NPM,
-} from './chunk-UE2I2ETX.js'
+} from './chunk-S5WL3M5G.js'
 import {
   filterTemplates,
   getTemplateById,
@@ -2338,11 +2339,11 @@ async function runProvidersRemove(id, interactive = false) {
     return 1
   }
   if (interactive) {
-    const confirm11 = await p5.confirm({
+    const confirm12 = await p5.confirm({
       message: `Remove ${provider.name} (${id})?`,
       initialValue: false,
     })
-    if (p5.isCancel(confirm11) || !confirm11) {
+    if (p5.isCancel(confirm12) || !confirm12) {
       p5.cancel('Cancelled.')
       return 0
     }
@@ -2954,6 +2955,7 @@ async function handleClaudeCommand(parsed) {
   const { dryRun, setup, trace, launchProvider } = parsed
   const launchAllModels = parsed.launchAllModels || parsed.launchModel === 'All'
   const launchModel = launchAllModels && !parsed.launchModel ? 'All' : parsed.launchModel
+  const launchWithClaude = Boolean(parsed.launchWithClaude)
   const claudeArgs = normalizeClaudeAgentArgs(parsed.claudeArgs)
   const agentStdout = wantsCleanAgentStdout('claude', claudeArgs)
   setAgentStdoutMode(agentStdout)
@@ -3196,6 +3198,76 @@ Error: ${launchPlan.error}
     }
   }
   const localProviders = catalog.length > 0 ? catalog : null
+  const claudeCodeProvider = allProviders.find(
+    lp => lp.id === 'claude-code' && lp.inRegistry && lp.models.length > 0
+  )
+  const claudeMixEligible =
+    catalogMode === false && activeProvider.id !== 'claude-code' && Boolean(claudeCodeProvider)
+  if (claudeMixEligible && launchWithClaude) {
+    catalogMode = 'provider-plus-claude'
+  } else if (claudeMixEligible && !agentStdout && !dryRun && !launchPlan.skip) {
+    const keepClaude = await p6.confirm({
+      message: 'Keep your normal Claude models available too?',
+      active: `Yes \u2014 add ${claudeCodeProvider.models.length} Anthropic-subscription models to /model`,
+      inactive: 'No \u2014 launch with the anygate model only',
+      initialValue: true,
+    })
+    if (p6.isCancel(keepClaude)) {
+      p6.cancel('Cancelled.')
+      return 0
+    }
+    if (keepClaude) catalogMode = 'provider-plus-claude'
+  } else if (launchWithClaude && !claudeCodeProvider && !agentStdout) {
+    p6.log.warn(
+      'Ignoring --with-claude: no authenticated Claude Code provider found. Run `anygate providers auth claude-code` first.'
+    )
+  }
+  if (catalogMode === 'provider-plus-claude') {
+    const resolveRoute = makeRouteResolver(localProviders)
+    const startingRoute = resolveRoute(activeProvider.id, selectedModel.id) ?? null
+    if (!startingRoute) {
+      p6.log.error('Could not resolve a proxy route for the selected model.')
+      return 1
+    }
+    const claudeRoutes = (claudeCodeProvider?.models ?? [])
+      .map(m => resolveRoute('claude-code', m.id))
+      .filter(r => r !== void 0)
+    const { routes: favoriteRoutes } = buildCatalogRoutes(startingRoute, favorites, resolveRoute)
+    const catalogRoutes = dedupeByKey(
+      [
+        startingRoute,
+        ...claudeRoutes,
+        ...favoriteRoutes.filter(r => r.aliasId !== startingRoute.aliasId),
+      ],
+      r => r.aliasId,
+      MAX_MODEL_CATALOG
+    )
+    if (dryRun) {
+      console.log('')
+      console.log(
+        pc5.bold(pc5.cyan('  DRY RUN \u2014 would execute (Anthropic + anygate mixed mode):'))
+      )
+      console.log('')
+      console.log(`  ${pc5.bold('Provider:')}      ${activeProvider.name}`)
+      console.log(`  ${pc5.bold('Starting model:')} ${selectedModel.id}`)
+      console.log(
+        `  ${pc5.bold('Claude models:')} ${claudeRoutes.length} (from your Anthropic subscription)`
+      )
+      console.log(`  ${pc5.bold('/model catalog:')} ${catalogRoutes.length} model(s)`)
+      catalogRoutes.forEach(r => console.log(`    ${pc5.dim(r.displayName)}`))
+      console.log('')
+      console.log(pc5.dim('  (dry run complete \u2014 Claude Code was NOT launched)'))
+      console.log('')
+      return 0
+    }
+    return launchClaudeViaCatalog(
+      catalogRoutes,
+      startingRoute,
+      selectedModel.contextWindow,
+      trace ?? false,
+      claudeArgs
+    )
+  }
   if (catalogMode === 'favorites') {
     const resolveRoute = makeRouteResolver(localProviders)
     const startingRoute = resolveRoute(activeProvider.id, selectedModel.id) ?? null
@@ -3380,11 +3452,32 @@ Error: ${launchPlan.error}
       selectedModel.contextWindow
     )
   } else if (selectedModel.modelFormat === 'anthropic') {
+    try {
+      proxyHandle = await startProxy(
+        selectedModel.baseUrl ?? 'https://api.anthropic.com',
+        selectedModel.id,
+        trace ?? false,
+        selectedModel.contextWindow,
+        {
+          providerId: activeProvider.id,
+          authType: activeProvider.authType,
+          providerData: activeProvider.providerData,
+          modelFormat: 'anthropic',
+          headers: activeProvider.headers,
+          app: 'Claude',
+        },
+        launchApiKey
+      )
+      if (!isAgentStdoutMode()) p6.log.info(`Proxy started on port ${proxyHandle.port}`)
+    } catch (err) {
+      p6.log.error(`Failed to start proxy: ${err instanceof Error ? err.message : String(err)}`)
+      return 1
+    }
     childEnv = buildChildEnv(
-      selectedModel.baseUrl,
+      `http://127.0.0.1:${proxyHandle.port}`,
       selectedModel.id,
-      launchApiKey,
-      void 0,
+      proxyHandle.token,
+      proxyHandle.port,
       selectedModel.contextWindow
     )
   } else {
@@ -3430,12 +3523,31 @@ Error: ${launchPlan.error}
       selectedModel.contextWindow
     )
   }
-  if (selectedModel.modelFormat === 'anthropic' && !isOAuthAnthropic) {
-    childEnv['CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS'] = '1'
-  }
   const debugLogPath = prepareClaudeTraceLog()
   const traceArgs = trace ? ['--debug-file', debugLogPath] : []
   if (trace) p6.log.info(`Debug log: ${debugLogPath}`)
+  if (trace) {
+    writeSecureLogLine(
+      debugLogPath,
+      `childEnv: ANTHROPIC_BASE_URL=${childEnv['ANTHROPIC_BASE_URL'] ?? '(unset)'}`
+    )
+    writeSecureLogLine(
+      debugLogPath,
+      `childEnv: ANTHROPIC_API_KEY set=${Boolean(childEnv['ANTHROPIC_API_KEY'])}`
+    )
+    writeSecureLogLine(
+      debugLogPath,
+      `childEnv: ANTHROPIC_AUTH_TOKEN set=${Boolean(childEnv['ANTHROPIC_AUTH_TOKEN'])}`
+    )
+    writeSecureLogLine(
+      debugLogPath,
+      `childEnv: ANTHROPIC_MODEL=${childEnv['ANTHROPIC_MODEL'] ?? '(unset)'}`
+    )
+    writeSecureLogLine(
+      debugLogPath,
+      `childEnv: CLAUDE_CODE_MAX_CONTEXT_TOKENS=${childEnv['CLAUDE_CODE_MAX_CONTEXT_TOKENS'] ?? '(unset)'}`
+    )
+  }
   const exitCode = await launchClaude(
     childEnv,
     claudeCodeClientModelId(selectedModel.id, selectedModel.contextWindow),
@@ -7005,7 +7117,7 @@ Error: ${launchPlan.error}
 // src/cli/codex.ts
 async function handleCodexCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-WLMOLKEO.js')
+    const { VERSION: VERSION2 } = await import('./constants-U356SKNS.js')
     console.log(VERSION2)
     return 0
   }
@@ -8214,7 +8326,7 @@ async function runCodexAppCommand(args, opts = {}) {
 // src/cli/codex-app.ts
 async function handleCodexAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-WLMOLKEO.js')
+    const { VERSION: VERSION2 } = await import('./constants-U356SKNS.js')
     console.log(VERSION2)
     return 0
   }
@@ -8864,7 +8976,7 @@ ${pc10.bold('Claude Desktop 3P Mode Active')}`)
 // src/cli/claude-app.ts
 async function handleClaudeAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-WLMOLKEO.js')
+    const { VERSION: VERSION2 } = await import('./constants-U356SKNS.js')
     console.log(VERSION2)
     return 0
   }
@@ -10152,7 +10264,7 @@ Error: ${launchPlan.error}
 // src/cli/gemini.ts
 async function handleGeminiCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-WLMOLKEO.js')
+    const { VERSION: VERSION2 } = await import('./constants-U356SKNS.js')
     console.log(VERSION2)
     return 0
   }
@@ -13612,7 +13724,7 @@ Examples:
 `
 async function handleAgyCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-WLMOLKEO.js')
+    const { VERSION: VERSION2 } = await import('./constants-U356SKNS.js')
     console.log(VERSION2)
     return 0
   }
@@ -13628,7 +13740,7 @@ async function handleAgyCommand(parsed) {
 }
 async function handleAntigravityAppCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-WLMOLKEO.js')
+    const { VERSION: VERSION2 } = await import('./constants-U356SKNS.js')
     console.log(VERSION2)
     return 0
   }
@@ -13644,7 +13756,7 @@ async function handleAntigravityAppCommand(parsed) {
 }
 async function handleAntigravityIdeCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-WLMOLKEO.js')
+    const { VERSION: VERSION2 } = await import('./constants-U356SKNS.js')
     console.log(VERSION2)
     return 0
   }
@@ -13750,7 +13862,7 @@ Options:
 `)
     return 0
   }
-  const { runUiCommand } = await import('./command-XIDZGWNR.js')
+  const { runUiCommand } = await import('./command-N3R2ZVVS.js')
   return runUiCommand({ trace: parsed.trace })
 }
 
@@ -14209,7 +14321,7 @@ async function runValidateSubcommand(parsed) {
 // src/cli/providers.ts
 async function handleProvidersCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-WLMOLKEO.js')
+    const { VERSION: VERSION2 } = await import('./constants-U356SKNS.js')
     console.log(VERSION2)
     return 0
   }
@@ -14328,7 +14440,7 @@ async function runDoctorCommand(_dryRun) {
 // src/cli/doctor.ts
 async function handleDoctorCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-WLMOLKEO.js')
+    const { VERSION: VERSION2 } = await import('./constants-U356SKNS.js')
     console.log(VERSION2)
     return 0
   }
@@ -14476,7 +14588,7 @@ function runCompletionsCommand(shellArg) {
 // src/cli/completions.ts
 async function handleCompletionsCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-WLMOLKEO.js')
+    const { VERSION: VERSION2 } = await import('./constants-U356SKNS.js')
     console.log(VERSION2)
     return 0
   }
@@ -14568,7 +14680,7 @@ async function runUpdateCommand(dryRun) {
 // src/cli/update.ts
 async function handleUpdateCommand(parsed) {
   if (parsed.showVersion) {
-    const { VERSION: VERSION2 } = await import('./constants-WLMOLKEO.js')
+    const { VERSION: VERSION2 } = await import('./constants-U356SKNS.js')
     console.log(VERSION2)
     return 0
   }
@@ -14632,10 +14744,19 @@ var STARTER_CLAUDE_FLAGS = /* @__PURE__ */ new Set([
   '--version',
   '-v',
 ])
-var GATEWAY_LAUNCH_FLAGS = /* @__PURE__ */ new Set(['--provider', '--model'])
+var GATEWAY_LAUNCH_FLAGS = /* @__PURE__ */ new Set([
+  '--provider',
+  '--model',
+  '--all-models',
+  '--with-claude',
+])
 function parseGatewayLaunchFlag(arg, rest, index, parsed) {
   if (arg === '--all-models') {
     parsed.launchAllModels = true
+    return index
+  }
+  if (arg === '--with-claude') {
+    parsed.launchWithClaude = true
     return index
   }
   if (arg === '--provider' || arg === '--model') {
@@ -15157,6 +15278,8 @@ ${pc18.bold('Options:')}
   --trace      Write debug logs to ~/.anygate/logs/ and show errors on exit
   --provider   Boot provider id (skip wizard when paired with --model or in print mode)
   --model      Boot model id (skip wizard when paired with --provider or in print mode)
+  --all-models Launch with every model from --provider in the /model switcher
+  --with-claude Keep your Anthropic-subscription models in /model alongside the anygate model
   --help       Show this command help
   --version    Show version
 

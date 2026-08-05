@@ -158,6 +158,48 @@ oauthCredentialShouldRefresh(credential)
     → Return fresh access_token
 ```
 
+## Claude Code Child-Process Authentication
+
+Claude Code reads auth from environment variables, not files. anygate's
+`buildChildEnv()` (`src/config/env.ts`) prepares these for every Claude Code
+launch:
+
+```text
+ANTHROPIC_BASE_URL    → provider endpoint (or http://127.0.0.1:<proxy-port> when proxied)
+ANTHROPIC_API_KEY     → credential key (provider key for direct, proxy token for proxied)
+ANTHROPIC_AUTH_TOKEN  → same value as ANTHROPIC_API_KEY
+ANTHROPIC_MODEL       → selected model ID (with [1m] suffix for 1M context windows)
+CLAUDE_CODE_MAX_CONTEXT_TOKENS → resolved context window
+```
+
+### Env Var Conflict Stripping
+
+`CONFLICTING_ENV_VARS` (Vertex, Bedrock, AWS, Foundry, stale Anthropic configs)
+are deleted from the child env to prevent cross-auth-mode leakage, then the
+active values above are re-set. All Anthropic auth env vars are stripped —
+including `ANTHROPIC_AUTH_TOKEN` — so that a stale OAuth token from the host
+shell cannot override anygate's launch configuration.
+
+### Claude Code v2.x Session Auth
+
+Claude Code v2.1.221+ checks `ANTHROPIC_AUTH_TOKEN` for session-level auth
+even when `ANTHROPIC_API_KEY` is set (which only controls the "API Usage
+Billing" banner). Without `ANTHROPIC_AUTH_TOKEN`, Claude Code shows
+"Not logged in" and rejects all message requests despite the banner indicating
+billing mode is active. `buildChildEnv()` sets `ANTHROPIC_AUTH_TOKEN` to the
+same key value to satisfy this check.
+
+### Proxy vs Direct Passthrough
+
+All anthropic-format models now route through the local proxy (`startProxy`),
+which ensures:
+- Provider template headers (e.g. `x-app: cli` for Agent Router) are forwarded
+- Claude Code identity injection (`injectClaudeIdentity`, `selectBetaFlags`)
+- Proper header handling on both streaming and non-streaming requests
+
+Direct passthrough (bypassing the proxy) previously omitted provider template
+headers, causing 401s on gateways that require them.
+
 ## Claude Identity Injection
 
 For proxy-routed models, anygate injects Claude Code identity headers and system prompt lines:

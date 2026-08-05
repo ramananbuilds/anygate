@@ -66,12 +66,13 @@ ANTHROPIC_DEFAULT_OPUS_MODEL, ANTHROPIC_DEFAULT_SONNET_MODEL, ANTHROPIC_DEFAULT_
 |----------|-------|
 | `ANTHROPIC_BASE_URL` | Proxy URL or backend URL |
 | `ANTHROPIC_API_KEY` | Session API key |
+| `ANTHROPIC_AUTH_TOKEN` | Same as API key (Claude Code v2.x session auth check) |
 | `ANTHROPIC_MODEL` | Context-annotated model ID |
 | `ANTHROPIC_SMALL_FAST_MODEL` | Same as model (for haiku fallback) |
 | `CLAUDE_CODE_MAX_CONTEXT_WINDOW` | Model's real context window |
 | `ENABLE_TOOL_SEARCH` | `true` (for proxy routes) |
 | `CLAUDE_CODE_SIMPLE_SYSTEM_PROMPT` | `0` (keep full guardrails) |
-| `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` | `1` (direct routes only) |
+| `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY` | `1` (in catalog mode) |
 
 ## Platform-Specific Behavior
 

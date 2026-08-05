@@ -32,7 +32,7 @@ const STARTER_CLAUDE_FLAGS = new Set([
   '--version',
   '-v',
 ])
-const GATEWAY_LAUNCH_FLAGS = new Set(['--provider', '--model'])
+const GATEWAY_LAUNCH_FLAGS = new Set(['--provider', '--model', '--all-models', '--with-claude'])
 
 function parseGatewayLaunchFlag(
   arg: string,
@@ -42,6 +42,10 @@ function parseGatewayLaunchFlag(
 ): number | 'error' {
   if (arg === '--all-models') {
     parsed.launchAllModels = true
+    return index
+  }
+  if (arg === '--with-claude') {
+    parsed.launchWithClaude = true
     return index
   }
   if (arg === '--provider' || arg === '--model') {
@@ -604,6 +608,8 @@ ${pc.bold('Options:')}
   --trace      Write debug logs to ~/.anygate/logs/ and show errors on exit
   --provider   Boot provider id (skip wizard when paired with --model or in print mode)
   --model      Boot model id (skip wizard when paired with --provider or in print mode)
+  --all-models Launch with every model from --provider in the /model switcher
+  --with-claude Keep your Anthropic-subscription models in /model alongside the anygate model
   --help       Show this command help
   --version    Show version
 

@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.6.2 (2026-08-05)
+
+Claude Code login bypass: Claude Code v2.1.221 showed "Not logged in" even
+when `ANTHROPIC_API_KEY` was set, blocking all model interaction. Two root
+causes — a stripped auth env var and missing provider headers — plus `--with-claude`
+and `--all-models` launch flags for mid-session model switching.
+
+### Bug Fixes — Claude Code auth
+
+- **"Not logged in" blocked Claude Code even with a valid API key**: `buildChildEnv()`
+  stripped `ANTHROPIC_AUTH_TOKEN` (a conflicting env var) but never re-set it. Claude
+  Code v2.x checks `ANTHROPIC_AUTH_TOKEN` for session auth even when
+  `ANTHROPIC_API_KEY` is present for billing display — the banner showed
+  "API Usage Billing" but every message request was rejected. `buildChildEnv()` now
+  sets `ANTHROPIC_AUTH_TOKEN` alongside `ANTHROPIC_API_KEY`, matching what the UI
+  dry-run mock already expected.
+- **Direct passthrough skipped provider template headers**: for `modelFormat === 'anthropic'`
+  with API key auth (not OAuth), the launcher used direct passthrough — Claude Code
+  talked to the provider directly, bypassing the anygate proxy and therefore the
+  provider's template headers (e.g. `x-app: cli`, custom `User-Agent`). Third-party
+  gateways like Agent Router and OpenRouter reject requests missing these headers with
+  401, which Claude Code surfaced as "Not logged in." All anthropic-format routes now
+  go through the local proxy, which forwards `route.headers` from `provider.api.headers`
+  on every upstream request. The `buildChildEnv` call passes the proxy token + port,
+  and `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` (only needed for direct passthrough)
+  was removed.
+- **`enableGatewayDiscovery` was never set for single-model launches via proxy**:
+  now consistently passed through `startProxy` → `ProxyRoute` and
+  `buildChildEnv` so Claude Code can discover models on the gateway.
+
+### Features — Claude Code launch flags
+
+- **`--with-claude`**: keeps your authenticated `claude-code` provider models
+  (Opus 5, Sonnet 4, etc.) alongside the selected anygate model in Claude Code's
+  `/model` switcher. Works with `anygate claude --with-claude` or as a flag on any
+  `anygate claude --provider X --model Y` launch.
+- **`--all-models`**: launches with every model from the selected provider in the
+  `/model` switcher (e.g. `anygate claude --provider openrouter --all-models`).
+
+### Internal
+
+- `startProxy()` now accepts a `headers` field in its `sdk` parameter and forwards
+  it to `ProxyRoute`, so provider template headers reach the upstream on
+  single-model proxy routes.
+- Added trace logging of key child-process env vars (`ANTHROPIC_BASE_URL`,
+  `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_MODEL`,
+  `CLAUDE_CODE_MAX_CONTEXT_TOKENS`) to the `--trace` debug log for auth diagnostics.
+
 ## 0.6.1 (2026-08-05)
 
 Web dashboard: four defects where a feature was broken or showing invented data,

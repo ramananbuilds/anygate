@@ -543,7 +543,7 @@ When OpenCode Zen is in your registry, `subscriptionFilter` controls which Zen m
 When you launch, anygate builds a clean child environment:
 
 1. Removes 17 conflicting env vars from the child process (Vertex AI, Bedrock, AWS, Foundry, stale Anthropic config)
-2. Sets `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`, and `ANTHROPIC_MODEL` for the session
+2. Sets `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, and `ANTHROPIC_MODEL` for the session
 3. Passes `--model <selected>` to Claude Code as a backup override
 
 When Claude Code exits (normal exit, Ctrl+C, terminal close), your shell is unchanged. No cleanup step. No restore needed.

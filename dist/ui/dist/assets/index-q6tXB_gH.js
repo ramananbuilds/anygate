@@ -3604,7 +3604,7 @@ function Dv(e, t) {
         icon: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M3 12h2M19 12h2',
       },
     ],
-    s = '0.6.1',
+    s = '0.6.2',
     n = J(() => {
       var g
       if (ze.loading && !ze.report) return { tone: 'unknown', label: 'Checking system health…' }

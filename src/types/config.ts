@@ -53,6 +53,13 @@ export interface ParsedArgs {
    * catalog, but scoped to one provider.
    */
   launchAllModels?: boolean
+  /**
+   * Keep the user's own Anthropic-subscription models (the authenticated
+   * `claude-code` provider) in Claude Code's /model switcher alongside the
+   * selected anygate model. Skips the interactive "keep your Claude models?"
+   * prompt. Claude Code CLI only — not Claude Desktop.
+   */
+  launchWithClaude?: boolean
   vertex?: boolean
   completionsShell?: string
   serverQuick?: boolean

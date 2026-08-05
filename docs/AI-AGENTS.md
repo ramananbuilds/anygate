@@ -318,6 +318,7 @@ The full Alef section is also embedded at the bottom of `anygate --ai` output.
 | `Print mode requires --provider and --model` | Add boot flags or run interactive once to save prefs |
 | `requires an interactive terminal` (Codex) | Add `--provider` and `--model` |
 | Zen/Go "Not logged in" | Set `OPENCODE_API_KEY`; use `--provider zen` explicitly |
+| Claude Code "Not logged in" despite API key | Use `--with-claude` to merge your Claude Code OAuth models, or `anygate claude --provider X --model Y` (v0.6.2+ sets `ANTHROPIC_AUTH_TOKEN` automatically) |
 | Codex shell network blocked | Should be default now; try `anygate codex --config` and confirm `sandbox = "danger-full-access"` |
 | DeepSeek tool loop 400 | Update anygate — reasoning round-trip fix in Codex proxy |
 | Stale overlay after crash | `anygate codex --restore` |

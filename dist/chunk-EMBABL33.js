@@ -13,7 +13,7 @@ import {
   VERSION,
   VERTEX_ANTHROPIC_NPM,
   classifyModelFormat,
-} from './chunk-UE2I2ETX.js'
+} from './chunk-S5WL3M5G.js'
 import { getTemplateById, listAddableTemplates } from './chunk-4N4RDHGZ.js'
 
 // src/apps/shared/ui.ts
@@ -89665,6 +89665,7 @@ function buildChildEnv(baseUrl, model, apiKey, proxyPort, contextWindow, enableG
   }
   env['ANTHROPIC_BASE_URL'] = proxyPort ? `http://127.0.0.1:${proxyPort}` : baseUrl
   env['ANTHROPIC_API_KEY'] = apiKey
+  env['ANTHROPIC_AUTH_TOKEN'] = apiKey
   const bareModel = stripOneMContextSuffix(model)
   env['ANTHROPIC_MODEL'] = claudeCodeClientModelId(model, contextWindow)
   env['CLAUDE_CODE_MAX_CONTEXT_TOKENS'] = String(resolveContextWindow(bareModel, contextWindow))
@@ -93884,6 +93885,7 @@ function startProxy(completionsUrl, modelId, debug = false, contextWindow, sdk, 
         interleavedReasoningField: sdk?.interleavedReasoningField,
         useResponsesLite: sdk?.useResponsesLite,
         preferWebSockets: sdk?.preferWebSockets,
+        headers: sdk?.headers,
         app: sdk?.app,
       },
     ],
@@ -98378,6 +98380,7 @@ export {
   aliasModelId,
   startProxyCatalog,
   startProxy,
+  dedupeByKey,
   routableModelsForTarget,
   providersForTarget,
   fetchProviderCatalog,
@@ -98441,4 +98444,4 @@ export {
   runServerCommand,
   favoriteProviderDisplayName,
 }
-//# sourceMappingURL=chunk-BY4AKT2X.js.map
+//# sourceMappingURL=chunk-EMBABL33.js.map

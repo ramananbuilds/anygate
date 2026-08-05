@@ -46,11 +46,16 @@ import {
 } from '../apps/claude/favorites-picker.js'
 import { favoriteProviderDisplayName } from '../apps/claude/favorites-provider-display.js'
 import { resolveFirstAvailableFavorite } from '../apps/shared/favorites-resolver.js'
-import { prepareClaudeTraceLog, printTraceLog } from '../apps/shared/trace-log.js'
+import {
+  prepareClaudeTraceLog,
+  printTraceLog,
+  writeSecureLogLine,
+} from '../apps/shared/trace-log.js'
 import { ANTIGRAVITY_BASE_URLS } from '../auth/antigravity-oauth.js'
 import { providersForTarget } from '../apps/shared/target-compatibility.js'
 import { refreshModelsDevCacheAsync } from '../registry/models-dev.js'
 import { setAgentStdoutMode, isAgentStdoutMode } from '../utils/agent-io.js'
+import { dedupeByKey } from '../utils/array.js'
 import {
   findProviderAndModel,
   normalizeClaudeAgentArgs,
@@ -90,6 +95,7 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
   const { dryRun, setup, trace, launchProvider } = parsed
   const launchAllModels = parsed.launchAllModels || parsed.launchModel === 'All'
   const launchModel = launchAllModels && !parsed.launchModel ? 'All' : parsed.launchModel
+  const launchWithClaude = Boolean(parsed.launchWithClaude)
   const claudeArgs = normalizeClaudeAgentArgs(parsed.claudeArgs)
   const agentStdout = wantsCleanAgentStdout('claude', claudeArgs)
   setAgentStdoutMode(agentStdout)
@@ -126,7 +132,7 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
   // with *all* favorites in the /model switcher. Now catalog mode is only
   // activated by an explicit choice: __favorites__ in the picker, --model "All",
   // or --all-models.
-  let catalogMode: false | 'favorites' | 'provider-all' = false
+  let catalogMode: false | 'favorites' | 'provider-all' | 'provider-plus-claude' = false
   const hasFavorites = favorites.length > 0
 
   if (launchPlan.skip && launchPlan.target) {
@@ -363,6 +369,89 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
 
   const localProviders = catalog.length > 0 ? catalog : null
 
+  // Mixed mode (B): offer to add the user's own Anthropic-subscription models
+  // (the authenticated `claude-code` provider) into the /model switcher alongside
+  // the selected anygate model. Only when a single anygate model was chosen
+  // interactively, the claude-code provider is authenticated with models, and the
+  // selection isn't already claude-code. NOTE: because anygate overrides
+  // ANTHROPIC_BASE_URL, Claude Code's UI still shows "API Usage Billing / not
+  // logged in" — but the Claude models route through your subscription token.
+  const claudeCodeProvider = allProviders.find(
+    lp => lp.id === 'claude-code' && lp.inRegistry && lp.models.length > 0
+  )
+  const claudeMixEligible =
+    catalogMode === false && activeProvider.id !== 'claude-code' && Boolean(claudeCodeProvider)
+
+  if (claudeMixEligible && launchWithClaude) {
+    // Non-interactive opt-in via --with-claude: skip the prompt entirely.
+    catalogMode = 'provider-plus-claude'
+  } else if (claudeMixEligible && !agentStdout && !dryRun && !launchPlan.skip) {
+    const keepClaude = await p.confirm({
+      message: 'Keep your normal Claude models available too?',
+      active: `Yes — add ${claudeCodeProvider!.models.length} Anthropic-subscription models to /model`,
+      inactive: 'No — launch with the anygate model only',
+      initialValue: true,
+    })
+    if (p.isCancel(keepClaude)) {
+      p.cancel('Cancelled.')
+      return 0
+    }
+    if (keepClaude) catalogMode = 'provider-plus-claude'
+  } else if (launchWithClaude && !claudeCodeProvider && !agentStdout) {
+    p.log.warn(
+      'Ignoring --with-claude: no authenticated Claude Code provider found. Run `anygate providers auth claude-code` first.'
+    )
+  }
+
+  if (catalogMode === 'provider-plus-claude') {
+    const resolveRoute = makeRouteResolver(localProviders)
+    const startingRoute = resolveRoute(activeProvider.id, selectedModel.id) ?? null
+    if (!startingRoute) {
+      p.log.error('Could not resolve a proxy route for the selected model.')
+      return 1
+    }
+    // Merge: selected anygate model first, then every claude-code subscription
+    // model, then any compatible saved favorites.
+    const claudeRoutes = (claudeCodeProvider?.models ?? [])
+      .map(m => resolveRoute('claude-code', m.id))
+      .filter((r): r is ProxyRoute => r !== undefined)
+    const { routes: favoriteRoutes } = buildCatalogRoutes(startingRoute, favorites, resolveRoute)
+    const catalogRoutes = dedupeByKey(
+      [
+        startingRoute,
+        ...claudeRoutes,
+        ...favoriteRoutes.filter(r => r.aliasId !== startingRoute.aliasId),
+      ],
+      r => r.aliasId,
+      MAX_MODEL_CATALOG
+    )
+
+    if (dryRun) {
+      console.log('')
+      console.log(pc.bold(pc.cyan('  DRY RUN — would execute (Anthropic + anygate mixed mode):')))
+      console.log('')
+      console.log(`  ${pc.bold('Provider:')}      ${activeProvider.name}`)
+      console.log(`  ${pc.bold('Starting model:')} ${selectedModel.id}`)
+      console.log(
+        `  ${pc.bold('Claude models:')} ${claudeRoutes.length} (from your Anthropic subscription)`
+      )
+      console.log(`  ${pc.bold('/model catalog:')} ${catalogRoutes.length} model(s)`)
+      catalogRoutes.forEach(r => console.log(`    ${pc.dim(r.displayName)}`))
+      console.log('')
+      console.log(pc.dim('  (dry run complete — Claude Code was NOT launched)'))
+      console.log('')
+      return 0
+    }
+
+    return launchClaudeViaCatalog(
+      catalogRoutes,
+      startingRoute,
+      selectedModel.contextWindow,
+      trace ?? false,
+      claudeArgs
+    )
+  }
+
   if (catalogMode === 'favorites') {
     const resolveRoute = makeRouteResolver(localProviders)
     const startingRoute = resolveRoute(activeProvider.id, selectedModel.id) ?? null
@@ -566,11 +655,34 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
       selectedModel.contextWindow
     )
   } else if (selectedModel.modelFormat === 'anthropic') {
+    // Route through proxy to send provider template headers (e.g. x-app: cli for Agent Router)
+    // and inject Claude Code identity, instead of direct passthrough which omits them.
+    try {
+      proxyHandle = await startProxy(
+        selectedModel.baseUrl ?? 'https://api.anthropic.com',
+        selectedModel.id,
+        trace ?? false,
+        selectedModel.contextWindow,
+        {
+          providerId: activeProvider.id,
+          authType: activeProvider.authType,
+          providerData: activeProvider.providerData,
+          modelFormat: 'anthropic',
+          headers: activeProvider.headers,
+          app: 'Claude',
+        },
+        launchApiKey
+      )
+      if (!isAgentStdoutMode()) p.log.info(`Proxy started on port ${proxyHandle.port}`)
+    } catch (err) {
+      p.log.error(`Failed to start proxy: ${err instanceof Error ? err.message : String(err)}`)
+      return 1
+    }
     childEnv = buildChildEnv(
-      selectedModel.baseUrl!,
+      `http://127.0.0.1:${proxyHandle.port}`,
       selectedModel.id,
-      launchApiKey,
-      undefined,
+      proxyHandle.token,
+      proxyHandle.port,
       selectedModel.contextWindow
     )
   } else {
@@ -617,13 +729,31 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
     )
   }
 
-  if (selectedModel.modelFormat === 'anthropic' && !isOAuthAnthropic) {
-    childEnv['CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS'] = '1'
-  }
-
   const debugLogPath = prepareClaudeTraceLog()
   const traceArgs = trace ? ['--debug-file', debugLogPath] : []
   if (trace) p.log.info(`Debug log: ${debugLogPath}`)
+  if (trace) {
+    writeSecureLogLine(
+      debugLogPath,
+      `childEnv: ANTHROPIC_BASE_URL=${childEnv['ANTHROPIC_BASE_URL'] ?? '(unset)'}`
+    )
+    writeSecureLogLine(
+      debugLogPath,
+      `childEnv: ANTHROPIC_API_KEY set=${Boolean(childEnv['ANTHROPIC_API_KEY'])}`
+    )
+    writeSecureLogLine(
+      debugLogPath,
+      `childEnv: ANTHROPIC_AUTH_TOKEN set=${Boolean(childEnv['ANTHROPIC_AUTH_TOKEN'])}`
+    )
+    writeSecureLogLine(
+      debugLogPath,
+      `childEnv: ANTHROPIC_MODEL=${childEnv['ANTHROPIC_MODEL'] ?? '(unset)'}`
+    )
+    writeSecureLogLine(
+      debugLogPath,
+      `childEnv: CLAUDE_CODE_MAX_CONTEXT_TOKENS=${childEnv['CLAUDE_CODE_MAX_CONTEXT_TOKENS'] ?? '(unset)'}`
+    )
+  }
 
   const exitCode = await launchClaude(
     childEnv,

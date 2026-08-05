@@ -628,6 +628,8 @@ export function startProxy(
     interleavedReasoningField?: string
     useResponsesLite?: boolean
     preferWebSockets?: boolean
+    /** Static headers sent on every upstream request (e.g. x-app: cli for Agent Router). */
+    headers?: Record<string, string>
     /** App label for analytics (Claude | Codex | Antigravity | gateway). */
     app?: string
   },
@@ -662,6 +664,7 @@ export function startProxy(
         interleavedReasoningField: sdk?.interleavedReasoningField,
         useResponsesLite: sdk?.useResponsesLite,
         preferWebSockets: sdk?.preferWebSockets,
+        headers: sdk?.headers,
         app: sdk?.app,
       },
     ],
