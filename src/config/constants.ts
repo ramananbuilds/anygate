@@ -71,6 +71,9 @@ export const RATE_LIMIT_WINDOW_MS = 60_000
 /** Maximum request body size in bytes (10 MB). */
 export const MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024
 
+/** H3: hard ceiling for a single upstream gateway request (10 minutes). */
+export const REQUEST_TIMEOUT_MS = 600_000
+
 /** Vercel AI SDK package for Anthropic Claude models on Google Vertex AI (ADC auth). */
 export const VERTEX_ANTHROPIC_NPM = '@ai-sdk/google-vertex/anthropic'
 

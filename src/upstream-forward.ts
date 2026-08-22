@@ -3,6 +3,7 @@ import type { ServerResponse } from 'node:http'
 import { sanitizeCredential } from './gateway/server/auth.js'
 import { CLAUDE_CODE_USER_AGENT } from './auth/claude-identity.js'
 import { UpstreamUnreachableError } from './shared/errors.js'
+import { REQUEST_TIMEOUT_MS as DEFAULT_REQUEST_TIMEOUT_MS } from './config/constants.js'
 
 export function anthropicUpstreamHeaders(
   apiKey: string,
@@ -102,104 +103,178 @@ export async function forwardAnthropicMessages(
   claudeCodeSessionId?: string,
   extraHeaders?: Record<string, string>,
   refreshToken?: () => Promise<string | null>,
-  onTokenRefreshed?: (token: string) => void
+  onTokenRefreshed?: (token: string) => void,
+  timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS
 ): Promise<AnthropicUsage> {
   const usage: AnthropicUsage = { inputTokens: 0, outputTokens: 0 }
-  const doFetch = (key: string) =>
-    fetch(messagesUrl, {
-      method: 'POST',
-      headers: anthropicUpstreamHeaders(
-        key,
-        clientWantsStream,
-        inboundBeta,
-        authType,
-        claudeCodeSessionId,
-        extraHeaders
-      ),
-      body: JSON.stringify(body),
-    })
-
-  let upstreamRes: Response
+  // H3: abort the upstream fetch when (a) the client disconnects, or (b) the
+  // request exceeds timeoutMs. AbortSignal.any needs Node ≥20; engines allow
+  // 18, so combine signals via a manual relay instead.
+  const disconnectController = new AbortController()
+  const onClientGone = () => disconnectController.abort()
+  res.on('close', onClientGone)
+  res.on('error', onClientGone)
+  const timeoutController = new AbortController()
+  const timer = setTimeout(() => timeoutController.abort(), timeoutMs)
+  const combinedSignal = disconnectController.signal.aborted
+    ? disconnectController.signal
+    : connectAbortSignals(disconnectController.signal, timeoutController.signal)
   try {
-    const retryResult = await fetchWithOAuthRetry(apiKey, doFetch, refreshToken)
-    upstreamRes = retryResult.response
-    if (retryResult.refreshed) onTokenRefreshed?.(retryResult.apiKey)
-  } catch (err) {
-    throw new UpstreamUnreachableError(err)
+    return await forwardInner(combinedSignal)
+  } finally {
+    clearTimeout(timer)
+    res.off('close', onClientGone)
+    res.off('error', onClientGone)
   }
 
-  if (!upstreamRes.ok) {
-    const errBody = await upstreamRes.text()
-    log?.(`anthropic upstream ${upstreamRes.status}: ${errBody}`)
-    res.writeHead(upstreamRes.status, {
-      'Content-Type': upstreamRes.headers.get('content-type') || 'application/json',
-    })
-    res.end(errBody)
-    return usage
+  function connectAbortSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
+    // Minimal polyfill of AbortSignal.any for Node <20.
+    const merged = new AbortController()
+    const relay = () => merged.abort()
+    if (a.aborted || b.aborted) {
+      merged.abort()
+      return merged.signal
+    }
+    a.addEventListener('abort', relay, { once: true })
+    b.addEventListener('abort', relay, { once: true })
+    return merged.signal
   }
 
-  if (clientWantsStream && upstreamRes.body) {
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-    })
-    // Tee-scan the stream for usage so the gateway can record analytics without
-    // altering a single forwarded byte. Await full consumption so callers get a
-    // COMPLETE usage object (message_start carries input_tokens; the final
-    // message_delta carries cumulative output_tokens) rather than a snapshot
-    // taken before any bytes flowed.
-    await new Promise<void>((resolve, reject) => {
-      Readable.fromWeb(upstreamRes.body as Parameters<typeof Readable.fromWeb>[0])
-        .on('data', (chunk: Buffer) => scanAnthropicSseUsage(chunk.toString('utf8'), usage))
-        .on('error', err => {
-          res.destroy()
-          reject(err)
+  async function forwardInner(signal: AbortSignal): Promise<AnthropicUsage> {
+    const doFetch = (key: string) =>
+      fetch(messagesUrl, {
+        method: 'POST',
+        headers: anthropicUpstreamHeaders(
+          key,
+          clientWantsStream,
+          inboundBeta,
+          authType,
+          claudeCodeSessionId,
+          extraHeaders
+        ),
+        body: JSON.stringify(body),
+        signal,
+      })
+
+    let upstreamRes: Response
+    try {
+      const retryResult = await fetchWithOAuthRetry(apiKey, doFetch, refreshToken)
+      upstreamRes = retryResult.response
+      if (retryResult.refreshed) onTokenRefreshed?.(retryResult.apiKey)
+    } catch (err) {
+      if (signal.aborted) {
+        emitAborted(res, clientWantsStream)
+        return usage
+      }
+      throw new UpstreamUnreachableError(err)
+    }
+
+    if (!upstreamRes.ok) {
+      const errBody = await upstreamRes.text()
+      log?.(`anthropic upstream ${upstreamRes.status}: ${errBody}`)
+      res.writeHead(upstreamRes.status, {
+        'Content-Type': upstreamRes.headers.get('content-type') || 'application/json',
+      })
+      res.end(errBody)
+      return usage
+    }
+
+    if (clientWantsStream && upstreamRes.body) {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      })
+      // Tee-scan the stream for usage so the gateway can record analytics without
+      // altering a single forwarded byte. Await full consumption so callers get a
+      // COMPLETE usage object (message_start carries input_tokens; the final
+      // message_delta carries cumulative output_tokens) rather than a snapshot
+      // taken before any bytes flowed.
+      await new Promise<void>((resolve, reject) => {
+        Readable.fromWeb(upstreamRes.body as Parameters<typeof Readable.fromWeb>[0])
+          .on('data', (chunk: Buffer) => scanAnthropicSseUsage(chunk.toString('utf8'), usage))
+          .on('error', err => {
+            res.destroy()
+            reject(err)
+          })
+          .on('end', () => resolve())
+          .pipe(res)
+      }).catch(() => {
+        // Stream failed mid-flight — headers are already sent; nothing more to do.
+      })
+      return usage
+    }
+
+    if (!upstreamRes.body) {
+      res.writeHead(502, { 'Content-Type': 'application/json' })
+      res.end(
+        JSON.stringify({
+          type: 'error',
+          error: { type: 'api_error', message: 'Upstream returned empty response body' },
         })
-        .on('end', () => resolve())
-        .pipe(res)
-    }).catch(() => {
-      // Stream failed mid-flight — headers are already sent; nothing more to do.
+      )
+      return usage
+    }
+
+    let text: string
+    try {
+      text = await upstreamRes.text()
+    } catch {
+      // Upstream body read failed (abort mid-read etc.).
+      emitAborted(res, clientWantsStream)
+      return usage
+    }
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      res.writeHead(502, { 'Content-Type': 'application/json' })
+      res.end(
+        JSON.stringify({
+          type: 'error',
+          error: { type: 'api_error', message: 'Upstream response was not valid JSON' },
+        })
+      )
+      return usage
+    }
+    // Non-streaming Anthropic responses carry usage on the top-level message body.
+    const parsedUsage = (parsed as { usage?: { input_tokens?: number; output_tokens?: number } })
+      .usage
+    if (parsedUsage) {
+      usage.inputTokens = parsedUsage.input_tokens ?? 0
+      usage.outputTokens = parsedUsage.output_tokens ?? 0
+    }
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(text).toString(),
     })
+    res.end(text)
     return usage
   }
+}
 
-  if (!upstreamRes.body) {
-    res.writeHead(502, { 'Content-Type': 'application/json' })
+/** Emit an Anthropic-style error for aborted/timed-out upstream requests. */
+function emitAborted(res: ServerResponse, clientWantsStream: boolean): void {
+  if (res.headersSent || res.writableEnded || res.destroyed) {
+    // Mid-stream abort: nothing sane to send; drop the connection.
+    res.destroy()
+    return
+  }
+  if (clientWantsStream) {
+    res.writeHead(504, { 'Content-Type': 'application/json' })
     res.end(
       JSON.stringify({
         type: 'error',
-        error: { type: 'api_error', message: 'Upstream returned empty response body' },
+        error: { type: 'timeout', message: 'Upstream request timed out or was aborted.' },
       })
     )
-    return usage
+    return
   }
-
-  const text = await upstreamRes.text()
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(text)
-  } catch {
-    res.writeHead(502, { 'Content-Type': 'application/json' })
-    res.end(
-      JSON.stringify({
-        type: 'error',
-        error: { type: 'api_error', message: 'Upstream response was not valid JSON' },
-      })
-    )
-    return usage
-  }
-  // Non-streaming Anthropic responses carry usage on the top-level message body.
-  const parsedUsage = (parsed as { usage?: { input_tokens?: number; output_tokens?: number } })
-    .usage
-  if (parsedUsage) {
-    usage.inputTokens = parsedUsage.input_tokens ?? 0
-    usage.outputTokens = parsedUsage.output_tokens ?? 0
-  }
-  res.writeHead(200, {
-    'Content-Type': 'application/json',
-    'Content-Length': Buffer.byteLength(text).toString(),
-  })
-  res.end(text)
-  return usage
+  res.writeHead(504, { 'Content-Type': 'application/json' })
+  res.end(
+    JSON.stringify({
+      type: 'error',
+      error: { type: 'timeout', message: 'Upstream request timed out or was aborted.' },
+    })
+  )
 }

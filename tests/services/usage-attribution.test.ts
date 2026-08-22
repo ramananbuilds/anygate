@@ -31,9 +31,10 @@ describe('usage attribution', () => {
     const src = await import('node:fs').then(fs =>
       fs.readFileSync('src/gateway/server/router.ts', 'utf8')
     )
-    // All four recordUsage sites must honour the option rather than hardcoding.
+    // All recordUsage sites must honour the option rather than hardcoding.
+    // Was 4 SDK sites; C4 added the 5th (anthropic passthrough).
     expect(src).not.toMatch(/app: 'gateway',/)
-    expect((src.match(/app: options\.app \?\? 'gateway',/g) ?? []).length).toBe(4)
+    expect((src.match(/app: options\.app \?\? 'gateway',/g) ?? []).length).toBe(5)
   })
 
   it('Claude Desktop identifies itself rather than inheriting gateway', async () => {

@@ -532,6 +532,8 @@ async function handleCloudCodeForwardRequest(
       'User-Agent': 'vscode/1.X.X (Antigravity/4.2.0)',
     },
     body: JSON.stringify(upstreamBody),
+    // H3: bound the wait for upstream response headers (SSE bodies stream after).
+    signal: AbortSignal.timeout(30_000),
   })
 
   if (!upstream.ok) {
