@@ -17,12 +17,14 @@ The `anygate server` command exposes a local HTTP server that proxies requests t
 
 The gateway server implements the following security measures:
 
-1. **Authorization**: Password-based auth for network mode (local mode skips auth since it binds to `127.0.0.1`).
-2. **Rate limiting**: 120 requests per minute per client (via `checkRateLimit` in `src/shared/http.ts`).
-3. **Request body size limit**: 10 MB max (via `MAX_REQUEST_BODY_BYTES` in `src/config/constants.ts`).
+1. **Authorization**: Password-based auth for network mode (local mode skips auth since it binds to `127.0.0.1`). Comparison is constant-time via `timingSafeEqualStrings()` in `src/gateway/server/auth.ts`.
+2. **Rate limiting**: 120 requests per minute per client (via `checkRateLimit` in `src/shared/http.ts`), keyed strictly on `req.socket.remoteAddress` — never on client-controlled headers like `x-api-key`.
+3. **Request body size limit**: 10 MB max (via `MAX_REQUEST_BODY_BYTES` in `src/config/constants.ts`), enforced through bounded reads *and* bounded decompression.
 4. **Security headers**: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store`.
 5. **Error sanitization**: Unhandled errors are logged server-side with full detail; clients only receive generic "Internal server error".
 6. **Credential redaction**: Trace logs redact all known secret patterns via `src/shared/redact.ts`.
+7. **Upstream bounds** (`src/upstream-forward.ts`): every upstream request is aborted on client disconnect and after `REQUEST_TIMEOUT_MS` (10 min); aborted requests get a 504 Anthropic-style error when headers were not yet sent.
+8. **Token budgets** (`src/gateway/server/budget.ts`): optional daily/monthly token caps configured under `server.budget` in config.json; over-cap requests receive `429 budget_exceeded`. Counters persist to `~/.anygate/budget-state.json`.
 
 ## Consequences
 
@@ -35,6 +37,9 @@ The gateway server implements the following security measures:
 
 - `src/gateway/server/router.ts`
 - `src/gateway/server/server.ts`
+- `src/gateway/server/auth.ts` — `timingSafeEqualStrings`
+- `src/gateway/server/budget.ts` — `BudgetTracker`
+- `src/gateway/server/upstream-resilience.ts` — breaker + bounded retry
 - `src/shared/http.ts` — `sendJson`, `checkRateLimit`, `readBody`
 - `src/shared/errors.ts` — `AnygateError` hierarchy
 - `src/shared/redact.ts`

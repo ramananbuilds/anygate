@@ -2,6 +2,47 @@
 
 ## Unreleased
 
+### Security & Resilience — gateway audit remediation (C1–C5, H1–H6)
+
+A full codebase audit (see `CODEBASE_REVIEW.md`) surfaced critical and high-severity
+gaps in the gateway server. All findings are now remediated; the per-finding map with
+commit SHAs lives in `FIX_REPORT.md`.
+
+- **Token budgets (`server.budget` config)** — NEW `src/gateway/server/budget.ts`.
+  Optional daily/monthly token caps (UTC windows, persisted to
+  `~/.anygate/budget-state.json`, survives restarts). When a cap is exceeded the
+  gateway returns `429` with `{ type: 'budget_exceeded' }` before dispatching
+  upstream. Disabled by default; enable via `config.json` →
+  `server.budget: { enabled: true, maxTokensPerDay?, maxTokensPerMonth? }`.
+- **Anthropic passthrough usage recording** — native `/anthropic/v1/messages`
+  traffic was invisible to analytics. The passthrough now tee-scans SSE chunks for
+  usage events (without altering forwarded bytes) and parses JSON bodies, feeding
+  every response into `recordUsage` and the budget tracker.
+- **Upstream timeouts + disconnect aborts** — upstream requests previously had no
+  ceiling and kept streaming after the client vanished. Requests abort on client
+  disconnect and after `REQUEST_TIMEOUT_MS` (10 min); aborted requests get a 504
+  Anthropic-style error if headers weren't sent. Antigravity's Cloud Code fetch got
+  a 30 s header timeout.
+- **Provider health breaker + bounded retry** — `src/services/provider-health.ts`
+  was dead code; it is now wired in via `src/gateway/server/upstream-resilience.ts`.
+  Two consecutive 429/5xx failures mark a provider unhealthy for 60 s — subsequent
+  non-streaming requests fail fast with a descriptive 502 instead of hanging.
+  Non-streaming SDK requests retry up to twice on transient failures (429/5xx) with
+  exponential backoff, always before the first byte is written.
+- **Rate limiting keyed on socket address** — the limiter previously preferred the
+  `x-api-key` header when deriving the client identity; any caller could rotate
+  keys to bypass the 120 req/min cap. It now keys strictly on
+  `req.socket.remoteAddress`.
+- **Hardened auth & body handling** — server password comparison uses
+  `timingSafeEqualStrings()` (constant-time); the plaintext password fallback in
+  `src/storage/config.ts` was removed (keyring-only); request bodies are bounded to
+  the advertised 10 MB cap including decompression; rate-limit bucket eviction was
+  fixed.
+- **Visible degradations instead of silent ones** — model-alias fallback (unknown
+  alias → default route) and provider tool-limit truncation now surface an
+  `anthropic-warning` response header plus a leading SSE comment frame
+  (`: warning`) on streams, so agents notice mid-run.
+
 ### Bug Fixes — `anygate ui` refused to start after a hard kill (stale lock)
 
 - **`anygate ui` printed `already running at http://127.0.0.1:<dead-port>` and

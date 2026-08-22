@@ -18,7 +18,7 @@
   - `context/`: `context-fit.ts` prompt token estimation
   - `providers/`: `provider-factory.ts` dynamic SDK model builder
   - `proxy/`: `anthropic-proxy.ts`, `proxy-shared.ts`
-  - `server/`: `server.ts`, `router.ts`, `auth.ts`, `vendor-mask.ts`
+  - `server/`: `server.ts`, `router.ts`, `auth.ts`, `vendor-mask.ts`, `budget.ts` (token budgets), `upstream-resilience.ts` (breaker + retry)
   - `web-search/`: `duckduckgo.ts`, `searxng.ts`, `brave.ts`, `tavily.ts`, `tool.ts`
 - `src/providers/` — LM provider drivers (`opencode-serve.ts` only; per-vendor stubs removed)
 - `src/registry/` — Provider & model registry:

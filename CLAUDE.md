@@ -73,4 +73,5 @@ npm run build && anygate --version
 - **`settings.json` is never touched** by Anygate. Configuration is passed exclusively via environment variables to child processes.
 - **Provider Credential Resolution**: `src/registry/provider-catalog.ts::resolveLocalProviderApiKey()` is the canonical helper.
 - **Vercel AI SDK Adapter**: Non-Anthropic providers route through the Vercel AI SDK (`src/gateway/adapters/sdk-adapter.ts` + `src/gateway/providers/provider-factory.ts`).
+- **Gateway resilience**: upstream calls are bounded (`REQUEST_TIMEOUT_MS`, client-disconnect aborts) and guarded by the provider breaker in `src/gateway/server/upstream-resilience.ts`; optional token budgets live in `src/gateway/server/budget.ts` (`server.budget` in config.json → `429 budget_exceeded`).
 - **Web Dashboard**: `anygate ui` serves the Svelte 5 SPA from `src/ui/app/`.

@@ -9,7 +9,7 @@ src/services/
 ├── doctor.ts              # System health diagnostics (3.5KB)
 ├── self-update.ts         # CLI self-update via npm (2.3KB)
 ├── update-check.ts        # npm update availability check (5.8KB)
-├── provider-health.ts     # Provider API health probing
+├── provider-health.ts     # Provider API health probing (fed by the gateway breaker)
 ├── favorites.ts           # Favorites service logic
 ├── model-sync.ts          # Background model list sync
 ├── analytics.ts           # Analytics service layer

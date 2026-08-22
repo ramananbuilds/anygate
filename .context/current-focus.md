@@ -4,6 +4,37 @@
 
 ## Current Version: 0.6.2
 
+## Recent Changes (Gateway Audit Remediation)
+
+### Security & Resilience — audit findings C1–C5 / H1–H6 fixed
+
+- **Full audit remediation landed** (findings in `CODEBASE_REVIEW.md`, per-finding
+  table with SHAs in `FIX_REPORT.md`). Gateway-facing highlights:
+- **Token budgets**: NEW `src/gateway/server/budget.ts` + `BudgetTracker`.
+  Optional `server.budget { enabled, maxTokensPerDay?, maxTokensPerMonth? }` in
+  `config.json`; UTC day/month windows persisted to `~/.anygate/budget-state.json`;
+  over-cap requests get `429 budget_exceeded` before upstream dispatch.
+- **Anthropic passthrough analytics**: `forwardAnthropicMessages()`
+  (`src/upstream-forward.ts`) now returns `AnthropicUsage` — SSE tee-scanned via
+  `scanAnthropicSseUsage()` (byte-identical forwarding) or parsed from JSON — and
+  the router records it as the 5th `recordUsage` site.
+- **Timeouts/disconnects**: `REQUEST_TIMEOUT_MS = 600_000`
+  (`src/config/constants.ts`) plus client-disconnect aborts via merged
+  AbortSignals (Node <20-safe); abort → 504 Anthropic-style error when headers
+  unsent. Antigravity fetch: 30 s header timeout.
+- **Provider breaker/retry**: NEW `src/gateway/server/upstream-resilience.ts`
+  wires `src/services/provider-health.ts` (previously dead code): 2 consecutive
+  429/5xx → provider unhealthy 60 s → non-streaming fail-fast 502;
+  non-streaming retries ≤2× with exponential backoff before first byte.
+- **Rate-limit keying**: strictly `req.socket.remoteAddress` (was spoofable via
+  rotating `x-api-key`). Auth compare is constant-time (`timingSafeEqualStrings`);
+  plaintext password fallback removed from `src/storage/config.ts`.
+- **Warnings surfaced**: alias fallback and tool truncation emit an
+  `anthropic-warning` header + leading SSE comment frame instead of log-only.
+- Covered by `tests/gateway/budget.test.ts` (11),
+  `tests/gateway/upstream-resilience.test.ts` (14),
+  `tests/gateway/server-passthrough-usage.test.ts` (2).
+
 ## Recent Changes (`anygate ui` Stale-Lock Fix)
 
 ### Bug Fix — single-instance detection trusted a recycled PID

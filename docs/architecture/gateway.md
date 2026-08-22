@@ -180,8 +180,13 @@ The `@ai-sdk/mistral` SDK v3.0.37 emits `tool-input-start` → `tool-input-delta
 - **Password auth**: Optional API key requirement for network mode
 - **Listen modes**: Local (127.0.0.1) or network (0.0.0.0)
 - **Security headers**: All responses include `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store`
-- **Rate limiting**: 120 requests per minute per client (429 response with `Retry-After` header)
+- **Rate limiting**: 120 requests per minute per client (429 response with `Retry-After` header), keyed on the socket address only
 - **Body size limit**: 10 MB maximum request body
+- **Upstream timeouts & disconnect aborts**: upstream fetches abort after `REQUEST_TIMEOUT_MS` (10 min, `src/config/constants.ts`) or immediately when the client disconnects; aborted requests return 504 Anthropic-style errors when headers were not sent (`src/upstream-forward.ts`)
+- **Token budgets** (optional): `server.budget { enabled, maxTokensPerDay?, maxTokensPerMonth? }` in config.json → `429 budget_exceeded` once a UTC day/month cap is exceeded (`src/gateway/server/budget.ts`, state persisted to `~/.anygate/budget-state.json`)
+- **Provider health breaker** (`src/gateway/server/upstream-resilience.ts`): 2 consecutive 429/5xx failures mark a provider unhealthy for 60 s — non-streaming requests fail fast with 502; non-streaming requests retry ≤2× with exponential backoff before the first byte is written; successes clear the breaker. Health state feeds `src/services/provider-health.ts`.
+- **Degradation warnings**: model-alias fallback and provider tool-limit truncation surface an `anthropic-warning` response header and a leading SSE comment frame (`: …`) instead of log-only notices
+- **Usage analytics completeness**: all five response paths record usage via `recordUsage`, including the Anthropic passthrough (`forwardAnthropicMessages()` returns usage from SSE tee-scan or JSON parse) — and every path feeds the budget tracker
 - **Safe error handling**: `AnygateError` instances use typed `sendError()`; other errors return generic "Internal server error" to prevent information leakage
 
 ## Antigravity Gateway

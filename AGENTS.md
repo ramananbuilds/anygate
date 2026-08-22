@@ -69,7 +69,7 @@ npm run build && anygate --version
   - `context/`: Prompt context fitting (`context-fit.ts`)
   - `providers/`: SDK language model factories, stream normalization, reasoning mapping (`provider-factory.ts`, `stream-sanitizer.ts`, `provider-reasoning.ts`, `provider-select.ts`)
   - `proxy/`: Local HTTP Anthropic/OpenAI proxies (`anthropic-proxy.ts`, `proxy-shared.ts`)
-  - `server/`: Standalone gateway server (`server.ts`, `router.ts`, `auth.ts`, `vendor-mask.ts`)
+  - `server/`: Standalone gateway server (`server.ts`, `router.ts`, `auth.ts`, `vendor-mask.ts`, `budget.ts` — token budgets, `upstream-resilience.ts` — provider health breaker + bounded retry)
   - `web-search/`: Web search tool integrations (`duckduckgo.ts`, `searxng.ts`, `brave.ts`, `tavily.ts`, `tool.ts`)
 - **`src/providers/`**: LM provider drivers (`opencode-serve.ts` only; per-vendor stubs removed)
 - **`src/registry/`**: Provider & Model Registry
