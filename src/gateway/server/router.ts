@@ -49,6 +49,8 @@ import {
 } from '../adapters/sdk-adapter.js'
 import { recordUsage } from '../../storage/analytics.js'
 import { resolveContextWindow } from '../../apps/shared/context-window.js'
+import { BudgetTracker, type BudgetConfig } from './budget.js'
+import { getServerBudget } from '../../storage/config.js'
 
 export interface ServerBackend {
   baseUrl: string
@@ -78,6 +80,8 @@ export interface ServerOptions {
    * Defaults to 'gateway'.
    */
   app?: string
+  /** Optional token-budget guardrails (C5). Defaults to config.json server.budget. */
+  budget?: BudgetConfig
 }
 
 export interface ServerHandle {
@@ -102,9 +106,13 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
   silenceSdkWarnings()
   const languageModelCache = new Map<string, LanguageModel>()
   const plog = makeServerLog(options.debugLogPath)
+  // Budget guardrails: explicit option wins; otherwise read config.json
+  // server.budget. Disabled unless enabled:true.
+  const budgetConfig = options.budget ?? getServerBudget()
+  const budget = new BudgetTracker(budgetConfig)
 
   const server = createServer((req, res) => {
-    void routeRequest(req, res, options, languageModelCache, plog)
+    void routeRequest(req, res, options, languageModelCache, plog, budget)
   })
 
   await new Promise<void>((resolve, reject) => {
@@ -137,7 +145,8 @@ async function routeRequest(
   res: ServerResponse,
   options: ServerOptions,
   modelCache: Map<string, LanguageModel>,
-  plog: PLog
+  plog: PLog,
+  budget: BudgetTracker
 ): Promise<void> {
   try {
     const pathname = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`).pathname
@@ -190,12 +199,12 @@ async function routeRequest(
     }
 
     if (req.method === 'POST' && pathname === '/anthropic/v1/messages') {
-      await handleAnthropicMessages(req, res, options, modelCache, plog)
+      await handleAnthropicMessages(req, res, options, modelCache, plog, budget)
       return
     }
 
     if (req.method === 'POST' && pathname === '/openai/v1/chat/completions') {
-      await handleOpenAIChatCompletions(req, res, options, modelCache, plog)
+      await handleOpenAIChatCompletions(req, res, options, modelCache, plog, budget)
       return
     }
 
@@ -218,11 +227,22 @@ async function handleAnthropicMessages(
   res: ServerResponse,
   options: ServerOptions,
   modelCache: Map<string, LanguageModel>,
-  plog: PLog
+  plog: PLog,
+  budget: BudgetTracker
 ): Promise<void> {
   const body = await readJson(req)
   if (!body) {
     sendJson(res, 400, { error: { message: 'Invalid JSON body' } })
+    return
+  }
+
+  // Budget guardrail (C5): refuse before dispatching upstream when the
+  // configured daily/monthly token budget is exhausted.
+  const budgetCheck = budget.check()
+  if (!budgetCheck.allowed) {
+    sendJson(res, 429, {
+      error: { type: 'budget_exceeded', message: budgetCheck.reason ?? 'Token budget exceeded' },
+    })
     return
   }
 
@@ -299,6 +319,7 @@ async function handleAnthropicMessages(
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
     })
+    budget.add(usage.inputTokens, usage.outputTokens)
     return
   }
 
@@ -370,6 +391,7 @@ async function handleAnthropicMessages(
           inputTokens: usage.inputTokens,
           outputTokens: usage.outputTokens,
         })
+        budget.add(usage.inputTokens, usage.outputTokens)
         res.end()
       } else {
         const anthropicResponse = await generateAnthropicResponse(
@@ -377,15 +399,20 @@ async function handleAnthropicMessages(
           params,
           responseModelId
         )
+        const genUsage = (anthropicResponse as Record<string, any>)._usage ?? {
+          inputTokens: 0,
+          outputTokens: 0,
+        }
         recordUsage({
           ts: new Date().toISOString(),
           modelId: responseModelId,
           npm: model.npm,
           providerId: model.providerId,
           app: options.app ?? 'gateway',
-          inputTokens: (anthropicResponse as Record<string, any>)._usage?.inputTokens ?? 0,
-          outputTokens: (anthropicResponse as Record<string, any>)._usage?.outputTokens ?? 0,
+          inputTokens: genUsage.inputTokens ?? 0,
+          outputTokens: genUsage.outputTokens ?? 0,
         })
+        budget.add(genUsage.inputTokens ?? 0, genUsage.outputTokens ?? 0)
         sendJson(res, 200, anthropicResponse)
       }
     } catch (err) {
@@ -416,11 +443,21 @@ async function handleOpenAIChatCompletions(
   res: ServerResponse,
   options: ServerOptions,
   modelCache: Map<string, LanguageModel>,
-  plog: PLog
+  plog: PLog,
+  budget: BudgetTracker
 ): Promise<void> {
   const body = await readJson(req)
   if (!body) {
     sendJson(res, 400, { error: { message: 'Invalid JSON body' } })
+    return
+  }
+
+  // Budget guardrail (C5) — same policy as the anthropic route.
+  const budgetCheck = budget.check()
+  if (!budgetCheck.allowed) {
+    sendJson(res, 429, {
+      error: { type: 'budget_exceeded', message: budgetCheck.reason ?? 'Token budget exceeded' },
+    })
     return
   }
 
@@ -487,6 +524,7 @@ async function handleOpenAIChatCompletions(
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
       })
+      budget.add(usage.inputTokens, usage.outputTokens)
       res.end()
     } else {
       const { response, usage } = await generateOpenAiResponse(
@@ -503,6 +541,7 @@ async function handleOpenAIChatCompletions(
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
       })
+      budget.add(usage.inputTokens, usage.outputTokens)
       sendJson(res, 200, response)
     }
   } catch (err) {

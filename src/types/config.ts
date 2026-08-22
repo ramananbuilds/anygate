@@ -128,5 +128,11 @@ export interface UserPreferences {
     savedPassword?: string
     freeModelsOnly?: boolean
     listenMode?: 'local' | 'network'
+    /** Optional token-budget guardrails (C5). Disabled unless enabled:true. */
+    budget?: {
+      enabled?: boolean
+      maxTokensPerDay?: number
+      maxTokensPerMonth?: number
+    }
   }
 }

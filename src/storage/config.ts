@@ -305,3 +305,12 @@ export function setServerListenMode(listenMode: 'local' | 'network'): void {
   }
   writeConfig(config)
 }
+
+/** Optional token-budget guardrails (C5). Disabled unless enabled:true. */
+export function getServerBudget(): {
+  enabled?: boolean
+  maxTokensPerDay?: number
+  maxTokensPerMonth?: number
+} {
+  return readConfig().server?.budget ?? {}
+}
