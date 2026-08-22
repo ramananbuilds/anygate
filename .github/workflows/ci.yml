@@ -29,6 +29,10 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Audit runtime deps
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true # tighten once baseline is clean
+
       # Install UI dependencies so vite-plugin-svelte resolves in CI.
       - name: Install UI dependencies
         run: npm ci --prefix src/ui/app
