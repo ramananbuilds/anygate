@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+### UI — Providers page redesign
+
+The Providers & Keys dashboard page was rebuilt around categorized sections with
+real brand icons and per-section connectivity testing.
+
+- **Sectioned layout**: providers are now grouped into four stacked sections —
+  Custom Providers (OpenAI/Anthropic compatible), OAuth, Free Tier, and API Key —
+  each an alphabetical card grid. Empty sections hide automatically; the Custom
+  section shows a dashed empty-state banner with its own two add buttons.
+- **Real brand icons**: 17 provider marks (NVIDIA, OpenAI, Anthropic, Google,
+  Gemini, Ollama, Perplexity, GitHub Copilot, AWS/Bedrock, Google Cloud, OVH,
+  Scaleway, Cloudflare, OpenRouter, DeepSeek, Mistral, LM Studio) bundled from
+  Simple Icons at build time (`scripts/fetch-simple-icons.mjs`, idempotent
+  regeneration). Unknown/custom ids keep the letter-monogram fallback.
+- **Per-card status tiles**: compact cards show live connection state — green
+  "Connected"/"Ready", red "Failed" after a test, gray "No connections".
+  Unconnected tiles are clickable to configure (key prompt or OAuth sign-in).
+- **Test All per section**: one click runs the existing models-refresh check
+  against every connected provider in that section, sequentially with per-tile
+  spinner → result feedback.
+- **API surface**: `/api/models` (and templates payload) now expose `freeTier`
+  and `isCustom` flags so the SPA groups without guessing; free-tier membership =
+  template `freeTier` tag OR `anonymousFreeModels` OR known always-free ids.
+
+New modules: `src/ui/app/src/lib/providers/grouping.ts` (+14 unit tests),
+`ProviderTile.svelte`, `ProviderSection.svelte`.
+
 ## 0.6.3 (2026-08-22)
 
 ### Security & Resilience — gateway audit remediation (C1–C5, H1–H6)

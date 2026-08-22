@@ -2,7 +2,23 @@
 
 > Active development status and recent major architecture updates.
 
-## Current Version: 0.6.2
+## Current Version: 0.6.3
+
+## Current Focus: Providers Page Redesign (in progress)
+
+- **Sectioned Providers page** (`anygate ui`): four sections — Custom
+  (OpenAI/Anthropic compatible), OAuth, Free Tier, API Key — each an alphabetical
+  tile grid with per-section `▷ Test All` and dashed empty state for custom.
+- **New modules**: `src/ui/app/src/lib/providers/grouping.ts` (pure-TS bucketing:
+  custom/oauth/free/apikey + `isConnected()`), `ProviderTile.svelte`
+  (logo + name + live status line), `ProviderSection.svelte` (header + grid).
+- **API additions**: `/api/models` + templates expose `freeTier` and `isCustom`;
+  free-tier rule = template JSON `"freeTier": true` OR `anonymousFreeModels` OR
+  known always-free ids (`FREE_PROVIDER_IDS` in apps/shared/free-models).
+- **Brand icons**: Simple Icons bundled build-time via idempotent
+  `scripts/fetch-simple-icons.mjs` into `providerLogos.ts` (17 marks; monogram
+  fallback for unknown ids). Regenerate after adding providers.
+- Plan: `.hermes/plans/2026-08-22_121500-providers-page-categories-icons.md`.
 
 ## Recent Changes (Gateway Audit Remediation)
 
