@@ -49,6 +49,46 @@ export async function fetchWithOAuthRetry<TResponse extends { status: number }>(
   return { response, apiKey: refreshed, refreshed: true }
 }
 
+/** Usage parsed from an Anthropic response (message_start / message_delta events). */
+export interface AnthropicUsage {
+  inputTokens: number
+  outputTokens: number
+}
+
+/**
+ * Tee-scan raw Anthropic SSE chunks for token usage without altering the
+ * forwarded bytes. `message_start` carries input_tokens, `message_delta`
+ * carries output_tokens; later values win (deltas accumulate upstream).
+ */
+export function scanAnthropicSseUsage(
+  chunkText: string,
+  usage: { inputTokens: number; outputTokens: number }
+): void {
+  for (const line of chunkText.split('\n')) {
+    const t = line.startsWith('data:') ? line.slice(5).trim() : line.trim()
+    if (!t || t === '[DONE]') continue
+    try {
+      const obj = JSON.parse(t) as {
+        message?: { usage?: { input_tokens?: number; output_tokens?: number } }
+        usage?: { input_tokens?: number; output_tokens?: number }
+      }
+      const startUsage = obj.message?.usage
+      if (startUsage) {
+        usage.inputTokens = startUsage.input_tokens ?? usage.inputTokens
+        if (typeof startUsage.output_tokens === 'number')
+          usage.outputTokens = startUsage.output_tokens
+        continue
+      }
+      const deltaUsage = obj.usage
+      if (deltaUsage && typeof deltaUsage.output_tokens === 'number') {
+        usage.outputTokens = deltaUsage.output_tokens
+      }
+    } catch {
+      // Not a JSON SSE line — ignore.
+    }
+  }
+}
+
 /** Gateway an Anthropic /v1/messages response (JSON or SSE) to the client. */
 export async function forwardAnthropicMessages(
   res: ServerResponse,
@@ -63,7 +103,8 @@ export async function forwardAnthropicMessages(
   extraHeaders?: Record<string, string>,
   refreshToken?: () => Promise<string | null>,
   onTokenRefreshed?: (token: string) => void
-): Promise<void> {
+): Promise<AnthropicUsage> {
+  const usage: AnthropicUsage = { inputTokens: 0, outputTokens: 0 }
   const doFetch = (key: string) =>
     fetch(messagesUrl, {
       method: 'POST',
@@ -94,7 +135,7 @@ export async function forwardAnthropicMessages(
       'Content-Type': upstreamRes.headers.get('content-type') || 'application/json',
     })
     res.end(errBody)
-    return
+    return usage
   }
 
   if (clientWantsStream && upstreamRes.body) {
@@ -103,10 +144,24 @@ export async function forwardAnthropicMessages(
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
     })
-    Readable.fromWeb(upstreamRes.body as Parameters<typeof Readable.fromWeb>[0])
-      .on('error', () => res.destroy())
-      .pipe(res)
-    return
+    // Tee-scan the stream for usage so the gateway can record analytics without
+    // altering a single forwarded byte. Await full consumption so callers get a
+    // COMPLETE usage object (message_start carries input_tokens; the final
+    // message_delta carries cumulative output_tokens) rather than a snapshot
+    // taken before any bytes flowed.
+    await new Promise<void>((resolve, reject) => {
+      Readable.fromWeb(upstreamRes.body as Parameters<typeof Readable.fromWeb>[0])
+        .on('data', (chunk: Buffer) => scanAnthropicSseUsage(chunk.toString('utf8'), usage))
+        .on('error', err => {
+          res.destroy()
+          reject(err)
+        })
+        .on('end', () => resolve())
+        .pipe(res)
+    }).catch(() => {
+      // Stream failed mid-flight — headers are already sent; nothing more to do.
+    })
+    return usage
   }
 
   if (!upstreamRes.body) {
@@ -117,12 +172,13 @@ export async function forwardAnthropicMessages(
         error: { type: 'api_error', message: 'Upstream returned empty response body' },
       })
     )
-    return
+    return usage
   }
 
   const text = await upstreamRes.text()
+  let parsed: unknown
   try {
-    JSON.parse(text)
+    parsed = JSON.parse(text)
   } catch {
     res.writeHead(502, { 'Content-Type': 'application/json' })
     res.end(
@@ -131,11 +187,19 @@ export async function forwardAnthropicMessages(
         error: { type: 'api_error', message: 'Upstream response was not valid JSON' },
       })
     )
-    return
+    return usage
+  }
+  // Non-streaming Anthropic responses carry usage on the top-level message body.
+  const parsedUsage = (parsed as { usage?: { input_tokens?: number; output_tokens?: number } })
+    .usage
+  if (parsedUsage) {
+    usage.inputTokens = parsedUsage.input_tokens ?? 0
+    usage.outputTokens = parsedUsage.output_tokens ?? 0
   }
   res.writeHead(200, {
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(text).toString(),
   })
   res.end(text)
+  return usage
 }

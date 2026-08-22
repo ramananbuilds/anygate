@@ -270,7 +270,7 @@ async function handleAnthropicMessages(
     plog(
       () => `anthropic-passthrough → ${messagesUrl} oauth=${isOAuth} stream=${clientWantsStream}`
     )
-    await forwardAnthropicMessages(
+    const usage = await forwardAnthropicMessages(
       res,
       messagesUrl,
       forwardBody,
@@ -286,6 +286,17 @@ async function handleAnthropicMessages(
         model.apiKey = refreshed
       }
     )
+    // Anthropic passthrough previously never recorded usage — the dashboard
+    // under-counted native traffic. recordUsage itself skips all-zero events.
+    recordUsage({
+      ts: new Date().toISOString(),
+      modelId: getResponseModelId(body.model, model, options),
+      npm: undefined,
+      providerId: model.providerId,
+      app: options.app ?? 'gateway',
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+    })
     return
   }
 
