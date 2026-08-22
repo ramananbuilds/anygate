@@ -48,6 +48,10 @@ export interface UiProvider {
   favoriteName: string
   hasKey: boolean
   freeAccess: boolean
+  /** True when the provider serves free models: template "freeTier" flag, anonymousFreeModels, or a known always-free provider id. */
+  freeTier?: boolean
+  /** True when the provider was added as a user-defined custom endpoint (id prefixed 'custom-'). */
+  isCustom?: boolean
   authType: ProviderAuthType
   modelCount: number
   models: UiProviderModel[]
@@ -66,6 +70,8 @@ export interface UiTemplate {
   signupNote?: string | null
   authType: string
   anonymousFreeModels?: boolean
+  /** True when the template JSON declares a free tier (zen.json et al); badge-able in ProviderForm. */
+  freeTier?: boolean
   urlPrompt?: string | null
   defaultBaseUrl?: string | null
   apiKeyOptional?: boolean

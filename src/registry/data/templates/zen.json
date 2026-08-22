@@ -9,5 +9,6 @@
   "modelsEndpoint": "/v1/models",
   "signupUrl": "https://opencode.ai/auth",
   "modelSource": "zen-go-api",
+  "freeTier": true,
   "npm": "@ai-sdk/openai-compatible"
 }

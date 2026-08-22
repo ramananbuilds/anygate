@@ -29,9 +29,10 @@ import { refreshProviderModels, refreshAllProviderModels } from '../registry/syn
 import {
   listAddableTemplates,
   listVisibleOAuthTemplates,
-  PROVIDER_TEMPLATES,
   getTemplateById,
+  loadTemplateSync,
 } from '../registry/templates/provider-templates.js'
+import { isFreeProviderAccess } from '../apps/shared/free-models.js'
 import {
   addProviderFromTemplate,
   type AddTemplateResult,
@@ -430,6 +431,13 @@ function dedupModelsById<T extends { id: string }>(models: T[]): T[] {
   return out
 }
 
+// Raw template-JSON "freeTier" flag. toProviderTemplate() drops unknown fields,
+// so this reads the parsed JSON directly; the narrow cast avoids touching
+// ProviderTemplateData in provider-templates.ts.
+function templateJsonFreeTier(templateId: string): boolean {
+  return (loadTemplateSync(templateId) as { freeTier?: boolean } | undefined)?.freeTier === true
+}
+
 async function handleGetModels(res: ServerResponse): Promise<void> {
   try {
     const catalog = await fetchModelsWithTimeout()
@@ -437,17 +445,29 @@ async function handleGetModels(res: ServerResponse): Promise<void> {
     const rawCountById = new Map(
       registry.providers.map(p => [p.id, p.modelsCache?.models.length ?? 0])
     )
+    // freeTier = template JSON "freeTier" flag OR anonymousFreeModels OR a known
+    // always-free provider id (see FREE_PROVIDER_IDS in apps/shared/free-models).
+    const templateFreeTier = (providerId: string): boolean => {
+      const templateId =
+        registry.providers.find(rp => rp.id === providerId)?.templateId ?? providerId
+      return (
+        templateJsonFreeTier(templateId) ||
+        getTemplateById(templateId)?.anonymousFreeModels === true
+      )
+    }
     const providers = catalog.map(p => ({
       id: p.id,
       name: p.name,
       favoriteName: favoriteProviderDisplayName(p),
       hasKey: Boolean(p.apiKey),
+      freeTier: isFreeProviderAccess(p.id) || templateFreeTier(p.id),
       freeAccess:
         !p.apiKey &&
         (() => {
           const t = registry.providers.find(rp => rp.id === p.id)?.templateId ?? p.id
           return getTemplateById(t)?.anonymousFreeModels === true
         })(),
+      isCustom: p.id.startsWith('custom-'),
       authType: p.authType ?? 'api',
       modelCount: rawCountById.get(p.id) ?? p.models.length,
       signupUrl: getTemplateById(p.id)?.signupUrl ?? null,
@@ -461,8 +481,7 @@ async function handleGetModels(res: ServerResponse): Promise<void> {
         cost: m.cost,
         providerId: p.id,
         inputTypes: resolveInputTypes(m.family, p.id, m.id),
-        reasoning:
-          m.reasoning ?? resolveReasoning(p.id, m.id),
+        reasoning: m.reasoning ?? resolveReasoning(p.id, m.id),
       })),
     }))
 
@@ -483,6 +502,8 @@ async function handleGetModels(res: ServerResponse): Promise<void> {
         }),
         hasKey: true,
         freeAccess: false,
+        freeTier: templateFreeTier(rp.id),
+        isCustom: rp.id.startsWith('custom-'),
         authType: 'oauth',
         modelCount: 0,
         signupUrl: getTemplateById(rp.templateId)?.signupUrl ?? null,
@@ -870,6 +891,7 @@ const CUSTOM_TEMPLATES = [
     name: 'Custom OpenAI-compatible',
     signupUrl: null,
     authType: 'api',
+    freeTier: false,
     custom: true,
   },
   {
@@ -877,6 +899,7 @@ const CUSTOM_TEMPLATES = [
     name: 'Custom Anthropic-compatible',
     signupUrl: null,
     authType: 'api',
+    freeTier: false,
     custom: true,
   },
 ] as const
@@ -897,6 +920,10 @@ function handleGetTemplates(res: ServerResponse): void {
     signupNote: t.signupNote ?? null,
     authType: t.authType,
     anonymousFreeModels: t.anonymousFreeModels ?? false,
+    // Raw template-JSON flag only (kilo stays false here; its freeness comes
+    // from anonymousFreeModels above). toProviderTemplate() drops unknown
+    // fields, hence the direct loadTemplateSync read.
+    freeTier: templateJsonFreeTier(t.id),
     urlPrompt: t.urlPrompt ?? null,
     defaultBaseUrl: t.defaultBaseUrl ?? null,
     apiKeyOptional: t.apiKeyOptional ?? false,
@@ -909,6 +936,8 @@ function handleGetTemplates(res: ServerResponse): void {
     signupUrl: t.signupUrl ?? null,
     authType: t.authType,
     subscriptionRisk: t.subscriptionRisk ?? false,
+    // Raw template-JSON flag only — zen.json carries "freeTier": true.
+    freeTier: templateJsonFreeTier(t.id),
     custom: false,
   }))
 
@@ -972,7 +1001,8 @@ async function handleAddProvider(req: IncomingMessage, res: ServerResponse): Pro
     if (template.authType === 'oauth') {
       if (templateId === 'claude-code') {
         sendJson(res, 400, {
-          error: 'Claude Code OAuth must be completed in the terminal: anygate providers auth claude-code',
+          error:
+            'Claude Code OAuth must be completed in the terminal: anygate providers auth claude-code',
         })
         return
       }
@@ -1046,7 +1076,10 @@ async function handleAddProvider(req: IncomingMessage, res: ServerResponse): Pro
         const codePromise = new Promise<string>((resolve, reject) => {
           session.codeResolver = resolve
           session.errorRejecter = (err: string) => reject(err)
-          setTimeout(() => reject(new Error('OAuth timeout — sign-in not completed')), 10 * 60 * 1000)
+          setTimeout(
+            () => reject(new Error('OAuth timeout — sign-in not completed')),
+            10 * 60 * 1000
+          )
         })
         oauthSessions.set(sessionId, session)
 
@@ -1111,7 +1144,11 @@ async function handleAddProvider(req: IncomingMessage, res: ServerResponse): Pro
           await refreshOAuthProviderModels(templateId)
           oauthSessions.set(sessionId, { ...session!, status: 'done' })
         } catch (err) {
-          oauthSessions.set(sessionId, { ...session ?? {} as OAuthSession, status: 'error', error: String(err) })
+          oauthSessions.set(sessionId, {
+            ...(session ?? ({} as OAuthSession)),
+            status: 'error',
+            error: String(err),
+          })
         } finally {
           server.close()
         }
@@ -1122,7 +1159,12 @@ async function handleAddProvider(req: IncomingMessage, res: ServerResponse): Pro
 
       const device = await requestOpenAiDeviceCode()
       const url = openAiDeviceCodeUrl()
-      const session: OAuthSession = { status: 'pending', url, userCode: device.user_code, providerId: templateId }
+      const session: OAuthSession = {
+        status: 'pending',
+        url,
+        userCode: device.user_code,
+        providerId: templateId,
+      }
       oauthSessions.set(sessionId, session)
 
       pollOpenAiDeviceCodeToken(device)
@@ -1374,7 +1416,10 @@ async function handleOAuthStart(req: IncomingMessage, res: ServerResponse): Prom
         const codePromise = new Promise<string>((resolve, reject) => {
           session.codeResolver = resolve
           session.errorRejecter = (err: string) => reject(new Error(err))
-          setTimeout(() => reject(new Error('OAuth timeout — sign-in not completed')), 10 * 60 * 1000)
+          setTimeout(
+            () => reject(new Error('OAuth timeout — sign-in not completed')),
+            10 * 60 * 1000
+          )
         })
         oauthSessions.set(sessionId, session) // re-set with resolvers attached
 
