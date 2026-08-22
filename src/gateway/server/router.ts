@@ -348,8 +348,11 @@ async function handleAnthropicMessages(
     const toolCount = Array.isArray((body as Record<string, unknown>).tools)
       ? ((body as Record<string, unknown>).tools as unknown[]).length
       : 0
+    // H5: tool truncation must not be silent — agents lose tools mid-run.
+    let toolTruncationWarning: string | null = null
     if (npmMaxTools !== undefined && toolCount > npmMaxTools) {
-      plog(`tools truncated: ${toolCount} → ${npmMaxTools} (provider limit)`)
+      toolTruncationWarning = `tools truncated: ${toolCount} → ${npmMaxTools} (provider limit)`
+      plog(toolTruncationWarning)
     }
     const params = sdkTranslateRequest(body as unknown as AnthropicRequest, model.npm!, {
       defaultEffort: anthropicEffortFromRequest(body as AnthropicRequest)
@@ -394,7 +397,11 @@ async function handleAnthropicMessages(
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
           Connection: 'keep-alive',
+          ...(toolTruncationWarning ? { 'anthropic-warning': toolTruncationWarning } : {}),
         })
+        // H5: SSE clients can't read headers mid-stream; emit the warning as an
+        // SSE comment frame before any data event (ignored by strict parsers).
+        if (toolTruncationWarning) res.write(`: ${toolTruncationWarning}\n\n`)
         const usage = await streamAnthropicResponse(languageModel, params, responseModelId, chunk =>
           res.write(chunk)
         )
@@ -430,7 +437,13 @@ async function handleAnthropicMessages(
           outputTokens: genUsage.outputTokens ?? 0,
         })
         budget.add(genUsage.inputTokens ?? 0, genUsage.outputTokens ?? 0)
-        sendJson(res, 200, anthropicResponse)
+        // H5: surface tool truncation on non-streaming JSON responses too.
+        sendJson(
+          res,
+          200,
+          anthropicResponse,
+          toolTruncationWarning ? { 'anthropic-warning': toolTruncationWarning } : undefined
+        )
       }
     } catch (err) {
       const message = formatUpstreamError(err)

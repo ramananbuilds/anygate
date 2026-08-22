@@ -294,10 +294,12 @@ export function startProxyCatalog(
 
       // Per-request route resolution: look up the alias, fall back to default (Option A + C)
       const route = resolveRoute(byAlias, originalModel, defaultRoute, plog)
+      // H5: alias fallback must not be silent — a typo would otherwise route to
+      // an unexpected (possibly expensive) default model with no signal.
+      let aliasWarning: string | null = null
       if (route === defaultRoute && originalModel !== defaultRoute.aliasId) {
-        quietErrorLog(
-          `POST /v1/messages - model alias '${originalModel}' not found, falling back to default route '${defaultRoute.aliasId}'`
-        )
+        aliasWarning = `model alias '${originalModel}' not found; using '${defaultRoute.aliasId}'`
+        quietErrorLog(`POST /v1/messages - ${aliasWarning}`)
       }
       const apiKey = route.apiKey
       const upstreamUrl = route.upstreamUrl
@@ -414,7 +416,11 @@ export function startProxyCatalog(
               'Content-Type': 'text/event-stream',
               'Cache-Control': 'no-cache',
               Connection: 'keep-alive',
+              ...(aliasWarning ? { 'anthropic-warning': aliasWarning } : {}),
             })
+            // H5: SSE clients can't see headers mid-stream; emit the warning as a
+            // comment frame (lines starting with ':') before any data event.
+            if (aliasWarning) res.write(`: ${aliasWarning}\n\n`)
             const usage = await streamAnthropicResponse(
               model,
               params,
@@ -452,7 +458,13 @@ export function startProxyCatalog(
               inputTokens: u?.inputTokens ?? 0,
               outputTokens: u?.outputTokens ?? 0,
             })
-            sendJson(res, 200, anthropicResponse)
+            // H5: surface the alias fallback on non-streaming JSON responses too.
+            sendJson(
+              res,
+              200,
+              anthropicResponse,
+              aliasWarning ? { 'anthropic-warning': aliasWarning } : undefined
+            )
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err)
