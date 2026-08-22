@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.3 (2026-08-22)
 
 ### Security & Resilience — gateway audit remediation (C1–C5, H1–H6)
 
