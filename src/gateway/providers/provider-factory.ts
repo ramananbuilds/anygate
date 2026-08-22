@@ -11,6 +11,7 @@ import {
 import { extractOpenAiAccountId } from '../../auth/openai.js'
 import { createResponsesWebSocketFetch } from '../../auth/responses-websocket.js'
 import { CLAUDE_CODE_USER_AGENT, injectClaudeIdentity } from '../../auth/claude-identity.js'
+import { makeSanitizingFetch } from './stream-sanitizer.js'
 
 // Reasoning-capability detection and provider-option mapping.
 // Extracted to provider-reasoning.ts to keep the core SDK factory lean.
@@ -30,44 +31,55 @@ export {
   thinkingProviderOptions,
 } from './provider-reasoning.js'
 
-/** Models that must use /v1/responses instead of /v1/chat/completions. */
-const RESPONSES_ONLY_PREFIXES = ['gpt-5-codex', 'gpt-5-pro', 'gpt-5.2-pro', 'o3', 'o4']
-
 /**
- * A TransformStream that removes non-compliant `data: null` SSE lines from an
- * event-stream response. Some OpenAI-compatible reseller gateways interleave
- * `data: null` keepalives between valid chunks; the AI SDK's strict chunk
- * validation throws on them (`Type validation failed: Value: null`), aborting
- * the entire stream. Buffering by line lets us drop just those lines while
- * passing every valid `data: {...}` and `data: [DONE]` through untouched.
+ * Builds the custom `fetch` used for the SDK-backed routes. It pins
+ * `spec.headers` onto every request (overriding the SDK's own User-Agent, which
+ * fixes identity-gated providers), supports trace logging, and sanitizes
+ * non-spec-compliant upstream streams (array `content`, missing tool-call `id`,
+ * `data: null` keepalives) before the AI SDK parses them. The null-stripper and
+ * GLM chunk normalizer live in stream-sanitizer.ts.
+ *
+ * `preserveThinking` (true for `@ai-sdk/mistral`) skips flattening of structured
+ * thinking content arrays so the Mistral SDK's native `reasoning-*` stream parts
+ * are preserved. The `@ai-sdk/openai-compatible` path always flattens (its schema
+ * requires `reasoning_content` as a sibling string field).
  */
-function createNullChunkStripper(): TransformStream<Uint8Array, Uint8Array> {
-  const decoder = new TextDecoder()
-  const encoder = new TextEncoder()
-  let buffer = ''
-  const isNullDataLine = (line: string): boolean => {
-    const trimmed = line.trimStart()
-    if (!trimmed.startsWith('data:')) return false
-    return trimmed.slice(5).trim() === 'null'
-  }
-  return new TransformStream<Uint8Array, Uint8Array>({
-    transform(chunk, controller) {
-      buffer += decoder.decode(chunk, { stream: true })
-      const newlineIdx = buffer.lastIndexOf('\n')
-      if (newlineIdx === -1) return
-      const complete = buffer.slice(0, newlineIdx + 1)
-      buffer = buffer.slice(newlineIdx + 1)
-      const kept = complete
-        .split('\n')
-        .filter(line => !isNullDataLine(line))
-        .join('\n')
-      if (kept) controller.enqueue(encoder.encode(kept))
-    },
-    flush(controller) {
-      const tail = buffer + decoder.decode()
-      if (tail && !isNullDataLine(tail)) controller.enqueue(encoder.encode(tail))
-    },
-  })
+function buildUpstreamFetch(spec: ProviderModelSpec, preserveThinking = false): typeof fetch {
+  return makeSanitizingFetch(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : (input as any)?.url ?? String(input)
+    const hdrs = new Headers(init?.headers ?? {})
+    // Force custom headers to their configured values, overriding whatever the
+    // SDK set (notably User-Agent).
+    if (spec.headers) {
+      for (const [k, v] of Object.entries(spec.headers)) hdrs.set(k, v)
+    }
+    const nextInit = { ...init, headers: hdrs }
+    if (process.env.ANYGATE_TRACE === '1') {
+      const shown: string[] = []
+      hdrs.forEach((v, k) => {
+        shown.push(`${k}: ${/authorization|api-key/i.test(k) ? v.slice(0, 12) + '…' : v}`)
+      })
+      spec.onDebug?.(`[sdk-fetch] POST ${url}\n[sdk-fetch] headers:\n  ${shown.join('\n  ')}`)
+      // Dump the outgoing request body so a moderation/blocklist rejection
+      // (e.g. new-api `sensitive_words_detected`) can be traced to the exact
+      // offending text. Trace-gated and written only to the local debug log.
+      if (typeof init?.body === 'string') {
+        spec.onDebug?.(`[sdk-fetch] → body: ${init.body.slice(0, 8000)}`)
+      }
+    }
+    const resp = await fetch(input, nextInit)
+    if (process.env.ANYGATE_TRACE === '1') {
+      spec.onDebug?.(`[sdk-fetch] ← HTTP ${resp.status}`)
+      if (resp.status >= 400) {
+        const body = await resp.clone().text().catch(() => '')
+        spec.onDebug?.(`[sdk-fetch] ← body: ${body.slice(0, 500)}`)
+      }
+    }
+    return resp
+  },
+    preserveThinking
+  )
 }
 
 type SdkProviderFactory = (options: {
@@ -75,6 +87,7 @@ type SdkProviderFactory = (options: {
   baseURL?: string
   name?: string
   headers?: Record<string, string>
+  fetch?: typeof fetch
 }) => {
   (modelId: string): LanguageModel
   chat: (modelId: string) => LanguageModel
@@ -82,6 +95,9 @@ type SdkProviderFactory = (options: {
 }
 
 const factoryCache = new Map<string, Promise<SdkProviderFactory>>()
+
+/** Models that must use /v1/responses instead of /v1/chat/completions. */
+const RESPONSES_ONLY_PREFIXES = ['gpt-5-codex', 'gpt-5-pro', 'gpt-5.2-pro', 'o3', 'o4']
 
 /**
  * True when a model id must use the OpenAI/xAI Responses API instead of
@@ -293,63 +309,10 @@ export async function createLanguageModel(spec: ProviderModelSpec): Promise<Lang
       // Custom headers like User-Agent must be forced at the fetch layer: the AI
       // SDK builds its own User-Agent and overwrites a header-option value on some
       // call paths (streaming vs non-streaming differ), which breaks providers that
-      // gate on client identity. This wrapper pins spec.headers onto every request
-      // regardless of path, and (when tracing) logs the exact wire headers + any
-      // error-response body so failures can be diagnosed from ground truth.
-      ...(spec.headers || process.env.ANYGATE_TRACE === '1'
-        ? {
-            fetch: (async (input: any, init: any) => {
-              const url = typeof input === 'string' ? input : (input?.url ?? String(input))
-              const hdrs = new Headers(init?.headers ?? {})
-              // Force custom headers to their configured values, overriding whatever
-              // the SDK set (notably User-Agent).
-              if (spec.headers) {
-                for (const [k, v] of Object.entries(spec.headers)) hdrs.set(k, v)
-              }
-              const nextInit = { ...init, headers: hdrs }
-              if (process.env.ANYGATE_TRACE === '1') {
-                const shown: string[] = []
-                hdrs.forEach((v, k) => {
-                  shown.push(`${k}: ${/authorization|api-key/i.test(k) ? v.slice(0, 12) + '…' : v}`)
-                })
-                spec.onDebug?.(
-                  `[sdk-fetch] POST ${url}\n[sdk-fetch] headers:\n  ${shown.join('\n  ')}`
-                )
-                // Dump the outgoing request body so a moderation/blocklist rejection
-                // (e.g. new-api `sensitive_words_detected`) can be traced to the exact
-                // offending text. Trace-gated and written only to the local debug log.
-                if (typeof init?.body === 'string') {
-                  spec.onDebug?.(`[sdk-fetch] → body: ${init.body.slice(0, 8000)}`)
-                }
-              }
-              const resp = await fetch(input, nextInit)
-              if (process.env.ANYGATE_TRACE === '1') {
-                spec.onDebug?.(`[sdk-fetch] ← HTTP ${resp.status}`)
-                if (resp.status >= 400) {
-                  const body = await resp
-                    .clone()
-                    .text()
-                    .catch(() => '')
-                  spec.onDebug?.(`[sdk-fetch] ← body: ${body.slice(0, 500)}`)
-                }
-              }
-              // Some OpenAI-compatible resellers emit non-compliant `data: null`
-              // keepalive lines mid-stream. The AI SDK validates every SSE chunk
-              // against a strict schema and throws on `null`, aborting the whole
-              // response. Strip those lines so valid chunks stream through intact.
-              const contentType = resp.headers.get('content-type') ?? ''
-              if (resp.body && contentType.includes('text/event-stream')) {
-                const sanitized = resp.body.pipeThrough(createNullChunkStripper())
-                return new Response(sanitized, {
-                  status: resp.status,
-                  statusText: resp.statusText,
-                  headers: resp.headers,
-                })
-              }
-              return resp
-            }) as typeof fetch,
-          }
-        : {}),
+      // gate on client identity. This wrapper also normalizes non-spec-compliant
+      // upstream streams (array `content`, missing tool-call `id`, `data: null`
+      // keepalives) so third-party models such as GLM-5.2 stream through cleanly.
+      fetch: buildUpstreamFetch(spec),
     }
     model = createOpenAICompatible({
       ...options,
@@ -363,15 +326,20 @@ export async function createLanguageModel(spec: ProviderModelSpec): Promise<Lang
     })(modelId)
   } else {
     const create = await loadSdkProviderFactory(npm)
+    // Generic SDK providers (e.g. @ai-sdk/mistral) need the sanitizing fetch so
+    // non-compliant upstream streams (GLM-5.2 behind a Mistral endpoint) are
+    // normalized before the AI SDK validates each chunk. Always apply it — the
+    // conditional on spec.headers was a bug that let unsanitized chunks through.
     const provider = create({
       apiKey,
       ...(baseURL ? { baseURL } : {}),
       ...(spec.headers ? { headers: spec.headers } : {}),
+      fetch: buildUpstreamFetch(spec, npm === '@ai-sdk/mistral'),
     })
     model = provider(modelId)
   }
 
-  const isReasoning = modelId.toLowerCase().match(/deepseek-r1|think|reasoning|qwq/)
+  const isReasoning = modelId.toLowerCase().match(/deepseek-(?:r1|v4)|think|reasoning|qwq/)
   if (isReasoning) {
     return wrapLanguageModel({
       model: model as Parameters<typeof wrapLanguageModel>[0]['model'],

@@ -27,6 +27,8 @@ interface ProviderModelListRow {
   pricing?: Record<string, string | number | undefined>
   use_responses_lite?: boolean
   prefer_websockets?: boolean
+  /** Provider-reported model capabilities (e.g. Mistral "capabilities": { completion_chat: true, function_calling: true, reasoning: true }). */
+  capabilities?: Record<string, unknown>
 }
 
 function modelFormatForNpm(npm: string): 'anthropic' | 'openai' {
@@ -111,7 +113,7 @@ function parseNativePricing(
   return cost
 }
 
-function parseModelList(
+export function parseModelList(
   body: OpenAiModelListResponse,
   npm: string,
   providerId?: string
@@ -129,6 +131,20 @@ function parseModelList(
     const freeStatus = classifyFreeStatus({
       model: { cost, isFree: row.isFree },
     })
+    // Detect reasoning capability from provider-reported capabilities.
+    // Mistral reports: { capabilities: { completion_chat: true, function_calling: true, reasoning: true } }
+    // Some OpenAI-compatible routers use: { capabilities: { reasoning: true } }
+    // Some providers report reasoning via top-level boolean fields.
+    let reasoning: boolean | undefined
+    const caps = row.capabilities
+    if (caps && typeof caps === 'object') {
+      const capsObj = caps as Record<string, unknown>
+      const r = capsObj.reasoning
+      if (typeof r === 'boolean') reasoning = r
+    }
+    if (reasoning === undefined && typeof (row as Record<string, unknown>).reasoning === 'boolean') {
+      reasoning = (row as Record<string, unknown>).reasoning as boolean
+    }
     // providerId matters here: self-hosted servers (Ollama, LM Studio) report no
     // context_length at all, and without the provider the generic ID heuristics
     // advertise a model's trained maximum instead of what the server will serve.
@@ -157,6 +173,7 @@ function parseModelList(
         typeof row.use_responses_lite === 'boolean' ? row.use_responses_lite : undefined,
       preferWebSockets:
         typeof row.prefer_websockets === 'boolean' ? row.prefer_websockets : undefined,
+      reasoning: reasoning === undefined ? undefined : reasoning,
     })
   }
 

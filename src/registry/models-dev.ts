@@ -297,3 +297,24 @@ export function shouldHideByModelsDevCapabilities(entry: ModelsDevModel): boolea
   if (entry.interactions === true && entry.chat === false) return true
   return false
 }
+
+/**
+ * Resolve whether a model supports reasoning/thinking, based on the models.dev cache.
+ * Strategy:
+ *  1. Try models.dev via findModelsDevModel (slug-mapped + id-normalized).
+ *  2. If models.dev reports an explicit `reasoning` boolean, trust it.
+ *  3. Otherwise, return undefined (caller may fall back to heuristics).
+ *
+ * Returns undefined (not false) when no data is available, so callers can
+ * distinguish "known to support" from "not in the catalog".
+ */
+export function resolveReasoning(
+  providerId: string,
+  modelId: string,
+  cache: ModelsDevCacheFile = loadModelsDevCache()
+): boolean | undefined {
+  const entry = findModelsDevModel(providerId, modelId, cache)
+  if (!entry) return undefined
+  if (typeof entry.reasoning === 'boolean') return entry.reasoning
+  return undefined
+}

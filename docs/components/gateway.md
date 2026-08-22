@@ -30,6 +30,8 @@ src/gateway/
 │   └── prompts.ts              # Server wizard prompts
 ├── providers/
 │   ├── provider-factory.ts     # Dynamic SDK provider instantiation
+│   ├── provider-reasoning.ts   # Reasoning-capability detection & wire-format mapping
+│   ├── stream-sanitizer.ts     # SSE/JSON stream normalization (preserveThinking, tool-call IDs, null stripping)
 │   └── provider-select.ts      # Server provider selection UI
 ├── proxy/
 │   ├── anthropic-proxy.ts      # Local Anthropic HTTP proxy (540 lines)

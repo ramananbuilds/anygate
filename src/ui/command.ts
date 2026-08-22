@@ -1,5 +1,4 @@
 import { createServer } from 'node:http'
-import { execSync } from 'node:child_process'
 import {
   readFileSync,
   readdirSync,
@@ -70,33 +69,70 @@ function removeLock(): void {
   } catch {}
 }
 
-function checkExistingServer(): string | null {
-  if (!existsSync(LOCK_FILE)) return null
+/** Shape of `ui.lock` — where a previously started UI said it was listening. */
+export interface UiLockInfo {
+  pid: number
+  port: number
+}
+
+export function parseUiLock(raw: string): UiLockInfo | null {
   try {
-    const { pid, port } = JSON.parse(readFileSync(LOCK_FILE, 'utf8'))
-    // On Windows, process.kill(pid, 0) doesn't throw for non-existent PIDs.
-    // Use tasklist to reliably check if the process exists.
-    const isWindows = process.platform === 'win32'
-    let processExists = false
-    if (isWindows) {
-      try {
-        const output = execSync(`tasklist /FI "PID eq ${pid}"`, {
-          encoding: 'utf8',
-          stdio: ['pipe', 'pipe', 'ignore'],
-        })
-        processExists = output.includes(String(pid))
-      } catch {
-        processExists = false
-      }
-    } else {
-      process.kill(pid, 0)
-      processExists = true
-    }
-    if (processExists) {
-      return `http://127.0.0.1:${port}`
-    }
+    const { pid, port } = JSON.parse(raw) as { pid?: unknown; port?: unknown }
+    if (!Number.isInteger(pid) || !Number.isInteger(port)) return null
+    if ((port as number) < 1 || (port as number) > 65535) return null
+    return { pid: pid as number, port: port as number }
   } catch {
-    // Ignore errors
+    return null
+  }
+}
+
+/** How long a recorded port gets to identify itself before we call the lock stale. */
+const PROBE_TIMEOUT_MS = 1500
+
+/**
+ * Ask whatever is listening on `port` whether it is an anygate UI.
+ *
+ * A PID check cannot answer this on any platform. `ui.lock` outlives a hard kill
+ * — terminal window closed, taskkill, reboot — and the OS is then free to hand
+ * that PID to an unrelated program, which Windows reliably does. "The PID
+ * exists" is true in that case while the port is dead, so `anygate ui` refused
+ * to start and pointed at a URL nothing was serving. The recorded port is
+ * ephemeral too, so another service may legitimately hold it by now. Only the
+ * server's own `/api/ping` marker tells a live UI apart from either impostor.
+ */
+export async function probeUiServer(
+  port: number,
+  fetchImpl: typeof fetch = fetch
+): Promise<boolean> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
+  try {
+    const res = await fetchImpl(`http://127.0.0.1:${port}/api/ping`, { signal: controller.signal })
+    if (!res.ok) return false
+    const body = (await res.json()) as { app?: unknown }
+    return body?.app === 'anygate'
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * Resolve the lock file to a URL only when a live anygate UI answers there. Any
+ * other outcome — no lock, unreadable lock, silent or unrecognized port — clears
+ * the lock so this run starts a fresh server instead of stalling on a dead one.
+ */
+export async function checkExistingServer(fetchImpl: typeof fetch = fetch): Promise<string | null> {
+  if (!existsSync(LOCK_FILE)) return null
+  let lock: UiLockInfo | null = null
+  try {
+    lock = parseUiLock(readFileSync(LOCK_FILE, 'utf8'))
+  } catch {
+    lock = null
+  }
+  if (lock && (await probeUiServer(lock.port, fetchImpl))) {
+    return `http://127.0.0.1:${lock.port}`
   }
   removeLock()
   return null
@@ -128,9 +164,20 @@ export async function resolveUiShutdownDecision(
 }
 
 export async function runUiCommand(opts: { trace?: boolean } = {}): Promise<number> {
-  const existing = checkExistingServer()
+  const existing = await checkExistingServer()
   if (existing) {
-    console.log(`\n  ${pc.bold('anygate UI')} already running at ${pc.cyan(existing)}\n`)
+    console.log(
+      `\n  ${pc.bold('anygate UI')} already running at ${pc.cyan(existing)}\n  ${pc.dim('Press Ctrl+C in that terminal to stop it')}\n`
+    )
+    // Reopen the tab: someone typing `anygate ui` wants the dashboard in front
+    // of them, and printing a URL to an already-running instance left them with
+    // nothing to click.
+    try {
+      const { default: open } = await import('open')
+      await open(existing)
+    } catch {
+      // Browser couldn't open — URL already printed above
+    }
     return 0
   }
 
@@ -195,6 +242,11 @@ export async function runUiCommand(opts: { trace?: boolean } = {}): Promise<numb
 
   mkdirSync(getAppHome(), { recursive: true })
   writeFileSync(LOCK_FILE, JSON.stringify({ pid: process.pid, port }))
+
+  // Covers every exit this process can still observe, including an uncaught
+  // throw — the signal handlers below only fire for Ctrl+C and SIGTERM. A hard
+  // kill or reboot still orphans the lock, which is what probeUiServer is for.
+  process.on('exit', removeLock)
 
   const cleanup = () => {
     removeLock()

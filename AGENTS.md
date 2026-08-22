@@ -67,7 +67,7 @@ npm run build && anygate --version
   - `adapters/`: Wire format translation (`sdk-adapter.ts`, `openai-adapter.ts`, `vertex.ts`)
   - `antigravity/`: Antigravity fake Cloud Code gateway server & request/response adapters
   - `context/`: Prompt context fitting (`context-fit.ts`)
-  - `providers/`: SDK language model factories (`provider-factory.ts`)
+  - `providers/`: SDK language model factories, stream normalization, reasoning mapping (`provider-factory.ts`, `stream-sanitizer.ts`, `provider-reasoning.ts`, `provider-select.ts`)
   - `proxy/`: Local HTTP Anthropic/OpenAI proxies (`anthropic-proxy.ts`, `proxy-shared.ts`)
   - `server/`: Standalone gateway server (`server.ts`, `router.ts`, `auth.ts`, `vendor-mask.ts`)
   - `web-search/`: Web search tool integrations (`duckduckgo.ts`, `searxng.ts`, `brave.ts`, `tavily.ts`, `tool.ts`)

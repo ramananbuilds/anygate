@@ -30,3 +30,6 @@ ANTIGRAVITY-DEBUG-SESSION.md
 # Untracked context directory
 context/
 
+
+# Build output (rebuilt by `npm run build` / prepublishOnly gate)
+dist/

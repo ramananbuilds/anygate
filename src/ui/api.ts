@@ -23,6 +23,7 @@ import { fetchProviderCatalog } from '../registry/provider-catalog.js'
 import { favoriteProviderDisplayName } from '../apps/claude/favorites-provider-display.ts'
 import { saveProviderCredential, resolveProviderCredential } from '../config/env.js'
 import { readBody, sendJson } from '../shared/http.ts'
+import { VERSION } from '../config/constants.js'
 import { loadRegistry } from '../registry/storage/io.js'
 import { refreshProviderModels, refreshAllProviderModels } from '../registry/sync/refresh-models.js'
 import {
@@ -47,10 +48,14 @@ import {
   requestOpenAiDeviceCode,
   pollOpenAiDeviceCodeToken,
   openAiDeviceCodeUrl,
+  buildOpenAiBrowserAuthUrl,
+  exchangeOpenAiBrowserToken,
+  ISSUER,
 } from '../auth/openai.js'
 import { requestGithubDeviceCode, pollGithubDeviceCodeToken } from '../auth/github.js'
 import { guiCallbackRedirectUri } from '../auth/claude-code.js'
 import { buildAntigravityAuthUrl, completeAntigravityExchange } from '../auth/antigravity-oauth.js'
+import { startCallbackServer } from '../auth/callback-server.js'
 
 import { providerOptionsFromCatalog } from '../gateway/server/server.js'
 import {
@@ -66,7 +71,7 @@ import { aggregateAnalytics, type RangeId } from '../storage/analytics.js'
 import { collectDoctorReport } from '../services/doctor.js'
 import { subscribeToAppEvents, emitAppEvent, type AppEvent } from '../services/event-bus.js'
 import type { LaunchPreset } from '../types/index.js'
-import { resolveInputTypes } from '../registry/models-dev.js'
+import { resolveInputTypes, resolveReasoning } from '../registry/models-dev.js'
 
 const MODELS_TIMEOUT_MS = 30_000
 
@@ -236,6 +241,8 @@ export function handleUiApiRequest(
     handleGetPresets(res)
   } else if (url === '/api/presets' && req.method === 'POST') {
     handleSavePresets(req, res)
+  } else if (url === '/api/ping' && req.method === 'GET') {
+    handleGetPing(res)
   } else if (url === '/api/health' && req.method === 'GET') {
     handleGetHealth(res)
   } else if (url.startsWith('/api/analytics') && req.method === 'GET') {
@@ -344,6 +351,18 @@ async function handleSavePresets(req: IncomingMessage, res: ServerResponse): Pro
 }
 
 /**
+ * `GET /api/ping` — liveness identity probe. Deliberately does no disk,
+ * keychain, or network work so `anygate ui` can call it on startup to decide
+ * whether the port recorded in `ui.lock` still belongs to a live UI. The `app`
+ * marker is what makes the answer attributable: a PID can be recycled and an
+ * ephemeral port can be reassigned, so only a reply in this shape proves an
+ * anygate UI is on the other end. See `probeUiServer` in ./command.ts.
+ */
+function handleGetPing(res: ServerResponse): void {
+  sendJson(res, 200, { app: 'anygate', version: VERSION, pid: process.pid })
+}
+
+/**
  * `GET /api/health` — real system diagnostics, shared with `anygate doctor`.
  *
  * Shape matches the UI's `HealthReport` contract. `providerReachability` is
@@ -442,6 +461,8 @@ async function handleGetModels(res: ServerResponse): Promise<void> {
         cost: m.cost,
         providerId: p.id,
         inputTypes: resolveInputTypes(m.family, p.id, m.id),
+        reasoning:
+          m.reasoning ?? resolveReasoning(p.id, m.id),
       })),
     }))
 
@@ -942,10 +963,179 @@ async function handleAddProvider(req: IncomingMessage, res: ServerResponse): Pro
       sendJson(res, 400, { error: 'templateId required' })
       return
     }
-    const { listSupportedTemplates } = await import('../registry/templates/provider-templates.js')
-    const template = listSupportedTemplates().find(t => t.id === templateId)
+    const { getTemplateById } = await import('../registry/templates/provider-templates.js')
+    const template = getTemplateById(templateId)
     if (!template) {
       sendJson(res, 404, { error: `Template '${templateId}' not found` })
+      return
+    }
+    if (template.authType === 'oauth') {
+      if (templateId === 'claude-code') {
+        sendJson(res, 400, {
+          error: 'Claude Code OAuth must be completed in the terminal: anygate providers auth claude-code',
+        })
+        return
+      }
+
+      const host = (req.headers.host as string | undefined) ?? '127.0.0.1'
+      const sessionId = randomUUID()
+
+      if (templateId === 'xai-oauth') {
+        const device = await requestXaiDeviceCode()
+        const url = device.verification_uri_complete ?? device.verification_uri
+        const session: OAuthSession = {
+          status: 'pending',
+          url,
+          userCode: device.user_code,
+          providerId: templateId,
+        }
+        oauthSessions.set(sessionId, session)
+
+        pollXaiDeviceCodeToken(device)
+          .then(async tokens => {
+            await saveNativeOAuthCredential(templateId, tokens)
+            await refreshOAuthProviderModels(templateId)
+            oauthSessions.set(sessionId, { ...session, status: 'done' })
+          })
+          .catch(err => {
+            oauthSessions.set(sessionId, { ...session, status: 'error', error: String(err) })
+          })
+
+        sendJson(res, 200, { oauth: true, sessionId, url, userCode: device.user_code })
+        return
+      }
+
+      if (templateId === 'github-copilot') {
+        const device = await requestGithubDeviceCode()
+        const url = device.verification_uri
+        const session: OAuthSession = {
+          status: 'pending',
+          url,
+          userCode: device.user_code,
+          providerId: templateId,
+        }
+        oauthSessions.set(sessionId, session)
+
+        pollGithubDeviceCodeToken(device)
+          .then(async tokens => {
+            await saveNativeOAuthCredential(templateId, tokens)
+            await refreshOAuthProviderModels(templateId)
+            oauthSessions.set(sessionId, { ...session, status: 'done' })
+          })
+          .catch(err => {
+            oauthSessions.set(sessionId, { ...session, status: 'error', error: String(err) })
+          })
+
+        sendJson(res, 200, { oauth: true, sessionId, url, userCode: device.user_code })
+        return
+      }
+
+      if (templateId === 'antigravity') {
+        const redirectUri = guiCallbackRedirectUri(host)
+        const pkce = await buildAntigravityAuthUrl(redirectUri)
+        const { authUrl, codeVerifier, oauthState } = pkce
+        const session: OAuthSession = {
+          status: 'pending',
+          url: authUrl,
+          providerId: templateId,
+          codeVerifier,
+          oauthState,
+        }
+        oauthSessions.set(sessionId, session)
+
+        const codePromise = new Promise<string>((resolve, reject) => {
+          session.codeResolver = resolve
+          session.errorRejecter = (err: string) => reject(err)
+          setTimeout(() => reject(new Error('OAuth timeout — sign-in not completed')), 10 * 60 * 1000)
+        })
+        oauthSessions.set(sessionId, session)
+
+        codePromise
+          .then(async code => {
+            const result = await completeAntigravityExchange(code, codeVerifier, redirectUri)
+            const tokens = result.tokens
+            const accountId = result.userInfo.email
+            const providerData: Record<string, unknown> = {}
+            if (result.projectId) providerData.projectId = result.projectId
+            if (result.tierId) providerData.tier = result.tierId
+
+            await saveNativeOAuthCredential(templateId, tokens, accountId, providerData)
+            await refreshOAuthProviderModels(templateId)
+            oauthSessions.set(sessionId, { ...session, status: 'done' })
+          })
+          .catch(err => {
+            oauthSessions.set(sessionId, { ...session, status: 'error', error: String(err) })
+          })
+
+        sendJson(res, 200, { oauth: true, sessionId, authUrl, pkce: true })
+        return
+      }
+
+      // OpenAI (ChatGPT) browser-based OAuth flow (authorization code + PKCE)
+      // This uses the standard browser-based OAuth flow instead of device code polling,
+      // so users don't need to enable device code authorization in ChatGPT Security Settings.
+      if (templateId === 'openai-oauth') {
+        const redirectUri = `${ISSUER}/deviceauth/callback`
+        const { authUrl, codeVerifier, oauthState } = await buildOpenAiBrowserAuthUrl(redirectUri)
+
+        // Start callback server to receive the OAuth redirect
+        const server = await startCallbackServer()
+
+        let session: OAuthSession | undefined
+
+        try {
+          session = {
+            status: 'pending',
+            url: authUrl,
+            providerId: templateId,
+            codeVerifier,
+            oauthState,
+          }
+          oauthSessions.set(sessionId, session)
+
+          // Open the browser (ignored - we wait for callback server instead)
+          ;(open(authUrl) as any)?.catch(() => {})
+
+          // Wait for the callback with authorization code
+          const { code } = await server.waitForCallback()
+
+          if (!code) {
+            throw new Error('No authorization code received from callback')
+          }
+
+          // Exchange authorization code for tokens
+          const { tokens, accountId } = await exchangeOpenAiBrowserToken(code, codeVerifier)
+
+          // Save credentials and refresh models
+          await saveNativeOAuthCredential(templateId, tokens, accountId)
+          await refreshOAuthProviderModels(templateId)
+          oauthSessions.set(sessionId, { ...session!, status: 'done' })
+        } catch (err) {
+          oauthSessions.set(sessionId, { ...session ?? {} as OAuthSession, status: 'error', error: String(err) })
+        } finally {
+          server.close()
+        }
+
+        sendJson(res, 200, { oauth: true, sessionId, url: authUrl, pkce: true })
+        return
+      }
+
+      const device = await requestOpenAiDeviceCode()
+      const url = openAiDeviceCodeUrl()
+      const session: OAuthSession = { status: 'pending', url, userCode: device.user_code, providerId: templateId }
+      oauthSessions.set(sessionId, session)
+
+      pollOpenAiDeviceCodeToken(device)
+        .then(async ({ tokens, accountId }) => {
+          await saveNativeOAuthCredential(templateId, tokens, accountId)
+          await refreshOAuthProviderModels(templateId)
+          oauthSessions.set(sessionId, { ...session, status: 'done' })
+        })
+        .catch(err => {
+          oauthSessions.set(sessionId, { ...session, status: 'error', error: String(err) })
+        })
+
+      sendJson(res, 200, { oauth: true, sessionId, url, userCode: device.user_code })
       return
     }
     const rawKey = typeof key === 'string' ? key.trim() : ''
@@ -1096,52 +1286,58 @@ async function handleOAuthStart(req: IncomingMessage, res: ServerResponse): Prom
     const sessionId = randomUUID()
 
     if (providerId === 'xai-oauth') {
-      const device = await requestXaiDeviceCode()
-      const url = device.verification_uri_complete ?? device.verification_uri
-      const session: OAuthSession = {
-        status: 'pending',
-        url,
-        userCode: device.user_code,
-        providerId,
-      }
+      let session: OAuthSession = { status: 'error', url: '', providerId }
       oauthSessions.set(sessionId, session)
 
-      pollXaiDeviceCodeToken(device)
-        .then(async tokens => {
-          await saveNativeOAuthCredential(providerId, tokens)
-          await refreshOAuthProviderModels(providerId)
-          oauthSessions.set(sessionId, { ...session, status: 'done' })
-        })
-        .catch(err => {
-          oauthSessions.set(sessionId, { ...session, status: 'error', error: String(err) })
-        })
+      try {
+        const device = await requestXaiDeviceCode()
+        const url = device.verification_uri_complete ?? device.verification_uri
+        session = { status: 'pending', url, userCode: device.user_code, providerId }
+        oauthSessions.set(sessionId, session)
 
-      sendJson(res, 200, { sessionId, url, userCode: device.user_code })
+        pollXaiDeviceCodeToken(device)
+          .then(async tokens => {
+            await saveNativeOAuthCredential(providerId, tokens)
+            await refreshOAuthProviderModels(providerId)
+            oauthSessions.set(sessionId, { ...session, status: 'done' })
+          })
+          .catch(err => {
+            oauthSessions.set(sessionId, { ...session, status: 'error', error: String(err) })
+          })
+
+        sendJson(res, 200, { sessionId, url, userCode: device.user_code })
+      } catch (err) {
+        oauthSessions.set(sessionId, { ...session, error: String(err) })
+        sendJson(res, 500, { error: String(err) })
+      }
       return
     }
 
     if (providerId === 'github-copilot') {
-      const device = await requestGithubDeviceCode()
-      const url = device.verification_uri
-      const session: OAuthSession = {
-        status: 'pending',
-        url,
-        userCode: device.user_code,
-        providerId,
-      }
+      let session: OAuthSession = { status: 'error', url: '', providerId }
       oauthSessions.set(sessionId, session)
 
-      pollGithubDeviceCodeToken(device)
-        .then(async tokens => {
-          await saveNativeOAuthCredential(providerId, tokens)
-          await refreshOAuthProviderModels(providerId)
-          oauthSessions.set(sessionId, { ...session, status: 'done' })
-        })
-        .catch(err => {
-          oauthSessions.set(sessionId, { ...session, status: 'error', error: String(err) })
-        })
+      try {
+        const device = await requestGithubDeviceCode()
+        const url = device.verification_uri
+        session = { status: 'pending', url, userCode: device.user_code, providerId }
+        oauthSessions.set(sessionId, session)
 
-      sendJson(res, 200, { sessionId, url, userCode: device.user_code })
+        pollGithubDeviceCodeToken(device)
+          .then(async tokens => {
+            await saveNativeOAuthCredential(providerId, tokens)
+            await refreshOAuthProviderModels(providerId)
+            oauthSessions.set(sessionId, { ...session, status: 'done' })
+          })
+          .catch(err => {
+            oauthSessions.set(sessionId, { ...session, status: 'error', error: String(err) })
+          })
+
+        sendJson(res, 200, { sessionId, url, userCode: device.user_code })
+      } catch (err) {
+        oauthSessions.set(sessionId, { ...session, error: String(err) })
+        sendJson(res, 500, { error: String(err) })
+      }
       return
     }
 
@@ -1154,54 +1350,80 @@ async function handleOAuthStart(req: IncomingMessage, res: ServerResponse): Prom
         return
       }
 
-      // PKCE / browser-redirect flow (claude-code, future: antigravity).
-      const host = (req.headers.host as string | undefined) ?? '127.0.0.1'
-      const redirectUri = guiCallbackRedirectUri(host)
-
-      let pkce: Awaited<ReturnType<typeof buildAntigravityAuthUrl>>
-      if (providerId === 'antigravity') {
-        pkce = await buildAntigravityAuthUrl(redirectUri)
-      } else {
-        sendJson(res, 400, { error: `PKCE flow for "${providerId}" not yet implemented` })
-        return
-      }
-
-      const { authUrl, codeVerifier, oauthState } = pkce
-      const session: OAuthSession = {
-        status: 'pending',
-        url: authUrl,
-        providerId,
-        codeVerifier,
-        oauthState,
-      }
+      let session: OAuthSession = { status: 'error', url: '', providerId }
       oauthSessions.set(sessionId, session)
 
-      // The callback route will call session.codeResolver when the code arrives.
-      const codePromise = new Promise<string>((resolve, reject) => {
-        session.codeResolver = resolve
-        session.errorRejecter = (err: string) => reject(new Error(err))
-        setTimeout(() => reject(new Error('OAuth timeout — sign-in not completed')), 10 * 60 * 1000)
-      })
-      oauthSessions.set(sessionId, session) // re-set with resolvers attached
+      try {
+        // PKCE / browser-redirect flow (claude-code, future: antigravity).
+        const host = (req.headers.host as string | undefined) ?? '127.0.0.1'
+        const redirectUri = guiCallbackRedirectUri(host)
 
-      codePromise
-        .then(async code => {
-          let providerData: Record<string, unknown> = {}
-          let accountId: string | undefined
-          let tokens: import('../auth/types.js').OAuthTokenResponse
+        let pkce: Awaited<ReturnType<typeof buildAntigravityAuthUrl>>
+        if (providerId === 'antigravity') {
+          pkce = await buildAntigravityAuthUrl(redirectUri)
+        } else {
+          sendJson(res, 400, { error: `PKCE flow for "${providerId}" not yet implemented` })
+          return
+        }
 
-          if (providerId === 'antigravity') {
-            const result = await completeAntigravityExchange(code, codeVerifier, redirectUri)
-            tokens = result.tokens
-            accountId = result.userInfo.email
-            if (result.projectId) providerData.projectId = result.projectId
-            if (result.tierId) providerData.tier = result.tierId
-          } else {
-            throw new Error(`Unknown PKCE provider: ${providerId}`)
-          }
+        const { authUrl, codeVerifier, oauthState } = pkce
+        session = { status: 'pending', url: authUrl, providerId, codeVerifier, oauthState }
+        oauthSessions.set(sessionId, session)
 
-          await saveNativeOAuthCredential(providerId, tokens, accountId, providerData)
+        // The callback route will call session.codeResolver when the code arrives.
+        const codePromise = new Promise<string>((resolve, reject) => {
+          session.codeResolver = resolve
+          session.errorRejecter = (err: string) => reject(new Error(err))
+          setTimeout(() => reject(new Error('OAuth timeout — sign-in not completed')), 10 * 60 * 1000)
+        })
+        oauthSessions.set(sessionId, session) // re-set with resolvers attached
 
+        codePromise
+          .then(async code => {
+            let providerData: Record<string, unknown> = {}
+            let accountId: string | undefined
+            let tokens: import('../auth/types.js').OAuthTokenResponse
+
+            if (providerId === 'antigravity') {
+              const result = await completeAntigravityExchange(code, codeVerifier, redirectUri)
+              tokens = result.tokens
+              accountId = result.userInfo.email
+              if (result.projectId) providerData.projectId = result.projectId
+              if (result.tierId) providerData.tier = result.tierId
+            } else {
+              throw new Error(`Unknown PKCE provider: ${providerId}`)
+            }
+
+            await saveNativeOAuthCredential(providerId, tokens, accountId, providerData)
+
+            await refreshOAuthProviderModels(providerId)
+            oauthSessions.set(sessionId, { ...session, status: 'done' })
+          })
+          .catch(err => {
+            oauthSessions.set(sessionId, { ...session, status: 'error', error: String(err) })
+          })
+
+        sendJson(res, 200, { sessionId, authUrl, pkce: true })
+      } catch (err) {
+        oauthSessions.set(sessionId, { ...session, error: String(err) })
+        sendJson(res, 500, { error: String(err) })
+      }
+      return
+    }
+
+    // openai-oauth
+    let session: OAuthSession = { status: 'error', url: '', providerId }
+    oauthSessions.set(sessionId, session)
+
+    try {
+      const device = await requestOpenAiDeviceCode()
+      const url = openAiDeviceCodeUrl()
+      session = { status: 'pending', url, userCode: device.user_code, providerId }
+      oauthSessions.set(sessionId, session)
+
+      pollOpenAiDeviceCodeToken(device)
+        .then(async ({ tokens, accountId }) => {
+          await saveNativeOAuthCredential(providerId, tokens, accountId)
           await refreshOAuthProviderModels(providerId)
           oauthSessions.set(sessionId, { ...session, status: 'done' })
         })
@@ -1209,28 +1431,13 @@ async function handleOAuthStart(req: IncomingMessage, res: ServerResponse): Prom
           oauthSessions.set(sessionId, { ...session, status: 'error', error: String(err) })
         })
 
-      sendJson(res, 200, { sessionId, authUrl, pkce: true })
-      return
+      sendJson(res, 200, { sessionId, url, userCode: device.user_code })
+    } catch (err) {
+      oauthSessions.set(sessionId, { ...session, error: String(err) })
+      sendJson(res, 500, { error: String(err) })
     }
-
-    // openai-oauth
-    const device = await requestOpenAiDeviceCode()
-    const url = openAiDeviceCodeUrl()
-    const session: OAuthSession = { status: 'pending', url, userCode: device.user_code, providerId }
-    oauthSessions.set(sessionId, session)
-
-    pollOpenAiDeviceCodeToken(device)
-      .then(async ({ tokens, accountId }) => {
-        await saveNativeOAuthCredential(providerId, tokens, accountId)
-        await refreshOAuthProviderModels(providerId)
-        oauthSessions.set(sessionId, { ...session, status: 'done' })
-      })
-      .catch(err => {
-        oauthSessions.set(sessionId, { ...session, status: 'error', error: String(err) })
-      })
-
-    sendJson(res, 200, { sessionId, url, userCode: device.user_code })
   } catch (err) {
+    // Safety net for any unexpected error in provider validation etc.
     sendJson(res, 500, { error: String(err) })
   }
 }

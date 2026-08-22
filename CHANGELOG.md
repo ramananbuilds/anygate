@@ -1,5 +1,87 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes — `anygate ui` refused to start after a hard kill (stale lock)
+
+- **`anygate ui` printed `already running at http://127.0.0.1:<dead-port>` and
+  exited, with no way to start the UI.** `checkExistingServer()` trusted the PID
+  in `~/.anygate/ui.lock` as proof of liveness. That lock outlives a hard kill
+  (terminal window closed, `taskkill`, reboot), and the OS then hands the PID to
+  an unrelated program — on Windows `tasklist /FI "PID eq <pid>"` matched
+  `opera.exe` on a recycled PID — so the check reported a dead ephemeral port as
+  live and the command became unusable until the lock was deleted by hand.
+- **Liveness is now verified by probing the recorded port**, not the PID. Added
+  `GET /api/ping`, which returns `{ app: 'anygate', version, pid }` and does no
+  disk, keychain, or network work. `checkExistingServer()` requires that marker
+  (1.5s timeout) before reusing an instance; a silent port, a non-anygate
+  service on a reassigned ephemeral port, or an unparseable lock all clear the
+  lock and start fresh. The `tasklist`/`process.kill` platform branch is gone.
+- **The lock is now also removed on `process.on('exit')`**, not just
+  SIGINT/SIGTERM, so an uncaught error no longer orphans it. Only a hard kill
+  can, and the probe recovers from that on the next run.
+- **Running `anygate ui` against a genuinely live instance reopens the browser**
+  instead of only printing the URL, and hints how to stop it.
+
+### Bug Fixes — OAuth providers now initiate sign-in from the Add Provider form
+
+- **`POST /api/providers/add` now starts the OAuth flow for OAuth templates** instead
+  of returning an error. When an OAuth template (`openai-oauth`, `xai-oauth`,
+  `github-copilot`, `antigravity`) is submitted, the endpoint creates a device-code
+  or PKCE session and returns `{ oauth: true, sessionId, url, userCode? }` so the UI
+  can guide the user through sign-in. `claude-code` still requires the terminal flow.
+- Fixed template lookup: `handleAddProvider` used `listSupportedTemplates()` which
+  filters `authType === 'api'`, excluding all OAuth templates. Now uses
+  `getTemplateById()` which loads from JSON without auth-type filtering.
+- **OpenAI OAuth errors are now surfaced to the user.** `pollOpenAiDeviceCodeToken`
+  was silently retrying on HTTP 403 until timeout. 403s are now parsed as JSON:
+  `deviceauth_authorization_pending` keeps polling (normal "not signed in yet"),
+  but any other 403 with a message body (e.g. "Enable device code authorization for
+  Codex") surfaces immediately with the full message. `requestOpenAiDeviceCode` also
+  reads the error body on failure instead of a generic message. `handleOAuthStart`
+  creates an error session before the device-code request so the UI can poll and
+  display failures that happen before the session was previously created.
+
+### Bug Fixes — GLM-5.2 / Mistral Reasoning & Tool-Call Streaming
+
+- **Stream sanitizer was conditionally applied for generic SDK providers.**
+  `buildUpstreamFetch` was only attached to the provider when `spec.headers` was
+  set or tracing was enabled. For plain Mistral API calls (no custom headers),
+  the sanitizer was skipped entirely, so tool-call chunks missing `id` reached
+  the `@ai-sdk/mistral` SDK's strict Zod validation and crashed with
+  `expected string, received undefined`. The wrapper is now always applied for
+  all generic SDK providers.
+
+- **Thinking content arrays were flattened for the Mistral SDK path.** The
+  stream sanitizer unconditionally flattened `delta.content` arrays (structured
+  `{type:'thinking'|...}` blocks) into a plain `content` string + sibling
+  `reasoning_content`. This destroyed the structured thinking array that the
+  `@ai-sdk/mistral` SDK needs to emit native `reasoning-start`/`reasoning-delta`/
+  `reasoning-end` stream parts. Added a `preserveThinking` parameter
+  (`stream-sanitizer.ts`, `provider-factory.ts`) — when `true` (for
+  `@ai-sdk/mistral`), content array flattening is skipped, preserving
+  structured thinking blocks while still injecting stable tool-call IDs.
+
+- **Duplicate `content_block_start` SSE events for tool calls.** The
+  `@ai-sdk/mistral` SDK v3.0.37 emits `tool-input-start` on every streaming
+  chunk containing `tool_calls` data (unlike `@ai-sdk/openai` which emits it
+  once per tool-call index). In `writeAnthropicStream()` (`sdk-adapter.ts`),
+  the `tool-input-start` case called `openBlock('tool', ...)` unconditionally,
+  producing duplicate `content_block_start` events with the same `tool_use` ID
+  — violating the Anthropic SSE protocol and crashing Claude Code. Added a
+  guard (`idToBlock.has(toolKey)`) that skips `openBlock` when a block is
+  already open for that tool ID.
+
+### New Files
+
+- **`src/gateway/providers/stream-sanitizer.ts`** — Stream normalization layer.
+  Flattens array `content` → string + `reasoning_content`, injects stable
+  synthetic tool-call IDs, defaults missing `function.arguments`/`function.name`,
+  strips `data: null` keepalives. `preserveThinking` mode skips flattening for
+  the Mistral SDK path.
+- **`src/gateway/providers/provider-reasoning.ts`** — Reasoning-capability
+  detection and provider-option mapping, extracted from `provider-factory.ts`.
+
 ## 0.6.2 (2026-08-05)
 
 Claude Code login bypass: Claude Code v2.1.221 showed "Not logged in" even

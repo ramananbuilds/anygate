@@ -87,11 +87,12 @@ describe('auth/openai', () => {
         }),
       } as Response)
 
-      // 2. First polling attempt: authorization pending (403)
+      // 2. First polling attempt: authorization pending (403, no body — retry)
       vi.mocked(global.fetch).mockResolvedValueOnce({
         ok: false,
         status: 403,
-      } as Response)
+        text: async () => '',
+      } as unknown as Response)
 
       // 3. Second polling attempt: user authorized (200 OK)
       vi.mocked(global.fetch).mockResolvedValueOnce({
@@ -129,11 +130,23 @@ describe('auth/openai', () => {
       vi.mocked(global.fetch).mockResolvedValueOnce({
         ok: false,
         status: 500,
-      } as Response)
+        text: async () => 'server error',
+      } as unknown as Response)
 
       await expect(runOpenAiDeviceCodeFlow(vi.fn())).rejects.toThrow(
         'Failed to initiate OpenAI device authorization'
       )
+    })
+
+    it('surfaces the error body when device auth is not enabled (403)', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => 'Enable device code authorization for Codex in ChatGPT Security Settings',
+      } as unknown as Response)
+
+      const err = await runOpenAiDeviceCodeFlow(vi.fn()).catch((e: Error) => e)
+      expect(String(err)).toMatch(/Failed to initiate OpenAI device authorization/)
     })
 
     it('throws if polling hits an unexpected error (e.g. 500)', async () => {
@@ -195,11 +208,12 @@ describe('auth/openai', () => {
         }),
       } as Response)
 
-      // 2. Polling loop (fails with 403 authorization pending, but we time out)
+      // 2. Polling loop (fails with 403 authorization pending, no body — retry until timeout)
       vi.mocked(global.fetch).mockResolvedValue({
         ok: false,
         status: 403,
-      } as Response)
+        text: async () => '',
+      } as unknown as Response)
 
       let time = 1000
       const now = vi.fn(() => time)
@@ -208,7 +222,7 @@ describe('auth/openai', () => {
       })
 
       await expect(runOpenAiDeviceCodeFlow(vi.fn(), { sleep, now })).rejects.toThrow(
-        'OpenAI device authorization timed out'
+        /device authorization timed out/
       )
     })
   })

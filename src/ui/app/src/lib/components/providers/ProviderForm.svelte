@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { UiTemplate } from '../../api/types';
-  import { Input, Button, Modal } from '../primitives';
-  import { getTemplates, addProvider, addCustomProvider } from '../../api/endpoints';
+  import { Input, Button, Modal, Spinner } from '../primitives';
+  import { getTemplates, addProvider, addCustomProvider, getOAuthStatus } from '../../api/endpoints';
   import { toast } from '../../stores/ui.svelte';
 
   interface Props { open: boolean; onclose: () => void; onadded: () => void; }
@@ -16,9 +16,14 @@
   let headersText = $state('');
   let busy = $state(false);
 
-  // Parse "Name: value" lines into a headers object. Blank lines and lines
-  // without a colon are ignored. Used by endpoints that gate on client
-  // identity (e.g. a required User-Agent).
+  let oauthSessionId = $state<string | null>(null);
+  let oauthUrl = $state<string>('');
+  let oauthUserCode = $state<string>('');
+  let oauthPolling = $state(false);
+  let oauthDone = $state(false);
+  let oauthError = $state<string>('');
+  let pollHandle: ReturnType<typeof setInterval> | null = null;
+
   function parseHeaders(text: string): Record<string, string> {
     const out: Record<string, string> = {};
     for (const line of text.split('\n')) {
@@ -31,23 +36,70 @@
     return out;
   }
 
+  function clearOAuth() {
+    if (pollHandle) { clearInterval(pollHandle); pollHandle = null; }
+    oauthSessionId = null;
+    oauthUrl = ''
+    oauthUserCode = ''
+    oauthPolling = false
+    oauthDone = false
+    oauthError = ''
+  }
+
   async function load() {
     loading = true;
     try { templates = (await getTemplates()).templates; } catch (e) { toast(String(e), 'error'); }
     loading = false;
   }
 
-  $effect(() => { if (open) { void load(); selected = null; apiKey = ''; baseUrl = ''; displayName = ''; headersText = ''; } });
+  $effect(() => {
+    if (open) {
+      void load()
+      selected = null
+      apiKey = ''
+      baseUrl = ''
+      displayName = ''
+      headersText = ''
+      busy = false
+      clearOAuth()
+    }
+  });
 
   const current = $derived(templates.find(t => t.id === selected));
   const customOpenai = $derived(selected === '__custom_openai__');
   const customAnthropic = $derived(selected === '__custom_anthropic__');
+  const isOAuth = $derived(current?.authType === 'oauth' && !customOpenai && !customAnthropic);
+
+  async function startOAuthPoll(sessionId: string) {
+    oauthPolling = true
+    pollHandle = setInterval(async () => {
+      try {
+        const st = await getOAuthStatus(sessionId)
+        if (st.status !== 'pending') {
+          if (pollHandle) clearInterval(pollHandle)
+          pollHandle = null
+          oauthPolling = false
+          if (st.status === 'done') {
+            oauthDone = true
+            toast(`${current?.name ?? 'Provider'} connected`, 'success')
+            setTimeout(() => { onadded(); onclose(); }, 800)
+          } else {
+            oauthError = st.error ?? 'OAuth sign-in failed'
+          }
+        }
+      } catch {
+        if (pollHandle) clearInterval(pollHandle)
+        pollHandle = null
+        oauthPolling = false
+      }
+    }, 2000)
+  }
 
   async function submit() {
     if (!selected) return;
     busy = true;
     try {
-      let res: { ok: boolean; error?: string; hint?: string; name?: string };
+      let res: { ok: boolean; error?: string; hint?: string; name?: string; oauth?: boolean; sessionId?: string; url?: string; userCode?: string; authUrl?: string; pkce?: boolean };
       if (customOpenai || customAnthropic) {
         const headers = parseHeaders(headersText);
         res = await addCustomProvider({
@@ -60,16 +112,55 @@
       } else {
         res = await addProvider(selected!, apiKey || undefined, baseUrl || undefined);
       }
-      if (res.ok) { toast(`Added ${res.name ?? selected}`, 'success'); onadded(); onclose(); }
-      else toast(res.error ?? 'Failed to add provider', 'error');
+
+      if (res.oauth) {
+        oauthUrl = res.url ?? res.authUrl ?? ''
+        oauthUserCode = res.userCode ?? ''
+        if (res.sessionId) {
+          oauthSessionId = res.sessionId
+          const urlToOpen = res.url ?? res.authUrl ?? ''
+          if (urlToOpen) window.open(urlToOpen, '_blank', 'noopener,noreferrer')
+          startOAuthPoll(res.sessionId)
+        } else if (res.error) {
+          toast(res.error, 'error')
+          busy = false
+        }
+      } else if (res.ok) {
+        toast(`Added ${res.name ?? selected}`, 'success')
+        onadded()
+        onclose()
+      } else {
+        toast(res.error ?? 'Failed to add provider', 'error')
+      }
     } catch (e) { toast(e instanceof Error ? e.message : String(e), 'error'); }
-    busy = false;
+    if (!oauthSessionId) busy = false;
   }
 </script>
 
 <Modal {open} title="Add provider" {onclose}>
   {#if loading}
     <p style="color:var(--text-3)">Loading templates…</p>
+  {:else if oauthDone}
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px 0">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <p style="color:var(--text-1);font-weight:600">Signed in successfully</p>
+    </div>
+  {:else if oauthError}
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px 0">
+      <p style="color:var(--red);font-weight:600">Sign-in failed</p>
+      <p style="color:var(--text-3);font-size:13px">{oauthError}</p>
+      <Button variant="ghost" onclick={() => { clearOAuth(); busy = false; }}>Try again</Button>
+    </div>
+  {:else if oauthSessionId}
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 0">
+      <Spinner label={oauthPolling ? 'Waiting for sign-in…' : 'Starting sign-in…'} />
+      {#if oauthUserCode}
+        <p style="color:var(--text-3);font-size:13px;text-align:center">
+          Enter code: <strong style="color:var(--text-1)">{oauthUserCode}</strong>
+        </p>
+      {/if}
+      <p style="color:var(--text-3);font-size:12px">Complete sign-in in the opened tab. This window updates automatically.</p>
+    </div>
   {:else}
     <span class="lbl">Provider</span>
     <select class="sel" bind:value={selected}>
@@ -86,6 +177,12 @@
       {#if current.signupNote}
         <span class="signup-note">{current.signupNote}</span>
       {/if}
+    {/if}
+
+    {#if isOAuth}
+      <span class="hint-txt" style="margin-top:14px">
+        Click <strong>Add provider</strong> to sign in with {current?.name}.
+      </span>
     {/if}
 
     {#if current?.urlPrompt}
@@ -112,7 +209,7 @@
 
     <div class="row" style="margin-top:20px;justify-content:flex-end;gap:8px">
       <Button variant="ghost" onclick={onclose}>Cancel</Button>
-      <Button disabled={!selected || busy} onclick={submit}>{busy ? 'Adding…' : 'Add provider'}</Button>
+      <Button disabled={!selected || busy} onclick={submit}>{isOAuth ? 'Sign in' : busy ? 'Adding…' : 'Add provider'}</Button>
     </div>
   {/if}
 </Modal>

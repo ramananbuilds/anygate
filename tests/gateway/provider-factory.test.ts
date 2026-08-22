@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  createLanguageModel,
   deepMergeProviderOptions,
   effortProviderOptions,
   getReasoningCapabilities,
@@ -284,6 +283,52 @@ describe('createLanguageModel', () => {
     vi.doUnmock('@ai-sdk/anthropic');
   });
 
+  it('wraps deepseek-v4 models with extractReasoningMiddleware', async () => {
+    vi.resetModules()
+    const wrap = vi.fn((opts: any) => ({ ...opts, wrapped: true }));
+    const extractReasoningMiddleware = vi.fn(() => ({ type: 'reasoning-middleware' }));
+    const factory = vi.fn((modelId: string) => ({ modelId }));
+    const createOpenAICompatible = vi.fn(() => factory)
+    vi.doMock('ai', () => ({ wrapLanguageModel: wrap, extractReasoningMiddleware }))
+    vi.doMock('@ai-sdk/openai-compatible', () => ({ createOpenAICompatible }))
+
+    const { createLanguageModel: create } = await import('../../src/gateway/providers/provider-factory.js');
+    await create({
+      npm: '@ai-sdk/openai-compatible',
+      modelId: 'deepseek-v4-pro-0813-free',
+      apiKey: 'test-key',
+      baseURL: 'https://api.example.com',
+    });
+
+    expect(wrap).toHaveBeenCalledTimes(1);
+    const [callArg] = wrap.mock.calls[0]
+    expect(callArg.model.modelId).toBe('deepseek-v4-pro-0813-free');
+    expect(callArg.middleware).toHaveLength(1);
+    vi.doUnmock('ai');
+    vi.doUnmock('@ai-sdk/openai-compatible');
+  });
+
+  it('does not wrap non-reasoning models with extractReasoningMiddleware', async () => {
+    vi.resetModules()
+    const wrap = vi.fn((opts: any) => ({ ...opts, wrapped: true }));
+    const factory = vi.fn((modelId: string) => ({ modelId }));
+    const createOpenAICompatible = vi.fn(() => factory)
+    vi.doMock('ai', () => ({ wrapLanguageModel: wrap }))
+    vi.doMock('@ai-sdk/openai-compatible', () => ({ createOpenAICompatible }))
+
+    const { createLanguageModel: create } = await import('../../src/gateway/providers/provider-factory.js');
+    await create({
+      npm: '@ai-sdk/openai-compatible',
+      modelId: 'glm-4',
+      apiKey: 'test-key',
+      baseURL: 'https://api.example.com',
+    });
+
+    expect(wrap).not.toHaveBeenCalled();
+    vi.doUnmock('ai');
+    vi.doUnmock('@ai-sdk/openai-compatible');
+  });
+
   it('routes Claude Code Anthropic OAuth through Bearer auth with compatibility headers', async () => {
     const anthropicFactory = vi.fn((modelId: string) => ({ modelId, provider: 'anthropic-oauth' }));
     const createAnthropic = vi.fn(() => anthropicFactory);
@@ -314,55 +359,6 @@ describe('createLanguageModel', () => {
     vi.doUnmock('@ai-sdk/anthropic');
   });
 
-  it('forwards custom headers for openai-compatible custom endpoints', async () => {
-    const factory = vi.fn((modelId: string) => ({ modelId }));
-    const createOpenAICompatible = vi.fn(() => factory);
-    vi.doMock('@ai-sdk/openai-compatible', () => ({ createOpenAICompatible }));
-
-    const { createLanguageModel: create } = await import('../../src/gateway/providers/provider-factory.js');
-    await create({
-      npm: '@ai-sdk/openai-compatible',
-      modelId: 'glm-5.2',
-      apiKey: 'sk-test',
-      baseURL: 'https://api.z.ai/api/coding/paas/v4',
-      providerId: 'custom-zai',
-      headers: { 'X-Plan': 'coding' },
-    });
-
-    // A `fetch` wrapper is passed whenever spec.headers is set: the SDK builds its
-    // own User-Agent and overwrites header options on some call paths, so custom
-    // headers are re-pinned at the fetch layer. See provider-factory.ts.
-    expect(createOpenAICompatible).toHaveBeenCalledWith({
-      name: 'custom-zai',
-      apiKey: 'sk-test',
-      baseURL: 'https://api.z.ai/api/coding/paas/v4',
-      headers: { 'X-Plan': 'coding' },
-      fetch: expect.any(Function),
-    });
-    vi.doUnmock('@ai-sdk/openai-compatible');
-  });
-
-  it('omits apiKey for anonymous openai-compatible providers', async () => {
-    const factory = vi.fn((modelId: string) => ({ modelId }));
-    const createOpenAICompatible = vi.fn(() => factory);
-    vi.doMock('@ai-sdk/openai-compatible', () => ({ createOpenAICompatible }));
-
-    const { createLanguageModel: create } = await import('../../src/gateway/providers/provider-factory.js');
-    await create({
-      npm: '@ai-sdk/openai-compatible',
-      modelId: 'tencent/hy3:free',
-      apiKey: '',
-      baseURL: 'https://api.kilo.ai/api/gateway',
-      providerId: 'kilo',
-    });
-
-    expect(createOpenAICompatible).toHaveBeenCalledWith({
-      name: 'kilo',
-      baseURL: 'https://api.kilo.ai/api/gateway',
-    });
-    vi.doUnmock('@ai-sdk/openai-compatible');
-  });
-
   it('merges custom headers into a non-OAuth custom anthropic endpoint', async () => {
     const anthropicFactory = vi.fn((modelId: string) => ({ modelId }));
     const createAnthropic = vi.fn(() => anthropicFactory);
@@ -383,5 +379,60 @@ describe('createLanguageModel', () => {
       headers: { 'X-Plan': 'coding' },
     });
     vi.doUnmock('@ai-sdk/anthropic');
+  });
+
+  it('forwards custom headers for openai-compatible custom endpoints', async () => {
+    const factory = vi.fn((modelId: string) => ({ modelId }));
+    const createOpenAICompatible = vi.fn(() => factory);
+    vi.doMock('@ai-sdk/openai-compatible', () => ({ createOpenAICompatible }));
+
+    const { createLanguageModel: create } = await import('../../src/gateway/providers/provider-factory.js');
+    await create({
+      npm: '@ai-sdk/openai-compatible',
+      modelId: 'glm-5.2',
+      apiKey: 'sk-test',
+      baseURL: 'https://api.z.ai/api/coding/paas/v4',
+      providerId: 'custom-zai',
+      headers: { 'X-Plan': 'coding' },
+    });
+
+    // A `fetch` wrapper (sanitizing + header-pinning) is passed whenever
+    // spec.headers is set: the SDK builds its own User-Agent and overwrites
+    // header options on some call paths, so custom headers are re-pinned at the
+    // fetch layer. See provider-factory.ts.
+    expect(createOpenAICompatible).toHaveBeenCalledWith({
+      name: 'custom-zai',
+      apiKey: 'sk-test',
+      baseURL: 'https://api.z.ai/api/coding/paas/v4',
+      headers: { 'X-Plan': 'coding' },
+      fetch: expect.any(Function),
+    });
+    vi.doUnmock('@ai-sdk/openai-compatible');
+  });
+
+  it('attaches the sanitizing fetch for anonymous openai-compatible providers', async () => {
+    const factory = vi.fn((modelId: string) => ({ modelId }));
+    const createOpenAICompatible = vi.fn(() => factory);
+    vi.doMock('@ai-sdk/openai-compatible', () => ({ createOpenAICompatible }));
+
+    const { createLanguageModel: create } = await import('../../src/gateway/providers/provider-factory.js');
+    await create({
+      npm: '@ai-sdk/openai-compatible',
+      modelId: 'tencent/hy3:free',
+      apiKey: '',
+      baseURL: 'https://api.kilo.ai/api/gateway',
+      providerId: 'kilo',
+    });
+
+    // The sanitizing fetch is always attached now: it re-pins any custom
+    // headers (none here) and normalizes non-spec-compliant upstream streams
+    // (e.g. GLM-5.2 array `content` / missing tool-call `id`). Well-formed
+    // streams pass through untouched, so it is safe to apply unconditionally.
+    expect(createOpenAICompatible).toHaveBeenCalledWith({
+      name: 'kilo',
+      baseURL: 'https://api.kilo.ai/api/gateway',
+      fetch: expect.any(Function),
+    });
+    vi.doUnmock('@ai-sdk/openai-compatible');
   });
 });

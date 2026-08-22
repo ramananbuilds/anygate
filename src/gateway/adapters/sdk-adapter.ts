@@ -152,15 +152,27 @@ export function annotateToolNames(messages: AnthropicMsg[]): void {
 
 function thinkingToSdkPart(block: AnthropicBlock, npm: string): Record<string, unknown> | null {
   const text = block.thinking ?? ''
-  if (npm === '@ai-sdk/openai' && !block.signature && !text.trim()) return null
+  if (
+    (npm === '@ai-sdk/openai' || npm === '@ai-sdk/openai-compatible') &&
+    !block.signature &&
+    !text.trim()
+  )
+    return null
 
   const part: Record<string, unknown> = { type: 'reasoning', text }
   if (block.signature) {
     if (npm === '@ai-sdk/google') {
       part.providerOptions = { google: { thoughtSignature: block.signature } }
-    } else if (npm === '@ai-sdk/openai' || npm === '@ai-sdk/openai-compatible') {
+    } else if (npm === '@ai-sdk/openai') {
       part.providerOptions = { openai: { reasoningEncryptedContent: block.signature } }
+    } else if (npm === '@ai-sdk/openai-compatible') {
+      part.providerOptions = { openaiCompatible: { reasoningEncryptedContent: block.signature } }
     }
+  }
+  // OpenAI-compatible providers (DeepSeek, GLM, etc.) require reasoning_content
+  // as a sibling string field on the message part, not just as an array block.
+  if (npm === '@ai-sdk/openai-compatible' && text) {
+    part.reasoning_content = text
   }
   return part
 }
@@ -499,14 +511,24 @@ export async function writeAnthropicStream(
           hiddenIds.add(part.id ?? '')
           break
         }
+        // Some upstream SDKs (notably @ai-sdk/mistral) emit tool-input-start
+        // on *every* streaming chunk that includes tool_calls data, rather than
+        // just once when the tool-call index is first seen. To avoid emitting
+        // duplicate content_block_start events for the same tool_use id (which
+        // violates the Anthropic SSE protocol), we track tool IDs that already
+        // have an open block and skip re-opening in that case.
+        const toolKey = part.id ?? ''
+        if (idToBlock.has(toolKey)) {
+          break
+        }
         const sig = grabRoundTripSignature(part)
         openBlock('tool', {
           type: 'tool_use',
-          id: encodeToolUseId(part.id ?? '', sig),
+          id: encodeToolUseId(toolKey, sig),
           name: part.toolName,
           input: {},
         })
-        idToBlock.set(part.id ?? '', blockIndex)
+        idToBlock.set(toolKey, blockIndex)
         break
       }
       case 'tool-input-delta':
@@ -636,30 +658,35 @@ export async function generateAnthropicResponse(
   let toolCalls: Array<{ toolCallId: string; toolName: string; input: unknown }>
   let finishReason: string
   let usage: { inputTokens?: number; outputTokens?: number } | undefined
+  let reasoningText = ''
 
   const { webSearchToolName, ...callParams } = params
   const stopWhen = webSearchToolName ? stepCountIs(MAX_WEB_SEARCH_STEPS) : undefined
 
-  if (options?.forceStream) {
-    // Some upstreams (e.g. ChatGPT's Codex backend) reject non-streaming requests
-    // outright. Request a real stream from the SDK and collect it into one
-    // response instead of forwarding the client's non-streaming request upstream.
-    const r = streamText({ model, ...callParams, stopWhen, onError: () => {} } as Parameters<
-      typeof streamText
-    >[0])
-    Promise.resolve(r.toolResults).catch(() => {})
-    ;[text, toolCalls, finishReason, usage] = await Promise.all([
-      r.text,
-      r.toolCalls,
-      r.finishReason,
-      r.usage,
-    ])
-  } else {
-    const r = await generateText({ model, ...callParams, stopWhen } as Parameters<
-      typeof generateText
-    >[0])
-    ;({ text, toolCalls, finishReason, usage } = r)
+  // Always use streamText so we can collect reasoning content from the full
+  // stream. generateText silently drops reasoning parts, which breaks the
+  // round-trip for providers that require reasoning_content in message history
+  // (DeepSeek V4, Qwen, GLM, etc.) — the next request would omit
+  // reasoning_content on prior assistant messages and the upstream returns 400.
+  const r = streamText({ model, ...callParams, stopWhen, onError: () => {} } as Parameters<
+    typeof streamText
+  >[0])
+  Promise.resolve(r.toolResults).catch(() => {})
+
+  // Collect reasoning deltas before awaiting the aggregated promises so the
+  // stream is consumed once and reasoning is preserved for the response.
+  for await (const part of r.fullStream) {
+    if (part.type === 'reasoning-delta') {
+      reasoningText += (part as any).text ?? ''
+    }
   }
+
+  ;[text, toolCalls, finishReason, usage] = await Promise.all([
+    r.text,
+    r.toolCalls,
+    r.finishReason,
+    r.usage,
+  ])
 
   return {
     id: 'msg_' + Date.now(),
@@ -667,6 +694,9 @@ export async function generateAnthropicResponse(
     role: 'assistant',
     model: modelId,
     content: [
+      ...(reasoningText
+        ? [{ type: 'thinking', thinking: reasoningText, signature: '' }]
+        : []),
       ...(text ? [{ type: 'text', text }] : []),
       ...toolCalls
         .filter(tc => tc.toolName !== webSearchToolName)

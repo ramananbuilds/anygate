@@ -1,4 +1,4 @@
-﻿// src/ui/api-types.ts � frozen JSON contract for the anygate web UI API.
+// src/ui/api-types.ts � frozen JSON contract for the anygate web UI API.
 //
 // This module is the single typed description of every request/response shape
 // that `ui/api.ts` emits. It contains NO runtime logic � only types � so both
@@ -30,6 +30,8 @@ export interface UiProviderModel {
   freeLabel?: string
   contextWindow?: number
   cost?: unknown
+  /** Whether the model supports reasoning/thinking output. */
+  reasoning?: boolean
 }
 
 /** `GET /api/models` */

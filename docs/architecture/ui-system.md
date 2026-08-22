@@ -108,6 +108,12 @@ served as aliases — shipped clients call `oauth/*`, and dropping it strands th
 | GET | `/api/providers/oauth/status?sessionId=` (alias `/api/providers/auth/status`) | Poll a flow's status |
 | GET | `/auth/callback` | Browser redirect target for PKCE flows |
 
+`POST /api/providers/add` resolves the template via `getTemplateById()` (not
+`listSupportedTemplates()`) so OAuth templates are found correctly. When an
+OAuth template is submitted, it returns `{ oauth: true, providerId }` instead
+of trying to create an API-key entry — the UI should redirect to the sign-in
+endpoint above.
+
 ### System
 
 | Method | Endpoint | Purpose |
@@ -117,6 +123,7 @@ served as aliases — shipped clients call `oauth/*`, and dropping it strands th
 | GET | `/api/update-status` | Check for anygate updates |
 | GET | `/api/analytics?range=all\|30d\|7d` | Aggregated usage analytics |
 | GET | `/api/health` | Real system diagnostics (shares `services/doctor.ts`) |
+| GET | `/api/ping` | Liveness identity marker used by single-instance detection |
 | GET | `/api/presets` | List saved launch presets |
 | POST | `/api/presets` | Replace the saved launch preset list |
 | GET | `/api/events` | SSE stream of live usage/server/provider events |
@@ -134,6 +141,32 @@ the UI layer:
 
 The client (`lib/stores/events.svelte.ts`) owns one `EventSource` for the whole
 app and falls back to interval polling only after repeated connection failures.
+
+## Single-Instance Detection
+
+`anygate ui` binds an ephemeral port (`listen(0)`) and records `{ pid, port }` in
+`~/.anygate/ui.lock`. On startup, `checkExistingServer()` (`src/ui/command.ts`)
+decides whether that lock still describes a live server by **probing
+`GET /api/ping` on the recorded port** and requiring an `{ app: 'anygate' }`
+reply:
+
+| Lock state | Probe result | Outcome |
+|------------|--------------|---------|
+| Absent | — | Start a new server |
+| Unparseable | not attempted | Delete lock, start a new server |
+| Port silent / refused | fail | Delete lock, start a new server |
+| Port held by another service | fail (no marker) | Delete lock, start a new server |
+| anygate answers | pass | Reuse — print the URL and reopen the browser |
+
+A PID check cannot make this call. The lock outlives a hard kill (terminal window
+closed, `taskkill`, reboot), and the OS then reuses that PID for an unrelated
+program — Windows reliably does — so "the PID exists" is true while the port is
+dead. The recorded port is ephemeral, so a different service may hold it by now
+too. Only the server's own `/api/ping` marker distinguishes a live UI from either
+impostor, which is why `/api/ping` does no disk, keychain, or network work.
+
+The lock is removed on `process.on('exit')` as well as SIGINT/SIGTERM, so only a
+hard kill can orphan it — and the probe recovers from that on the next run.
 
 ## Server Control
 

@@ -92,6 +92,28 @@ describe('translateMessages', () => {
     });
   });
 
+  it('sets reasoning_content for openai-compatible providers (DeepSeek, GLM, etc.)', () => {
+    const msg = [{ role: 'assistant' as const, content: [
+      { type: 'thinking', thinking: 'let me think...', signature: 'sig_123' },
+    ] }];
+    const compatible = translateMessages(msg, '@ai-sdk/openai-compatible') as any[];
+    expect(compatible[0].content[0]).toEqual({
+      type: 'reasoning',
+      text: 'let me think...',
+      reasoning_content: 'let me think...',
+      providerOptions: { openaiCompatible: { reasoningEncryptedContent: 'sig_123' } },
+    });
+  });
+
+  it('omits reasoning_content when thinking text is empty for openai-compatible', () => {
+    const msg = [{ role: 'assistant' as const, content: [
+      { type: 'thinking', thinking: '', signature: '' },
+      { type: 'text', text: 'hello' },
+    ] }];
+    const compatible = translateMessages(msg, '@ai-sdk/openai-compatible') as any[];
+    expect(compatible[0].content).toEqual([{ type: 'text', text: 'hello' }]);
+  });
+
   it('drops empty OpenAI thinking blocks without encrypted content', () => {
     const msg = [{ role: 'assistant' as const, content: [
       { type: 'thinking', thinking: '', signature: '' },
@@ -327,7 +349,19 @@ describe('generateAnthropicResponse', () => {
         finishReason: 'tool-calls',
         usage: { inputTokens: 1, outputTokens: 2 },
       })),
-      streamText: vi.fn(),
+      streamText: vi.fn(() => ({
+        text: Promise.resolve(''),
+        toolCalls: Promise.resolve([{
+          toolCallId: 'call_1',
+          toolName: 'Read',
+          input: { path: 'a' },
+          providerMetadata: { google: { thoughtSignature: 'SIG' } },
+        }]),
+        toolResults: Promise.resolve([]),
+        finishReason: Promise.resolve('tool-calls'),
+        usage: Promise.resolve({ inputTokens: 1, outputTokens: 2 }),
+        fullStream: (async function* () {})() as any,
+      })),
       tool: vi.fn((spec: unknown) => spec),
       jsonSchema: vi.fn((schema: unknown) => schema),
     }));
@@ -341,28 +375,71 @@ describe('generateAnthropicResponse', () => {
     vi.resetModules();
   });
 
-  it('forceStream collects a real stream into one response instead of calling generateText', async () => {
+  it('always uses streamText and includes reasoning content in non-streaming response', async () => {
     vi.resetModules();
-    const generateText = vi.fn();
+    const fullStream = (async function* () {
+      yield { type: 'reasoning-start' }
+      yield { type: 'reasoning-delta', text: 'thinking...' }
+      yield { type: 'reasoning-end' }
+      yield { type: 'text-start' }
+      yield { type: 'text-delta', text: ' result' }
+      yield { type: 'text-end' }
+      yield { type: 'finish', finishReason: 'stop', totalUsage: { inputTokens: 5, outputTokens: 2 } }
+    })() as any;
     vi.doMock('ai', () => ({
-      generateText,
+      generateText: vi.fn(),
       streamText: vi.fn(() => ({
-        text: Promise.resolve('hello'),
+        text: Promise.resolve(' result'),
         toolCalls: Promise.resolve([]),
         toolResults: Promise.resolve([]),
         finishReason: Promise.resolve('stop'),
-        usage: Promise.resolve({ inputTokens: 3, outputTokens: 4 }),
+        usage: Promise.resolve({ inputTokens: 5, outputTokens: 2 }),
+        fullStream,
       })),
       tool: vi.fn((spec: unknown) => spec),
       jsonSchema: vi.fn((schema: unknown) => schema),
     }));
 
     const { generateAnthropicResponse } = await import('../../src/gateway/adapters/sdk-adapter.js');
-    const body = await generateAnthropicResponse({} as never, { messages: [] }, 'gpt-5.6-sol', { forceStream: true });
+    const body = await generateAnthropicResponse({} as never, { messages: [] }, 'deepseek-v4-pro');
 
-    expect(generateText).not.toHaveBeenCalled();
-    expect((body.content as any[])[0]).toEqual({ type: 'text', text: 'hello' });
-    expect(body.usage).toEqual({ input_tokens: 3, output_tokens: 4 });
+    // Reasoning content must be preserved so the next request includes reasoning_content
+    const thinkingBlock = (body.content as any[]).find(item => item.type === 'thinking');
+    expect(thinkingBlock).toBeDefined();
+    expect(thinkingBlock.thinking).toBe('thinking...');
+
+    vi.doUnmock('ai');
+    vi.resetModules();
+  });
+
+  it('forceStream path also preserves reasoning content', async () => {
+    vi.resetModules();
+    const fullStream = (async function* () {
+      yield { type: 'reasoning-delta', text: 'let me think' }
+      yield { type: 'text-delta', text: 'hi' }
+      yield { type: 'finish', finishReason: 'stop' }
+    })() as any;
+    vi.doMock('ai', () => ({
+      generateText: vi.fn(),
+      streamText: vi.fn(() => ({
+        text: Promise.resolve('hi'),
+        toolCalls: Promise.resolve([]),
+        toolResults: Promise.resolve([]),
+        finishReason: Promise.resolve('stop'),
+        usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
+        fullStream,
+      })),
+      tool: vi.fn((spec: unknown) => spec),
+      jsonSchema: vi.fn((schema: unknown) => schema),
+    }));
+
+    const { generateAnthropicResponse } = await import('../../src/gateway/adapters/sdk-adapter.js');
+    const body = await generateAnthropicResponse({} as never, { messages: [] }, 'qwen3-8-max', { forceStream: true });
+
+    expect((body.content as any[])).toEqual([
+      { type: 'thinking', thinking: 'let me think', signature: '' },
+      { type: 'text', text: 'hi' },
+    ]);
 
     vi.doUnmock('ai');
     vi.resetModules();
@@ -450,7 +527,7 @@ describe('writeAnthropicStream', () => {
     expect(sigDelta.data.delta.signature).toBe('RSIG');
   });
 
-  it('emits thinking block with OpenAI reasoningEncryptedContent in signature_delta', async () => {
+      it('emits thinking block with OpenAI reasoningEncryptedContent in signature_delta', async () => {
     const { events } = await collect([
       { type: 'start' },
       { type: 'reasoning-start', id: 'r1' },
@@ -462,5 +539,72 @@ describe('writeAnthropicStream', () => {
     ]);
     const sigDelta = events.find(e => e.event === 'content_block_delta' && e.data.delta.type === 'signature_delta')!;
     expect(sigDelta.data.delta.signature).toBe('enc_xyz');
+  });
+
+  it('does not emit duplicate content_block_start for repeated tool-input-start (Mistral SDK per-chunk pattern)', async () => {
+    // @ai-sdk/mistral emits tool-input-start on *every* chunk with tool_calls data.
+    // The first should open a block; subsequent ones for the same id must be no-ops.
+    const { events } = await collect([
+      { type: 'start' },
+      { type: 'tool-input-start', id: 'call_1', toolName: 'Read' },
+      { type: 'tool-input-delta', id: 'call_1', delta: '{"path":"x' },
+      { type: 'tool-input-end', id: 'call_1' },
+      { type: 'tool-call', toolCallId: 'call_1', toolName: 'Read', input: { path: 'x' } },
+      // Second chunk with tool_calls data from Mistral SDK — tool-input-start fires again
+      { type: 'tool-input-start', id: 'call_1', toolName: 'Read' },
+      { type: 'tool-input-delta', id: 'call_1', delta: '","y":"z"}' },
+      { type: 'tool-input-end', id: 'call_1' },
+      { type: 'tool-call', toolCallId: 'call_1', toolName: 'Read', input: { path: 'x', y: 'z' } },
+      { type: 'finish', finishReason: 'tool-calls' },
+    ]);
+
+    const startEvents = events.filter(e => e.event === 'content_block_start');
+    // Only ONE content_block_start for tool_use 'call_1' should be emitted
+    expect(startEvents).toHaveLength(1);
+    expect(startEvents[0].data.content_block.type).toBe('tool_use');
+    expect(startEvents[0].data.content_block.id).toBe('call_1');
+
+    const deltaEvents = events.filter(e => e.event === 'content_block_delta');
+    // Two input_json_delta events — one per tool-input-delta
+    const inputDeltas = deltaEvents.filter(d => d.data.delta.type === 'input_json_delta');
+    expect(inputDeltas).toHaveLength(2);
+    expect(inputDeltas[0].data.delta.partial_json).toBe('{"path":"x');
+    expect(inputDeltas[1].data.delta.partial_json).toBe('","y":"z"}');
+
+    const blockIndices = new Set(inputDeltas.map(d => d.data.index));
+    // Both deltas must go to the same block index
+    expect(blockIndices.size).toBe(1);
+  });
+
+  it('emits single content_block_start when multiple distinct tool calls interleave with per-chunk start', async () => {
+    const { events } = await collect([
+      { type: 'start' },
+      { type: 'tool-input-start', id: 'call_1', toolName: 'Read' },
+      { type: 'tool-input-delta', id: 'call_1', delta: '{"a":1}' },
+      { type: 'tool-input-end', id: 'call_1' },
+      { type: 'tool-call', toolCallId: 'call_1', toolName: 'Read', input: { a: 1 } },
+      // Second tool call starts
+      { type: 'tool-input-start', id: 'call_2', toolName: 'Write' },
+      { type: 'tool-input-delta', id: 'call_2', delta: '{"b":2}' },
+      { type: 'tool-input-end', id: 'call_2' },
+      { type: 'tool-call', toolCallId: 'call_2', toolName: 'Write', input: { b: 2 } },
+      // Mistral re-emits tool-input-start for call_1 on a later chunk
+      { type: 'tool-input-start', id: 'call_1', toolName: 'Read' },
+      { type: 'tool-input-delta', id: 'call_1', delta: ',extra":true}' },
+      { type: 'tool-input-end', id: 'call_1' },
+      { type: 'tool-call', toolCallId: 'call_1', toolName: 'Read', input: { a: 1 } },
+      { type: 'finish', finishReason: 'tool-calls' },
+    ]);
+
+    const startEvents = events.filter(e => e.event === 'content_block_start');
+    // Exactly 2 tool_use blocks — one per distinct tool call id
+    const toolStarts = startEvents.filter(s => s.data.content_block.type === 'tool_use');
+    expect(toolStarts).toHaveLength(2);
+    expect(toolStarts[0].data.content_block.id).toBe('call_1');
+    expect(toolStarts[1].data.content_block.id).toBe('call_2');
+
+    // The second tool-input-start for call_1 must NOT create a new block
+    const allStartIds = toolStarts.map(s => s.data.content_block.id);
+    expect(allStartIds.filter(id => id === 'call_1')).toHaveLength(1);
   });
 });

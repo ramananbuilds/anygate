@@ -651,5 +651,11 @@ export function thinkingProviderOptions(
       },
     }
   }
+  // Mistral GLM-5.2 / Magistral: enable structured thinking via reasoningEffort.
+  // The Mistral SDK natively handles `delta.content` arrays with thinking blocks,
+  // emitting reasoning-start/reasoning-delta/reasoning-end stream parts.
+  if (npm === '@ai-sdk/mistral') {
+    return { mistral: { reasoningEffort: 'high' } }
+  }
   return undefined
 }

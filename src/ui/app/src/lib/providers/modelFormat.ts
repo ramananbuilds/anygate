@@ -132,9 +132,9 @@ export function deriveReasoning(model: UiProviderModel): boolean {
   if (typeof model.reasoning === 'boolean') return model.reasoning
   const id = model.id.toLowerCase()
   // Heuristic: reasoning-capable families.
-  return /(opus|sonnet|o1|o3|o4|gpt-5|deepseek-r(1|2)|qwen3?-(plus|max|pro)|claude-(3-7|4))/.test(
-    id
-  )
+  // Includes glm-5.2 (Mistral-hosted), o-series, gpt-5, Claude 3.7/4, DeepSeek-R1/R2,
+  // and Qwen reasoning variants.
+  return /(opus|sonnet|o1|o3|o4|gpt-5|glm-5|deepseek-r(1|2)|qwen3?-(plus|max|pro)|claude-(3-7|4))/.test(id)
 }
 
 export function deriveSupportedParameters(model: UiProviderModel): string[] {

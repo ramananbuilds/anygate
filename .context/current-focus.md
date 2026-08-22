@@ -4,6 +4,116 @@
 
 ## Current Version: 0.6.2
 
+## Recent Changes (`anygate ui` Stale-Lock Fix)
+
+### Bug Fix — single-instance detection trusted a recycled PID
+
+- **`anygate ui` was unusable after a hard kill.** It printed
+  `already running at http://127.0.0.1:<dead-port>` and exited. `ui.lock`
+  (`~/.anygate/ui.lock`, `{ pid, port }`) outlives a hard kill — terminal window
+  closed, `taskkill`, reboot — and `checkExistingServer()` in `src/ui/command.ts`
+  treated "a process with this PID exists" as proof the UI was live. The OS
+  recycles PIDs; on Windows `tasklist /FI "PID eq 14748"` matched `opera.exe`,
+  so a dead ephemeral port was reported as serving the UI.
+
+- **Fix:** liveness is verified against the port, not the PID. Added
+  `GET /api/ping` (`src/ui/api.ts`) returning
+  `{ app: 'anygate', version, pid }` with no disk, keychain, or network work.
+  `checkExistingServer()` is now async and requires that marker within 1.5s;
+  a silent port, a non-anygate service holding a reassigned ephemeral port, or
+  an unparseable lock all delete the lock and start a fresh server. The
+  `tasklist` / `process.kill(pid, 0)` platform branch was removed. The lock is
+  now also cleared on `process.on('exit')`, and reusing a genuinely live
+  instance reopens the browser instead of only printing the URL.
+  Covered by `tests/ui/ui-lock.test.ts`.
+
+## Recent Changes (OAuth Template Lookup Fix)
+
+### Bug Fix — OAuth template lookup in `POST /api/providers/add`
+
+- **`handleAddProvider` in `src/ui/api.ts` used `listSupportedTemplates()` to
+  resolve template IDs.** That function filters `authType === 'api'`, which
+  excludes all OAuth templates (`openai-oauth`, `xai-oauth`, `github-copilot`).
+  When the UI submitted any of these IDs, the lookup returned `undefined` and
+  the endpoint responded with `Template 'X' not found`.
+
+- **Fix:** Replaced `listSupportedTemplates().find(...)` with `getTemplateById()`,
+  which loads the template JSON directly without auth-type filtering. Added an
+  OAuth guard — when `template.authType === 'oauth'`, the endpoint returns
+  `{ oauth: true, providerId }` so the UI can route the user to the sign-in
+  flow (`/api/providers/oauth/start`) instead of the API-key add flow.
+
+## Recent Changes (GLM-5.2 / Mistral Reasoning & Tool-Call Streaming Fix)
+
+### Bug Fixes — streaming compatibility for GLM-5.2 via Mistral API
+
+1. **Stream sanitizer was conditionally applied for generic SDK providers.** In
+   `provider-factory.ts`, the sanitizing `buildUpstreamFetch` wrapper was only
+   attached when `spec.headers` was set or tracing was enabled. For plain Mistral
+   API calls (no custom headers), the sanitizer was skipped entirely, so upstream
+   chunks missing `tool_calls[].id` reached the `@ai-sdk/mistral` SDK's strict
+   Zod validation and crashed with
+   `expected string, received undefined`. The wrapper is now **always applied**
+   for all generic SDK providers (including `@ai-sdk/mistral`).
+
+2. **Thinking content arrays were flattened for the Mistral SDK path.** The
+   stream sanitizer unconditionally flattened `delta.content` arrays (structured
+   `{type:'thinking'|...}` blocks) into a plain `content` string + sibling
+   `reasoning_content`. This worked for `@ai-sdk/openai-compatible` (which reads
+   `reasoning_content`) but **destroyed** the structured thinking array that the
+   `@ai-sdk/mistral` SDK needs to emit native `reasoning-start`/`reasoning-delta`/
+   `reasoning-end` stream parts. Added a `preserveThinking` parameter
+   (`stream-sanitizer.ts`, `provider-factory.ts`) — when `true` (for
+   `@ai-sdk/mistral`), content array flattening is skipped, preserving structured
+   thinking blocks while still injecting stable tool-call IDs and stripping
+   `data: null` keepalives.
+
+3. **Duplicate `content_block_start` SSE events for tool calls.** The
+   `@ai-sdk/mistral` SDK v3.0.37 emits `tool-input-start` on **every** streaming
+   chunk containing `tool_calls` data (unlike `@ai-sdk/openai` which emits it
+   once per tool-call index). In `writeAnthropicStream()` (`sdk-adapter.ts`), the
+   `tool-input-start` case called `openBlock('tool', ...)` unconditionally,
+   producing duplicate `content_block_start` events with the same `tool_use` ID
+   — violating the Anthropic SSE protocol and crashing Claude Code. Added a
+   guard (`idToBlock.has(toolKey)`) that skips `openBlock` when a block is already
+   open for that tool ID.
+
+### New Files
+
+- **`src/gateway/providers/stream-sanitizer.ts`** — Stream normalization layer at
+  the fetch boundary. Flattens array `content` → string + `reasoning_content`,
+  injects stable synthetic tool-call IDs (stream-scoped, keyed by tool-call index),
+  defaults missing `function.arguments`/`function.name`, strips `data: null`
+  keepalives. `preserveThinking` mode skips flattening for the Mistral SDK path.
+- **`src/gateway/providers/provider-reasoning.ts`** — Reasoning-capability
+  detection and provider-option mapping, extracted from `provider-factory.ts`.
+  Handles effort-level mapping across Anthropic, OpenAI, Google, Mistral, xAI,
+  DeepSeek, Kimi, GLM-5.2, and OpenRouter providers.
+
+### Reasoning Configuration
+
+- Added `@ai-sdk/mistral` case to `thinkingProviderOptions()` returning
+  `{ mistral: { reasoningEffort: 'high' } }` to enable structured thinking at
+  the provider level. GLM-5.2 behind a Mistral endpoint now surfaces reasoning
+  as Anthropic `thinking` blocks (not disabled, not stringified).
+
+### Documentation
+
+- `docs/architecture/gateway.md` — Added "Stream Normalization" section under
+  "Provider Factory" documenting the two-layer normalization architecture
+  (Mistral path vs OpenAI-compatible path), tool-call ID lifecycle, and the
+  duplicate `content_block_start` deduplication strategy.
+- `AGENTS.md` — Updated `providers/` directory listing to include
+  `stream-sanitizer.ts` and `provider-reasoning.ts`.
+
+### Tests
+
+- `tests/gateway/stream-sanitizer.test.ts` — 10 new regression tests: thinking
+  preservation, tool-call ID stability, multi-chunk args, interleave patterns,
+  `data: null` handling, multi-line buffer splitting.
+- `tests/gateway/sdk-adapter.test.ts` — 2 new regression tests for the Mistral
+  SDK's per-chunk `tool-input-start` emission pattern.
+
 ## Recent Changes (Dashboard: correctness, live data, SSE)
 
 Four dashboard defects fixed, plus new live-data plumbing. Details:

@@ -187,50 +187,41 @@ async function getServerPasswordKeyring(): Promise<any | null> {
 }
 
 export async function getSavedServerPassword(): Promise<string | null> {
+  const keyring = await getServerPasswordKeyring()
+
+  // One-time migration: legacy builds stored the network password as plaintext
+  // `server.savedPassword` in config.json. Move it into the OS keychain when one
+  // is available and scrub the plaintext field; otherwise leave it untouched.
   const config = readConfig()
-  if (config.server?.savedPassword) {
-    const pwd = config.server.savedPassword
-    const keyring = await getServerPasswordKeyring()
-    if (keyring) {
-      try {
-        await keyring.setPassword(pwd)
-        delete config.server.savedPassword
-        if (Object.keys(config.server).length === 0) delete config.server
-        writeConfig(config)
-      } catch {
-        // Fallback: keep in config.json if keyring fails
-      }
+  const legacy = config.server?.savedPassword
+  if (legacy && keyring) {
+    try {
+      await keyring.setPassword(legacy)
+      delete config.server!.savedPassword
+      if (Object.keys(config.server!).length === 0) delete config.server
+      writeConfig(config)
+    } catch {
+      // Migration failed — keep the legacy field rather than losing the secret.
     }
-    return pwd
   }
 
-  const keyring = await getServerPasswordKeyring()
-  if (keyring) {
-    try {
-      return await keyring.getPassword()
-    } catch {
-      return null
-    }
+  if (!keyring) return null
+  try {
+    return await keyring.getPassword()
+  } catch {
+    return null
   }
-  return null
 }
 
 export async function setSavedServerPassword(password: string): Promise<void> {
   const keyring = await getServerPasswordKeyring()
-  if (keyring) {
-    try {
-      await keyring.setPassword(password)
-      return
-    } catch {
-      // Fallback
-    }
+  if (!keyring) {
+    throw new Error(
+      'Network-mode server password requires OS keychain support (@napi-rs/keyring). ' +
+        'Install the optional dependency or start the server with `--password <value>` for this run only.'
+    )
   }
-  const config = readConfig()
-  config.server = {
-    ...(config.server ?? {}),
-    savedPassword: password,
-  }
-  writeConfig(config)
+  await keyring.setPassword(password)
 }
 
 export async function clearSavedServerPassword(): Promise<void> {

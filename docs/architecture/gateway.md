@@ -138,6 +138,25 @@ createLanguageModel({ npm, modelId, apiKey, baseURL })
 
 Also handles reasoning metadata detection (`getReasoningCapabilities()`), thinking budget configuration, and provider-specific options merging.
 
+### Stream Normalization
+
+Generic SDK providers (`@ai-sdk/mistral`, `@ai-sdk/openai-compatible`, etc.) route upstream model streams through a sanitizing fetch wrapper defined in `provider-factory.ts` → `stream-sanitizer.ts`. Two upstream non-conformances are common from reseller/multi-provider gateways (e.g. GLM-5.2 served behind a Mistral-compatible endpoint):
+
+1. **`delta.content` is a structured array** of `{type:"thinking"|"text",...}` blocks instead of a plain string. The Vercel AI SDK validates each SSE frame against a strict Zod schema and throws `expected string, received array`, aborting the entire stream.
+2. **`delta.tool_calls[]` omits the required `id` field** (and sometimes `function.arguments`). The SDK throws `expected string, received undefined` for `id`.
+3. **`data: null` keepalive lines** are interleaved between valid chunks; the SDK throws on them too.
+
+### Two Normalization Paths
+
+- **Mistral adapter** (`@ai-sdk/mistral`, `preserveThinking=true`): Thinking content arrays are **preserved intact** in `delta.content` as `[{type:'thinking',thinking:[...]}]`. The Mistral SDK natively processes these and emits `reasoning-start`/`reasoning-delta`/`reasoning-end` stream parts, which AnyGate serializes as Anthropic `thinking` blocks. Tool-call `id` injection and `data: null` stripping still apply.
+- **OpenAI-compatible** (`@ai-sdk/openai-compatible`, `preserveThinking=false`/default): Thinking content arrays are **flattened** into `content` (string) + `reasoning_content` (string), which the OpenAI-compatible SDK reads natively. Tool-call `id` injection and `data: null` stripping still apply.
+
+Both paths share the same stable tool-call ID injection logic: IDs are generated once per tool-call index (per choice index), cached in a stream-scoped `Map`, and reused for all subsequent chunks with the same `index`.
+
+### Tool-Call Streaming Deduplication
+
+The `@ai-sdk/mistral` SDK v3.0.37 emits `tool-input-start` → `tool-input-delta` → `tool-input-end` → `tool-call` as a group **for every streaming chunk** that contains `tool_calls` data, unlike `@ai-sdk/openai` which only emits `tool-input-start` once per tool-call index. AnyGate's `writeAnthropicStream()` in `sdk-adapter.ts` guards against duplicate `content_block_start` SSE events by checking `idToBlock.has(toolKey)` before calling `openBlock`, skipping re-opening when a block is already open for that tool ID.
+
 ## Gateway Server
 
 `anygate server` runs a standalone API gateway on port **17645**:

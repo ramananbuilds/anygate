@@ -121,6 +121,8 @@ transitively-hoisted package resolves until a dependency bump drops it, and the 
 then surfaces as a provider bug rather than a missing dependency. `tests/registry/provider-configuration.test.ts`
 enforces this, along with the JSON key schema and auth-type validity, across all templates.
 
+SDK-backed providers use a stream sanitizer to normalize model output streams.
+
 See [reference/supported-providers.md](../reference/supported-providers.md) for the full
 per-provider table (SDK package, base URL, auth type).
 

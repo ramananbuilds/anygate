@@ -187,13 +187,14 @@ describe('OAuth provider template resolution', () => {
     }
   })
 
-  it('falls back to the -oauth id when no bare-id template exists', () => {
-    // There is no openai.json — only openai-oauth.json.
-    expect(getTemplateById('openai')).toBeUndefined()
-
+  it('resolves openai-oauth template when bare-id template exists', () => {
+    // openai.json now exists, so getTemplateById('openai') returns the template directly.
+    // The fallback to the -oauth id is no longer needed for openai-oauth since the
+    // bare-id template openai.json exists.
     const { templateId, template } = resolveOAuthTemplateForTest('openai-oauth')
 
-    expect(templateId).toBe('openai-oauth')
+    // Since openai.json exists, templateId should be 'openai' (the bare-id), not 'open1ai-oauth'
+    expect(templateId).toBe('openai')
     expect(template?.npm).toBe('@ai-sdk/openai')
     expect(template?.defaultBaseUrl).toBe('https://api.openai.com/v1')
   })

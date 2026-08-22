@@ -90,6 +90,7 @@ describe('provider templates', () => {
 
   it('lists only visible OAuth templates for discovery surfaces', () => {
     expect(listVisibleOAuthTemplates().map(t => t.id).sort()).toEqual([
+      'claude-code',
       'github-copilot',
       'openai-oauth',
       'xai-oauth',

@@ -9,7 +9,5 @@
   "modelsEndpoint": "/v1/models",
   "signupUrl": "https://claude.ai",
   "modelSource": "api-list",
-  "hidden": true,
-  "subscriptionRisk": true,
   "npm": "@ai-sdk/anthropic"
 }
