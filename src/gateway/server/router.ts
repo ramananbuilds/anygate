@@ -51,6 +51,12 @@ import { recordUsage } from '../../storage/analytics.js'
 import { resolveContextWindow } from '../../apps/shared/context-window.js'
 import { BudgetTracker, type BudgetConfig } from './budget.js'
 import { getServerBudget } from '../../storage/config.js'
+import {
+  isProviderUnavailable,
+  recordProviderFailure,
+  recordProviderSuccess,
+  withUpstreamRetry,
+} from './upstream-resilience.js'
 
 export interface ServerBackend {
   baseUrl: string
@@ -372,6 +378,16 @@ async function handleAnthropicMessages(
         `sdk npm=${model.npm} upstream=${upstreamModelId(model)} responseModel=${responseModelId} stream=${clientWantsStream}`
     )
 
+    // H4: fail fast when this provider recently failed repeatedly.
+    if (!clientWantsStream && model.providerId && isProviderUnavailable(model.providerId)) {
+      sendJson(res, 502, {
+        error: {
+          message: `Provider ${model.providerId} temporarily unavailable (recent failures) — retry shortly.`,
+        },
+      })
+      return
+    }
+
     try {
       if (clientWantsStream) {
         res.writeHead(200, {
@@ -394,11 +410,12 @@ async function handleAnthropicMessages(
         budget.add(usage.inputTokens, usage.outputTokens)
         res.end()
       } else {
-        const anthropicResponse = await generateAnthropicResponse(
-          languageModel,
-          params,
-          responseModelId
+        // H4: non-streaming requests retry transient upstream failures before
+        // any bytes are written to the client.
+        const anthropicResponse = await withUpstreamRetry(() =>
+          generateAnthropicResponse(languageModel, params, responseModelId)
         )
+        recordProviderSuccess(model.providerId ?? upstreamModelId(model))
         const genUsage = (anthropicResponse as Record<string, any>)._usage ?? {
           inputTokens: 0,
           outputTokens: 0,
@@ -418,14 +435,19 @@ async function handleAnthropicMessages(
     } catch (err) {
       const message = formatUpstreamError(err)
       plog(`sdk error npm=${model.npm} upstream=${upstreamModelId(model)}: ${message}`)
+      // H4: feed the provider-health breaker (429/5xx only).
+      const status = upstreamHttpStatus(err)
+      if ((status === 429 || status >= 500) && model.providerId) {
+        recordProviderFailure(model.providerId)
+        plog(`provider ${model.providerId} failure recorded (status ${status})`)
+      }
       if (!res.headersSent) {
-        const status = upstreamHttpStatus(err)
         sendJson(res, status === 500 ? 502 : status, { error: { message } })
       } else {
         // Stream already started but the upstream failed (e.g. context overflow once
         // the conversation grows). Emit a proper Anthropic error event instead of an
         // empty stream, otherwise Claude Desktop shows nothing and appears frozen.
-        const errorType = anthropicErrorType(upstreamHttpStatus(err))
+        const errorType = anthropicErrorType(status)
         res.write(
           `event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: errorType, message } })}\n\n`
         )
@@ -505,6 +527,16 @@ async function handleOpenAIChatCompletions(
       `sdk-openai npm=${npm} upstream=${upstreamModelId(model)} responseModel=${responseModelId} stream=${clientWantsStream}`
   )
 
+  // H4: fail fast when this provider recently failed repeatedly.
+  if (!clientWantsStream && model.providerId && isProviderUnavailable(model.providerId)) {
+    sendJson(res, 502, {
+      error: {
+        message: `Provider ${model.providerId} temporarily unavailable (recent failures) — retry shortly.`,
+      },
+    })
+    return
+  }
+
   try {
     if (clientWantsStream) {
       res.writeHead(200, {
@@ -527,11 +559,12 @@ async function handleOpenAIChatCompletions(
       budget.add(usage.inputTokens, usage.outputTokens)
       res.end()
     } else {
-      const { response, usage } = await generateOpenAiResponse(
-        languageModel,
-        params,
-        responseModelId
+      // H4: non-streaming requests retry transient upstream failures before
+      // any bytes are written to the client.
+      const { response, usage } = await withUpstreamRetry(() =>
+        generateOpenAiResponse(languageModel, params, responseModelId)
       )
+      recordProviderSuccess(model.providerId ?? upstreamModelId(model))
       recordUsage({
         ts: new Date().toISOString(),
         modelId: responseModelId,
@@ -546,12 +579,17 @@ async function handleOpenAIChatCompletions(
     }
   } catch (err) {
     const message = formatUpstreamError(err)
-    plog(`sdk error npm=${model.npm} upstream=${upstreamModelId(model)}: ${message}`)
+    plog(`sdk error npm=${npm} upstream=${upstreamModelId(model)}: ${message}`)
+    // H4: feed the provider-health breaker (429/5xx only).
+    const status = upstreamHttpStatus(err)
+    if ((status === 429 || status >= 500) && model.providerId) {
+      recordProviderFailure(model.providerId)
+      plog(`provider ${model.providerId} failure recorded (status ${status})`)
+    }
     if (!res.headersSent) {
-      const status = upstreamHttpStatus(err)
       sendJson(res, status === 500 ? 502 : status, { error: { message } })
     } else {
-      const errorType = anthropicErrorType(upstreamHttpStatus(err))
+      const errorType = anthropicErrorType(status)
       res.write(
         `event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: errorType, message } })}\n\n`
       )
