@@ -153,8 +153,10 @@ async function routeRequest(
       return
     }
 
-    // Rate limiting: 120 requests per minute per client
-    const clientId = req.headers['x-api-key'] ?? req.socket.remoteAddress ?? 'unknown'
+    // Rate limiting: 120 requests per minute per client. Key on the socket
+    // address only — the x-api-key header is client-controlled, so preferring
+    // it let any caller rotate keys to sidestep the limit entirely.
+    const clientId = req.socket.remoteAddress ?? 'unknown'
     const rateLimit = checkRateLimit(String(clientId))
     if (!rateLimit.allowed) {
       sendJson(
