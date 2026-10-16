@@ -106,6 +106,15 @@ export function isChatCompletionsUrl(url: string): boolean {
   }
 }
 
+/** True when the URL targets an OpenAI Responses endpoint (`/responses`). */
+export function isResponsesUrl(url: string): boolean {
+  try {
+    return new URL(url).pathname.replace(/\/+$/, '').endsWith('/responses')
+  } catch {
+    return false
+  }
+}
+
 export interface OpenCodeGateHeaderOptions {
   /** Configured API key. Missing/empty falls back to the anonymous `public` key. */
   apiKey?: string | null
@@ -196,11 +205,51 @@ const GATE_TOOL_READ = {
   },
 } as const
 
+// The Responses API takes tools in a flat shape (`{type, name, ...}`) instead
+// of Chat Completions' `{type, function: {name, ...}}` nesting. Zen's free-tier
+// check rejects Responses requests without gate tools AND `stream: true`.
+const GATE_FLAT_TOOL_BASH = {
+  type: 'function',
+  name: 'bash',
+  description: 'Run a shell command in the workspace.',
+  parameters: {
+    type: 'object',
+    properties: {
+      command: { type: 'string', description: 'The command to run.' },
+    },
+    required: ['command'],
+  },
+} as const
+
+const GATE_FLAT_TOOL_READ = {
+  type: 'function',
+  name: 'read',
+  description: 'Read a file from the filesystem.',
+  parameters: {
+    type: 'object',
+    properties: {
+      file_path: { type: 'string', description: 'Path of the file to read.' },
+    },
+    required: ['file_path'],
+  },
+} as const
+
 function toolName(tool: unknown): string | undefined {
   if (!tool || typeof tool !== 'object') return undefined
   const t = tool as Record<string, any>
   const name = t.function?.name ?? t.name
   return typeof name === 'string' ? name : undefined
+}
+
+function ensureGateTools(tools: unknown, bash: unknown, read: unknown): unknown[] {
+  const list = (Array.isArray(tools) ? [...tools] : []).filter(tool => {
+    const name = toolName(tool)
+    return name !== '_noop'
+  })
+  const names = new Set(list.map(toolName).filter((name): name is string => !!name))
+  if (!names.has('bash')) list.push(bash)
+  if (!names.has('read')) list.push(read)
+  return list
 }
 
 /**
@@ -209,14 +258,15 @@ function toolName(tool: unknown): string | undefined {
  * are dropped; missing gate tools are appended with minimal schemas.
  */
 export function ensureOpenCodeGateTools(tools: unknown): unknown[] {
-  const list = (Array.isArray(tools) ? [...tools] : []).filter(tool => {
-    const name = toolName(tool)
-    return name !== '_noop'
-  })
-  const names = new Set(list.map(toolName).filter((name): name is string => !!name))
-  if (!names.has('bash')) list.push(GATE_TOOL_BASH)
-  if (!names.has('read')) list.push(GATE_TOOL_READ)
-  return list
+  return ensureGateTools(tools, GATE_TOOL_BASH, GATE_TOOL_READ)
+}
+
+/**
+ * Same gate-tool guarantee for Responses API bodies, appending `bash`/`read` in
+ * the flat `{type, name, parameters}` shape the Responses wire format uses.
+ */
+export function ensureOpenCodeGateFlatTools(tools: unknown): unknown[] {
+  return ensureGateTools(tools, GATE_FLAT_TOOL_BASH, GATE_FLAT_TOOL_READ)
 }
 
 export interface ShapedOpenCodeZenBody<T extends Record<string, unknown>> {
@@ -239,6 +289,25 @@ export function shapeOpenCodeZenChatBody<T extends Record<string, unknown>>(
     ...body,
     stream: true,
     tools: ensureOpenCodeGateTools(body.tools),
+  }
+  return { body: shaped as T, buffered }
+}
+
+/**
+ * Shape a Responses body for Zen: the free tier rejects `/v1/responses`
+ * requests unless they carry the gate tools AND `stream: true` (verified
+ * against the live endpoint). `buffered` reports whether the caller wanted a
+ * non-streaming reply, so the SSE response can be collapsed to the final
+ * `response.completed` object for them.
+ */
+export function shapeOpenCodeZenResponsesBody<T extends Record<string, unknown>>(
+  body: T
+): ShapedOpenCodeZenBody<T> {
+  const buffered = (body as Record<string, unknown>).stream !== true
+  const shaped: Record<string, unknown> = {
+    ...body,
+    stream: true,
+    tools: ensureOpenCodeGateFlatTools(body.tools),
   }
   return { body: shaped as T, buffered }
 }
@@ -416,6 +485,61 @@ export async function bufferOpenCodeSseResponse(
   })
 }
 
+/**
+ * Collapse a Responses SSE stream to the final `response.completed` object.
+ * Terminal events (`completed`, `failed`, `incomplete`) carry the whole
+ * response, so no delta accumulation is needed. Returns null when the stream
+ * never reached a terminal event.
+ */
+export function aggregateOpenCodeResponsesSseStream(
+  sseText: string
+): Record<string, unknown> | null {
+  let final: Record<string, unknown> | null = null
+  for (const line of sseText.split('\n')) {
+    const chunk = parseSseDataLine(line)
+    if (!chunk || typeof chunk !== 'object') continue
+    const type = (chunk as Record<string, unknown>).type
+    if (
+      (type === 'response.completed' ||
+        type === 'response.failed' ||
+        type === 'response.incomplete') &&
+      chunk.response &&
+      typeof chunk.response === 'object'
+    ) {
+      final = chunk.response as Record<string, unknown>
+    }
+  }
+  return final
+}
+
+/**
+ * Convert a forced-streaming Responses SSE reply back into the plain JSON
+ * response object non-streaming callers expect. When the stream dies before a
+ * terminal event, a synthetic failed response is returned so downstream SDKs
+ * surface a clean error instead of parsing garbage.
+ */
+export async function bufferOpenCodeResponsesSseResponse(resp: Response): Promise<Response> {
+  const contentType = resp.headers.get('content-type') ?? ''
+  if (!resp.body || !contentType.includes('text/event-stream')) return resp
+  const text = await resp.text()
+  const final = aggregateOpenCodeResponsesSseStream(text)
+  const payload = final ?? {
+    id: `resp_${Math.random().toString(36).slice(2, 12)}`,
+    object: 'response',
+    status: 'failed',
+    error: {
+      code: 'incomplete_stream',
+      message: 'Zen stream ended without a response.completed event.',
+    },
+    output: [],
+  }
+  return new Response(JSON.stringify(payload), {
+    status: resp.status,
+    statusText: resp.statusText,
+    headers: { 'content-type': 'application/json' },
+  })
+}
+
 // ── Fetch wrapper ───────────────────────────────────────────────────────────
 
 function requestUrl(input: RequestInfo | URL): string {
@@ -426,9 +550,10 @@ function requestUrl(input: RequestInfo | URL): string {
 
 /**
  * Wrap an upstream fetch so every request to opencode.ai is gated: identity
- * headers are pinned, chat-completions bodies are shaped (tools + `stream:
- * true`), and forced SSE replies are buffered back into JSON when the caller
- * originally asked for a non-streaming response. A no-op for other hosts.
+ * headers are pinned, chat-completions AND responses bodies are shaped (gate
+ * tools + `stream: true`), and forced SSE replies are buffered back into JSON
+ * when the caller originally asked for a non-streaming response. A no-op for
+ * other hosts.
  */
 export function makeOpenCodeZenFetch(upstream: typeof fetch = fetch): typeof fetch {
   return (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -443,8 +568,9 @@ export function makeOpenCodeZenFetch(upstream: typeof fetch = fetch): typeof fet
     applyOpenCodeZenHeaders(headers)
 
     let body = init?.body
-    let buffered = false
-    if (method === 'POST' && isChatCompletionsUrl(url)) {
+    let bufferMode: 'chat' | 'responses' | null = null
+    const shapesBody = method === 'POST' && (isChatCompletionsUrl(url) || isResponsesUrl(url))
+    if (shapesBody) {
       let bodyText: string | undefined
       if (typeof body === 'string') {
         bodyText = body
@@ -455,8 +581,10 @@ export function makeOpenCodeZenFetch(upstream: typeof fetch = fetch): typeof fet
         try {
           const parsed = JSON.parse(bodyText)
           if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-            const shaped = shapeOpenCodeZenChatBody(parsed)
-            buffered = shaped.buffered
+            const shaped = isChatCompletionsUrl(url)
+              ? shapeOpenCodeZenChatBody(parsed)
+              : shapeOpenCodeZenResponsesBody(parsed)
+            if (shaped.buffered) bufferMode = isChatCompletionsUrl(url) ? 'chat' : 'responses'
             body = JSON.stringify(shaped.body)
           }
         } catch {
@@ -471,7 +599,8 @@ export function makeOpenCodeZenFetch(upstream: typeof fetch = fetch): typeof fet
     const target: RequestInfo | URL = input instanceof Request ? input.url : input
     const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined)
     const response = await upstream(target, { ...init, method, headers, body, signal })
-    if (buffered) return bufferOpenCodeSseResponse(response)
+    if (bufferMode === 'chat') return bufferOpenCodeSseResponse(response)
+    if (bufferMode === 'responses') return bufferOpenCodeResponsesSseResponse(response)
     return response
   }) as typeof fetch
 }

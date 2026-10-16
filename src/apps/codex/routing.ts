@@ -7,6 +7,7 @@ import {
   routableModelsForTarget,
   type GatewayLaunchTarget,
 } from '../../../src/apps/shared/target-compatibility.js'
+import { isOpenCodeZenUrl } from '../../../src/providers/opencode-gate.js'
 import type { LocalProvider, LocalProviderModel } from '../../../src/types/index.js'
 
 export interface CodexRoute {
@@ -68,9 +69,17 @@ export function resolveCodexRoute(
   // For zen/go cloud backends the registry modelsCache npm is unreliable — the
   // OpenCode models cache (via modelFormat) is authoritative for endpoint format.
   const isZenGo = provider.id === 'zen' || provider.id === 'go'
+  // Zen/go GPT & Muse Spark models are Responses-API-only — keep the cache npm
+  // so the proxy hits /v1/responses instead of the OpenAI-compatible endpoint.
+  const zenGoNpm = model.npm === '@ai-sdk/openai' ? model.npm : inferredNpm
+  const baseURL = resolveBaseURL(model, provider)
+  // Zen-backed endpoints can also be reached through other ids — the
+  // `opencode-cloud` template (materialized with that id) or a custom provider
+  // pointed at opencode.ai. URL detection keeps them on the gateway too.
+  const isGatedUpstream = isZenGo || (baseURL !== undefined && isOpenCodeZenUrl(baseURL))
   const base = {
-    npm: isZenGo ? inferredNpm : (model.npm ?? inferredNpm),
-    baseURL: resolveBaseURL(model, provider),
+    npm: isZenGo ? zenGoNpm : (model.npm ?? inferredNpm),
+    baseURL,
     upstreamModelId,
     apiKey,
     contextWindow: model.contextWindow,
@@ -105,7 +114,11 @@ export function resolveCodexRoute(
     }
   }
 
+  // Zen-backed upstreams must never go direct: the free tier only works when
+  // requests carry the in-process gate (session id + client headers) injected
+  // by the proxy.
   if (
+    !isGatedUpstream &&
     model.npm === '@ai-sdk/openai' &&
     provider.authType !== 'oauth' &&
     model.modelFormat === 'openai'

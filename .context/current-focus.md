@@ -2,7 +2,7 @@
 
 > Active development status and recent major architecture updates.
 
-## Current Version: 0.6.4
+## Current Version: 0.6.5
 
 ## Current Focus: OpenCode Zen gate (free tier via gateway) + routing + honest 403s
 
@@ -12,16 +12,19 @@
   `Identifier.descending("session")` (48-bit inverted `(nowMs*0x1000+counter)`
   hex + 14 Base62 chars, 10-min cache), pinned headers (`User-Agent:
   opencode/1.18.34`, `x-opencode-client: cli`, `x-opencode-session`,
-  `Authorization: Bearer <key || "public">`), chat-completions body shaping
-  (`bash`/`read` gate tools, `_noop` removal, forced `stream: true`), and SSE→JSON
-  reassembly for non-streaming callers. Wired into `forwardAnthropicMessages`
-  (+ per-key rebuild on OAuth retry, `prompt_tokens` fallback), SDK routes via
-  `buildGateFetch` under the sanitizer (openai/google/anthropic branches, only
-  for `opencode.ai` base URLs), `model-validator.ts` probes,
-  `fetchModelsFromApi` discovery, and the UI Model Tester probe
-  (`src/ui/api.ts` `/api/models/test` — previously a raw fetch → 403 on free
-  models; anthropic probes now also send `Authorization: Bearer`). Tests:
-  `tests/providers/opencode-gate.test.ts` (32),
+  `Authorization: Bearer <key || "public">`), body shaping for both
+  chat-completions and `/v1/responses` (`bash`/`read` gate tools, `_noop`
+  removal, forced `stream: true`; live-verified: Responses free tier needs
+  tools AND streaming, flat tool shape), and SSE→JSON reassembly for
+  non-streaming callers (chat `chat.completion` aggregation; Responses
+  terminal-event collapse with synthetic `failed` fallback). Wired into
+  `forwardAnthropicMessages` (+ per-key rebuild on OAuth retry, `prompt_tokens`
+  fallback), SDK routes via `buildGateFetch` under the sanitizer
+  (openai/google/anthropic branches, only for `opencode.ai` base URLs),
+  `model-validator.ts` probes, `fetchModelsFromApi` discovery, and the UI Model
+  Tester probe (`src/ui/api.ts` `/api/models/test` — previously a raw fetch →
+  403 on free models; anthropic probes now also send `Authorization: Bearer`).
+  Tests: `tests/providers/opencode-gate.test.ts` (45),
   `tests/gateway/server-zen-gate-integration.test.ts` (3),
   `tests/ui/model-tester-gate.test.ts` (2). See CHANGELOG Unreleased.
 - **Upstream errors on the non-streaming SDK path no longer collapse into a
@@ -37,6 +40,19 @@
   API; Gemini → native Google API at
   `https://opencode.ai/inference/google/v1beta`. Hidden ids: `test`, `*-backup`,
   `jev-*`.
+- **Codex launcher gate bypass fixed** (`src/apps/codex/routing.ts`
+  `resolveCodexRoute`): Zen-backed endpoints were detected by provider id only,
+  so the `opencode-cloud` template provider ("OpenCode Zen / Go") and custom
+  providers pointed at `opencode.ai` sent Responses-API models (`@ai-sdk/openai`,
+  e.g. `muse-spark-1.3-contributor-free`) to the `direct` tier — the Codex
+  profile pointed straight at `https://opencode.ai/zen/v1`, so free-tier
+  requests bypassed the gate and 403'd (`FreeTierError`) even under
+  `anygate codex`. Detection is now URL-based (`isOpenCodeZenUrl(baseURL)` in
+  addition to the zen/go id check), routes always proxy, and the Responses npm
+  survives into the proxy route (was force-downgraded to
+  `@ai-sdk/openai-compatible`). Tests: `tests/apps/codex-proxy.test.ts` (+6).
+  Live E2E: muse free returns `"ok"` through `createLanguageModel` (buffered
+  key/public + streaming). See CHANGELOG Unreleased.
 - **`provider-factory.ts`**: `@ai-sdk/openai` API-key mode honors `baseURL`;
   `@ai-sdk/google` passes through a native `…/v1beta` base (guarded).
 - **`BudgetTracker` clock fix**: injected dates now drive `add()`/`check()` too

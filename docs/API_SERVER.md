@@ -112,10 +112,10 @@ Each model in the catalog is printed with two identifiers:
   OpenCode's free tier can only be used from within OpenCode`). The gateway applies
   the same identity every OpenCode CLI request carries — `User-Agent: opencode/1.18.34`,
   `x-opencode-client: cli`, a bitwise-inverted `ses_…` session id, and
-  `Authorization: Bearer public` when no key is configured — and shapes
-  chat-completions bodies (agent gate tools `bash`/`read`, forced upstream
-  `stream: true` with SSE→JSON reassembly for non-streaming clients). See
-  `src/providers/opencode-gate.ts`.
+  `Authorization: Bearer public` when no key is configured — and shapes both
+  chat-completions and Responses bodies (agent gate tools `bash`/`read` — flat
+  shape for `/v1/responses` — with forced upstream `stream: true` plus SSE→JSON
+  reassembly for non-streaming clients). See `src/providers/opencode-gate.ts`.
 - **A configured key still wins.** Add Zen via `anygate providers add` (OpenCode
   Zen / Go) or set `OPENCODE_API_KEY`; the key is sent instead of `public`. If the
   account has model access disabled, the gateway relays

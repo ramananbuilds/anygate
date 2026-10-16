@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.6.5 (2026-10-16)
+
+### Fix: Zen free-tier models now work end-to-end (`opencode-cloud` + Responses bodies)
+
+Two independent `403 FreeTierError` paths remained after the v0.6.4 gate shipped
+("OpenCode's free tier can only be used from within OpenCode"):
+
+1. **Codex routing detected Zen by provider id only.** `resolveCodexRoute`
+   (`src/apps/codex/routing.ts`) forced the proxy tier for provider ids
+   `zen`/`go`, but providers created from the `opencode-cloud` template
+   ("OpenCode Zen / Go") — or any custom provider pointed at `opencode.ai` —
+   still took the **direct tier** for Responses-API models (`@ai-sdk/openai`,
+   e.g. `muse-spark-1.3-contributor-free`, whose template cache carries
+   `apiUrl: https://opencode.ai/zen/v1`). The Codex profile then talked straight
+   to Zen, bypassing the gate. The direct-tier guard is now URL-based
+   (`isOpenCodeZenUrl(baseURL)` in addition to the id check), and the Responses
+   SDK npm is preserved through the proxy route (previously downgraded to
+   `@ai-sdk/openai-compatible`, which would have hit Zen's chat-completions
+   endpoint for Responses-only models).
+
+2. **The gate only shaped chat-completions bodies.** Live-verified against
+   `https://opencode.ai/zen/v1/responses`: Zen's free tier rejects Responses
+   requests unless they carry the gate tools (`bash` + `read`, in the Responses
+   flat shape) **and** `stream: true` — minimal body → 403, tools only → 403,
+   stream only → 403, both → 200. `makeOpenCodeZenFetch` now shapes Responses
+   bodies like chat-completions (flat gate tools, forced streaming) and, for
+   non-streaming callers, collapses the SSE reply to the final
+   `response.completed` object as JSON (a synthetic `failed` response is
+   returned if the stream dies before a terminal event).
+
+- **Tests**: `tests/apps/codex-proxy.test.ts` +6 — zen/openai direct-tier
+  coverage plus `opencode-cloud` template and custom `opencode.ai` providers
+  staying on the proxy tier with npm preserved, and Gemini keeping
+  `@ai-sdk/google`; `tests/providers/opencode-gate.test.ts` +13 — flat gate
+  tools, Responses body shaping, `isResponsesUrl`, terminal-event SSE
+  aggregation, Responses SSE→JSON buffering, and fetch-wrapper shaping +
+  stream passthrough. Live E2E verified: `muse-spark-1.3-contributor-free` via
+  `createLanguageModel` returns `"ok"` for buffered (key and anonymous
+  `public`) and streaming calls.
+
 ## 0.6.4 (2026-10-16)
 
 ### OpenCode Zen gate — free-tier requests now pass as OpenCode itself

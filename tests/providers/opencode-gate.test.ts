@@ -3,18 +3,23 @@ import {
   OPENCODE_GATE_CLIENT,
   OPENCODE_GATE_SESSION_TTL_MS,
   OPENCODE_GATE_USER_AGENT,
+  aggregateOpenCodeResponsesSseStream,
   aggregateOpenCodeSseStream,
   applyOpenCodeZenHeaders,
+  bufferOpenCodeResponsesSseResponse,
   bufferOpenCodeSseResponse,
   createOpenCodeSessionId,
+  ensureOpenCodeGateFlatTools,
   ensureOpenCodeGateTools,
   getOpenCodeSessionId,
   isChatCompletionsUrl,
+  isResponsesUrl,
   isValidOpenCodeSessionId,
   isOpenCodeZenUrl,
   makeOpenCodeZenFetch,
   resetOpenCodeSessionCache,
   shapeOpenCodeZenChatBody,
+  shapeOpenCodeZenResponsesBody,
 } from '../../src/providers/opencode-gate.js'
 
 const SESSION_ID_PATTERN = /^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/
@@ -44,6 +49,18 @@ const TOOL_SSE = [
   'data: {"id":"chatcmpl-2","created":1700000001,"model":"glm-5.2","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_abc","type":"function","function":{"name":"bash","arguments":"{\\"cm"}}]}}]}',
   'data: {"id":"chatcmpl-2","created":1700000001,"model":"glm-5.2","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"d\\":\\"ls\\"}"}}]},"finish_reason":"tool_calls"}]}',
   'data: [DONE]',
+  '',
+].join('\n')
+
+const RESPONSES_SSE = [
+  'event: response.created',
+  'data: {"type":"response.created","response":{"id":"resp_1","object":"response","created_at":1700000000,"status":"in_progress","model":"muse-spark-1.3-contributor-free","output":[]}}',
+  '',
+  'event: response.output_text.delta',
+  'data: {"type":"response.output_text.delta","delta":"ok"}',
+  '',
+  'event: response.completed',
+  'data: {"type":"response.completed","response":{"id":"resp_1","object":"response","created_at":1700000000,"status":"completed","model":"muse-spark-1.3-contributor-free","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"ok"}]}],"usage":{"input_tokens":3,"output_tokens":1,"total_tokens":4}}}',
   '',
 ].join('\n')
 
@@ -160,6 +177,15 @@ describe('isChatCompletionsUrl', () => {
   })
 })
 
+describe('isResponsesUrl', () => {
+  it('detects the Responses endpoints with or without trailing slashes', () => {
+    expect(isResponsesUrl('https://opencode.ai/zen/v1/responses')).toBe(true)
+    expect(isResponsesUrl('https://opencode.ai/zen/v1/responses/')).toBe(true)
+    expect(isResponsesUrl('https://opencode.ai/zen/v1/chat/completions')).toBe(false)
+    expect(isResponsesUrl('not a url')).toBe(false)
+  })
+})
+
 describe('applyOpenCodeZenHeaders', () => {
   it('pins identity headers and defaults anonymous auth to Bearer public', () => {
     const headers = new Headers({ 'user-agent': 'undici/6.0', authorization: 'Bearer ' })
@@ -241,6 +267,26 @@ describe('ensureOpenCodeGateTools', () => {
   })
 })
 
+describe('ensureOpenCodeGateFlatTools', () => {
+  it('appends flat-format bash/read tools and removes _noop dummies', () => {
+    const tools = ensureOpenCodeGateFlatTools([
+      { type: 'function', name: '_noop' },
+      { type: 'function', name: 'shell' },
+    ]) as Array<Record<string, unknown>>
+    expect(tools.map(t => t.name)).toEqual(['shell', 'bash', 'read'])
+    expect(tools[1].parameters).toBeDefined()
+    expect(tools[1].function).toBeUndefined()
+  })
+
+  it('does not duplicate existing flat bash/read tools', () => {
+    const tools = ensureOpenCodeGateFlatTools([
+      { type: 'function', name: 'bash' },
+      { type: 'function', name: 'read' },
+    ])
+    expect(tools).toHaveLength(2)
+  })
+})
+
 describe('shapeOpenCodeZenChatBody', () => {
   it('forces stream:true and reports buffering when the caller wanted JSON', () => {
     const { body, buffered } = shapeOpenCodeZenChatBody({
@@ -278,6 +324,39 @@ describe('shapeOpenCodeZenChatBody', () => {
     shapeOpenCodeZenChatBody(original)
     expect(original.stream).toBe(false)
     expect(original.tools).toEqual([])
+  })
+})
+
+describe('shapeOpenCodeZenResponsesBody', () => {
+  it('forces stream:true and injects flat gate tools for JSON callers', () => {
+    const { body, buffered } = shapeOpenCodeZenResponsesBody({
+      model: 'muse-spark-1.3-contributor-free',
+      input: [{ role: 'user', content: [{ type: 'input_text', text: 'hi' }] }],
+    })
+    expect(buffered).toBe(true)
+    expect(body.stream).toBe(true)
+    const tools = body.tools as Array<Record<string, unknown>>
+    expect(tools.map(t => t.name)).toEqual(['bash', 'read'])
+    for (const tool of tools) expect(tool.function).toBeUndefined()
+  })
+
+  it('preserves flat client tools and keeps streaming untouched when callers stream', () => {
+    const clientTool = { type: 'function', name: 'shell', parameters: { type: 'object' } }
+    const { body, buffered } = shapeOpenCodeZenResponsesBody({
+      model: 'm',
+      stream: true,
+      tools: [clientTool],
+    })
+    expect(buffered).toBe(false)
+    expect(body.stream).toBe(true)
+    const names = (body.tools as Array<Record<string, unknown>>).map(t => t.name)
+    expect(names).toEqual(['shell', 'bash', 'read'])
+  })
+
+  it('does not mutate the caller-owned body object', () => {
+    const original = { model: 'm', input: [] as unknown[] }
+    shapeOpenCodeZenResponsesBody(original)
+    expect(original).toEqual({ model: 'm', input: [] })
   })
 })
 
@@ -319,6 +398,24 @@ describe('aggregateOpenCodeSseStream', () => {
   })
 })
 
+describe('aggregateOpenCodeResponsesSseStream', () => {
+  it('returns the final completed response object', () => {
+    const final = aggregateOpenCodeResponsesSseStream(RESPONSES_SSE)
+    expect(final).not.toBeNull()
+    expect(final!.object).toBe('response')
+    expect(final!.status).toBe('completed')
+    expect(final!.id).toBe('resp_1')
+    const output = final!.output as Array<Record<string, unknown>>
+    expect(output).toHaveLength(1)
+    expect(output[0].type).toBe('message')
+  })
+
+  it('returns null when the stream never reaches a terminal event', () => {
+    const partial = RESPONSES_SSE.split('event: response.completed')[0]!
+    expect(aggregateOpenCodeResponsesSseStream(partial)).toBeNull()
+  })
+})
+
 describe('bufferOpenCodeSseResponse', () => {
   it('converts an SSE response into a JSON chat.completion', async () => {
     const response = await bufferOpenCodeSseResponse(sseResponse(CONTENT_SSE.split('\n')), 'm')
@@ -337,6 +434,36 @@ describe('bufferOpenCodeSseResponse', () => {
 
     const err = new Response('nope', { status: 403, statusText: 'Forbidden' })
     expect(await bufferOpenCodeSseResponse(err)).toBe(err)
+  })
+})
+
+describe('bufferOpenCodeResponsesSseResponse', () => {
+  it('converts a Responses SSE stream into the final JSON response object', async () => {
+    const response = await bufferOpenCodeResponsesSseResponse(
+      sseResponse(RESPONSES_SSE.split('\n'))
+    )
+    expect(response.headers.get('content-type')).toBe('application/json')
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as Record<string, unknown>
+    expect(body.object).toBe('response')
+    expect(body.status).toBe('completed')
+  })
+
+  it('synthesizes a failed response when the stream ends without a terminal event', async () => {
+    const partial = RESPONSES_SSE.split('event: response.completed')[0]!
+    const response = await bufferOpenCodeResponsesSseResponse(sseResponse(partial.split('\n')))
+    const body = (await response.json()) as Record<string, unknown>
+    expect(body.object).toBe('response')
+    expect(body.status).toBe('failed')
+    expect(body.error).toBeDefined()
+  })
+
+  it('passes non-SSE responses through unchanged', async () => {
+    const json = new Response('{"ok":true}', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+    expect(await bufferOpenCodeResponsesSseResponse(json)).toBe(json)
   })
 })
 
@@ -426,6 +553,54 @@ describe('makeOpenCodeZenFetch', () => {
     const body = JSON.parse(sentBody(calls[0].init)) as Record<string, unknown>
     expect(body.stream).toBe(true)
     expect(new Headers(calls[0].init?.headers).get('authorization')).toBe('Bearer sk-zen')
+  })
+
+  it('shapes Zen /v1/responses requests and buffers the SSE reply for JSON callers', async () => {
+    const { fetch: upstream, calls } = mockUpstream(() => sseResponse(RESPONSES_SSE.split('\n')))
+    const zenFetch = makeOpenCodeZenFetch(upstream)
+
+    const response = await zenFetch('https://opencode.ai/zen/v1/responses', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'muse-spark-1.3-contributor-free',
+        input: [{ role: 'user', content: [{ type: 'input_text', text: 'hi' }] }],
+      }),
+    })
+
+    const body = JSON.parse(sentBody(calls[0].init)) as Record<string, unknown>
+    expect(body.stream).toBe(true)
+    const toolNames = (body.tools as Array<Record<string, unknown>>).map(t => t.name)
+    expect(toolNames).toEqual(['bash', 'read'])
+
+    expect(response.headers.get('content-type')).toBe('application/json')
+    const final = (await response.json()) as Record<string, unknown>
+    expect(final.object).toBe('response')
+    expect(final.status).toBe('completed')
+  })
+
+  it('keeps streaming Responses SSE untouched when the downstream client streams', async () => {
+    const sse = sseResponse(RESPONSES_SSE.split('\n'))
+    const { fetch: upstream, calls } = mockUpstream(() => sse)
+    const zenFetch = makeOpenCodeZenFetch(upstream)
+
+    const response = await zenFetch('https://opencode.ai/zen/v1/responses', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer oc_sk_test' },
+      body: JSON.stringify({
+        model: 'muse-spark-1.3-contributor-free',
+        input: [],
+        stream: true,
+        tools: [{ type: 'function', name: 'shell', parameters: { type: 'object' } }],
+      }),
+    })
+
+    expect(response).toBe(sse)
+    const body = JSON.parse(sentBody(calls[0].init)) as Record<string, unknown>
+    expect(body.stream).toBe(true)
+    const toolNames = (body.tools as Array<Record<string, unknown>>).map(t => t.name)
+    expect(toolNames).toEqual(['shell', 'bash', 'read'])
+    expect(new Headers(calls[0].init?.headers).get('authorization')).toBe('Bearer oc_sk_test')
   })
 
   it('applies gate headers but no body shaping on Zen /v1/messages', async () => {
