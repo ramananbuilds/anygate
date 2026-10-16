@@ -4,8 +4,8 @@
   import { getTemplates, addProvider, addCustomProvider, getOAuthStatus } from '../../api/endpoints';
   import { toast } from '../../stores/ui.svelte';
 
-  interface Props { open: boolean; onclose: () => void; onadded: () => void; presetKind?: 'openai' | 'anthropic' | null }
-  let { open, onclose, onadded, presetKind = null }: Props = $props();
+  interface Props { open: boolean; onclose: () => void; onadded: () => void; }
+  let { open, onclose, onadded }: Props = $props();
 
   let templates = $state<UiTemplate[]>([]);
   let loading = $state(false);
@@ -55,11 +55,7 @@
   $effect(() => {
     if (open) {
       void load()
-      selected = presetKind === 'openai'
-        ? '__custom_openai__'
-        : presetKind === 'anthropic'
-          ? '__custom_anthropic__'
-          : null
+      selected = null
       apiKey = ''
       baseUrl = ''
       displayName = ''
