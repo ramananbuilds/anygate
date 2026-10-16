@@ -81,7 +81,7 @@ graph TD
 | **CLI** | `src/cli/` | Subcommand handlers dispatched from `src/cli.ts` |
 | **Config** | `src/config/` | Constants, paths, environment variable resolution |
 | **Gateway** | `src/gateway/` | HTTP proxies, SDK adapters, API server, Cloud Code gateway |
-| **Providers** | `src/providers/` | OpenCode serve discovery only (per-vendor stubs removed) |
+| **Providers** | `src/providers/` | OpenCode serve discovery + Zen gate emulation (`opencode-gate.ts`; per-vendor stubs removed) |
 | **Registry** | `src/registry/` | Provider/model catalog, templates, sync, storage, validation |
 | **Services** | `src/services/` | Cross-cutting: doctor, self-update, health, analytics |
 | **Shared** | `src/shared/` | HTTP utilities, error helpers, redaction |

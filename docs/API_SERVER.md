@@ -105,6 +105,28 @@ Each model in the catalog is printed with two identifiers:
 - **`anthropic:`**: Use this identifier if your client tool expects Anthropic-format requests (e.g. Anthropic SDK or Claude Code).
 - **`openai:`**: Use this identifier if your client tool expects OpenAI-format requests (e.g. OpenAI SDK or general OpenAI-compatible extensions).
 
+### OpenCode Zen / Go notes
+
+- **Free models work through the gateway via the OpenCode gate emulation.** OpenCode
+  gates its free tier server-side by validating the client (`403 FreeTierError:
+  OpenCode's free tier can only be used from within OpenCode`). The gateway applies
+  the same identity every OpenCode CLI request carries — `User-Agent: opencode/1.18.34`,
+  `x-opencode-client: cli`, a bitwise-inverted `ses_…` session id, and
+  `Authorization: Bearer public` when no key is configured — and shapes
+  chat-completions bodies (agent gate tools `bash`/`read`, forced upstream
+  `stream: true` with SSE→JSON reassembly for non-streaming clients). See
+  `src/providers/opencode-gate.ts`.
+- **A configured key still wins.** Add Zen via `anygate providers add` (OpenCode
+  Zen / Go) or set `OPENCODE_API_KEY`; the key is sent instead of `public`. If the
+  account has model access disabled, the gateway relays
+  `403 Upstream request failed: Model access is disabled`.
+- **All wire formats route through the same base URL**: Claude models use the
+  Anthropic `/v1/messages` passthrough, chat models use `/v1/chat/completions`,
+  GPT/Muse Spark models use the OpenAI Responses API, and Gemini models use
+  Google's native API — anygate picks the right one per model.
+- Upstream errors (401/403/429/5xx) are surfaced with their real status and message
+  on both the Anthropic and OpenAI routes, including mid-stream.
+
 ---
 
 ## 2. Configuring Clients

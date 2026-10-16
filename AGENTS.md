@@ -71,7 +71,7 @@ npm run build && anygate --version
   - `proxy/`: Local HTTP Anthropic/OpenAI proxies (`anthropic-proxy.ts`, `proxy-shared.ts`)
   - `server/`: Standalone gateway server (`server.ts`, `router.ts`, `auth.ts`, `vendor-mask.ts`, `budget.ts` — token budgets, `upstream-resilience.ts` — provider health breaker + bounded retry)
   - `web-search/`: Web search tool integrations (`duckduckgo.ts`, `searxng.ts`, `brave.ts`, `tavily.ts`, `tool.ts`)
-- **`src/providers/`**: LM provider drivers (`opencode-serve.ts` only; per-vendor stubs removed)
+- **`src/providers/`**: LM provider drivers (`opencode-serve.ts` discovery; `opencode-gate.ts` OpenCode Zen client emulation — session ids, gate headers, body shaping, SSE→JSON buffering; per-vendor stubs removed)
 - **`src/registry/`**: Provider & Model Registry
   - `data/`: Bundled model & pricing caches
   - `loader/`: Opencode importers, materializer, & data loaders
@@ -96,7 +96,8 @@ Tests mirror `src/` domain subdirectories:
 - `tests/auth/`: OAuth flow & token handling tests
 - `tests/cli/`: CLI subcommand & update check tests
 - `tests/gateway/`: Gateway server, HTTP proxy, & SDK adapter tests
-- `tests/helpers/`: Mock HTTP request/response test utilities (`ui-api-test-utils.ts`)
+- `tests/helpers/`: Mock HTTP request/response test utilities (`ui-api-test-utils.ts`) and the strict Zen upstream gate mock (`zen-gate-upstream.ts`)
+- `tests/providers/`: OpenCode Zen gate tests (session ids, headers, body shaping, SSE buffering)
 - `tests/registry/`: Provider registry, template fetcher, & model sync tests
 - `tests/services/`: Health check, usage, & update service tests
 - `tests/shared/`: Shared utility tests (logger, redact, validators)

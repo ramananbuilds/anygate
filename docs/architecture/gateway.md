@@ -157,6 +157,17 @@ Both paths share the same stable tool-call ID injection logic: IDs are generated
 
 The `@ai-sdk/mistral` SDK v3.0.37 emits `tool-input-start` → `tool-input-delta` → `tool-input-end` → `tool-call` as a group **for every streaming chunk** that contains `tool_calls` data, unlike `@ai-sdk/openai` which only emits `tool-input-start` once per tool-call index. AnyGate's `writeAnthropicStream()` in `sdk-adapter.ts` guards against duplicate `content_block_start` SSE events by checking `idToBlock.has(toolKey)` before calling `openBlock`, skipping re-opening when a block is already open for that tool ID.
 
+### OpenCode Zen Gate
+
+OpenCode gates its free tier server-side: requests that don't look like the OpenCode CLI get `403 FreeTierError: OpenCode's free tier can only be used from within OpenCode`. `src/providers/opencode-gate.ts` re-creates the exact client identity and request shape on every outbound request to `opencode.ai` hosts:
+
+- **Session ids** match OpenCode's `Identifier.descending("session")` — `ses_` + 12 lowercase hex of the 48-bit bitwise-inverted `(nowMs * 0x1000 + counter)` + 14 random Base62 chars. Cached for 10 minutes and rotated after (stale timestamps are rejected upstream).
+- **Headers**: `User-Agent: opencode/1.18.34` (overwrites Node/undici/AI-SDK defaults), `x-opencode-client: cli`, `x-opencode-session: ses_…`, `Authorization: Bearer <key || "public">`. A configured key always wins; a bare/empty `Bearer` falls back to `public`.
+- **Body shaping** (chat-completions only): `tools` guaranteed non-empty with the gate tools `bash`/`read` (`_noop` dropped), and `stream: true` forced — Zen rejects `stream: false`.
+- **SSE→JSON buffering**: when the downstream client asked for `stream: false`, the forced SSE stream is aggregated into one `chat.completion` JSON body (content, `reasoning_content`, tool-call fragments by index, finish reason, usage). Streaming clients get the SSE pipe untouched.
+
+The gate is applied at four seams: a `fetch` wrapper (`makeOpenCodeZenFetch`) composed under the stream sanitizer in `provider-factory.ts` (attached only when the SDK base URL is an `opencode.ai` host), directly inside `forwardAnthropicMessages()` (`upstream-forward.ts`; per-key header rebuild on OAuth 401 retry, `prompt_tokens`/`completion_tokens` usage fallback), the UI Model Tester's live probe (`/api/models/test` in `src/ui/api.ts` — previously a raw `fetch` that 403'd on free Zen models; anthropic-format probes also send `Authorization: Bearer` to mirror `anthropicUpstreamHeaders`), and shared with the model health probe (`model-validator.ts`) plus catalog discovery (`fetchModelsFromApi`). The `/v1/messages` passthrough gets gate headers only, per Zen's contract.
+
 ## Gateway Server
 
 `anygate server` runs a standalone API gateway on port **17645**:

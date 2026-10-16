@@ -4,21 +4,67 @@
 
 ## Current Version: 0.6.3
 
-## Current Focus: Providers Page Redesign (in progress)
+## Current Focus: OpenCode Zen gate (free tier via gateway) + routing + honest 403s
 
-- **Sectioned Providers page** (`anygate ui`): four sections — Custom
-  (OpenAI/Anthropic compatible), OAuth, Free Tier, API Key — each an alphabetical
-  tile grid with per-section `▷ Test All` and dashed empty state for custom.
-- **New modules**: `src/ui/app/src/lib/providers/grouping.ts` (pure-TS bucketing:
-  custom/oauth/free/apikey + `isConnected()`), `ProviderTile.svelte`
-  (logo + name + live status line), `ProviderSection.svelte` (header + grid).
-- **API additions**: `/api/models` + templates expose `freeTier` and `isCustom`;
-  free-tier rule = template JSON `"freeTier": true` OR `anonymousFreeModels` OR
-  known always-free ids (`FREE_PROVIDER_IDS` in apps/shared/free-models).
-- **Brand icons**: Simple Icons bundled build-time via idempotent
-  `scripts/fetch-simple-icons.mjs` into `providerLogos.ts` (17 marks; monogram
-  fallback for unknown ids). Regenerate after adding providers.
-- Plan: `.hermes/plans/2026-08-22_121500-providers-page-categories-icons.md`.
+- **NEW `src/providers/opencode-gate.ts` — OpenCode client emulation so the free
+  tier passes.** Zen validates client identity server-side (`403 FreeTierError`
+  otherwise). The gate: `ses_` session ids matching OpenCode's
+  `Identifier.descending("session")` (48-bit inverted `(nowMs*0x1000+counter)`
+  hex + 14 Base62 chars, 10-min cache), pinned headers (`User-Agent:
+  opencode/1.18.34`, `x-opencode-client: cli`, `x-opencode-session`,
+  `Authorization: Bearer <key || "public">`), chat-completions body shaping
+  (`bash`/`read` gate tools, `_noop` removal, forced `stream: true`), and SSE→JSON
+  reassembly for non-streaming callers. Wired into `forwardAnthropicMessages`
+  (+ per-key rebuild on OAuth retry, `prompt_tokens` fallback), SDK routes via
+  `buildGateFetch` under the sanitizer (openai/google/anthropic branches, only
+  for `opencode.ai` base URLs), `model-validator.ts` probes,
+  `fetchModelsFromApi` discovery, and the UI Model Tester probe
+  (`src/ui/api.ts` `/api/models/test` — previously a raw fetch → 403 on free
+  models; anthropic probes now also send `Authorization: Bearer`). Tests:
+  `tests/providers/opencode-gate.test.ts` (32),
+  `tests/gateway/server-zen-gate-integration.test.ts` (3),
+  `tests/ui/model-tester-gate.test.ts` (2). See CHANGELOG Unreleased.
+- **Upstream errors on the non-streaming SDK path no longer collapse into a
+  useless `502 No output generated`.** `generateAnthropicResponse`
+  (`src/gateway/adapters/sdk-adapter.ts`) dropped the stream `error` part; it now
+  captures and rethrows it, so the router maps the real status/message (e.g.
+  Zen's `403 FreeTierError`). OpenCode-route streaming
+  (`streamOpenAiResponse`) now emits an OpenAI-shaped error frame instead of a
+  silent `[DONE]`.
+- **Zen/Go model routing** (`src/registry/sync/refresh-models.ts`,
+  `zenGoModelRoute` + `isHiddenZenGoModelId`): Claude → `/v1/messages`
+  passthrough; chat → `/v1/chat/completions`; GPT/Muse Spark → OpenAI Responses
+  API; Gemini → native Google API at
+  `https://opencode.ai/inference/google/v1beta`. Hidden ids: `test`, `*-backup`,
+  `jev-*`.
+- **`provider-factory.ts`**: `@ai-sdk/openai` API-key mode honors `baseURL`;
+  `@ai-sdk/google` passes through a native `…/v1beta` base (guarded).
+- **`BudgetTracker` clock fix**: injected dates now drive `add()`/`check()` too
+  (previously only the constructor) — `tests/gateway/budget.test.ts` is no longer
+  date-dependent.
+- Tests: `tests/gateway/sdk-upstream-error.test.ts`,
+  `tests/registry/zen-go-routing.test.ts`, `tests/providers/opencode-gate.test.ts`,
+  `tests/gateway/server-zen-gate-integration.test.ts`,
+  `tests/ui/model-tester-gate.test.ts`, provider-factory additions.
+- Docs: `docs/API_SERVER.md` "OpenCode Zen / Go notes"; `CHANGELOG.md`;
+  `.context/repository-map.md`; `docs/components/providers.md`;
+  `docs/architecture/overview.md`.
+
+## Recent Focus: Providers Page Redesign (reverted)
+
+- **The sectioned Providers page was rolled back on user request.** `Providers.svelte`
+  is back to the previous flat `ProviderCard` grid with the single
+  `+ Add provider` button; `ProviderForm.svelte` no longer takes `presetKind`.
+  Deleted: `src/ui/app/src/lib/providers/grouping.ts`,
+  `ProviderTile.svelte`, `ProviderSection.svelte`,
+  `tests/ui/provider-grouping.test.ts`.
+- **Still in place**: Simple Icons brand marks (bundled via
+  `scripts/fetch-simple-icons.mjs` into `providerLogos.ts`, 17 marks; monogram
+  fallback for unknown ids) and the additive `freeTier`/`isCustom` flags on
+  `/api/models` + templates payloads (free-tier rule = template JSON
+  `"freeTier": true` OR `anonymousFreeModels` OR known always-free ids,
+  `FREE_PROVIDER_IDS` in apps/shared/free-models). Superseded plan:
+  `.hermes/plans/2026-08-22_121500-providers-page-categories-icons.md`.
 
 ## Recent Changes (Gateway Audit Remediation)
 

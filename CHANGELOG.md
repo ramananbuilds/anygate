@@ -2,32 +2,133 @@
 
 ## Unreleased
 
-### UI — Providers page redesign
+### OpenCode Zen gate — free-tier requests now pass as OpenCode itself
 
-The Providers & Keys dashboard page was rebuilt around categorized sections with
-real brand icons and per-section connectivity testing.
+OpenCode gates its free tier server-side by validating the client and returns
+`403 FreeTierError: OpenCode's free tier can only be used from within OpenCode`
+for anything that doesn't look like the OpenCode CLI. New module
+`src/providers/opencode-gate.ts` makes every outbound request to `opencode.ai`
+carry OpenCode's identity and request shape:
 
-- **Sectioned layout**: providers are now grouped into four stacked sections —
-  Custom Providers (OpenAI/Anthropic compatible), OAuth, Free Tier, and API Key —
-  each an alphabetical card grid. Empty sections hide automatically; the Custom
-  section shows a dashed empty-state banner with its own two add buttons.
-- **Real brand icons**: 17 provider marks (NVIDIA, OpenAI, Anthropic, Google,
-  Gemini, Ollama, Perplexity, GitHub Copilot, AWS/Bedrock, Google Cloud, OVH,
-  Scaleway, Cloudflare, OpenRouter, DeepSeek, Mistral, LM Studio) bundled from
-  Simple Icons at build time (`scripts/fetch-simple-icons.mjs`, idempotent
-  regeneration). Unknown/custom ids keep the letter-monogram fallback.
-- **Per-card status tiles**: compact cards show live connection state — green
-  "Connected"/"Ready", red "Failed" after a test, gray "No connections".
-  Unconnected tiles are clickable to configure (key prompt or OAuth sign-in).
-- **Test All per section**: one click runs the existing models-refresh check
-  against every connected provider in that section, sequentially with per-tile
-  spinner → result feedback.
-- **API surface**: `/api/models` (and templates payload) now expose `freeTier`
-  and `isCustom` flags so the SPA groups without guessing; free-tier membership =
-  template `freeTier` tag OR `anonymousFreeModels` OR known always-free ids.
+- **Session ids match OpenCode's `Identifier.descending("session")`**:
+  `ses_` + 12 lowercase hex (48-bit bitwise-inverted `(nowMs * 0x1000 + counter)`,
+  zero-padded) + 14 random Base62 chars, cached for 10 minutes and rotated after
+  (stale timestamps are rejected upstream).
+- **Headers pinned on every Zen/Go/inference request**: clean
+  `User-Agent: opencode/1.18.34` (overriding Node/undici/AI-SDK defaults),
+  `x-opencode-client: cli`, `x-opencode-session: ses_…`, and
+  `Authorization: Bearer <key || "public">` (anonymous free-tier default; a
+  configured `OPENCODE_API_KEY`/keyring key still wins; a bare/empty `Bearer`
+  falls back to `public`).
+- **Chat-completions bodies shaped**: `tools` guaranteed non-empty with the
+  agent gate tools `bash` and `read` (a `_noop` dummy is dropped), and
+  `stream: true` is forced upstream (Zen rejects `stream: false`).
+- **SSE→JSON reassembly**: when the downstream client asked for a non-streaming
+  response, the forced SSE stream is aggregated (content, `reasoning_content`,
+  streamed tool-call arguments by index, finish reason, usage) into one
+  `chat.completion` JSON body; streaming clients get the SSE pipe untouched.
+- **Wired everywhere Zen is reached**: `forwardAnthropicMessages`
+  (`upstream-forward.ts`, direct `/v1/messages` + `/v1/chat/completions` routes,
+  with per-key header rebuild on OAuth 401 retry), SDK routes
+  (`provider-factory.ts` `buildGateFetch` under the stream sanitizer, attached
+  only for `opencode.ai` base URLs on the `@ai-sdk/openai` /
+  `@ai-sdk/google` / `@ai-sdk/anthropic` branches), the 24h health probe
+  (`model-validator.ts`), and catalog discovery (`fetchModelsFromApi`).
+- **Model Tester UI probes gated (`/api/models/test`)**: the tester previously
+  issued a raw `fetch`, so clicking Test on a free Zen model failed with
+  `Upstream responded 403 Forbidden`. It now probes through
+  `makeOpenCodeZenFetch()` (identity headers, gate tools, forced streaming);
+  anthropic-format probes also send `Authorization: Bearer <key>` mirroring
+  `anthropicUpstreamHeaders`.
+- **Fix (found while testing)**: `BudgetTracker` now threads the injected clock
+  through `add()`/`check()` — previously a fixed-date tracker stamped real-time
+  day keys on writes, making `tests/gateway/budget.test.ts` persistence/rollover
+  assertions date-dependent (only green on the day they were written).
+- **Tests**: `tests/providers/opencode-gate.test.ts` (32: id format + exact
+  decode of the inverted timestamp incl. descending-order ids, 10-min cache
+  rotation, header defaults —
+  `public` fallback, key wins, inbound session preserved — body shaping
+  incl. `_noop` removal without duplication, SSE aggregation incl. tool-call
+  fragments and `[DONE]`/`null` keepalives, fetch wrapper over a mocked upstream
+  for both JSON (buffered) and streaming (passthrough) callers, Request-object
+  input, and non-Zen passthrough); provider-factory Zen routing tests extended
+  with the gate fetch (`@ai-sdk/openai`, `@ai-sdk/google`, `@ai-sdk/anthropic`);
+  `tests/gateway/server-zen-gate-integration.test.ts` (3: router-level smoke —
+  non-streaming buffered JSON, streaming passthrough, un-gated probe rejected)
+  and `tests/ui/model-tester-gate.test.ts` (2: Model Tester probe), both built
+  on the strict upstream gate mock `tests/helpers/zen-gate-upstream.ts`.
+- **Docs**: `docs/API_SERVER.md` "OpenCode Zen / Go notes" rewritten (free tier
+  now works through the gateway via gate emulation; the old "always 403"
+  statement was wrong post-fix); `.context/repository-map.md`,
+  `docs/components/providers.md`, `docs/architecture/overview.md` updated.
 
-New modules: `src/ui/app/src/lib/providers/grouping.ts` (+14 unit tests),
-`ProviderTile.svelte`, `ProviderSection.svelte`.
+### OpenCode Zen through the gateway — correct routing + honest 403s
+
+Third-party clients (Claude Code, Codex, OpenAI SDKs) now get real upstream
+errors and correctly-routed Zen model families through `anygate server`.
+
+- **Non-streaming SDK requests no longer swallow upstream errors.**
+  `generateAnthropicResponse` (`sdk-adapter.ts`) discarded the stream `error`
+  part and then failed with the opaque AI-SDK `No output generated` message,
+  which the router mapped to a bare `502`. It now rethrows the captured upstream
+  error, so the client receives the real status and message — e.g. OpenCode's
+  `403 {"type":"error","error":{"type":"FreeTierError","message":"OpenCode's
+  free tier can only be used from within OpenCode…"}}` or
+  `403 Upstream request failed: Model access is disabled`.
+- **OpenAI-route streaming errors now surface.** `streamOpenAiResponse`
+  (`openai-adapter.ts`) ignored the `error` stream part and ended with a clean
+  `[DONE]`, making failed runs look successful. It now emits an OpenAI-shaped
+  `{"error":{"message":…,"type":"upstream_error"}}` SSE frame (the router's
+  headers-sent fallback was also switched from an Anthropic event to the same
+  OpenAI shape on this route).
+- **Zen/Go model routing** (`refresh-models.ts`, exported `zenGoModelRoute`):
+  Claude models keep the `/v1/messages` passthrough; chat models use
+  `/v1/chat/completions`; GPT & Muse Spark models are routed through the OpenAI
+  Responses API (`@ai-sdk/openai` against `…/zen/v1`, verified live); Gemini
+  models use the native Google API under
+  `https://opencode.ai/inference/google/v1beta` (verified live; the `/zen/google`
+  spelling 404s). Internal ids are hidden from the catalog: `test`,
+  `*-backup`, and `jev-*` (SystemOne protocol, not chat-proxyable).
+- **provider-factory**: `@ai-sdk/openai` in API-key mode now honors a custom
+  `baseURL` (previously ignored → would have hit api.openai.com), and
+  `@ai-sdk/google` passes through a full native `…/v1beta` base while still
+  ignoring OpenAI-compatible discovery URLs.
+- **Docs**: `docs/API_SERVER.md` gained an "OpenCode Zen / Go notes" section —
+  the free tier is OpenCode-client-only by design (third-party requests always
+  403), paid models need a key with model access enabled, and all wire formats
+  (messages/chat/responses/google) route through the single gateway base URL.
+  `ai-doc.ts` examples updated to current free-model ids
+  (`deepseek-v4.1-flash-free`, `glm-5.3-flash-free`).
+- **Tests**: `tests/gateway/sdk-upstream-error.test.ts` (real SDK against a local
+  403 upstream: non-streaming rejection carries `statusCode` 403 + upstream
+  message; streaming emits the error frame), `tests/registry/zen-go-routing.test.ts`
+  (8 routing/hiding cases), plus provider-factory baseURL passthrough tests.
+
+### UI — Providers page redesign reverted
+
+The sectioned Providers page (Custom/OAuth/Free Tier/API Key sections, status
+tiles, per-section `▷ Test All`) was rolled back on request. The page is back to
+the previous flat `ProviderCard` grid with the single `+ Add provider` button.
+
+- Removed: `src/ui/app/src/lib/providers/grouping.ts`, `ProviderTile.svelte`,
+  `ProviderSection.svelte`, `tests/ui/provider-grouping.test.ts`, and the
+  `presetKind` prop on `ProviderForm.svelte`.
+- Kept: Simple Icons brand marks (see 85d5093) and the `freeTier`/`isCustom`
+  API flags (see 7392e37) — both are additive and remain available.
+
+### Real brand icons
+
+17 provider marks (NVIDIA, OpenAI, Anthropic, Google, Gemini, Ollama,
+Perplexity, GitHub Copilot, AWS/Bedrock, Google Cloud, OVH, Scaleway,
+Cloudflare, OpenRouter, DeepSeek, Mistral, LM Studio) bundled from Simple Icons
+at build time (`scripts/fetch-simple-icons.mjs`, idempotent regeneration).
+Unknown/custom ids keep the letter-monogram fallback.
+
+### API surface additions
+
+`/api/models` (and templates payload) now expose `freeTier` and `isCustom`
+flags; free-tier membership = template `freeTier` tag OR `anonymousFreeModels`
+OR known always-free ids.
 
 ## 0.6.3 (2026-08-22)
 
