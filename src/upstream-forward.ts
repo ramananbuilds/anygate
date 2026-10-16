@@ -4,6 +4,13 @@ import { sanitizeCredential } from './gateway/server/auth.js'
 import { CLAUDE_CODE_USER_AGENT } from './auth/claude-identity.js'
 import { UpstreamUnreachableError } from './shared/errors.js'
 import { REQUEST_TIMEOUT_MS as DEFAULT_REQUEST_TIMEOUT_MS } from './config/constants.js'
+import {
+  applyOpenCodeZenHeaders,
+  bufferOpenCodeSseResponse,
+  isChatCompletionsUrl,
+  isOpenCodeZenUrl,
+  shapeOpenCodeZenChatBody,
+} from './providers/opencode-gate.js'
 
 export function anthropicUpstreamHeaders(
   apiKey: string,
@@ -141,20 +148,37 @@ export async function forwardAnthropicMessages(
   }
 
   async function forwardInner(signal: AbortSignal): Promise<AnthropicUsage> {
-    const doFetch = (key: string) =>
-      fetch(messagesUrl, {
+    const zenRequest = isOpenCodeZenUrl(messagesUrl)
+    // OpenCode Zen rejects `stream: false` (403 FreeTierError) and requires the
+    // agent gate tools, so chat-completions bodies are always shaped to stream
+    // upstream. When the downstream client wanted JSON, the forced SSE reply is
+    // reassembled into a `chat.completion` body below.
+    let requestBody = body
+    let bufferResponse = false
+    if (zenRequest && isChatCompletionsUrl(messagesUrl)) {
+      const shaped = shapeOpenCodeZenChatBody(body)
+      requestBody = shaped.body
+      bufferResponse = shaped.buffered
+      log?.(`opencode-zen gate: stream forced=${!bufferResponse} buffered=${bufferResponse}`)
+    }
+
+    const doFetch = (key: string) => {
+      const headers = anthropicUpstreamHeaders(
+        key,
+        clientWantsStream,
+        inboundBeta,
+        authType,
+        claudeCodeSessionId,
+        extraHeaders
+      )
+      if (zenRequest) applyOpenCodeZenHeaders(headers, { apiKey: key })
+      return fetch(messagesUrl, {
         method: 'POST',
-        headers: anthropicUpstreamHeaders(
-          key,
-          clientWantsStream,
-          inboundBeta,
-          authType,
-          claudeCodeSessionId,
-          extraHeaders
-        ),
-        body: JSON.stringify(body),
+        headers,
+        body: JSON.stringify(requestBody),
         signal,
       })
+    }
 
     let upstreamRes: Response
     try {
@@ -177,6 +201,19 @@ export async function forwardAnthropicMessages(
       })
       res.end(errBody)
       return usage
+    }
+
+    if (bufferResponse) {
+      try {
+        upstreamRes = await bufferOpenCodeSseResponse(upstreamRes)
+      } catch {
+        // Upstream body read failed (abort mid-stream etc.).
+        emitAborted(res, clientWantsStream)
+        return usage
+      }
+      log?.(
+        `opencode-zen gate: buffered SSE → ${upstreamRes.headers.get('content-type') ?? 'unknown'}`
+      )
     }
 
     if (clientWantsStream && upstreamRes.body) {
@@ -237,12 +274,21 @@ export async function forwardAnthropicMessages(
       )
       return usage
     }
-    // Non-streaming Anthropic responses carry usage on the top-level message body.
-    const parsedUsage = (parsed as { usage?: { input_tokens?: number; output_tokens?: number } })
-      .usage
+    // Non-streaming responses carry usage on the top-level body — Anthropic
+    // shapes use input_tokens/output_tokens, OpenAI shapes prompt/completion.
+    const parsedUsage = (
+      parsed as {
+        usage?: {
+          input_tokens?: number
+          output_tokens?: number
+          prompt_tokens?: number
+          completion_tokens?: number
+        }
+      }
+    ).usage
     if (parsedUsage) {
-      usage.inputTokens = parsedUsage.input_tokens ?? 0
-      usage.outputTokens = parsedUsage.output_tokens ?? 0
+      usage.inputTokens = parsedUsage.input_tokens ?? parsedUsage.prompt_tokens ?? 0
+      usage.outputTokens = parsedUsage.output_tokens ?? parsedUsage.completion_tokens ?? 0
     }
     res.writeHead(200, {
       'Content-Type': 'application/json',

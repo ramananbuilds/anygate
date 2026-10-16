@@ -12,6 +12,7 @@ import { extractOpenAiAccountId } from '../../auth/openai.js'
 import { createResponsesWebSocketFetch } from '../../auth/responses-websocket.js'
 import { CLAUDE_CODE_USER_AGENT, injectClaudeIdentity } from '../../auth/claude-identity.js'
 import { makeSanitizingFetch } from './stream-sanitizer.js'
+import { isOpenCodeZenUrl, makeOpenCodeZenFetch } from '../../providers/opencode-gate.js'
 
 // Reasoning-capability detection and provider-option mapping.
 // Extracted to provider-reasoning.ts to keep the core SDK factory lean.
@@ -32,22 +33,13 @@ export {
 } from './provider-reasoning.js'
 
 /**
- * Builds the custom `fetch` used for the SDK-backed routes. It pins
- * `spec.headers` onto every request (overriding the SDK's own User-Agent, which
- * fixes identity-gated providers), supports trace logging, and sanitizes
- * non-spec-compliant upstream streams (array `content`, missing tool-call `id`,
- * `data: null` keepalives) before the AI SDK parses them. The null-stripper and
- * GLM chunk normalizer live in stream-sanitizer.ts.
- *
- * `preserveThinking` (true for `@ai-sdk/mistral`) skips flattening of structured
- * thinking content arrays so the Mistral SDK's native `reasoning-*` stream parts
- * are preserved. The `@ai-sdk/openai-compatible` path always flattens (its schema
- * requires `reasoning_content` as a sibling string field).
+ * Base fetch used by the SDK-backed routes. It pins `spec.headers` onto every
+ * request (overriding the SDK's own User-Agent, which fixes identity-gated
+ * providers) and supports trace logging.
  */
-function buildUpstreamFetch(spec: ProviderModelSpec, preserveThinking = false): typeof fetch {
-  return makeSanitizingFetch(
-    async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === 'string' ? input : (input as any)?.url ?? String(input)
+function buildBaseFetch(spec: ProviderModelSpec): typeof fetch {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : ((input as any)?.url ?? String(input))
     const hdrs = new Headers(init?.headers ?? {})
     // Force custom headers to their configured values, overriding whatever the
     // SDK set (notably User-Agent).
@@ -72,14 +64,37 @@ function buildUpstreamFetch(spec: ProviderModelSpec, preserveThinking = false): 
     if (process.env.ANYGATE_TRACE === '1') {
       spec.onDebug?.(`[sdk-fetch] ← HTTP ${resp.status}`)
       if (resp.status >= 400) {
-        const body = await resp.clone().text().catch(() => '')
+        const body = await resp
+          .clone()
+          .text()
+          .catch(() => '')
         spec.onDebug?.(`[sdk-fetch] ← body: ${body.slice(0, 500)}`)
       }
     }
     return resp
-  },
-    preserveThinking
-  )
+  }
+}
+
+/** Gate fetch for opencode.ai endpoints — a no-op on other hosts. */
+function buildGateFetch(spec: ProviderModelSpec): typeof fetch {
+  return makeOpenCodeZenFetch(buildBaseFetch(spec))
+}
+
+/**
+ * Builds the custom `fetch` used for the SDK-backed routes: applies the
+ * OpenCode Zen gate (identity headers, forced streaming, SSE→JSON buffering on
+ * opencode.ai hosts), pins `spec.headers`, supports trace logging, and
+ * sanitizes non-spec-compliant upstream streams (array `content`, missing
+ * tool-call `id`, `data: null` keepalives) before the AI SDK parses them. The
+ * null-stripper and GLM chunk normalizer live in stream-sanitizer.ts.
+ *
+ * `preserveThinking` (true for `@ai-sdk/mistral`) skips flattening of structured
+ * thinking content arrays so the Mistral SDK's native `reasoning-*` stream parts
+ * are preserved. The `@ai-sdk/openai-compatible` path always flattens (its schema
+ * requires `reasoning_content` as a sibling string field).
+ */
+function buildUpstreamFetch(spec: ProviderModelSpec, preserveThinking = false): typeof fetch {
+  return makeSanitizingFetch(buildGateFetch(spec), preserveThinking)
 }
 
 type SdkProviderFactory = (options: {
@@ -245,7 +260,15 @@ export async function createLanguageModel(spec: ProviderModelSpec): Promise<Lang
               ? { fetch: createResponsesWebSocketFetch(CODEX_RESPONSES_LITE_WS_URL, spec.onDebug) }
               : {}),
           }
-        : { apiKey }
+        : // API-key mode: honor a custom baseURL (e.g. Zen's OpenAI-compatible
+          // gateway serving GPT/Muse Spark models on /v1/responses). Zen
+          // endpoints additionally get the gate fetch (identity headers +
+          // forced streaming) so free-tier requests aren't rejected with 403.
+          {
+            apiKey,
+            ...(baseURL ? { baseURL } : {}),
+            ...(baseURL && isOpenCodeZenUrl(baseURL) ? { fetch: buildGateFetch(spec) } : {}),
+          }
     const openai = createOpenAI(oauthOptions)
     return shouldUseOpenAiResponsesEndpoint(modelId)
       ? openai.responses(modelId)
@@ -259,9 +282,16 @@ export async function createLanguageModel(spec: ProviderModelSpec): Promise<Lang
   // @ai-sdk/google owns its native v1beta endpoint. Registry templates store the
   // OpenAI-compatible URL only for GET /v1/models discovery — passing it here
   // produces .../v1beta/openai/models/...:streamGenerateContent → 404.
+  // Exception: a full native API base (…/v1beta, e.g. Zen's /inference/google/v1beta)
+  // is passed through so gateways that proxy Gemini's native API work. Zen's
+  // inference proxy gets the gate fetch so identity headers ride along.
   if (npm === '@ai-sdk/google') {
     const { createGoogleGenerativeAI } = await import('@ai-sdk/google')
-    const google = createGoogleGenerativeAI({ apiKey })
+    const google = createGoogleGenerativeAI({
+      apiKey,
+      ...(baseURL && /\/v1beta\/?$/.test(baseURL) ? { baseURL } : {}),
+      ...(baseURL && isOpenCodeZenUrl(baseURL) ? { fetch: buildGateFetch(spec) } : {}),
+    })
     return google(modelId)
   }
   // Registry stores root URL (no /v1) for GET /v1/models discovery — passing it here
@@ -294,8 +324,13 @@ export async function createLanguageModel(spec: ProviderModelSpec): Promise<Lang
     if (!root || root === 'https://api.anthropic.com') {
       return createAnthropic(anthropicOptions)(modelId)
     }
-    const sdkBase = baseURL!.endsWith('/v1') ? baseURL : `${root}/v1`
-    return createAnthropic({ ...anthropicOptions, baseURL: sdkBase })(modelId)
+    const configuredBase = baseURL ?? root
+    const sdkBase = configuredBase.endsWith('/v1') ? configuredBase : `${root}/v1`
+    return createAnthropic({
+      ...anthropicOptions,
+      baseURL: sdkBase,
+      ...(isOpenCodeZenUrl(sdkBase) ? { fetch: buildGateFetch(spec) } : {}),
+    })(modelId)
   }
   let model: LanguageModel
 

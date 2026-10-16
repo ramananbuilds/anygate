@@ -18,6 +18,7 @@ import {
 } from 'node:fs'
 import { dirname } from 'node:path'
 import { getAppHome } from '../../config/paths.ts'
+import { makeOpenCodeZenFetch } from '../../providers/opencode-gate.js'
 import {
   VALIDATION_CONFIG,
   type ValidationResult,
@@ -225,7 +226,10 @@ export async function validateModel(params: ValidateModelParams): Promise<Valida
 
   try {
     const t0 = Date.now()
-    const response = await fetch(url, {
+    // Root fetch is wrapped with the OpenCode Zen gate (no-op on other hosts):
+    // probe requests to opencode.ai must carry OpenCode's identity headers and
+    // be shaped like collectible streaming calls or free-tier models 403.
+    const response = await makeOpenCodeZenFetch()(url, {
       method: 'POST',
       headers,
       body,

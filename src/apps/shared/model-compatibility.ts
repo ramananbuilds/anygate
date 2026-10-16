@@ -3,6 +3,7 @@
 import blacklistData from '../../registry/data/model-incompatible.json' with { type: 'json' }
 import type { BackendConfig, ModelInfo } from '../../types/index.js'
 import { classifyModelFormat } from '../../config/constants.js'
+import { applyOpenCodeZenHeaders, isOpenCodeZenUrl } from '../../providers/opencode-gate.js'
 import { loadOpencodeCache, resolveContextWindow } from './context-window.js'
 import {
   findModelsDevModel,
@@ -158,9 +159,18 @@ export async function fetchModelsFromApi(backend: BackendConfig): Promise<string
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 5000)
   try {
+    // Zen/Go catalogs sit behind OpenCode's identity gate — anonymous discovery
+    // must carry the same headers as CLI traffic (clean UA, client marker,
+    // session id); the gate defaults Authorization to `Bearer public`.
+    const headers = new Headers()
+    if (isOpenCodeZenUrl(backend.baseUrl)) {
+      applyOpenCodeZenHeaders(headers)
+    } else {
+      headers.set('Authorization', 'Bearer test')
+    }
     const res = await fetch(`${backend.baseUrl}/v1/models`, {
       signal: controller.signal,
-      headers: { Authorization: 'Bearer test' },
+      headers,
     })
     if (!res.ok) throw new Error(`API returned HTTP ${res.status}`)
     const body = (await res.json()) as ApiModelsResponse
