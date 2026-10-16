@@ -227,6 +227,17 @@ export async function streamOpenAiResponse(
         }
         send({}, p.finishReason || 'stop')
         break
+      case 'error': {
+        // Upstream failures (e.g. a provider 403) arrive as an error part mid-stream.
+        // OpenAI's SSE convention is a single frame carrying an `error` object; emit
+        // it so clients surface the real reason instead of an empty, "successful" run.
+        const err = p.error as { message?: string; data?: unknown } | undefined
+        const message =
+          err?.message ||
+          (typeof p.error === 'string' ? p.error : JSON.stringify(err?.data ?? p.error))
+        onChunk(`data: ${JSON.stringify({ error: { message, type: 'upstream_error' } })}\n\n`)
+        return usage
+      }
     }
   }
 

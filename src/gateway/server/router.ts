@@ -602,10 +602,9 @@ async function handleOpenAIChatCompletions(
     if (!res.headersSent) {
       sendJson(res, status === 500 ? 502 : status, { error: { message } })
     } else {
-      const errorType = anthropicErrorType(status)
-      res.write(
-        `event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: errorType, message } })}\n\n`
-      )
+      // SSE already started: emit an OpenAI-shaped error frame (this route serves
+      // OpenAI clients) and stop, instead of an empty [DONE] that looks successful.
+      res.write(`data: ${JSON.stringify({ error: { message, type: 'upstream_error' } })}\n\n`)
       res.end()
     }
   }

@@ -210,15 +210,15 @@ CLAUDE CODE — PRINT MODE (-p / --print)
 
   Examples:
     anygate claude --provider groq --model llama-3.3-70b-versatile -p "Summarize README.md"
-    anygate claude --provider zen --model deepseek-v4-flash-free -p "Review this diff"
+    anygate claude --provider zen --model deepseek-v4.1-flash-free -p "Review this diff"
     anygate claude -p "quick question"    # uses lastProvider + lastModel from config
 
   Pass additional Claude Code flags after anygate flags:
     anygate claude --provider groq --model llama-3.3-70b-versatile -p "task" --output-format json
 
   Machine-readable stdout (anygate stays silent on stdout — boot UI goes to stderr):
-    anygate claude --provider zen --model deepseek-v4-flash-free -p "task" --output-format stream-json
-    anygate codex --provider zen --model deepseek-v4-flash-free exec --json "task"
+    anygate claude --provider zen --model deepseek-v4.1-flash-free -p "task" --output-format stream-json
+    anygate codex --provider zen --model deepseek-v4.1-flash-free exec --json "task"
 
   Triggers clean stdout:
     Claude: -p/--print + (--output-format stream-json|json OR --input-format stream-json)
@@ -237,8 +237,8 @@ OPENAI CODEX — NON-INTERACTIVE (exec / positional prompt)
     • Non-interactive args (exec subcommand or positional prompt) and saved prefs exist
 
   Examples:
-    anygate codex --provider zen --model deepseek-v4-flash-free exec "fix the failing test"
-    anygate codex --model zen__deepseek-v4-flash-free exec "fix the bug"
+    anygate codex --provider zen --model deepseek-v4.1-flash-free exec "fix the failing test"
+    anygate codex --model zen__deepseek-v4.1-flash-free exec "fix the bug"
     anygate codex --provider openai --model gpt-5.4 exec "implement feature X"
 
   Codex does NOT use -p for print — anygate blocks -p (Codex uses it for --profile).
@@ -270,7 +270,7 @@ MULTI-MODEL LOOP (shell pattern):
     anygate claude --provider groq --model "$model" -p "Same prompt for all models"
   done
 
-  for model in deepseek-v4-flash-free qwen3.6-plus-free; do
+  for model in deepseek-v4.1-flash-free glm-5.3-flash-free; do
     anygate codex --provider zen --model "$model" exec "Same task"
   done
 
@@ -344,8 +344,8 @@ OPENAI CODEX CLI
 
   Examples:
     anygate codex
-    anygate codex --provider zen --model deepseek-v4-flash-free exec "fix bug"
-    anygate codex --provider zen --model deepseek-v4-flash-free exec --json "fix bug"
+    anygate codex --provider zen --model deepseek-v4.1-flash-free exec "fix bug"
+    anygate codex --provider zen --model deepseek-v4.1-flash-free exec --json "fix bug"
     anygate codex -s workspace-write exec "locked down"
     anygate codex --trace
     anygate codex --restore
@@ -463,7 +463,7 @@ RECOMMENDED SPAWN — CLAUDE BACKEND (NDJSON)
     [--allowed-tools tool1,tool2]
 
   Slug alternative:
-    anygate claude --model zen__deepseek-v4-flash-free -p "..." --output-format stream-json
+    anygate claude --model zen__deepseek-v4.1-flash-free -p "..." --output-format stream-json
 
   anygate injects --verbose automatically when stream-json is used without it.
 
@@ -474,7 +474,7 @@ RECOMMENDED SPAWN — CODEX BACKEND (JSONL)
     exec --json "<prompt>"
 
   Slug alternative:
-    anygate codex --model zen__deepseek-v4-flash-free exec --json "..."
+    anygate codex --model zen__deepseek-v4.1-flash-free exec --json "..."
 
   Do NOT use -p for Codex print — Codex -p means --profile (anygate blocks it).
 
@@ -499,11 +499,11 @@ ALEF CHECKLIST
   □ Install skill for agents: anygate --ai --install
 
 VERIFY CLEAN STDOUT (run before wiring alef backend)
-  anygate claude --provider zen --model deepseek-v4-flash-free \\
+  anygate claude --provider zen --model deepseek-v4.1-flash-free \\
     -p "PONG" --output-format stream-json 2>/dev/null \\
     | node -e "process.stdin.on('data',d=>d.toString().split('\\\\n').filter(Boolean).forEach(l=>JSON.parse(l))); console.log('claude ok')"
 
-  anygate codex --provider zen --model deepseek-v4-flash-free \\
+  anygate codex --provider zen --model deepseek-v4.1-flash-free \\
     exec --json "PONG" 2>/dev/null \\
     | node -e "process.stdin.on('data',d=>d.toString().split('\\\\n').filter(Boolean).forEach(l=>JSON.parse(l))); console.log('codex ok')"
 

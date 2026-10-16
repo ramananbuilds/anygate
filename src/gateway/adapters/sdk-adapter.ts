@@ -675,18 +675,42 @@ export async function generateAnthropicResponse(
 
   // Collect reasoning deltas before awaiting the aggregated promises so the
   // stream is consumed once and reasoning is preserved for the response.
+  // Upstream failures arrive as an `error` part on the stream; keep it so the
+  // real status/message (e.g. a provider 403) reaches the client instead of the
+  // opaque NoOutputGeneratedError that `r.text` rejects with afterwards.
+  let streamError: unknown
+  let sawOutput = false
   for await (const part of r.fullStream) {
     if (part.type === 'reasoning-delta') {
       reasoningText += (part as any).text ?? ''
+      sawOutput = true
+    } else if (
+      part.type === 'text-delta' ||
+      part.type === 'tool-input-start' ||
+      part.type === 'tool-call' ||
+      part.type === 'tool-result'
+    ) {
+      sawOutput = true
+    } else if (part.type === 'error') {
+      streamError = (part as { error?: unknown }).error
     }
   }
 
-  ;[text, toolCalls, finishReason, usage] = await Promise.all([
-    r.text,
-    r.toolCalls,
-    r.finishReason,
-    r.usage,
-  ])
+  if (streamError !== undefined && !sawOutput) throw streamError
+
+  try {
+    ;[text, toolCalls, finishReason, usage] = await Promise.all([
+      r.text,
+      r.toolCalls,
+      r.finishReason,
+      r.usage,
+    ])
+  } catch (err) {
+    // Mid-stream failure after partial output: prefer the upstream error so the
+    // router can map its real status instead of a generic 502.
+    if (streamError !== undefined) throw streamError
+    throw err
+  }
 
   return {
     id: 'msg_' + Date.now(),
@@ -694,9 +718,7 @@ export async function generateAnthropicResponse(
     role: 'assistant',
     model: modelId,
     content: [
-      ...(reasoningText
-        ? [{ type: 'thinking', thinking: reasoningText, signature: '' }]
-        : []),
+      ...(reasoningText ? [{ type: 'thinking', thinking: reasoningText, signature: '' }] : []),
       ...(text ? [{ type: 'text', text }] : []),
       ...toolCalls
         .filter(tc => tc.toolName !== webSearchToolName)

@@ -86,17 +86,48 @@ function modelInfoToCached(
   }
 }
 
+/** Zen/Go model ids that anygate must not expose: internal probes, spare-capacity backups, SystemOne-protocol models. */
+export function isHiddenZenGoModelId(id: string): boolean {
+  return id === 'test' || id.endsWith('-backup') || id.startsWith('jev-')
+}
+
+/** Google-shaped models on Zen/Go are only served under the /inference prefix (verified live). */
+const ZEN_GOOGLE_API_BASE = 'https://opencode.ai/inference/google/v1beta'
+
+/**
+ * Upstream route (npm + API base) for one Zen/Go model. Returns null for ids
+ * that can't be proxied. Chat-shaped ids ride /v1/chat/completions; Claude
+ * models ride the Anthropic /v1/messages passthrough; GPT/Muse Spark models are
+ * Responses-API-only (/v1/responses); Gemini models use Google's native API.
+ */
+export function zenGoModelRoute(
+  id: string,
+  modelFormat: string,
+  backendId: 'zen' | 'go'
+): { npm: string; apiUrl: string } | null {
+  if (isHiddenZenGoModelId(id)) return null
+  if (modelFormat === 'anthropic') {
+    return { npm: '@ai-sdk/anthropic', apiUrl: BACKENDS[backendId].baseUrl }
+  }
+  if (id.startsWith('gpt-') || id.startsWith('muse-spark')) {
+    return { npm: '@ai-sdk/openai', apiUrl: `${BACKENDS[backendId].baseUrl}/v1` }
+  }
+  if (id.startsWith('gemini-') || id.startsWith('gemma-')) {
+    return { npm: '@ai-sdk/google', apiUrl: ZEN_GOOGLE_API_BASE }
+  }
+  return { npm: '@ai-sdk/openai-compatible', apiUrl: `${BACKENDS[backendId].baseUrl}/v1` }
+}
+
 async function refreshZenGoProvider(provider: RegistryProvider): Promise<CachedModel[]> {
   const backendId = provider.id === 'go' || provider.templateId === 'go' ? 'go' : 'zen'
   const result = await getModels(BACKENDS[backendId])
-  return result.models
-    .filter(m => m.modelFormat !== 'unsupported')
-    .map(m => {
-      const isAnthropic = m.modelFormat === 'anthropic'
-      const npm = isAnthropic ? '@ai-sdk/anthropic' : '@ai-sdk/openai-compatible'
-      const apiUrl = isAnthropic ? BACKENDS[backendId].baseUrl : `${BACKENDS[backendId].baseUrl}/v1`
-      return modelInfoToCached(m, npm, apiUrl)
-    })
+  const models: CachedModel[] = []
+  for (const m of result.models) {
+    const route = zenGoModelRoute(m.id, m.modelFormat, backendId)
+    if (!route) continue
+    models.push(modelInfoToCached(m, route.npm, route.apiUrl))
+  }
+  return models
 }
 
 async function refreshClaudeCodeOAuthModels(
