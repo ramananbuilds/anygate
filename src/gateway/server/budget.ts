@@ -95,12 +95,17 @@ function writeState(state: BudgetState): void {
  */
 export class BudgetTracker {
   private state: BudgetState
+  private readonly clock: () => Date
 
   constructor(
     private readonly config: BudgetConfig,
-    now = new Date()
+    now: Date | (() => Date) = () => new Date()
   ) {
-    this.state = this.loadRollover(now)
+    // An injected Date pins the tracker's clock (deterministic tests); the
+    // default reads the real clock on every call so a long-running server
+    // still rolls over at midnight UTC.
+    this.clock = typeof now === 'function' ? now : () => now
+    this.state = this.loadRollover(this.clock())
   }
 
   private loadRollover(now: Date): BudgetState {
@@ -135,7 +140,7 @@ export class BudgetTracker {
   check(): { allowed: boolean; reason?: string } {
     if (!this.enabled) return { allowed: true }
     // Refresh rollover lazily so a long-running server rolls at midnight UTC.
-    const now = new Date()
+    const now = this.clock()
     if (this.state.day !== utcDayKey(now)) this.state.dayTokens = 0
     if (this.state.month !== utcMonthKey(now)) this.state.monthTokens = 0
     if (this.dayExceeded()) {
@@ -157,7 +162,7 @@ export class BudgetTracker {
   add(inputTokens: number, outputTokens: number): void {
     const total = Math.max(0, inputTokens) + Math.max(0, outputTokens)
     if (total === 0) return
-    const now = new Date()
+    const now = this.clock()
     if (this.state.day !== utcDayKey(now)) {
       this.state.day = utcDayKey(now)
       this.state.dayTokens = 0
