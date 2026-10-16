@@ -2,7 +2,7 @@
 
 > Active development status and recent major architecture updates.
 
-## Current Version: 0.6.3
+## Current Version: 0.6.4
 
 ## Current Focus: OpenCode Zen gate (free tier via gateway) + routing + honest 403s
 
