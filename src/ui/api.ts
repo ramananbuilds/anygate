@@ -73,6 +73,7 @@ import { collectDoctorReport } from '../services/doctor.js'
 import { subscribeToAppEvents, emitAppEvent, type AppEvent } from '../services/event-bus.js'
 import type { LaunchPreset } from '../types/index.js'
 import { resolveInputTypes, resolveReasoning } from '../registry/models-dev.js'
+import { makeOpenCodeZenFetch } from '../providers/opencode-gate.js'
 
 const MODELS_TIMEOUT_MS = 30_000
 
@@ -619,6 +620,10 @@ async function handleTestModel(req: IncomingMessage, res: ServerResponse): Promi
       }
       upstreamUrl = `${base.replace(/\/$/, '')}/v1/messages`
       headers['x-api-key'] = apiKey ?? ''
+      // Mirror the gateway's anthropicUpstreamHeaders: Authorization carries the
+      // credential for gateways that authenticate via Bearer (e.g. Zen), while
+      // x-api-key serves native Anthropic-protocol endpoints.
+      headers['Authorization'] = `Bearer ${apiKey ?? ''}`
       headers['anthropic-version'] = '2023-06-01'
       requestBody = {
         model: upstreamModelId,
@@ -678,7 +683,11 @@ async function handleTestModel(req: IncomingMessage, res: ServerResponse): Promi
     let sample = ''
 
     try {
-      const upstream = await fetch(upstreamUrl, {
+      // Route the probe through the shared OpenCode Zen gate: opencode.ai
+      // endpoints reject non-CLI traffic with 403 FreeTierError unless the
+      // identity headers ride along (and chat completions carry the bash/read
+      // gate tools). A no-op for every other provider host.
+      const upstream = await makeOpenCodeZenFetch()(upstreamUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify(requestBody),
