@@ -23,10 +23,15 @@ npm version patch --no-git-tag-version   # bump package.json + package-lock (use
 npm run build                            # rebuild dist — VERSION is derived from package.json automatically
 git add -A && git commit -m "release: vX.Y.Z"
 git tag vX.Y.Z
-git push --follow-tags                   # tag push triggers CI → npm publish + GitHub Release
+git push origin main
+git push origin vX.Y.Z                  # tag push triggers CI → npm publish + GitHub Release
 ```
 
-`package.json` is the single source of truth for the version. Never edit `src/config/constants.ts` manually for version bumps. `dist/` is committed, so rebuild it in the release commit.
+`package.json` is the single source of truth for the version. Never edit `src/config/constants.ts` manually for version bumps.
+
+> ⚠️ **Push the tag explicitly** — `git push --follow-tags` only pushes *annotated* tags, and this repo's release tags are **lightweight**. `--follow-tags` silently leaves the tag behind, so CI never runs and no release is published. Use `git push origin vX.Y.Z` (or `git push origin main --follow-tags` **plus** an explicit tag push).
+
+The build output is **not** committed: the root `dist/` is gitignored and untracked. The one tracked build artifact is `src/ui/app/dist/index.html` (plus `favicon.svg`), which `npm run build` refreshes — commit it so the SPA entry point matches the new asset hashes.
 
 **Every version display must derive from `package.json`, never a hardcoded string.** `src/config/constants.ts::VERSION` reads `pkg.version`. Both update automatically on `npm run build` — no manual edit needed.
 

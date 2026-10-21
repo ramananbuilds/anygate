@@ -20,6 +20,7 @@ vertex-models.json
 # Local agent planning / logs
 .claude/
 .gemini/
+.hermes/
 .planning/
 docs/superpowers/
 ANTIGRAVITY-DEBUG-SESSION.md
