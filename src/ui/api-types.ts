@@ -103,9 +103,22 @@ export interface UiOAuthStartResponse {
 /** `GET /api/server/status` � re-exported from server-control. */
 export type { ServerStatusPayload as UiServerStatus }
 
+/** One model of a provider, as listed by `GET /api/server/providers`. */
+export interface UiServerProviderModel {
+  id: string
+  name: string
+  isFree: boolean
+  freeStatus?: 'verified_free' | 'free_provider' | 'paid' | 'unknown'
+}
+
 /** `GET /api/server/providers` */
 export interface UiServerProvidersResponse {
-  providers: unknown[]
+  providers: Array<{
+    id: string
+    name: string
+    modelCount: number
+    models: UiServerProviderModel[]
+  }>
 }
 
 /** Body for `POST /api/server/start` � re-exported from server-control. */

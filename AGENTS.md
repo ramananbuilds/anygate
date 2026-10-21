@@ -69,7 +69,7 @@ npm run build && anygate --version
   - `context/`: Prompt context fitting (`context-fit.ts`)
   - `providers/`: SDK language model factories, stream normalization, reasoning mapping (`provider-factory.ts`, `stream-sanitizer.ts`, `provider-reasoning.ts`, `provider-select.ts`)
   - `proxy/`: Local HTTP Anthropic/OpenAI proxies (`anthropic-proxy.ts`, `proxy-shared.ts`)
-  - `server/`: Standalone gateway server (`server.ts`, `router.ts`, `auth.ts`, `vendor-mask.ts`, `budget.ts` — token budgets, `upstream-resilience.ts` — provider health breaker + bounded retry)
+  - `server/`: Standalone gateway server (`server.ts`, `router.ts`, `auth.ts`, `vendor-mask.ts`, `catalog-filter.ts` — provider/favorites/model-selection filtering, `budget.ts` — token budgets, `upstream-resilience.ts` — provider health breaker + bounded retry)
   - `web-search/`: Web search tool integrations (`duckduckgo.ts`, `searxng.ts`, `brave.ts`, `tavily.ts`, `tool.ts`)
 - **`src/providers/`**: LM provider drivers (`opencode-serve.ts` discovery; `opencode-gate.ts` OpenCode Zen client emulation — session ids, gate headers, body shaping, SSE→JSON buffering; per-vendor stubs removed)
 - **`src/registry/`**: Provider & Model Registry
@@ -86,7 +86,7 @@ npm run build && anygate --version
 - **`src/types/`**: TypeScript type definitions (`api.ts`, `auth.ts`, `config.ts`, `gateway.ts`, `launch.ts`, `model.ts`, `provider.ts`, `registry.ts`)
 - **`src/ui/`**: Web App Backend & Dashboard Server
   - `api.ts`, `api-types.ts`, `server-control.ts`
-  - `app/`: Modern Svelte 5 / Vite UI Frontend Application (`src/`, `components/`, `routes/`, `stores/`)
+  - `app/`: Modern Svelte 5 / Vite UI Frontend Application (`src/`, `components/`, `routes/`, `stores/`, `lib/server/` — gateway model-selection rules)
 - **`src/utils/`**: Pure helper functions (`agent-io.ts`, `array.ts`, `crypto.ts`, `files.ts`, `http.ts`, `index.ts`, `json.ts`, `network.ts`, `paths.ts`, `string.ts`, `time.ts`)
 
 ### Test Suite Structure (`tests/`)

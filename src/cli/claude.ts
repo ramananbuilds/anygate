@@ -17,11 +17,16 @@ import type { ProxyHandle, ProxyRoute } from '../gateway/proxy/anthropic-proxy.j
 import {
   buildCatalogRoutes,
   buildProviderAllModelRoutes,
+  buildProviderCustomRoutes,
   makeRouteResolver,
 } from '../registry/provider-catalog.js'
 import type { ModelFormat } from '../types/index.js'
 import { loadPreferences, savePreferences, recordLaunchSelection } from '../storage/config.js'
-import { pickLocalModel, browseAllModels } from '../apps/shared/prompts.js'
+import {
+  pickLocalModel,
+  browseAllModels,
+  pickCustomProviderModels,
+} from '../apps/shared/prompts.js'
 import {
   fetchProviderCatalog,
   providersForPicker,
@@ -58,7 +63,10 @@ import { setAgentStdoutMode, isAgentStdoutMode } from '../utils/agent-io.js'
 import { dedupeByKey } from '../utils/array.js'
 import {
   findProviderAndModel,
+  findProvidersAndModels,
+  isModelListValue,
   normalizeClaudeAgentArgs,
+  parseModelListValue,
   planLaunchWizard,
   wantsCleanAgentStdout,
 } from '../apps/shared/launch-target.js'
@@ -95,6 +103,11 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
   const { dryRun, setup, trace, launchProvider } = parsed
   const launchAllModels = parsed.launchAllModels || parsed.launchModel === 'All'
   const launchModel = launchAllModels && !parsed.launchModel ? 'All' : parsed.launchModel
+  const launchModelIds =
+    parsed.launchModelIds ??
+    (parsed.launchModel && isModelListValue(parsed.launchModel)
+      ? parseModelListValue(parsed.launchModel)
+      : undefined)
   const launchWithClaude = Boolean(parsed.launchWithClaude)
   const claudeArgs = normalizeClaudeAgentArgs(parsed.claudeArgs)
   const agentStdout = wantsCleanAgentStdout('claude', claudeArgs)
@@ -114,9 +127,18 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
 
   const favorites = dryRun ? [] : (prefs.favoriteModels ?? [])
   const launchPlan = planLaunchWizard({
+    // modelIds ride along even with allModels so the wizard rejects the mix
+    // ('Use either --all-models or --model id1,id2, not both.') instead of
+    // silently launching everything.
     explicit: launchAllModels
-      ? { providerId: launchProvider, allModels: true }
-      : { providerId: launchProvider, modelId: launchModel },
+      ? {
+          providerId: launchProvider,
+          allModels: true,
+          ...(launchModelIds ? { modelIds: launchModelIds } : {}),
+        }
+      : launchModelIds
+        ? { providerId: launchProvider, modelIds: launchModelIds }
+        : { providerId: launchProvider, modelId: launchModel },
     childArgs: claudeArgs,
     agent: 'claude',
     prefs,
@@ -131,8 +153,11 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
   // the wizard showed — so even picking a single specific model still launched
   // with *all* favorites in the /model switcher. Now catalog mode is only
   // activated by an explicit choice: __favorites__ in the picker, --model "All",
-  // or --all-models.
-  let catalogMode: false | 'favorites' | 'provider-all' | 'provider-plus-claude' = false
+  // --all-models, "Choose models…" in the picker, or --model "id1,id2".
+  let catalogMode:
+    false | 'favorites' | 'provider-all' | 'provider-plus-claude' | 'provider-custom' = false
+  /** Ordered ids for the custom subset (provider-custom mode); [0] boots. */
+  let customModelIds: string[] = []
   const hasFavorites = favorites.length > 0
 
   if (launchPlan.skip && launchPlan.target) {
@@ -226,6 +251,28 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
       catalogMode = 'provider-all'
       if (!agentStdout) {
         p.log.step(`Using all ${activeProvider.models.length} models from ${activeProvider.name}`)
+      }
+      if (!dryRun) recordLaunchSelection('claude', activeProvider.id, selectedModel.id, prefs)
+    } else if (launchPlan.target.modelIds) {
+      const resolved = findProvidersAndModels(allProviders, launchPlan.target)
+      if (!resolved || resolved.models.length === 0) {
+        p.log.error(
+          `Provider/model not found: ${launchPlan.target.providerId} / ${(launchPlan.target.modelIds ?? []).join(',')}`
+        )
+        return 1
+      }
+      if (resolved.missingIds.length > 0) {
+        p.log.error(
+          `Model${resolved.missingIds.length === 1 ? '' : 's'} not found on ${resolved.provider.name}: ${resolved.missingIds.join(', ')}`
+        )
+        return 1
+      }
+      activeProvider = resolved.provider
+      selectedModel = resolved.models[0]!
+      customModelIds = resolved.models.map(m => m.id)
+      catalogMode = 'provider-custom'
+      if (!agentStdout) {
+        p.log.step(`Using ${resolved.models.length} models from ${activeProvider.name}`)
       }
       if (!dryRun) recordLaunchSelection('claude', activeProvider.id, selectedModel.id, prefs)
     } else {
@@ -324,7 +371,7 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
           activeProvider = selectedProvider
         }
 
-        // Ask: pick a specific model, or launch all models from this provider
+        // Ask: one model, a hand-picked subset, or all models from this provider
         const modelModeChoice = await p.select<string>({
           message: `Launch mode for ${activeProvider.name}?`,
           options: [
@@ -332,6 +379,11 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
               value: 'specific',
               label: 'One model',
               hint: 'Pick a specific model from this provider',
+            },
+            {
+              value: 'custom',
+              label: 'Choose models…',
+              hint: 'Pick which models appear in /model',
             },
             {
               value: 'all',
@@ -349,6 +401,20 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
         if (modelModeChoice === 'all') {
           catalogMode = 'provider-all'
           selectedModel = activeProvider.models[0]!
+          if (!dryRun) recordLaunchSelection('claude', activeProvider.id, selectedModel.id, prefs)
+          break
+        }
+
+        if (modelModeChoice === 'custom') {
+          const pickedCustom = await pickCustomProviderModels(activeProvider, prefs)
+          if (pickedCustom === 'back') {
+            currentInitialProvider = activeProvider.id
+            continue
+          }
+          if (!pickedCustom) return 0
+          customModelIds = pickedCustom.selectedIds
+          selectedModel = activeProvider.models.find(m => m.id === customModelIds[0])!
+          catalogMode = 'provider-custom'
           if (!dryRun) recordLaunchSelection('claude', activeProvider.id, selectedModel.id, prefs)
           break
         }
@@ -400,6 +466,10 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
   } else if (launchWithClaude && !claudeCodeProvider && !agentStdout) {
     p.log.warn(
       'Ignoring --with-claude: no authenticated Claude Code provider found. Run `anygate providers auth claude-code` first.'
+    )
+  } else if (launchWithClaude && catalogMode === 'provider-custom' && !agentStdout) {
+    p.log.warn(
+      'Ignoring --with-claude: subscription-model mixing only applies to single-model launches.'
     )
   }
 
@@ -496,6 +566,49 @@ export async function handleClaudeCommand(parsed: ParsedArgs): Promise<number> {
       )
       p.log.info(`Run ${pc.cyan('anygate providers refresh-models')} to re-check.`)
       return 1
+    }
+
+    return launchClaudeViaCatalog(
+      catalogRoutes,
+      startingRoute,
+      selectedModel.contextWindow,
+      trace ?? false,
+      claudeArgs
+    )
+  }
+
+  if (catalogMode === 'provider-custom') {
+    const resolveRoute = makeRouteResolver(localProviders)
+    const startingRoute = resolveRoute(activeProvider.id, selectedModel.id) ?? null
+    if (!startingRoute) {
+      p.log.error('Could not resolve a proxy route for the starting model.')
+      return 1
+    }
+    const { routes: catalogRoutes, droppedModelIds } = buildProviderCustomRoutes(
+      activeProvider,
+      customModelIds,
+      startingRoute,
+      resolveRoute
+    )
+    if (droppedModelIds.length > 0) {
+      p.log.warn(
+        `Skipping ${droppedModelIds.length} selected model${droppedModelIds.length === 1 ? '' : 's'} ` +
+          'that are no longer available in /model'
+      )
+    }
+
+    if (dryRun) {
+      console.log('')
+      console.log(pc.bold(pc.cyan('  DRY RUN — would execute (custom catalog mode):')))
+      console.log('')
+      console.log(`  ${pc.bold('Provider:')}      ${activeProvider.name}`)
+      console.log(`  ${pc.bold('Starting model:')} ${selectedModel.id}`)
+      console.log(`  ${pc.bold('/model catalog:')} ${catalogRoutes.length} model(s)`)
+      catalogRoutes.forEach(r => console.log(`    ${pc.dim(r.displayName)}`))
+      console.log('')
+      console.log(pc.dim('  (dry run complete — Claude Code was NOT launched)'))
+      console.log('')
+      return 0
     }
 
     return launchClaudeViaCatalog(

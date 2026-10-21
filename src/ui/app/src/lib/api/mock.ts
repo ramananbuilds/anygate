@@ -11,6 +11,7 @@ import type {
   UiConfigResponse,
   UiAppsResponse,
   ServerStatusPayload,
+  UiServerProvidersResponse,
   UiApp,
   FavoriteModel,
   UiProviderModel,
@@ -234,10 +235,37 @@ export function mockServerStatus(): ServerStatusPayload {
       favoritesOnly: false,
       freeModelsOnly: false,
       exposedProviders: null,
+      exposedModels: null,
       maskGatewayIds: false,
       listenMode: 'local' as const,
       hasSavedPassword: false,
     },
     providerSummary: 'mock',
+  }
+}
+
+/** Mock provider list for the server panel's model picker. */
+export function mockServerProviders(): UiServerProvidersResponse {
+  return {
+    providers: [
+      {
+        id: 'anthropic',
+        name: 'Anthropic',
+        modelCount: 2,
+        models: [
+          { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', isFree: false, freeStatus: 'paid' },
+          { id: 'claude-opus-4-1', name: 'Claude Opus 4.1', isFree: false, freeStatus: 'paid' },
+        ],
+      },
+      {
+        id: 'opencode-zen',
+        name: 'OpenCode Zen',
+        modelCount: 2,
+        models: [
+          { id: 'grok-code', name: 'Grok Code', isFree: true, freeStatus: 'verified_free' },
+          { id: 'qwen3-coder', name: 'Qwen3 Coder', isFree: true, freeStatus: 'verified_free' },
+        ],
+      },
+    ],
   }
 }

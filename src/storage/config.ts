@@ -254,6 +254,26 @@ export function setServerExposedProviders(providerIds: string[]): void {
   writeConfig(config)
 }
 
+/**
+ * Hand-picked models to expose, as `providerId:modelId` keys.
+ *
+ * `null` means "every model of the exposed providers" — the same default the
+ * provider filter itself has.
+ */
+export function getServerExposedModels(): string[] | null {
+  const list = readConfig().server?.exposedModels
+  return list && list.length > 0 ? list : null
+}
+
+export function setServerExposedModels(modelKeys: string[]): void {
+  const config = readConfig()
+  config.server = {
+    ...(config.server ?? {}),
+    exposedModels: modelKeys,
+  }
+  writeConfig(config)
+}
+
 export function getServerMaskGatewayIds(): boolean {
   return readConfig().server?.maskGatewayIds ?? true
 }

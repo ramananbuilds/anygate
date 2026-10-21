@@ -236,6 +236,38 @@ export function buildProviderAllModelRoutes(
 }
 
 /**
+ * Build proxy routes for an explicitly picked subset of one provider's models
+ * (the "Choose models…" launch path), suitable for a custom /model switcher.
+ * Ids resolve in picker order; unresolvable ids are reported so callers can
+ * warn, and output is deduped + capped like the other catalog builders.
+ * `startingRoute` must be the resolved route of `selectedIds[0]` (or another
+ * member of the subset) — it goes first so the agent boots on it.
+ */
+export function buildProviderCustomRoutes(
+  provider: LocalProvider,
+  selectedIds: string[],
+  startingRoute: ProxyRoute,
+  resolveRoute: (providerId: string, modelId: string) => ProxyRoute | undefined,
+  max = MAX_MODEL_CATALOG
+): { routes: ProxyRoute[]; droppedModelIds: string[] } {
+  const droppedModelIds: string[] = []
+  const seen = new Set([startingRoute.aliasId])
+  const tail: ProxyRoute[] = []
+  for (const id of selectedIds) {
+    const route = resolveRoute(provider.id, id)
+    if (!route) {
+      droppedModelIds.push(id)
+      continue
+    }
+    if (seen.has(route.aliasId)) continue
+    seen.add(route.aliasId)
+    tail.push(route)
+  }
+  const routes = dedupeByKey([startingRoute, ...tail], route => route.aliasId, max)
+  return { routes, droppedModelIds }
+}
+
+/**
  * Claude-specific catalog builder. Takes a `resolveRoute` function (not a
  * ResolveContext) and returns built ProxyRoute[] — does NOT delegate to
  * `buildFavoritesList` in `./favorites-resolver.ts` because the input/output

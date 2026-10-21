@@ -107,10 +107,12 @@
 {#if exportOpen}
   <Modal open={exportOpen} title="Export favorites" onclose={() => exportOpen = false}>
     <textarea class="ta" readonly value={exportText}></textarea>
-    <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
-      <Button variant="ghost" onclick={() => exportOpen = false}>Close</Button>
-      <Button onclick={downloadExport}>Download</Button>
-    </div>
+    {#snippet footer()}
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <Button variant="ghost" onclick={() => exportOpen = false}>Close</Button>
+        <Button onclick={downloadExport}>Download</Button>
+      </div>
+    {/snippet}
   </Modal>
 {/if}
 
@@ -118,10 +120,12 @@
   <Modal open={importOpen} title="Import config" onclose={() => importOpen = false}>
     <p class="muted">Paste an anygate config JSON (from Export favorites).</p>
     <textarea class="ta" bind:value={importText} placeholder="Paste JSON here"></textarea>
-    <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
-      <Button variant="ghost" onclick={() => importOpen = false}>Cancel</Button>
-      <Button onclick={doImport}>Import</Button>
-    </div>
+    {#snippet footer()}
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <Button variant="ghost" onclick={() => importOpen = false}>Cancel</Button>
+        <Button onclick={doImport}>Import</Button>
+      </div>
+    {/snippet}
   </Modal>
 {/if}
 
@@ -137,10 +141,12 @@
       <span class="lbl" style="margin-top:12px">Model</span>
       <Select bind:value={pModel} options={[{ value: '', label: '—' }, ...(providers.list.find(p => p.id === pProvider)?.enrichedModels ?? []).map(m => ({ value: m.id, label: m.name ?? m.id }))]} />
     {/if}
-    <div class="row" style="margin-top:18px;justify-content:flex-end;gap:8px">
-      <Button variant="ghost" onclick={() => presetForm = false}>Cancel</Button>
-      <Button disabled={!pApp || !pLabel} onclick={async () => { await savePreset({ appId: pApp, providerId: pProvider || undefined, modelId: pModel || undefined, label: pLabel }); presetForm = false; }}>Save</Button>
-    </div>
+    {#snippet footer()}
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <Button variant="ghost" onclick={() => presetForm = false}>Cancel</Button>
+        <Button disabled={!pApp || !pLabel} onclick={async () => { await savePreset({ appId: pApp, providerId: pProvider || undefined, modelId: pModel || undefined, label: pLabel }); presetForm = false; }}>Save</Button>
+      </div>
+    {/snippet}
   </Modal>
 {/if}
 

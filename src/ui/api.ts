@@ -23,7 +23,7 @@ import { fetchProviderCatalog } from '../registry/provider-catalog.js'
 import { favoriteProviderDisplayName } from '../apps/claude/favorites-provider-display.ts'
 import { saveProviderCredential, resolveProviderCredential } from '../config/env.js'
 import { readBody, sendJson } from '../shared/http.ts'
-import { VERSION } from '../config/constants.js'
+import { MAX_MODEL_CATALOG, VERSION } from '../config/constants.js'
 import { loadRegistry } from '../registry/storage/io.js'
 import { refreshProviderModels, refreshAllProviderModels } from '../registry/sync/refresh-models.js'
 import {
@@ -58,7 +58,7 @@ import { guiCallbackRedirectUri } from '../auth/claude-code.js'
 import { buildAntigravityAuthUrl, completeAntigravityExchange } from '../auth/antigravity-oauth.js'
 import { startCallbackServer } from '../auth/callback-server.js'
 
-import { providerOptionsFromCatalog } from '../gateway/server/server.js'
+import { providerDetailsFromCatalog } from '../gateway/server/server.js'
 import {
   getServerStatus,
   startGatewayServer,
@@ -1589,6 +1589,7 @@ async function handleLaunchApp(
     const body = JSON.parse(await readBody(req))
     const { appId, favorites, favoritesCatalog, allModels, cwd } = body
     let { providerId, modelId } = body as { providerId?: string; modelId?: string }
+    let { modelIds } = body as { modelIds?: unknown }
     if (!appId) {
       sendJson(res, 400, { error: 'Missing appId' })
       return
@@ -1596,6 +1597,27 @@ async function handleLaunchApp(
     if (!getSupportedApp(appId)) {
       sendJson(res, 400, { error: `Unknown app: ${appId}` })
       return
+    }
+
+    // Custom model catalog: sanitize to trimmed, deduped, capped id strings.
+    let cleanModelIds: string[] | undefined
+    if (modelIds !== undefined) {
+      if (!Array.isArray(modelIds)) {
+        sendJson(res, 400, { error: 'modelIds must be an array of model ids.' })
+        return
+      }
+      cleanModelIds = [
+        ...new Set(
+          modelIds
+            .filter((id): id is string => typeof id === 'string')
+            .map(id => id.trim())
+            .filter(Boolean)
+        ),
+      ].slice(0, MAX_MODEL_CATALOG)
+      if (cleanModelIds.length === 0) {
+        sendJson(res, 400, { error: 'modelIds must contain at least one model id.' })
+        return
+      }
     }
 
     const { installed, path } = detectApp(appId)
@@ -1609,7 +1631,22 @@ async function handleLaunchApp(
       sendJson(res, 400, { error: 'providerId is required when allModels is true.' })
       return
     }
-    if (!allModels && !favorites && (providerId || modelId) && (!providerId || !modelId)) {
+    // modelIds (custom catalog mode): requires providerId, exclusive with the rest
+    if (cleanModelIds && !providerId) {
+      sendJson(res, 400, { error: 'providerId is required when modelIds is set.' })
+      return
+    }
+    if (cleanModelIds && (allModels || modelId)) {
+      sendJson(res, 400, { error: 'Use only one of modelId, modelIds, allModels.' })
+      return
+    }
+    if (
+      !allModels &&
+      !favorites &&
+      !cleanModelIds &&
+      (providerId || modelId) &&
+      (!providerId || !modelId)
+    ) {
       sendJson(res, 400, {
         error: 'Both providerId and modelId are required to launch a specific anygate model.',
       })
@@ -1620,6 +1657,7 @@ async function handleLaunchApp(
     if (fullCatalog) {
       providerId = undefined
       modelId = undefined
+      cleanModelIds = undefined
     } else if (allModels) {
       modelId = undefined
     } else if (favorites && !providerId && !modelId) {
@@ -1650,6 +1688,7 @@ async function handleLaunchApp(
     const launchCmd = getGatewayLaunchCommand(appId, {
       providerId,
       modelId,
+      modelIds: cleanModelIds,
       allModels: Boolean(allModels) && Boolean(providerId),
       favoritesCatalog: fullCatalog,
       cwd: launchFolder,
@@ -1657,7 +1696,7 @@ async function handleLaunchApp(
     })
     traceUi(
       opts,
-      `launch app=${appId} provider=${providerId ?? ''} model=${modelId ?? ''} allModels=${Boolean(allModels)} favorites=${Boolean(favorites)} catalog=${fullCatalog} cwd=${launchFolder ?? ''} command=${launchCmd}`
+      `launch app=${appId} provider=${providerId ?? ''} model=${modelId ?? ''} modelIds=${cleanModelIds?.join(',') ?? ''} allModels=${Boolean(allModels)} favorites=${Boolean(favorites)} catalog=${fullCatalog} cwd=${launchFolder ?? ''} command=${launchCmd}`
     )
 
     // Execute command asynchronously to open the terminal window detached
@@ -1714,7 +1753,7 @@ async function handleGetServerStatus(res: ServerResponse): Promise<void> {
 async function handleGetServerProviders(res: ServerResponse): Promise<void> {
   try {
     const catalog = await fetchModelsWithTimeout({ agent: 'server' })
-    sendJson(res, 200, { providers: providerOptionsFromCatalog(catalog) })
+    sendJson(res, 200, { providers: providerDetailsFromCatalog(catalog) })
   } catch (err) {
     sendCatalogFetchError(res, err, 'Provider fetch')
   }
@@ -1743,6 +1782,9 @@ async function handleStartServer(
       favoritesOnly: body.favoritesOnly,
       freeModelsOnly: Boolean(body.freeModelsOnly),
       exposedProviders: Array.isArray(body.exposedProviders) ? body.exposedProviders : null,
+      exposedModels: Array.isArray(body.exposedModels)
+        ? body.exposedModels.filter((key): key is string => typeof key === 'string')
+        : null,
       maskGatewayIds: body.maskGatewayIds,
       listenMode: body.listenMode,
       passwordMode: body.passwordMode === 'saved' ? 'saved' : 'new',

@@ -37,6 +37,7 @@ export async function launch(opts: {
   favorites?: boolean
   providerId?: string
   modelId?: string
+  modelIds?: string[]
   cwd?: string
   favoritesCatalog?: boolean
   allModels?: boolean

@@ -26,6 +26,7 @@ import {
   localProvidersToServerModels,
 } from '../../registry/provider-catalog.js'
 import { providersForTarget } from '../../apps/shared/target-compatibility.js'
+import type { FreeStatus } from '../../apps/shared/free-models.js'
 import { loadRegistry } from '../../registry/storage/io.js'
 import type { ModelInfo } from '../../types/index.js'
 import type { ServerModelInfo, GatewayModelOptions } from './models.js'
@@ -174,6 +175,54 @@ export function providerOptionsFromCatalog(
     })
   }
   return options
+}
+
+/** One model of a provider, as listed in the server's model picker. */
+export interface ServerProviderModelOption {
+  id: string
+  name: string
+  isFree: boolean
+  freeStatus?: FreeStatus
+}
+
+/** A provider plus the models it can expose, for the web UI's model picker. */
+export interface ServerProviderDetail extends ServerProviderOption {
+  models: ServerProviderModelOption[]
+}
+
+/**
+ * Provider options enriched with each provider's model list.
+ *
+ * Models are de-duplicated by id: a provider's raw list can repeat a model
+ * (same id, different display name) and a keyed list would render it twice.
+ */
+export function providerDetailsFromCatalog(
+  catalog: import('../../types/index.js').LocalProvider[]
+): ServerProviderDetail[] {
+  const details: ServerProviderDetail[] = []
+  for (const provider of providersForTarget(catalog, 'server')) {
+    const seen = new Set<string>()
+    const models: ServerProviderModelOption[] = []
+    for (const model of [...provider.models].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true })
+    )) {
+      if (seen.has(model.id)) continue
+      seen.add(model.id)
+      models.push({
+        id: model.id,
+        name: model.name,
+        isFree: model.isFree ?? false,
+        freeStatus: model.freeStatus,
+      })
+    }
+    details.push({
+      id: provider.id,
+      name: provider.name,
+      modelCount: models.length,
+      models,
+    })
+  }
+  return details
 }
 
 export async function loadServerModels(): Promise<ServerModelInfo[]> {

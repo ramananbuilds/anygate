@@ -11,6 +11,22 @@ export function filterServerModelsByProviders(
   return models.filter(model => model.providerId && allowed.has(model.providerId))
 }
 
+/**
+ * Restrict the catalog to an explicit model selection.
+ *
+ * Keys are `providerId:modelId` — the same shape favorites use, so one
+ * selection can be expressed as either a list of favorites or a list of
+ * hand-picked models.
+ */
+export function filterServerModelsBySelection(
+  models: ServerModelInfo[],
+  selection: string[] | null | undefined
+): ServerModelInfo[] {
+  if (!selection || selection.length === 0) return models
+  const allowed = new Set(selection)
+  return models.filter(model => model.providerId && allowed.has(`${model.providerId}:${model.id}`))
+}
+
 export function filterServerModelsByFavorites(
   models: ServerModelInfo[],
   favorites: FavoriteModel[]

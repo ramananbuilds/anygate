@@ -1,14 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 import {
   filterServerModelsByFreeStatus,
   filterServerModelsByFavorites,
   filterServerModelsByProviders,
+  filterServerModelsBySelection,
   summarizeServerProviders,
-} from '../../src/gateway/server/catalog-filter.js';
-import { resolveInitialServerProviders } from '../../src/gateway/providers/provider-select.js';
-import type { ServerModelInfo } from '../../src/gateway/server/models.js';
+} from '../../src/gateway/server/catalog-filter.js'
+import { resolveInitialServerProviders } from '../../src/gateway/providers/provider-select.js'
+import type { ServerModelInfo } from '../../src/gateway/server/models.js'
 
-function model(partial: Partial<ServerModelInfo> & Pick<ServerModelInfo, 'id' | 'providerId'>): ServerModelInfo {
+function model(
+  partial: Partial<ServerModelInfo> & Pick<ServerModelInfo, 'id' | 'providerId'>
+): ServerModelInfo {
   return {
     name: partial.id,
     isFree: false,
@@ -17,7 +20,7 @@ function model(partial: Partial<ServerModelInfo> & Pick<ServerModelInfo, 'id' | 
     modelFormat: 'openai',
     providerLabel: partial.providerLabel ?? partial.providerId,
     ...partial,
-  };
+  }
 }
 
 describe('filterServerModelsByProviders', () => {
@@ -25,39 +28,66 @@ describe('filterServerModelsByProviders', () => {
     model({ id: 'gemini-3', providerId: 'google', providerLabel: 'Google' }),
     model({ id: 'grok-4', providerId: 'xai', providerLabel: 'xAI' }),
     model({ id: 'big-pickle', providerId: 'zen', providerLabel: 'OpenCode Zen' }),
-  ];
+  ]
 
   it('returns all models when provider filter is unset', () => {
-    expect(filterServerModelsByProviders(models, null)).toHaveLength(3);
-    expect(filterServerModelsByProviders(models, undefined)).toHaveLength(3);
-    expect(filterServerModelsByProviders(models, [])).toHaveLength(3);
-  });
+    expect(filterServerModelsByProviders(models, null)).toHaveLength(3)
+    expect(filterServerModelsByProviders(models, undefined)).toHaveLength(3)
+    expect(filterServerModelsByProviders(models, [])).toHaveLength(3)
+  })
 
   it('keeps only models from selected providers', () => {
-    const filtered = filterServerModelsByProviders(models, ['google', 'zen']);
-    expect(filtered.map(m => m.id)).toEqual(['gemini-3', 'big-pickle']);
-  });
-});
+    const filtered = filterServerModelsByProviders(models, ['google', 'zen'])
+    expect(filtered.map(m => m.id)).toEqual(['gemini-3', 'big-pickle'])
+  })
+})
 
 describe('filterServerModelsByFavorites', () => {
   const models = [
     model({ id: 'gpt-5.5-fast', providerId: 'openai', providerLabel: 'OpenAI' }),
     model({ id: 'gemini-3.5-flash', providerId: 'google', providerLabel: 'Google' }),
     model({ id: 'grok-4.3', providerId: 'xai', providerLabel: 'xAI' }),
-  ];
+  ]
 
   it('returns empty list when there are no favorites', () => {
-    expect(filterServerModelsByFavorites(models, [])).toEqual([]);
-  });
+    expect(filterServerModelsByFavorites(models, [])).toEqual([])
+  })
 
   it('keeps only favorited provider/model pairs', () => {
     const filtered = filterServerModelsByFavorites(models, [
       { providerId: 'google', modelId: 'gemini-3.5-flash' },
       { providerId: 'xai', modelId: 'grok-4.3' },
-    ]);
-    expect(filtered.map(m => m.id)).toEqual(['gemini-3.5-flash', 'grok-4.3']);
-  });
-});
+    ])
+    expect(filtered.map(m => m.id)).toEqual(['gemini-3.5-flash', 'grok-4.3'])
+  })
+})
+
+describe('filterServerModelsBySelection', () => {
+  const models = [
+    model({ id: 'gpt-5.5-fast', providerId: 'openai', providerLabel: 'OpenAI' }),
+    model({ id: 'gpt-5.5', providerId: 'openai', providerLabel: 'OpenAI' }),
+    model({ id: 'gemini-3.5-flash', providerId: 'google', providerLabel: 'Google' }),
+  ]
+
+  it('returns all models when the selection is unset', () => {
+    expect(filterServerModelsBySelection(models, null)).toHaveLength(3)
+    expect(filterServerModelsBySelection(models, undefined)).toHaveLength(3)
+    expect(filterServerModelsBySelection(models, [])).toHaveLength(3)
+  })
+
+  it('keeps only the hand-picked provider/model pairs', () => {
+    const filtered = filterServerModelsBySelection(models, [
+      'openai:gpt-5.5-fast',
+      'google:gemini-3.5-flash',
+    ])
+    expect(filtered.map(m => m.id)).toEqual(['gpt-5.5-fast', 'gemini-3.5-flash'])
+  })
+
+  it('ignores keys for models that are not in the catalog', () => {
+    const filtered = filterServerModelsBySelection(models, ['openai:gone'])
+    expect(filtered).toEqual([])
+  })
+})
 
 describe('filterServerModelsByFreeStatus', () => {
   it('keeps verified free and free-provider access models', () => {
@@ -66,28 +96,31 @@ describe('filterServerModelsByFreeStatus', () => {
       model({ id: 'nemotron', providerId: 'nvidia', isFree: true, freeStatus: 'free_provider' }),
       model({ id: 'paid', providerId: 'openai', isFree: false, freeStatus: 'paid' }),
       model({ id: 'unknown', providerId: 'custom', isFree: false, freeStatus: 'unknown' }),
-    ]);
+    ])
 
-    expect(filtered.map(m => m.id)).toEqual(['hy3', 'nemotron']);
-  });
-});
+    expect(filtered.map(m => m.id)).toEqual(['hy3', 'nemotron'])
+  })
+})
 
 describe('resolveInitialServerProviders', () => {
   const available = [
     { id: 'google', name: 'Google', modelCount: 18 },
     { id: 'xai', name: 'xAI', modelCount: 8 },
     { id: 'openrouter', name: 'OpenRouter', modelCount: 338 },
-  ];
+  ]
 
   it('starts empty when nothing is saved', () => {
-    expect(resolveInitialServerProviders(undefined, available)).toEqual([]);
-    expect(resolveInitialServerProviders([], available)).toEqual([]);
-  });
+    expect(resolveInitialServerProviders(undefined, available)).toEqual([])
+    expect(resolveInitialServerProviders([], available)).toEqual([])
+  })
 
   it('restores only saved providers that still exist', () => {
-    expect(resolveInitialServerProviders(['google', 'xai', 'gone'], available)).toEqual(['google', 'xai']);
-  });
-});
+    expect(resolveInitialServerProviders(['google', 'xai', 'gone'], available)).toEqual([
+      'google',
+      'xai',
+    ])
+  })
+})
 
 describe('summarizeServerProviders', () => {
   it('groups models by provider label', () => {
@@ -95,7 +128,7 @@ describe('summarizeServerProviders', () => {
       model({ id: 'a', providerId: 'google', providerLabel: 'Google' }),
       model({ id: 'b', providerId: 'google', providerLabel: 'Google' }),
       model({ id: 'c', providerId: 'xai', providerLabel: 'xAI' }),
-    ]);
-    expect(summary).toBe('Google (2), xAI (1)');
-  });
-});
+    ])
+    expect(summary).toBe('Google (2), xAI (1)')
+  })
+})

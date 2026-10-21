@@ -24,6 +24,9 @@
   let oauthError = $state<string>('');
   let pollHandle: ReturnType<typeof setInterval> | null = null;
 
+  /** The credential form is the only state that owns the modal's action row. */
+  const showForm = $derived(!loading && !oauthDone && !oauthError && !oauthSessionId);
+
   function parseHeaders(text: string): Record<string, string> {
     const out: Record<string, string> = {};
     for (const line of text.split('\n')) {
@@ -206,12 +209,16 @@
       ></textarea>
       <span class="hint-txt">Some endpoints only accept requests from a recognized client. Add headers like <code>User-Agent</code> here if the provider requires them.</span>
     {/if}
-
-    <div class="row" style="margin-top:20px;justify-content:flex-end;gap:8px">
-      <Button variant="ghost" onclick={onclose}>Cancel</Button>
-      <Button disabled={!selected || busy} onclick={submit}>{isOAuth ? 'Sign in' : busy ? 'Adding…' : 'Add provider'}</Button>
-    </div>
   {/if}
+
+  {#snippet footer()}
+    {#if showForm}
+      <div class="row" style="justify-content:flex-end;gap:8px">
+        <Button variant="ghost" onclick={onclose}>Cancel</Button>
+        <Button disabled={!selected || busy} onclick={submit}>{isOAuth ? 'Sign in' : busy ? 'Adding…' : 'Add provider'}</Button>
+      </div>
+    {/if}
+  {/snippet}
 </Modal>
 
 <style>

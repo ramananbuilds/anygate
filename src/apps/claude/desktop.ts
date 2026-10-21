@@ -15,6 +15,12 @@ import { resolveBootSelection } from '../codex/favorites-launch.js'
 import { codexCompatibleProviders, routableModelsForProvider } from '../codex/routing.js'
 import { providersForTarget } from '../../apps/shared/target-compatibility.js'
 import { navOption } from '../../apps/shared/ui.js'
+import {
+  findProvidersAndModels,
+  isModelListValue,
+  parseModelListValue,
+} from '../../apps/shared/launch-target.js'
+import { pickCustomProviderModels } from '../../apps/shared/prompts.js'
 import { startServer, type ServerHandle } from '../../../src/gateway/server/router.js'
 import {
   createGatewayModelCatalog,
@@ -117,7 +123,12 @@ export function modelToServerModelInfo(
 
 export async function runClaudeAppCommand(
   args: string[],
-  boot?: { launchProvider?: string; launchModel?: string; launchAllModels?: boolean }
+  boot?: {
+    launchProvider?: string
+    launchModel?: string
+    launchModelIds?: string[]
+    launchAllModels?: boolean
+  }
 ): Promise<number> {
   if (args.includes('--help') || args.includes('-h')) {
     console.log(claudeAppHelpText())
@@ -181,11 +192,23 @@ export async function runClaudeAppCommand(
   const favorites = prefs.favoriteModels ?? []
   const hasFavorites = favorites.length > 0
   const launchAllModels = Boolean(boot?.launchAllModels || boot?.launchModel === 'All')
+  const launchModelIds =
+    boot?.launchModelIds ??
+    (boot?.launchModel && isModelListValue(boot.launchModel)
+      ? parseModelListValue(boot.launchModel)
+      : undefined)
+  if ((boot?.launchAllModels || boot?.launchModel === 'All') && launchModelIds) {
+    p.log.error('Use either --all-models or --model id1,id2, not both.')
+    return 1
+  }
 
   let activeProvider: LocalProvider | null = null
   let selectedModel: any = null
   let useFavorites = false
   let useProviderAll = false
+  let useProviderCustom = false
+  /** Ordered ids for the custom subset (provider-custom mode); [0] boots. */
+  let customModelIds: string[] = []
 
   if (boot?.launchProvider && launchAllModels) {
     const foundProvider = compatible.find(lp => lp.id === boot.launchProvider)
@@ -196,6 +219,25 @@ export async function runClaudeAppCommand(
     activeProvider = foundProvider
     selectedModel = activeProvider.models[0]!
     useProviderAll = true
+  } else if (boot?.launchProvider && launchModelIds) {
+    const resolved = findProvidersAndModels(compatible, {
+      providerId: boot.launchProvider,
+      modelIds: launchModelIds,
+    })
+    if (!resolved || resolved.models.length === 0) {
+      p.log.error(`Provider/model not found: ${boot.launchProvider} / ${launchModelIds.join(',')}`)
+      return 1
+    }
+    if (resolved.missingIds.length > 0) {
+      p.log.error(
+        `Model${resolved.missingIds.length === 1 ? '' : 's'} not found on ${resolved.provider.name}: ${resolved.missingIds.join(', ')}`
+      )
+      return 1
+    }
+    activeProvider = providerForClaudePicker(resolved.provider)
+    selectedModel = resolved.models[0]!
+    customModelIds = resolved.models.map(m => m.id)
+    useProviderCustom = true
   } else if (boot?.launchProvider && boot?.launchModel) {
     const bootSelection = resolveBootSelection(
       compatible,
@@ -252,6 +294,11 @@ export async function runClaudeAppCommand(
                 hint: 'Pick a specific model',
               },
               {
+                value: 'custom',
+                label: 'Choose models…',
+                hint: 'Pick which models appear in the model picker',
+              },
+              {
                 value: 'all',
                 label: `All models (${activeProvider.models.length})`,
                 hint: 'Every model from this provider in the model picker',
@@ -264,6 +311,19 @@ export async function runClaudeAppCommand(
           if (modelModeChoice === 'all') {
             useProviderAll = true
             selectedModel = activeProvider.models[0]!
+            break
+          }
+
+          if (modelModeChoice === 'custom') {
+            const pickedCustom = await pickCustomProviderModels(activeProvider, {
+              ...prefs,
+              lastModel: prefs.lastCodexModel,
+            })
+            if (pickedCustom === 'back') continue
+            if (!pickedCustom) return 0
+            customModelIds = pickedCustom.selectedIds
+            selectedModel = activeProvider.models.find(m => m.id === customModelIds[0])!
+            useProviderCustom = true
             break
           }
 
@@ -362,15 +422,26 @@ export async function runClaudeAppCommand(
       seen.add(key)
       return true
     })
-  } else if (useProviderAll) {
-    // All models from the selected provider — build server models for every
-    // routable model, routing cloud-code models through a backend proxy.
+  } else if (useProviderAll || useProviderCustom) {
+    // All (or a hand-picked subset of) models from the selected provider —
+    // build server models for every routable model, routing cloud-code models
+    // through a backend proxy.
     const routableProvider = providersForTarget(catalog, 'claude-app').find(
       lp => lp.id === activeProvider!.id
     )
-    const allServerModels = localProvidersToServerModels(
-      routableProvider ? [routableProvider] : [activeProvider!]
-    )
+    const scopedProvider = routableProvider ?? activeProvider!
+    // Custom subsets scope the build to the picked models (in picker order)
+    // so cloud-code backends only start for models actually launched.
+    const catalogProvider =
+      useProviderCustom && !useProviderAll
+        ? {
+            ...scopedProvider,
+            models: customModelIds
+              .map(id => scopedProvider.models.find(m => m.id === id))
+              .filter((m): m is LocalProviderModel => m !== undefined),
+          }
+        : scopedProvider
+    const allServerModels = localProvidersToServerModels([catalogProvider])
     const cloudCodeIndices = allServerModels
       .map((m, i) => (m.modelFormat === 'cloud-code' ? i : -1))
       .filter(i => i >= 0)

@@ -13,6 +13,12 @@ export interface LaunchTarget {
    * `--model All`.
    */
   allModels?: boolean
+  /**
+   * Hand-picked subset of `providerId`'s models to expose in the app's switcher
+   * (the "Choose models…" launch path). Set by `--model id1,id2`. Mutually
+   * exclusive with `allModels` and `modelId`; `modelIds[0]` boots.
+   */
+  modelIds?: string[]
 }
 
 export interface LaunchWizardPlan {
@@ -27,6 +33,19 @@ export function parseModelSlug(modelRef: string): { providerId?: string; modelId
     return { providerId: modelRef.slice(0, idx), modelId: modelRef.slice(idx + 2) }
   }
   return { modelId: modelRef }
+}
+
+/** Split a `--model id1,id2` value into ids (trims, drops empties). */
+export function parseModelListValue(raw: string): string[] {
+  return raw
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+}
+
+/** True when the raw `--model` value is a multi-model list (not `All`/single). */
+export function isModelListValue(raw: string | undefined): boolean {
+  return !!raw && raw !== 'All' && parseModelListValue(raw).length > 1
 }
 
 export function isClaudePrintMode(args: string[]): boolean {
@@ -163,8 +182,49 @@ export function resolveLaunchTarget(
     if (!providerId) return null
     return { providerId, allModels: true }
   }
+  if (explicit.modelIds && explicit.modelIds.length > 0) {
+    if (!providerId) return null
+    return { providerId, modelIds: explicit.modelIds }
+  }
   if (!providerId || !modelId) return null
   return { providerId, modelId }
+}
+
+export interface ResolvedCustomModels {
+  provider: LocalProvider
+  models: LocalProviderModel[]
+  /** Entries that did not resolve (unknown id or cross-provider slug). */
+  missingIds: string[]
+}
+
+/**
+ * Resolve a `modelIds` target against one provider. Each entry may be a bare
+ * model id or a `provider__model` slug matching the shared provider.
+ */
+export function findProvidersAndModels(
+  providers: LocalProvider[],
+  target: LaunchTarget
+): ResolvedCustomModels | null {
+  const ids = target.modelIds ?? []
+  if (!target.providerId || ids.length === 0) return null
+  const provider = providers.find(p => p.id === target.providerId)
+  if (!provider) return null
+  const models: LocalProviderModel[] = []
+  const missingIds: string[] = []
+  for (const entry of ids) {
+    const slug = parseModelSlug(entry)
+    if (slug.providerId && slug.providerId !== provider.id) {
+      missingIds.push(entry)
+      continue
+    }
+    const model = provider.models.find(m => m.id === (slug.providerId ? slug.modelId : entry))
+    if (!model) {
+      missingIds.push(entry)
+      continue
+    }
+    if (!models.some(m => m.id === model.id)) models.push(model)
+  }
+  return { provider, models, missingIds }
 }
 
 export function findProviderAndModel(
@@ -181,6 +241,7 @@ export function findProviderAndModel(
 
 export function hasCompleteExplicitLaunch(explicit: LaunchTarget): boolean {
   if (explicit.allModels && explicit.providerId) return true
+  if (explicit.modelIds && explicit.modelIds.length > 0 && explicit.providerId) return true
   if (explicit.providerId && explicit.modelId) return true
   if (explicit.modelId) {
     const slug = parseModelSlug(explicit.modelId)
@@ -196,6 +257,14 @@ export function planLaunchWizard(opts: {
   prefs: UserPreferences
 }): LaunchWizardPlan {
   const { explicit, childArgs, agent, prefs } = opts
+  const hasModelIds = !!explicit.modelIds && explicit.modelIds.length > 0
+  if (explicit.allModels && hasModelIds) {
+    return {
+      skip: false,
+      target: null,
+      error: 'Use either --all-models or --model id1,id2, not both.',
+    }
+  }
   const explicitComplete = hasCompleteExplicitLaunch(explicit)
   const nonInteractive =
     agent === 'claude'
@@ -218,7 +287,14 @@ export function planLaunchWizard(opts: {
     return { skip: true, target }
   }
 
-  if (explicit.providerId || explicit.modelId || explicit.allModels) {
+  if (explicit.providerId || explicit.modelId || explicit.allModels || hasModelIds) {
+    if (hasModelIds && !explicit.providerId) {
+      return {
+        skip: false,
+        target: null,
+        error: 'Custom model lists require --provider with --model id1,id2.',
+      }
+    }
     return {
       skip: false,
       target: null,

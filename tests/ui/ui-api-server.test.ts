@@ -25,6 +25,7 @@ const state = vi.hoisted(() => ({
   close: vi.fn<() => Promise<void>>(async () => undefined),
   savedPassword: null as string | null,
   exposedProviders: null as string[] | null,
+  exposedModels: null as string[] | null,
   maskGatewayIds: true,
   favoritesOnly: false,
   freeModelsOnly: false,
@@ -64,6 +65,12 @@ vi.mock('../../src/storage/config.js', async () => {
     ),
     setServerExposedProviders: vi.fn((ids: string[]) => {
       state.exposedProviders = ids
+    }),
+    getServerExposedModels: vi.fn(() =>
+      state.exposedModels && state.exposedModels.length > 0 ? state.exposedModels : null
+    ),
+    setServerExposedModels: vi.fn((keys: string[]) => {
+      state.exposedModels = keys
     }),
     getServerMaskGatewayIds: vi.fn(() => state.maskGatewayIds),
     setServerMaskGatewayIds: vi.fn((v: boolean) => {
@@ -131,6 +138,7 @@ describe('UI API Server endpoints', () => {
     state.close.mockClear()
     state.savedPassword = null
     state.exposedProviders = null
+    state.exposedModels = null
     state.maskGatewayIds = true
     state.favoritesOnly = false
     state.freeModelsOnly = false
@@ -473,6 +481,155 @@ describe('UI API Server endpoints', () => {
       })
       const status = await call('GET', '/api/server/status')
       expect(status.body.exposedProviders).toEqual(['zen'])
+    })
+  })
+
+  describe('exposedModels (serve only hand-picked models)', () => {
+    const otherModel: ServerModelInfo = {
+      id: 'other-model',
+      name: 'Other Model',
+      isFree: false,
+      brand: 'Other',
+      sourceBackend: 'zen',
+      modelFormat: 'anthropic',
+      providerId: 'other',
+      providerLabel: 'Other Provider',
+    }
+
+    it('serves only the hand-picked models', async () => {
+      state.models = [testModel, otherModel]
+      const { body } = await call('POST', '/api/server/start', {
+        favoritesOnly: false,
+        freeModelsOnly: false,
+        exposedProviders: null,
+        exposedModels: ['other:other-model'],
+        maskGatewayIds: false,
+        listenMode: 'local',
+      })
+      expect(body.ok).toBe(true)
+
+      const status = await call('GET', '/api/server/status')
+      expect(status.body.models.map((m: { openaiId: string }) => m.openaiId)).toEqual([
+        'other-model',
+      ])
+    })
+
+    it('serves every model when the selection is null', async () => {
+      state.models = [testModel, otherModel]
+      await call('POST', '/api/server/start', {
+        favoritesOnly: false,
+        freeModelsOnly: false,
+        exposedProviders: null,
+        exposedModels: null,
+        maskGatewayIds: false,
+        listenMode: 'local',
+      })
+      const status = await call('GET', '/api/server/status')
+      expect(status.body.models).toHaveLength(2)
+    })
+
+    it('rejects a selection that matches no model', async () => {
+      state.models = [testModel, otherModel]
+      const { body } = await call('POST', '/api/server/start', {
+        favoritesOnly: false,
+        freeModelsOnly: false,
+        exposedProviders: null,
+        exposedModels: ['zen:gone'],
+        maskGatewayIds: false,
+        listenMode: 'local',
+      })
+      expect(body.ok).toBe(false)
+      expect(body.error).toMatch(/No models matched the current selection/)
+    })
+
+    it('serves only the favorites in favorites-only mode', async () => {
+      state.models = [testModel, otherModel]
+      state.favorites = [{ providerId: 'zen', modelId: 'test-model' }]
+      const { body } = await call('POST', '/api/server/start', {
+        favoritesOnly: true,
+        freeModelsOnly: false,
+        exposedProviders: null,
+        exposedModels: null,
+        maskGatewayIds: false,
+        listenMode: 'local',
+      })
+      expect(body.ok).toBe(true)
+      const status = await call('GET', '/api/server/status')
+      expect(status.body.models.map((m: { openaiId: string }) => m.openaiId)).toEqual([
+        'test-model',
+      ])
+    })
+
+    it('blames the favorites filter when the ticked models are not favorites', async () => {
+      // The selection itself matches — it is the intersection with the
+      // favorites that empties the catalog, and the error must say so.
+      state.models = [testModel, otherModel]
+      state.favorites = [{ providerId: 'zen', modelId: 'test-model' }]
+      const { body } = await call('POST', '/api/server/start', {
+        favoritesOnly: true,
+        freeModelsOnly: false,
+        exposedProviders: null,
+        exposedModels: ['other:other-model'],
+        maskGatewayIds: false,
+        listenMode: 'local',
+      })
+      expect(body.ok).toBe(false)
+      expect(body.error).toMatch(/None of the selected models are favorites/)
+    })
+
+    it('persists the selection so it can be restored by the UI', async () => {
+      state.models = [testModel, otherModel]
+      await call('POST', '/api/server/start', {
+        favoritesOnly: false,
+        freeModelsOnly: false,
+        exposedProviders: null,
+        exposedModels: ['other:other-model'],
+        maskGatewayIds: false,
+        listenMode: 'local',
+      })
+      await call('POST', '/api/server/stop')
+
+      const status = await call('GET', '/api/server/status')
+      expect(status.body.saved.exposedModels).toEqual(['other:other-model'])
+    })
+
+    it('clears a saved selection when the models are exposed in full', async () => {
+      state.models = [testModel, otherModel]
+      await call('POST', '/api/server/start', {
+        favoritesOnly: false,
+        freeModelsOnly: false,
+        exposedProviders: null,
+        exposedModels: ['other:other-model'],
+        maskGatewayIds: false,
+        listenMode: 'local',
+      })
+      await call('POST', '/api/server/stop')
+      await call('POST', '/api/server/start', {
+        favoritesOnly: false,
+        freeModelsOnly: false,
+        exposedProviders: null,
+        exposedModels: null,
+        maskGatewayIds: false,
+        listenMode: 'local',
+      })
+      await call('POST', '/api/server/stop')
+
+      const status = await call('GET', '/api/server/status')
+      expect(status.body.saved.exposedModels).toBeNull()
+    })
+
+    it('reports the selection back on the running status', async () => {
+      state.models = [testModel, otherModel]
+      await call('POST', '/api/server/start', {
+        favoritesOnly: false,
+        freeModelsOnly: false,
+        exposedProviders: null,
+        exposedModels: ['other:other-model'],
+        maskGatewayIds: false,
+        listenMode: 'local',
+      })
+      const status = await call('GET', '/api/server/status')
+      expect(status.body.exposedModels).toEqual(['other:other-model'])
     })
   })
 }, 20000)

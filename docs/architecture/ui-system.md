@@ -91,9 +91,22 @@ Favorites are read and written through `/api/config`, not a `/api/favorites` rou
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | GET | `/api/server/status` | Gateway server status |
-| GET | `/api/server/providers` | Providers exposed by the gateway |
+| GET | `/api/server/providers` | Providers exposed by the gateway, each with its routable models |
 | POST | `/api/server/start` | Start in-process gateway server |
 | POST | `/api/server/stop` | Stop in-process gateway server |
+
+`GET /api/server/providers` returns one entry per provider the `server` target
+can route (`providerDetailsFromCatalog` in `src/gateway/server/server.ts`), each
+carrying its de-duplicated model list (`id`, `name`, `isFree`, `freeStatus`).
+The Server panel renders that list under the provider so the user can pick the
+models the gateway exposes.
+
+`POST /api/server/start` takes the same provider filter as before plus
+`exposedModels`: a list of `providerId:modelId` keys — the same shape favorites
+use. An empty list means "every model of the exposed providers"; a non-empty
+list narrows the catalog to exactly those models, and the gateway refuses to
+start when the selection matches nothing. The selection is persisted in
+`config.json` under `server.exposedModels` and restored by the panel on load.
 
 ### OAuth
 
@@ -197,6 +210,68 @@ src/ui/app/ ──vite build──→ src/ui/app/dist/
 ```
 
 The built SPA is served as static files by the `anygate ui` HTTP server.
+
+### Modal layout
+
+`Modal` (`src/ui/app/src/lib/components/primitives/Modal.svelte`) is a
+height-capped flex column: `max-height: calc(100dvh - 48px)`, a scrolling
+`.modal-body` (`overflow-y: auto`, `min-height: 0`) and an optional **footer
+snippet** rendered outside the scroll area. Dialogs pass their action row
+(`Cancel` / `Save` / `Launch`) as `{#snippet footer()}` so primary actions stay
+pinned and reachable when the body overflows. A footer whose snippet renders
+nothing collapses (`.modal-foot:empty`).
+
+### Server panel
+
+`ServerPanel` (`src/ui/app/src/lib/components/server/ServerPanel.svelte`) owns
+the gateway's exposure settings. The **Start/Stop** button lives in the panel
+header (not in a trailing action row), so it is reachable without scrolling.
+
+The panel is laid out top to bottom:
+
+1. **Providers to serve** — the original provider chip grid (`.prov-grid`),
+   unchanged. Each chip shows the provider name and its model count; ticking a
+   chip exposes that provider and opens its model block, unticking closes it.
+2. **View filter** — a segment bar (**All / Free / Paid / Favorites**, live
+   counts) plus a search box. These are a *view* filter: they only narrow what
+   the lists show, never what the server serves. Picking a filter opens every
+   provider that still holds a match, so the matches are not buried in a
+   collapsed block, and a collapsed header shows how many models it matches
+   (`· 7 shown`).
+3. **Model blocks** — one collapsible block per selected provider, *in provider
+   order*, directly below the grid. Each block lists that provider's models
+   with a checkbox, a **Select visible** / **None** pair, a `★` badge on the
+   favorites and a **Free** badge on the free ones. The ticked models are the
+   selection sent on start.
+
+The **Favorites** view filter and the ***Favorites only* serve filter** are
+different things and the panel keeps them apart:
+
+- The view filter shows the favorites; it changes nothing about the exposure.
+- The *Favorites only* serve filter **intersects** the ticked models with the
+  favorites — the gateway serves a model only when it is both ticked and a
+  favorite. A favorite that is not ticked is therefore dropped, which reads as
+  "favorites don't work" unless the panel says so. It does: a note reports how
+  many favorites will be served and how many the model selection excludes, a
+  **Tick the favorites** action puts them back into the selection, and the rows
+  the serve filters exclude are dimmed (`.mrow.muted`) so the picker never
+  disagrees with the "N models exposed" count. The gateway's own error
+  messages name the filter stage that dropped the last model, for the same
+  reason (`src/ui/server-control.ts`).
+
+The selection rules live in `src/ui/app/src/lib/server/selection.ts` (pure
+functions, unit tested from `tests/ui/server-model-selection.test.ts`):
+
+- `pickedModelIds` — a provider with no entry means "all of its models"; an
+  empty entry means "none of them".
+- `buildExposedModelKeys` — returns the `providerId:modelId` keys, or `null`
+  when every exposed provider is fully ticked (`null` = serve everything, so
+  the saved config stays small).
+- `countServedModels` — the exact number of models the gateway will serve
+  after the free/favorites filters, shown next to the provider list.
+- `isFreeServerModel` / `isFavoriteModel` — the free and favorite predicates.
+  A favorite is keyed by `providerId` + `modelId`, the same pair the selection
+  uses, so a favorite can be ticked in the picker directly.
 
 ---
 

@@ -1,191 +1,262 @@
-import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
 import {
   fallbackPathsForApp,
   getGatewayLaunchCommand,
   getTerminalLaunchCommand,
   getSupportedApps,
-} from '../../src/apps/shared/native-launcher.js';
+} from '../../src/apps/shared/native-launcher.js'
 
 function macCommandScriptPath(cmd: string): string | null {
-  const match = cmd.match(/open -a Terminal (.+)$/);
-  return match?.[1] ?? null;
+  const match = cmd.match(/open -a Terminal (.+)$/)
+  return match?.[1] ?? null
 }
 
 // On Linux, getTerminalLaunchCommand probes terminal emulators and writes the
 // actual invocation to a generated launch.sh rather than embedding it inline —
 // read that script to assert on the real command, mirroring the mac helper above.
 function linuxLaunchScriptContents(cmd: string): string | null {
-  const match = cmd.match(/x-terminal-emulator -e sh (\S+)/);
-  const scriptPath = match?.[1];
-  if (!scriptPath) return null;
-  return readFileSync(scriptPath, 'utf8');
+  const match = cmd.match(/x-terminal-emulator -e sh (\S+)/)
+  const scriptPath = match?.[1]
+  if (!scriptPath) return null
+  return readFileSync(scriptPath, 'utf8')
 }
 
 function assertLaunchCommandContains(cmd: string, ...substrings: string[]): void {
   if (process.platform === 'linux') {
-    const script = linuxLaunchScriptContents(cmd);
-    expect(script).toBeTruthy();
-    for (const s of substrings) expect(script).toContain(s);
-    return;
+    const script = linuxLaunchScriptContents(cmd)
+    expect(script).toBeTruthy()
+    for (const s of substrings) expect(script).toContain(s)
+    return
   }
-  for (const s of substrings) expect(cmd).toContain(s);
+  for (const s of substrings) expect(cmd).toContain(s)
 }
 
 describe('native-launcher', () => {
   it('exposes Antigravity fallback install paths', () => {
-    expect(fallbackPathsForApp('antigravity-ide', 'win32')).toEqual(expect.arrayContaining([
-      expect.stringContaining('Antigravity IDE.exe'),
-    ]));
-    expect(fallbackPathsForApp('antigravity-ide', 'linux')).toEqual(expect.arrayContaining([
-      '/opt/antigravity-ide/Antigravity-IDE',
-    ]));
-    expect(fallbackPathsForApp('antigravity', 'win32')).toEqual(expect.arrayContaining([
-      expect.stringContaining('Antigravity.exe'),
-    ]));
-    expect(fallbackPathsForApp('antigravity', 'linux')).toEqual(expect.arrayContaining([
-      '/opt/antigravity/antigravity',
-      '/usr/local/bin/antigravity',
-      '/usr/bin/antigravity',
-    ]));
-    expect(fallbackPathsForApp('agy', 'win32')).toEqual(expect.arrayContaining([
-      expect.stringContaining('Antigravity'),
-    ]));
-  });
+    expect(fallbackPathsForApp('antigravity-ide', 'win32')).toEqual(
+      expect.arrayContaining([expect.stringContaining('Antigravity IDE.exe')])
+    )
+    expect(fallbackPathsForApp('antigravity-ide', 'linux')).toEqual(
+      expect.arrayContaining(['/opt/antigravity-ide/Antigravity-IDE'])
+    )
+    expect(fallbackPathsForApp('antigravity', 'win32')).toEqual(
+      expect.arrayContaining([expect.stringContaining('Antigravity.exe')])
+    )
+    expect(fallbackPathsForApp('antigravity', 'linux')).toEqual(
+      expect.arrayContaining([
+        '/opt/antigravity/antigravity',
+        '/usr/local/bin/antigravity',
+        '/usr/bin/antigravity',
+      ])
+    )
+    expect(fallbackPathsForApp('agy', 'win32')).toEqual(
+      expect.arrayContaining([expect.stringContaining('Antigravity')])
+    )
+  })
 
   it('finds the Codex desktop app under its new ChatGPT.app name on macOS', () => {
-    expect(fallbackPathsForApp('codex-app', 'darwin')).toEqual(expect.arrayContaining([
-      '/Applications/ChatGPT.app',
-      '/Applications/Codex.app',
-    ]));
-  });
+    expect(fallbackPathsForApp('codex-app', 'darwin')).toEqual(
+      expect.arrayContaining(['/Applications/ChatGPT.app', '/Applications/Codex.app'])
+    )
+  })
 
   it('detects system application list structure', () => {
-    const apps = getSupportedApps();
-    expect(apps.length).toBeGreaterThanOrEqual(4);
+    const apps = getSupportedApps()
+    expect(apps.length).toBeGreaterThanOrEqual(4)
     for (const app of apps) {
-      expect(app).toHaveProperty('id');
-      expect(app).toHaveProperty('name');
-      expect(app).toHaveProperty('installed');
-      expect(app).toHaveProperty('type');
-      expect(app).toHaveProperty('gatewayCommand');
+      expect(app).toHaveProperty('id')
+      expect(app).toHaveProperty('name')
+      expect(app).toHaveProperty('installed')
+      expect(app).toHaveProperty('type')
+      expect(app).toHaveProperty('gatewayCommand')
     }
-  });
+  })
 
   it('constructs Gateway launch commands with provider-qualified models', () => {
     const cmd = getGatewayLaunchCommand('codex', {
       providerId: 'deepseek',
       modelId: 'deepseek-v4-flash',
-    });
+    })
 
     if (process.platform === 'darwin') {
-      const scriptPath = macCommandScriptPath(cmd);
-      expect(scriptPath).toBeTruthy();
-      const script = readFileSync(scriptPath!, 'utf8');
-      expect(script).toContain('$ anygate codex');
-      expect(script).toContain('codex');
-      expect(script).toContain('--provider');
-      expect(script).toContain('deepseek');
-      expect(script).toContain('--model');
-      expect(script).toContain('deepseek-v4-flash');
-      expect(cmd).not.toContain('osascript');
+      const scriptPath = macCommandScriptPath(cmd)
+      expect(scriptPath).toBeTruthy()
+      const script = readFileSync(scriptPath!, 'utf8')
+      expect(script).toContain('$ anygate codex')
+      expect(script).toContain('codex')
+      expect(script).toContain('--provider')
+      expect(script).toContain('deepseek')
+      expect(script).toContain('--model')
+      expect(script).toContain('deepseek-v4-flash')
+      expect(cmd).not.toContain('osascript')
     } else {
-      assertLaunchCommandContains(cmd, 'codex', '--provider', 'deepseek', '--model', 'deepseek-v4-flash');
+      assertLaunchCommandContains(
+        cmd,
+        'codex',
+        '--provider',
+        'deepseek',
+        '--model',
+        'deepseek-v4-flash'
+      )
     }
-  });
+  })
 
   it('adds gateway trace flag to UI-launched tools when requested', () => {
     const cmd = getGatewayLaunchCommand('codex', {
       providerId: 'deepseek',
       modelId: 'deepseek-v4-flash',
       trace: true,
-    });
+    })
 
     if (process.platform === 'darwin') {
-      const scriptPath = macCommandScriptPath(cmd);
-      expect(scriptPath).toBeTruthy();
-      const script = readFileSync(scriptPath!, 'utf8');
-      expect(script).toContain('anygate codex --trace --provider deepseek --model deepseek-v4-flash');
+      const scriptPath = macCommandScriptPath(cmd)
+      expect(scriptPath).toBeTruthy()
+      const script = readFileSync(scriptPath!, 'utf8')
+      expect(script).toContain(
+        'anygate codex --trace --provider deepseek --model deepseek-v4-flash'
+      )
     } else {
-      assertLaunchCommandContains(cmd, 'codex', '--trace');
+      assertLaunchCommandContains(cmd, 'codex', '--trace')
     }
-  });
+  })
 
   it('rejects ambiguous Gateway model launches', () => {
-    expect(() => getGatewayLaunchCommand('codex', { modelId: 'deepseek-v4-flash' }))
-      .toThrow('Both providerId and modelId are required');
-  });
+    expect(() => getGatewayLaunchCommand('codex', { modelId: 'deepseek-v4-flash' })).toThrow(
+      'Both providerId and modelId are required'
+    )
+  })
 
   it('rejects unsafe launch arguments instead of attempting to escape them', () => {
-    const bin = 'agy';
-    const args = ['--model', 'some-model;rm -rf /'];
-    expect(() => getTerminalLaunchCommand(bin, args)).toThrow('Unsafe launch argument');
-  });
+    const bin = 'agy'
+    const args = ['--model', 'some-model;rm -rf /']
+    expect(() => getTerminalLaunchCommand(bin, args)).toThrow('Unsafe launch argument')
+  })
 
   it('allows colons in launch arguments for namespaced model IDs', () => {
-    const bin = 'agy';
-    const args = ['--model', 'tencent/hy3:free'];
-    expect(() => getTerminalLaunchCommand(bin, args)).not.toThrow();
-  });
-
+    const bin = 'agy'
+    const args = ['--model', 'tencent/hy3:free']
+    expect(() => getTerminalLaunchCommand(bin, args)).not.toThrow()
+  })
 
   it('constructs OS-specific launch commands correctly', () => {
-    const bin = '/usr/local/bin/claude';
-    const args = ['--model', 'gemini-2.5-pro', '--trace'];
-    const cmd = getTerminalLaunchCommand(bin, args);
+    const bin = '/usr/local/bin/claude'
+    const args = ['--model', 'gemini-2.5-pro', '--trace']
+    const cmd = getTerminalLaunchCommand(bin, args)
 
     if (process.platform === 'darwin') {
-      expect(cmd).toContain('open -a Terminal');
-      expect(cmd).toContain('Terminal');
-      expect(cmd).not.toContain('osascript');
-      const scriptPath = macCommandScriptPath(cmd);
-      expect(scriptPath).toBeTruthy();
-      expect(readFileSync(scriptPath!, 'utf8')).toContain('--model');
+      expect(cmd).toContain('open -a Terminal')
+      expect(cmd).toContain('Terminal')
+      expect(cmd).not.toContain('osascript')
+      const scriptPath = macCommandScriptPath(cmd)
+      expect(scriptPath).toBeTruthy()
+      expect(readFileSync(scriptPath!, 'utf8')).toContain('--model')
     } else if (process.platform === 'win32') {
-      expect(cmd).toContain('start');
-      expect(cmd).toContain('cmd.exe');
+      expect(cmd).toContain('start')
+      expect(cmd).toContain('cmd.exe')
     } else {
-      expect(cmd).toContain('x-terminal-emulator');
+      expect(cmd).toContain('x-terminal-emulator')
     }
-  });
+  })
 
   it('runs launches from the requested working directory', () => {
     const cmd = getGatewayLaunchCommand('claude', {
       providerId: 'google',
       modelId: 'gemini-3.1-pro-low',
       cwd: '/Users/jbendavi/dev_projects/example',
-    });
+    })
 
     if (process.platform === 'darwin') {
-      const scriptPath = macCommandScriptPath(cmd);
-      expect(scriptPath).toBeTruthy();
-      const script = readFileSync(scriptPath!, 'utf8');
-      expect(script).toContain("cd /Users/jbendavi/dev_projects/example");
-      expect(script).toContain('$ anygate claude --provider google --model gemini-3.1-pro-low');
+      const scriptPath = macCommandScriptPath(cmd)
+      expect(scriptPath).toBeTruthy()
+      const script = readFileSync(scriptPath!, 'utf8')
+      expect(script).toContain('cd /Users/jbendavi/dev_projects/example')
+      expect(script).toContain('$ anygate claude --provider google --model gemini-3.1-pro-low')
     } else {
-      assertLaunchCommandContains(cmd, '/Users/jbendavi/dev_projects/example');
+      assertLaunchCommandContains(cmd, '/Users/jbendavi/dev_projects/example')
     }
-  });
+  })
 
   it('rejects launch arguments containing spaces', () => {
-    const bin = 'agy';
-    const args = ['--model', 'some model with spaces'];
-    expect(() => getTerminalLaunchCommand(bin, args)).toThrow('Unsafe launch argument');
-  });
+    const bin = 'agy'
+    const args = ['--model', 'some model with spaces']
+    expect(() => getTerminalLaunchCommand(bin, args)).toThrow('Unsafe launch argument')
+  })
 
   it('emits bare --favorites for the full catalog and no --provider/--model', () => {
-    const cmd = getGatewayLaunchCommand('claude', { favoritesCatalog: true });
+    const cmd = getGatewayLaunchCommand('claude', { favoritesCatalog: true })
     if (process.platform === 'darwin') {
-      const scriptPath = macCommandScriptPath(cmd);
-      expect(scriptPath).toBeTruthy();
-      const script = readFileSync(scriptPath!, 'utf8');
-      expect(script).toContain('anygate claude --favorites');
-      expect(script).not.toContain('--provider');
-      expect(script).not.toContain('--model');
+      const scriptPath = macCommandScriptPath(cmd)
+      expect(scriptPath).toBeTruthy()
+      const script = readFileSync(scriptPath!, 'utf8')
+      expect(script).toContain('anygate claude --favorites')
+      expect(script).not.toContain('--provider')
+      expect(script).not.toContain('--model')
     } else {
-      assertLaunchCommandContains(cmd, 'claude', '--favorites');
-      expect(cmd).not.toContain('--provider');
-      expect(cmd).not.toContain('--model');
+      assertLaunchCommandContains(cmd, 'claude', '--favorites')
+      expect(cmd).not.toContain('--provider')
+      expect(cmd).not.toContain('--model')
     }
-  });
-});
+  })
+
+  it('emits a comma-joined --model for custom model catalogs', () => {
+    const cmd = getGatewayLaunchCommand('claude', {
+      providerId: 'groq',
+      modelIds: ['llama-3.3-70b', 'mixtral-8x7b'],
+    })
+    if (process.platform === 'darwin') {
+      const scriptPath = macCommandScriptPath(cmd)
+      expect(scriptPath).toBeTruthy()
+      const script = readFileSync(scriptPath!, 'utf8')
+      expect(script).toContain('anygate claude --provider groq --model llama-3.3-70b,mixtral-8x7b')
+    } else {
+      assertLaunchCommandContains(
+        cmd,
+        'claude',
+        '--provider',
+        'groq',
+        '--model',
+        'llama-3.3-70b,mixtral-8x7b'
+      )
+    }
+  })
+
+  it('trims, dedupes, and caps custom modelIds', () => {
+    const ids = [' b ', 'a', 'b', '', ...Array.from({ length: 30 }, (_, i) => `m${i}`)]
+    const cmd = getGatewayLaunchCommand('codex', { providerId: 'groq', modelIds: ids })
+    const joined = 'b,a,' + Array.from({ length: 18 }, (_, i) => `m${i}`).join(',')
+    if (process.platform === 'darwin') {
+      const scriptPath = macCommandScriptPath(cmd)
+      expect(scriptPath).toBeTruthy()
+      expect(readFileSync(scriptPath!, 'utf8')).toContain(`--model ${joined}`)
+    } else {
+      assertLaunchCommandContains(cmd, '--model', joined)
+    }
+  })
+
+  it('rejects mixed launch modes for custom catalogs', () => {
+    expect(() =>
+      getGatewayLaunchCommand('codex', { providerId: 'groq', modelIds: ['a'] })
+    ).not.toThrow()
+    expect(() => getGatewayLaunchCommand('codex', { modelIds: ['a'] })).toThrow(
+      'providerId is required'
+    )
+    expect(() =>
+      getGatewayLaunchCommand('codex', { providerId: 'groq', modelIds: ['a'], modelId: 'b' })
+    ).toThrow('only one of modelId, modelIds, allModels')
+    expect(() =>
+      getGatewayLaunchCommand('codex', {
+        providerId: 'groq',
+        modelIds: ['a'],
+        allModels: true,
+      })
+    ).toThrow('only one of modelId, modelIds, allModels')
+    expect(() => getGatewayLaunchCommand('codex', { providerId: 'groq', modelIds: [' '] })).toThrow(
+      'at least one model id'
+    )
+  })
+
+  it('allows commas in launch arguments for custom model lists', () => {
+    expect(() => getTerminalLaunchCommand('anygate', ['--model', 'a,b,c'])).not.toThrow()
+  })
+})

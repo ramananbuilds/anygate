@@ -19,6 +19,8 @@ import {
   formatModelLabel,
 } from './ui.js'
 import { scoreModelSearch } from './model-search.js'
+import { classifyFreeStatus, isFreeStatus } from './free-models.js'
+import { MAX_MODEL_CATALOG } from '../../../src/config/constants.js'
 
 const BROWSE_ALL = '__browse_all__'
 const MAX_RECENT = 3
@@ -376,4 +378,254 @@ export async function pickLocalModel(
 
   gateOutro('Launching', fmtModel(modelLabel, selectedModel.id))
   return selectedModel
+}
+
+// ── Custom multi-model picker ─────────────────────────────────────
+// Lets the user hand-pick which of a provider's models land in the app's
+// /model switcher, with a Free / Paid / All price filter plus text search.
+
+export type PriceFilter = 'all' | 'free' | 'paid'
+
+export interface CustomPickerFilter {
+  priceFilter: PriceFilter
+  query: string
+}
+
+type PriceBucket = 'free' | 'paid' | 'unknown'
+
+const FILTER_ALL = '__filter_all__'
+const FILTER_FREE = '__filter_free__'
+const FILTER_PAID = '__filter_paid__'
+const PICKER_SEARCH = '__picker_search__'
+const PICKER_SELECT = '__picker_select__'
+const PICKER_BACK = '__back__'
+const PICKER_NEXT = '__picker_next__'
+const PICKER_PREV = '__picker_prev__'
+const PICKER_DONE = '__picker_done__'
+const PICKER_CHANGE_FILTER = '__picker_change_filter__'
+
+function priceBucketForPicker(model: LocalProviderModel, providerId: string): PriceBucket {
+  if (model.isFree || isFreeStatus(model.freeStatus)) return 'free'
+  const status = classifyFreeStatus({
+    model: { cost: model.cost, isFree: model.isFree, freeStatus: model.freeStatus },
+    providerId,
+  })
+  if (isFreeStatus(status)) return 'free'
+  if (status === 'paid') return 'paid'
+  return 'unknown'
+}
+
+/** Price + text filter for the custom model picker — pure, unit-testable. */
+export function filterProviderModelsForPicker(
+  models: LocalProviderModel[],
+  providerId: string,
+  filter: CustomPickerFilter
+): LocalProviderModel[] {
+  const byPrice =
+    filter.priceFilter === 'all'
+      ? models
+      : models.filter(m => priceBucketForPicker(m, providerId) === filter.priceFilter)
+  if (!filter.query.trim()) return byPrice
+  return filterModelsBySearch(byPrice, filter.query)
+}
+
+function countPickerBuckets(
+  models: LocalProviderModel[],
+  providerId: string
+): Record<PriceBucket | 'all', number> {
+  const counts: Record<PriceBucket | 'all', number> = {
+    all: models.length,
+    free: 0,
+    paid: 0,
+    unknown: 0,
+  }
+  for (const m of models) counts[priceBucketForPicker(m, providerId)] += 1
+  return counts
+}
+
+/** Paged multiselect accumulator — picks persist across pages. Mutates `selected`. */
+async function runCustomMultiselect(
+  visible: LocalProviderModel[],
+  selected: Set<string>
+): Promise<'accept' | 'filter' | 'back' | 'cancel'> {
+  let page = 0
+  while (true) {
+    const { items, page: currentPage, totalPages } = sliceModelPage(visible, page)
+    const picked = await p.multiselect<string>({
+      message: `Select models (page ${currentPage + 1} of ${totalPages} · ${selected.size} chosen — Space to toggle, Enter to continue)`,
+      options: items.map(m => modelToOption(m)),
+      initialValues: items.filter(m => selected.has(m.id)).map(m => m.id),
+      required: false,
+    })
+    // Esc returns to the filter menu, keeping any picks so far.
+    if (p.isCancel(picked)) return 'filter'
+
+    for (const m of items) selected.delete(m.id)
+    for (const id of picked) selected.add(id)
+    if (selected.size > MAX_MODEL_CATALOG) {
+      const trimmed = [...selected].slice(0, MAX_MODEL_CATALOG)
+      selected.clear()
+      for (const id of trimmed) selected.add(id)
+      p.log.warn(
+        `The /model switcher holds ${MAX_MODEL_CATALOG} models max — keeping the first ${MAX_MODEL_CATALOG}.`
+      )
+    }
+
+    const nextOptions: Array<{ value: string; label: string; hint?: string }> = []
+    if (currentPage < totalPages - 1) {
+      nextOptions.push({
+        value: PICKER_NEXT,
+        label: pc.cyan('Next page →'),
+        hint: `Page ${currentPage + 2} of ${totalPages}`,
+      })
+    }
+    if (currentPage > 0) {
+      nextOptions.push({
+        value: PICKER_PREV,
+        label: pc.cyan('← Previous page'),
+        hint: `Page ${currentPage} of ${totalPages}`,
+      })
+    }
+    nextOptions.push({
+      value: PICKER_DONE,
+      label: pc.green(`Done — continue with ${selected.size} selected`),
+      hint: selected.size === 0 ? 'Pick at least one model first' : '',
+    })
+    nextOptions.push({
+      value: PICKER_CHANGE_FILTER,
+      label: pc.cyan('Change filter / search'),
+      hint: '',
+    })
+    nextOptions.push(navOption(PICKER_BACK, '← Go back', 'Select a different provider'))
+
+    const next: string | symbol = await p.select<string>({
+      message: `${selected.size} model${selected.size === 1 ? '' : 's'} selected`,
+      options: nextOptions,
+    })
+    if (p.isCancel(next)) return 'filter'
+    if (next === PICKER_NEXT) {
+      page = currentPage + 1
+      continue
+    }
+    if (next === PICKER_PREV) {
+      page = currentPage - 1
+      continue
+    }
+    if (next === PICKER_CHANGE_FILTER) return 'filter'
+    if (next === PICKER_BACK) return 'back'
+    if (selected.size === 0) {
+      p.log.warn('Select at least one model.')
+      continue
+    }
+    return 'accept'
+  }
+}
+
+/**
+ * Multi-model picker for a single provider. Returns the chosen model ids in
+ * pick order (`selectedIds[0]` boots), 'back' to reselect the provider, or
+ * null on cancel.
+ */
+export async function pickCustomProviderModels(
+  provider: LocalProvider,
+  prefs: UserPreferences,
+  opts?: { preselectedIds?: string[] }
+): Promise<{ selectedIds: string[] } | 'back' | null> {
+  if (provider.models.length === 0) return null
+
+  const validIds = new Set(provider.models.map(m => m.id))
+  const selected = new Set<string>()
+  const seed =
+    opts?.preselectedIds ??
+    (prefs.lastModel && validIds.has(prefs.lastModel) ? [prefs.lastModel] : [])
+  for (const id of seed) {
+    if (validIds.has(id)) selected.add(id)
+  }
+
+  let priceFilter: PriceFilter = 'all'
+  let query = ''
+
+  while (true) {
+    const buckets = countPickerBuckets(provider.models, provider.id)
+    const visible = filterProviderModelsForPicker(provider.models, provider.id, {
+      priceFilter,
+      query,
+    })
+    const marker = (active: boolean): string => (active ? '● ' : '○ ')
+    const isActive = (f: PriceFilter): boolean => priceFilter === f
+
+    const action: string | symbol = await p.select<string>({
+      message: `Filter ${provider.name} models (${selected.size} chosen)`,
+      options: [
+        {
+          value: FILTER_ALL,
+          label: `${marker(isActive('all'))}All models`,
+          hint: `${buckets.all} available`,
+        },
+        {
+          value: FILTER_FREE,
+          label: `${marker(isActive('free'))}Free models`,
+          hint: `${buckets.free} available`,
+        },
+        {
+          value: FILTER_PAID,
+          label: `${marker(isActive('paid'))}Paid models`,
+          hint: `${buckets.paid} available`,
+        },
+        {
+          value: PICKER_SEARCH,
+          label: query ? `Search: "${query}"` : 'Search…',
+          hint: query ? 'Edit or clear the search' : 'Filter by name, id, or brand',
+        },
+        {
+          value: PICKER_SELECT,
+          label: pc.cyan('Select models…'),
+          hint: `${visible.length} shown · ${selected.size} chosen`,
+        },
+        navOption(PICKER_BACK, '← Go back', 'Select a different provider'),
+      ],
+      initialValue: PICKER_SELECT,
+    })
+
+    if (p.isCancel(action)) return null
+    if (action === PICKER_BACK) return 'back'
+
+    if (action === FILTER_ALL || action === FILTER_FREE || action === FILTER_PAID) {
+      priceFilter = action === FILTER_FREE ? 'free' : action === FILTER_PAID ? 'paid' : 'all'
+      continue
+    }
+
+    if (action === PICKER_SEARCH) {
+      const input = await p.text({
+        message: 'Search models:',
+        placeholder: 'e.g. claude, sonnet, llama (empty clears)',
+        initialValue: query,
+      })
+      if (p.isCancel(input)) continue
+      query = String(input).trim()
+      continue
+    }
+
+    if (visible.length === 0) {
+      p.log.warn('No models match — adjust the filter or search')
+      continue
+    }
+
+    const outcome = await runCustomMultiselect(visible, selected)
+    if (outcome === 'filter') continue
+    if (outcome === 'back') return 'back'
+    if (outcome === 'cancel') return null
+
+    const selectedIds = [...selected].slice(0, MAX_MODEL_CATALOG)
+    if (selectedIds.length === 0) continue
+    const boot = provider.models.find(m => m.id === selectedIds[0])!
+
+    const confirmed = await p.confirm({
+      message: `Launch with ${selectedIds.length} model${selectedIds.length === 1 ? '' : 's'} from ${provider.name}, starting with ${formatModelLabel(boot)} (${boot.id})?`,
+      initialValue: true,
+    })
+    if (p.isCancel(confirmed)) return null
+    if (!confirmed) continue
+    return { selectedIds }
+  }
 }

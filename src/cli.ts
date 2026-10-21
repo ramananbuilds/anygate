@@ -18,6 +18,7 @@ import { refreshModelsDevCacheAsync } from './registry/models-dev.js'
 import { generateAiDoc, installAiDoc, printAiInstallResult } from './apps/shared/ai-doc.js'
 import { dispatchCommand } from './cli/index.js'
 import { VERSION, MAX_MODEL_CATALOG } from './config/constants.js'
+import { parseModelListValue } from './apps/shared/launch-target.js'
 import { codexHelpText } from './apps/codex/cli.js'
 import { geminiHelpText } from './apps/gemini/cli.js'
 import { codexAppHelpText } from './apps/codex/app.js'
@@ -33,6 +34,13 @@ const STARTER_CLAUDE_FLAGS = new Set([
   '-v',
 ])
 const GATEWAY_LAUNCH_FLAGS = new Set(['--provider', '--model', '--all-models', '--with-claude'])
+
+/** Store a raw --model value, splitting comma-separated multi-model lists. */
+function setLaunchModel(parsed: ParsedArgs, value: string): void {
+  parsed.launchModel = value
+  const ids = parseModelListValue(value)
+  parsed.launchModelIds = ids.length > 1 ? ids : undefined
+}
 
 function parseGatewayLaunchFlag(
   arg: string,
@@ -55,7 +63,7 @@ function parseGatewayLaunchFlag(
       return 'error'
     }
     if (arg === '--provider') parsed.launchProvider = value
-    else parsed.launchModel = value
+    else setLaunchModel(parsed, value)
     return index + 1
   }
   if (arg.startsWith('--provider=')) {
@@ -63,7 +71,7 @@ function parseGatewayLaunchFlag(
     return index
   }
   if (arg.startsWith('--model=')) {
-    parsed.launchModel = arg.slice('--model='.length)
+    setLaunchModel(parsed, arg.slice('--model='.length))
     return index
   }
   return index
@@ -607,7 +615,7 @@ ${pc.bold('Options:')}
   --setup      Hint: use anygate providers to add or manage providers
   --trace      Write debug logs to ~/.anygate/logs/ and show errors on exit
   --provider   Boot provider id (skip wizard when paired with --model or in print mode)
-  --model      Boot model id (skip wizard when paired with --provider or in print mode)
+  --model      Boot model id (comma-separated id1,id2 launches a custom catalog, first id boots)
   --all-models Launch with every model from --provider in the /model switcher
   --with-claude Keep your Anthropic-subscription models in /model alongside the anygate model
   --help       Show this command help
@@ -638,6 +646,7 @@ ${pc.bold('Examples:')}
   anygate claude --trace --resume abc-123
   anygate claude --provider groq --model llama-3.3-70b-versatile
   anygate claude --provider groq --model llama-3.3-70b-versatile -p "review this file"
+  anygate claude --provider groq --model "llama-3.3-70b-versatile,mixtral-8x7b-32768"
   anygate claude -- --print "hello"
   anygate claude -- --dangerously-skip-permissions`
 }
@@ -728,7 +737,7 @@ ${pc.bold('Usage:')}
 
 ${pc.bold('Options:')}
   --provider <id>    Use a specific provider (skip picker)
-  --model <id>       Use a specific model (skip picker)
+  --model <id>       Use a specific model, or id1,id2 for a custom catalog (skip picker)
   --trace            Write debug log to /tmp/anygate-debug.log
   -h, --help         Show this help
   -v, --version      Show version
@@ -755,7 +764,7 @@ ${pc.bold('Usage:')}
 
 ${pc.bold('Options:')}
   --provider <id>    Use a specific provider (skip picker)
-  --model <id>       Use a specific model (skip picker)
+  --model <id>       Use a specific model, or id1,id2 for a custom catalog (skip picker)
   --trace            Write debug log to /tmp/anygate-debug.log
   -h, --help         Show this help
   -v, --version      Show version
@@ -784,7 +793,7 @@ ${pc.bold('Usage:')}
 
 ${pc.bold('Options:')}
   --provider <id>    Use a specific provider (skip picker)
-  --model <id>       Use a specific model (skip picker)
+  --model <id>       Use a specific model, or id1,id2 for a custom catalog (skip picker)
   --trace            Write debug log to /tmp/anygate-debug.log
   -h, --help         Show this help
   -v, --version      Show version

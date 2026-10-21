@@ -3,6 +3,7 @@ import { homedir } from 'node:os'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getAppPathOverride } from '../../../src/storage/config.js'
+import { MAX_MODEL_CATALOG } from '../../../src/config/constants.js'
 import { findBinaryOnPath } from '../shared/binary-lookup.js'
 import { findClaudeApp } from '../claude/desktop-launch.js'
 import { findCodexApp } from '../codex/app-launch.js'
@@ -28,6 +29,12 @@ export interface AppInfo {
 export interface GatewayLaunchOptions {
   providerId?: string
   modelId?: string
+  /**
+   * Launch with a hand-picked subset of `providerId`'s models (emits
+   * `--model id1,id2`, first id boots). Mutually exclusive with `modelId`
+   * and `allModels`; capped at MAX_MODEL_CATALOG.
+   */
+  modelIds?: string[]
   /** Launch with all routable models from `providerId` (emits --all-models). */
   allModels?: boolean
   favorites?: boolean
@@ -291,12 +298,13 @@ export function getTerminalLaunchCommand(
 ): string {
   const fullCmd = [binPath, ...args]
     .map(arg => {
-      // Whitelist: alphanumeric, dash, underscore, dot, slash (for paths).
+      // Whitelist: alphanumeric, dash, underscore, dot, slash (for paths),
+      // colon, and comma (for comma-joined custom model lists).
       // Anything else is rejected outright rather than escaped — the values
       // here (anygate binary path, provider/model ids) are always simple
       // identifiers, and there is no single escaping scheme that is safe for
       // all three downstream shells (macOS sh, Linux sh, Windows cmd.exe).
-      if (!/^[a-zA-Z0-9\-_./:]+$/.test(arg)) {
+      if (!/^[a-zA-Z0-9\-_./:,]+$/.test(arg)) {
         throw new Error(`Unsafe launch argument: ${JSON.stringify(arg)}`)
       }
       return arg
@@ -376,7 +384,25 @@ export function getGatewayLaunchCommand(appId: string, options: GatewayLaunchOpt
   if (options.favoritesCatalog) {
     args.push('--favorites')
   } else if (options.allModels && options.providerId) {
+    if (options.modelIds?.length || options.modelId) {
+      throw new Error('Use only one of modelId, modelIds, allModels.')
+    }
     args.push('--provider', options.providerId, '--all-models')
+  } else if (options.modelIds && options.modelIds.length > 0) {
+    if (!options.providerId) {
+      throw new Error('providerId is required when modelIds is set.')
+    }
+    if (options.modelId) {
+      throw new Error('Use only one of modelId, modelIds, allModels.')
+    }
+    const ids = [...new Set(options.modelIds.map(id => id.trim()).filter(Boolean))].slice(
+      0,
+      MAX_MODEL_CATALOG
+    )
+    if (ids.length === 0) {
+      throw new Error('modelIds must contain at least one model id.')
+    }
+    args.push('--provider', options.providerId, '--model', ids.join(','))
   } else if (options.providerId && options.modelId) {
     args.push('--provider', options.providerId, '--model', options.modelId)
   } else if (options.providerId || options.modelId) {

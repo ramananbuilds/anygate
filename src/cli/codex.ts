@@ -15,6 +15,7 @@ export async function handleCodexCommand(parsed: ParsedArgs): Promise<number> {
   return runCodexCommand(parsed.claudeArgs ?? [], parsed.trace ?? false, {
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
+    launchModelIds: parsed.launchModelIds,
     launchAllModels: parsed.launchAllModels || parsed.launchModel === 'All',
     vertex: parsed.vertex,
   })

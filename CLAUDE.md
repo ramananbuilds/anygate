@@ -75,3 +75,5 @@ npm run build && anygate --version
 - **Vercel AI SDK Adapter**: Non-Anthropic providers route through the Vercel AI SDK (`src/gateway/adapters/sdk-adapter.ts` + `src/gateway/providers/provider-factory.ts`).
 - **Gateway resilience**: upstream calls are bounded (`REQUEST_TIMEOUT_MS`, client-disconnect aborts) and guarded by the provider breaker in `src/gateway/server/upstream-resilience.ts`; optional token budgets live in `src/gateway/server/budget.ts` (`server.budget` in config.json → `429 budget_exceeded`).
 - **Web Dashboard**: `anygate ui` serves the Svelte 5 SPA from `src/ui/app/`.
+- **Gateway exposure**: the models a server exposes are selected as `providerId:modelId` keys (`server.exposedModels` in config.json); an empty list means *every model of the exposed providers*, so the UI must never send an empty selection meaning "none".
+- **Favorites are an intersection**: with `server.favoritesOnly`, a model is served only when it is *both* ticked in the selection and a favorite (`providerId` + `modelId`); the free filter is applied after it. The UI must show how many favorites the selection excludes, not just the final count.

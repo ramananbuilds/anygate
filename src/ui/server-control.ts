@@ -6,6 +6,7 @@
 import { BACKENDS, MAX_MODEL_CATALOG } from '../config/constants.js'
 import {
   getSavedServerPassword,
+  getServerExposedModels,
   getServerExposedProviders,
   getServerFavoritesOnly,
   getServerFreeModelsOnly,
@@ -13,6 +14,7 @@ import {
   getServerMaskGatewayIds,
   loadPreferences,
   setSavedServerPassword,
+  setServerExposedModels,
   setServerExposedProviders,
   setServerFavoritesOnly,
   setServerFreeModelsOnly,
@@ -32,6 +34,7 @@ import {
   filterServerModelsByFavorites,
   filterServerModelsByFreeStatus,
   filterServerModelsByProviders,
+  filterServerModelsBySelection,
   summarizeServerProviders,
 } from '../gateway/server/catalog-filter.js'
 import {
@@ -46,6 +49,11 @@ export interface ServerStartRequest {
   favoritesOnly: boolean
   freeModelsOnly: boolean
   exposedProviders: string[] | null
+  /**
+   * Hand-picked models to expose, as `providerId:modelId` keys.
+   * `null`/empty means "every model of the exposed providers".
+   */
+  exposedModels?: string[] | null
   maskGatewayIds: boolean
   listenMode: ServerListenMode
   /** Only relevant when listenMode is 'network'. */
@@ -76,6 +84,7 @@ export interface ServerSavedConfig {
   favoritesOnly: boolean
   freeModelsOnly: boolean
   exposedProviders: string[] | null
+  exposedModels: string[] | null
   maskGatewayIds: boolean
   listenMode: ServerListenMode
   hasSavedPassword: boolean
@@ -96,6 +105,7 @@ export interface ServerStatusPayload {
   networkUrls?: ServerNetworkUrl[]
   apiKey?: string
   exposedProviders?: string[] | null
+  exposedModels?: string[] | null
   favoritesOnly?: boolean
   freeModelsOnly?: boolean
   maskGatewayIds?: boolean
@@ -150,6 +160,7 @@ async function buildSavedConfig(): Promise<ServerSavedConfig> {
     favoritesOnly: getServerFavoritesOnly(),
     freeModelsOnly: getServerFreeModelsOnly(),
     exposedProviders: getServerExposedProviders(),
+    exposedModels: getServerExposedModels(),
     maskGatewayIds: getServerMaskGatewayIds(),
     listenMode: getServerListenMode(),
     hasSavedPassword: await hasSavedPasswordCached(),
@@ -169,6 +180,7 @@ export async function getServerStatus(): Promise<ServerStatusPayload> {
     anthropicUrl: `http://127.0.0.1:${handle.port}/anthropic`,
     openaiUrl: `http://127.0.0.1:${handle.port}/openai/v1`,
     exposedProviders: config.exposedProviders,
+    exposedModels: config.exposedModels ?? null,
     favoritesOnly: config.favoritesOnly,
     freeModelsOnly: config.freeModelsOnly,
     maskGatewayIds: config.maskGatewayIds,
@@ -251,6 +263,20 @@ async function doStartGatewayServer(
 
   if (req.exposedProviders) models = filterServerModelsByProviders(models, req.exposedProviders)
 
+  // An explicit model selection narrows the catalog to exactly those models.
+  // It runs after the provider filter so a pick from a deselected provider
+  // can't sneak back in.
+  const hasSelection = Boolean(req.exposedModels && req.exposedModels.length > 0)
+  if (hasSelection) {
+    models = filterServerModelsBySelection(models, req.exposedModels ?? [])
+    if (models.length === 0) {
+      return {
+        ok: false,
+        error: 'No models matched the current selection. Pick at least one model to serve.',
+      }
+    }
+  }
+
   if (req.favoritesOnly) {
     const favorites: FavoriteModel[] = loadPreferences().favoriteModels ?? []
     if (favorites.length === 0) {
@@ -259,16 +285,30 @@ async function doStartGatewayServer(
         error: 'No favorite models configured. Add favorites in the Favorites tab first.',
       }
     }
-    models = filterServerModelsByFavorites(models, favorites).slice(0, MAX_MODEL_CATALOG)
-    if (models.length === 0) {
-      return { ok: false, error: 'No favorite models matched the current provider filter.' }
+    // Filters compose: providers -> selection -> favorites -> free. A favorite
+    // that is not in the hand-picked selection is simply not served — and the
+    // message says so, instead of blaming the selection that did match.
+    const favoriteModels = filterServerModelsByFavorites(models, favorites)
+    if (favoriteModels.length === 0) {
+      return {
+        ok: false,
+        error: hasSelection
+          ? 'None of the selected models are favorites. Add favorites in the Favorites tab, or turn off "Favorites only".'
+          : 'No favorite models matched the selected providers.',
+      }
     }
+    models = favoriteModels.slice(0, MAX_MODEL_CATALOG)
   }
 
   if (req.freeModelsOnly) {
     models = filterServerModelsByFreeStatus(models)
     if (models.length === 0) {
-      return { ok: false, error: 'No free models matched the current server filters.' }
+      return {
+        ok: false,
+        error: hasSelection
+          ? 'None of the selected models are free. Turn off "Free models only", or pick a free model.'
+          : 'No free models matched the selected providers.',
+      }
     }
   }
 
@@ -288,6 +328,9 @@ async function doStartGatewayServer(
   // selection stored and the panel restores it on next load.
   // getServerExposedProviders() reads an empty list back as null.
   setServerExposedProviders(req.exposedProviders ?? [])
+  // Same for the model selection: an empty list clears the saved picks so the
+  // next start serves every model of the exposed providers.
+  setServerExposedModels(req.exposedModels ?? [])
   setServerMaskGatewayIds(req.maskGatewayIds)
   setServerListenMode(req.listenMode)
 
@@ -321,6 +364,7 @@ async function doStartGatewayServer(
       favoritesOnly: req.favoritesOnly,
       freeModelsOnly: req.freeModelsOnly,
       exposedProviders: req.exposedProviders,
+      exposedModels: req.exposedModels ?? null,
       maskGatewayIds: req.maskGatewayIds,
       listenMode: req.listenMode,
     },

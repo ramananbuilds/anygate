@@ -258,6 +258,80 @@ describe('runCodexCommand vertex', () => {
   })
 })
 
+describe('runCodexCommand provider-custom', () => {
+  const customProvider: LocalProvider = {
+    id: 'groq',
+    name: 'Groq',
+    apiKey: 'groq-token',
+    authType: 'api',
+    models: ['llama-3.3-70b', 'mixtral-8x7b', 'qwen-3-32b'].map(id => ({
+      id,
+      name: id,
+      family: '',
+      brand: 'Other',
+      modelFormat: 'openai' as const,
+      upstreamModelId: id,
+      npm: '@ai-sdk/openai-compatible',
+      apiBaseUrl: 'https://api.groq.com/openai/v1',
+    })),
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.recoverInterruptedCodexSession.mockReturnValue({ recovered: false })
+    mocks.remainingOverlayPaths.mockReturnValue([])
+    mocks.checkSessionLock.mockReturnValue({ ok: true })
+    mocks.launchCodex.mockResolvedValue(0)
+    mocks.startCodexProxy.mockResolvedValue({ port: 61234, close: vi.fn() })
+    mocks.fetchProviderCatalog.mockResolvedValue([customProvider])
+    mocks.loadPreferences.mockReturnValue({ favoriteModels: [] })
+  })
+
+  it('proxies exactly the picked subset with the first pick booted', async () => {
+    const code = await runCodexCommand(['exec', 'hi'], false, {
+      launchProvider: 'groq',
+      launchModelIds: ['mixtral-8x7b', 'llama-3.3-70b'],
+    })
+
+    expect(code).toBe(0)
+    expect(mocks.startCodexProxy).toHaveBeenCalledTimes(1)
+    const routes = mocks.startCodexProxy.mock.calls[0]![0] as Array<{ upstreamModelId: string }>
+    expect(routes).toHaveLength(2)
+    // Picker order preserved: boot model first
+    expect(routes.map(r => r.upstreamModelId)).toEqual(['mixtral-8x7b', 'llama-3.3-70b'])
+    expect(mocks.writeOverlayFile).toHaveBeenCalled()
+    expect(mocks.launchCodex).toHaveBeenCalled()
+    expect(mocks.recordLaunchSelection).toHaveBeenCalledWith(
+      'codex',
+      'groq',
+      'mixtral-8x7b',
+      expect.anything()
+    )
+  })
+
+  it('errors on unknown model ids without starting a proxy', async () => {
+    const code = await runCodexCommand(['exec', 'hi'], false, {
+      launchProvider: 'groq',
+      launchModelIds: ['mixtral-8x7b', 'nope'],
+    })
+
+    expect(code).toBe(1)
+    expect(mocks.startCodexProxy).not.toHaveBeenCalled()
+    expect(mocks.launchCodex).not.toHaveBeenCalled()
+  })
+
+  it('rejects --all-models mixed with a model list', async () => {
+    const code = await runCodexCommand(['exec', 'hi'], false, {
+      launchProvider: 'groq',
+      launchModelIds: ['mixtral-8x7b'],
+      launchAllModels: true,
+    })
+
+    expect(code).toBe(1)
+    expect(mocks.startCodexProxy).not.toHaveBeenCalled()
+  })
+})
+
 describe('resolveCodexRoute cloud-code tier', () => {
   it('returns tier cloud-code for cloud-code modelFormat', () => {
     const route = resolveCodexRoute(antigravityProvider, cloudCodeModel, 'oauth-token')

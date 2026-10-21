@@ -22,11 +22,32 @@ src/launchers/
 
 ```text
 CLI Command → App-specific handler (src/apps/*/command.ts)
+  → provider picker → launch-mode picker (One model / Choose models… / All models)
   → buildChildEnv()          // Environment isolation
   → app-launcher.ts          // High-level launch
     → native-launcher.ts     // Binary detection
       → macos.ts / windows.ts / linux.ts  // OS-specific spawn
 ```
+
+## Launch Modes
+
+After `Which provider?`, every app launcher offers three modes:
+
+| Mode | Flag | Switcher contents |
+|------|------|-------------------|
+| One model | `--model <id>` | Single model |
+| Choose models… | `--model id1,id2` (`GatewayLaunchOptions.modelIds`) | Hand-picked subset, first id boots |
+| All models | `--all-models` / `--model All` | Every routable model from the provider |
+
+The interactive subset picker (`pickCustomProviderModels` in
+`src/apps/shared/prompts.ts`) filters by price (All / Free / Paid via
+`classifyFreeStatus`) plus text search, and caps the catalog at
+`MAX_MODEL_CATALOG` (20). The **Apps & Launch** dashboard modal
+(`src/ui/app/src/routes/Apps.svelte`) offers the same three modes: its Choose
+models… panel (provider select, All/Free/Paid segmented filter with live counts,
+search, checkbox lineup, first pick boots) POSTs an optional `modelIds` array
+through `/api/apps/launch`, which sanitizes it and emits comma-joined `--model`;
+commas are whitelisted in `getTerminalLaunchCommand` for this position.
 
 ## App Detection
 

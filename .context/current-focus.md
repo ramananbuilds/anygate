@@ -4,7 +4,74 @@
 
 ## Current Version: 0.6.5
 
-## Current Focus: OpenCode Zen gate (free tier via gateway) + routing + honest 403s
+## Current Focus: Custom multi-model launch catalogs ("Choose models…") + Zen gate work
+
+- **NEW per-provider model picker for the server gateway** — the **Server** tab
+  now picks *which models* the gateway exposes, mirroring the launcher catalog
+  picker. The original provider chip grid is unchanged; each selected provider
+  gets a collapsible model block **below the grid, in provider order**, with a
+  checkbox per model. Above the blocks: a view filter
+  (**All / Free / Paid / Favorites**, live counts) + search, which open the
+  providers that hold matches and show `· N shown` in the headers. The
+  **Start/Stop** button moved into the panel header (it used to sit in a
+  trailing action row below the fold).
+  **Favorites**: the *Favorites* view filter only changes what the lists show;
+  the *Favorites only* serve filter **intersects** the ticked models with the
+  favorites (served = ticked ∧ favorite). A favorite that is not ticked is
+  dropped — the panel says so (note with the served/excluded counts + a
+  **Tick the favorites** action) and dims the rows the serve filters exclude,
+  and the gateway's errors name the filter stage that emptied the catalog.
+  The selection reaches the gateway: `GET /api/server/providers` returns each
+  provider's de-duplicated model list
+  (`providerDetailsFromCatalog`, `src/gateway/server/server.ts`);
+  `POST /api/server/start` takes `exposedModels` — `providerId:modelId` keys,
+  the same shape favorites use — and the new
+  `filterServerModelsBySelection` (`src/gateway/server/catalog-filter.ts`)
+  narrows the catalog after the provider filter, refusing to start when
+  nothing matches. Persisted as `server.exposedModels` in `config.json`.
+  The selection rules are pure functions in the SPA
+  (`src/ui/app/src/lib/server/selection.ts`: `pickedModelIds`,
+  `buildExposedModelKeys` — `null` = serve everything — `countServedModels`,
+  `isFavoriteModel`).
+  Tests: `tests/ui/server-model-selection.test.ts` (17),
+  `tests/gateway/server-provider-details.test.ts` (4),
+  `tests/gateway/server-catalog-filter.test.ts` +3,
+  `tests/ui/ui-api-server.test.ts` +8, `tests/ui/toggle-binding.test.ts` +11.
+  Docs: `docs/architecture/ui-system.md` (Server panel + API contract),
+  `CHANGELOG.md` Unreleased.
+
+- **NEW three-way launch mode after `Which provider?` — One model / Choose
+  models… / All models** — in every app launcher (`claude`, `codex`,
+  `codex-app`, `claude-app`, `gemini`, `agy`/`antigravity`/`antigravity-ide`).
+  Shared picker `pickCustomProviderModels` (`src/apps/shared/prompts.ts`):
+  All/Free/Paid price filter (free = `isFree` or `verified_free`/`free_provider`
+  via `classifyFreeStatus`; unknown-price under All only) + text search +
+  paged `p.multiselect` accumulation, capped at `MAX_MODEL_CATALOG` (20), first
+  pick boots. Subsets feed each launcher's existing catalog path
+  (`buildProviderCustomRoutes` for Claude; filtered lists elsewhere).
+  Non-interactive: `--model "id1,id2"` (`LaunchTarget.modelIds`,
+  `parseModelListValue` in `src/cli.ts`, per-entry `provider__model` slugs);
+  `POST /api/apps/launch` forwards optional `modelIds`. Dashboard: Apps & Launch
+  modal gained the same Choose-models mode (provider select, All/Free/Paid
+  segmented filter + search + capped checkbox lineup, first pick boots).
+  Tests: `tests/apps/shared/custom-picker-filter.test.ts`,
+  `tests/apps/shared/provider-custom-routes.test.ts`,
+  `tests/cli/cli-custom-models.test.ts`, native-launcher +5, ui-api-apps +2.
+  Docs: `docs/architecture/request-lifecycle.md` Path 3b,
+  `docs/architecture/launcher-system.md` Launch Modes, `CHANGELOG.md` Unreleased.
+
+- **FIX modal action buttons falling below the fold** — the Choose-models dialog
+  grew a long model list that pushed Cancel/Launch off screen. `Modal`
+  (`src/ui/app/src/lib/components/primitives/Modal.svelte`) is now a
+  height-capped flex column (`max-height: calc(100dvh - 48px)`) with a
+  scrolling `.modal-body` and a new optional **footer slot** rendered outside
+  the scroll area, so action rows stay pinned at any window height. All
+  dialogs use it (Apps & Launch ×2, Add provider, Delete provider, Settings
+  export/import/preset); an empty footer collapses via `.modal-foot:empty`.
+  Replaces the sticky-row hack that clipped the buttons' bottom edge.
+  Docs: `docs/architecture/ui-system.md` Modal layout, `CHANGELOG.md` Unreleased.
+
+## Previous Focus: OpenCode Zen gate (free tier via gateway) + routing + honest 403s
 
 - **NEW `src/providers/opencode-gate.ts` — OpenCode client emulation so the free
   tier passes.** Zen validates client identity server-side (`403 FreeTierError`

@@ -32,13 +32,15 @@ import {
   waitForAntigravityAppQuit,
   waitForAntigravityIdeQuit,
 } from '../../../src/gateway/antigravity/launch-ide.js'
-import { pickLocalModel } from '../../apps/shared/prompts.js'
+import { pickCustomProviderModels, pickLocalModel } from '../../apps/shared/prompts.js'
 import { resolveFirstAvailableFavorite } from '../../apps/shared/favorites-resolver.js'
+import { isModelListValue, parseModelListValue } from '../../apps/shared/launch-target.js'
 import {
   providerSelectOption,
   formatModelLabel,
   gateIntro,
   gateOutro,
+  navOption,
 } from '../../apps/shared/ui.js'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -178,14 +180,22 @@ async function pickAntigravityCliFavoriteLaunchModel(
   )
 }
 
+export interface AntigravityLaunchBoot {
+  launchProvider?: string
+  launchModel?: string
+  launchModelIds?: string[]
+  launchAllModels?: boolean
+}
+
 async function resolveAntigravityLaunch(
   prefs: UserPreferences,
-  boot: { launchProvider?: string; launchModel?: string; launchAllModels?: boolean } | undefined
+  boot: AntigravityLaunchBoot | undefined
 ): Promise<{
   provider: LocalProvider
   model: LocalProviderModel
   allProviders: LocalProvider[]
   allModels?: boolean
+  customModelIds?: string[]
 } | null> {
   // Load the provider catalog
   let catalog
@@ -207,6 +217,17 @@ async function resolveAntigravityLaunch(
     return null
   }
 
+  // Check for explicit --provider + --model id1,id2 (custom catalog)
+  const bootModelIds =
+    boot?.launchModelIds ??
+    (boot?.launchModel && isModelListValue(boot.launchModel)
+      ? parseModelListValue(boot.launchModel)
+      : undefined)
+  if (boot?.launchProvider && boot?.launchAllModels && bootModelIds) {
+    p.log.error('Use either --all-models or --model id1,id2, not both.')
+    return null
+  }
+
   if (boot?.launchProvider && boot?.launchAllModels) {
     const provider = allProviders.find(p => p.id === boot.launchProvider)
     if (!provider) {
@@ -215,6 +236,33 @@ async function resolveAntigravityLaunch(
     }
     const model = provider.models[0]!
     return { provider, model, allProviders, allModels: true }
+  }
+
+  if (boot?.launchProvider && bootModelIds) {
+    const provider = allProviders.find(p => p.id === boot.launchProvider)
+    if (!provider) {
+      p.log.error(`Provider not found: ${boot.launchProvider}`)
+      return null
+    }
+    const models: LocalProviderModel[] = []
+    for (const entry of bootModelIds) {
+      const { model, error } = resolveAntigravityBootModel(provider, entry)
+      if (!model) {
+        p.log.error(error ?? `Model not found: ${entry} on provider ${provider.name}`)
+        return null
+      }
+      if (!models.some(m => m.id === model.id)) models.push(model)
+    }
+    if (models.length === 0) {
+      p.log.error(`No models resolved from --model ${bootModelIds.join(',')}`)
+      return null
+    }
+    return {
+      provider,
+      model: models[0]!,
+      allProviders,
+      customModelIds: models.map(m => m.id),
+    }
   }
 
   // Check for explicit --provider + --model
@@ -276,6 +324,47 @@ async function resolveAntigravityLaunch(
     }
 
     const activeProvider = allProviders.find(lp => lp.id === chosen)!
+    const agyModeChoice = await p.select<string>({
+      message: `Launch mode for ${activeProvider.name}?`,
+      options: [
+        {
+          value: 'specific',
+          label: 'One model',
+          hint: 'Pick a specific model',
+        },
+        {
+          value: 'custom',
+          label: 'Choose models…',
+          hint: 'Pick which models appear in the switcher',
+        },
+        navOption('__back__', '← Back', 'Choose a different provider'),
+      ],
+    })
+    if (p.isCancel(agyModeChoice) || agyModeChoice === '__back__') {
+      currentInitialProvider = activeProvider.id
+      continue
+    }
+
+    if (agyModeChoice === 'custom') {
+      const pickedCustom = await pickCustomProviderModels(activeProvider, {
+        ...prefs,
+        lastModel: prefs.lastAntigravityModel,
+      })
+      if (pickedCustom === 'back') {
+        currentInitialProvider = activeProvider.id
+        continue
+      }
+      if (!pickedCustom) return null
+      const bootModel = activeProvider.models.find(m => m.id === pickedCustom.selectedIds[0])
+      if (!bootModel) return null
+      return {
+        provider: activeProvider,
+        model: bootModel,
+        allProviders,
+        customModelIds: pickedCustom.selectedIds,
+      }
+    }
+
     const pickedModelResult = await pickLocalModel(activeProvider, conflicts, prefs)
     if (pickedModelResult === 'back') {
       currentInitialProvider = activeProvider.id
@@ -298,6 +387,7 @@ async function resolveAndBuildRoutes(
     pauseForCapacityWarning: boolean
     childArgs: string[]
     allModels?: boolean
+    customModelIds?: string[]
   }
 ): Promise<{ routes: ReturnType<typeof buildAntigravityRoutes>; apiKey: string } | null> {
   const allModelsFavorites: FavoriteModel[] = opts.allModels
@@ -306,12 +396,23 @@ async function resolveAndBuildRoutes(
         modelId: m.id,
       }))
     : []
+  // Custom subsets ride the same favorites-shaped route synthesis as the
+  // all-models path, scoped to the picked ids (picker order).
+  const customFavorites: FavoriteModel[] =
+    !opts.allModels && opts.customModelIds?.length
+      ? opts.customModelIds.map(modelId => ({ providerId: provider.id, modelId }))
+      : []
+  const isCustomCatalog = customFavorites.length > 0
 
   const result = await resolveAntigravityLaunchRoutes({
     provider,
     model,
     allProviders,
-    favorites: opts.allModels ? allModelsFavorites : (prefs.antigravityCliFavoriteModels ?? []),
+    favorites: opts.allModels
+      ? allModelsFavorites
+      : isCustomCatalog
+        ? customFavorites
+        : (prefs.antigravityCliFavoriteModels ?? []),
     maxRoutes: opts.maxRoutes,
   })
   if (!result) {
@@ -319,11 +420,16 @@ async function resolveAndBuildRoutes(
     return null
   }
 
-  if (result.routes.length > 1) {
+  if (result.routes.length > 1 && !isCustomCatalog) {
     p.log.info(
       `Favorites mode active — Antigravity picker will show ${result.routes.length} models.`
     )
     p.log.info('Edit with `anygate favorites --agy`.')
+  }
+  if (result.routes.length > 1 && isCustomCatalog) {
+    p.log.info(
+      `Custom catalog active — Antigravity picker will show ${result.routes.length} models.`
+    )
   }
   if (result.droppedFavorites.length > 0) {
     p.log.warn(
@@ -388,7 +494,7 @@ async function runAntigravityCommand(
   intro: string,
   tracePrefix: string,
   trace: boolean,
-  boot: { launchProvider?: string; launchModel?: string } | undefined,
+  boot: AntigravityLaunchBoot | undefined,
   launch: (
     env: NodeJS.ProcessEnv,
     routes: ReturnType<typeof buildAntigravityRoutes>,
@@ -454,6 +560,7 @@ async function launchWithSelection(
     model: LocalProviderModel
     allProviders: LocalProvider[]
     allModels?: boolean
+    customModelIds?: string[]
   },
   prefs: UserPreferences,
   opts: {
@@ -463,7 +570,7 @@ async function launchWithSelection(
   },
   trace: boolean,
   tracePrefix: string,
-  boot: { launchProvider?: string; launchModel?: string } | undefined,
+  boot: AntigravityLaunchBoot | undefined,
   launch: (
     env: NodeJS.ProcessEnv,
     routes: ReturnType<typeof buildAntigravityRoutes>,
@@ -490,6 +597,7 @@ async function launchWithSelection(
     pauseForCapacityWarning: opts.pauseForCapacityWarning ?? false,
     childArgs: opts.childArgs ?? [],
     allModels: selection.allModels,
+    customModelIds: selection.customModelIds,
   })
   if (!routeResult) return 1
 
@@ -532,7 +640,7 @@ async function launchWithSelection(
 export async function runAgyCommand(
   childArgs: string[],
   trace = false,
-  boot?: { launchProvider?: string; launchModel?: string; launchAllModels?: boolean }
+  boot?: AntigravityLaunchBoot
 ): Promise<number> {
   return runAntigravityCommand(
     'anygate agy — Antigravity CLI',
@@ -553,7 +661,7 @@ export async function runAgyCommand(
 export async function runAntigravityAppCommand(
   childArgs: string[],
   trace = false,
-  boot?: { launchProvider?: string; launchModel?: string; launchAllModels?: boolean }
+  boot?: AntigravityLaunchBoot
 ): Promise<number> {
   return runAntigravityCommand(
     'anygate antigravity — Antigravity app',
@@ -615,7 +723,7 @@ export async function runAntigravityAppCommand(
 export async function runAntigravityIdeCommand(
   childArgs: string[],
   trace = false,
-  boot?: { launchProvider?: string; launchModel?: string; launchAllModels?: boolean }
+  boot?: AntigravityLaunchBoot
 ): Promise<number> {
   return runAntigravityCommand(
     'anygate antigravity-ide — Antigravity IDE',

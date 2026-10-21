@@ -7,9 +7,13 @@ import { CredentialUnavailableError } from '../../../src/shared/errors.js'
 import { loadPreferences, recordLaunchSelection } from '../../../src/storage/config.js'
 import {
   findProviderAndModel,
+  findProvidersAndModels,
+  isModelListValue,
+  parseModelListValue,
   planLaunchWizard,
   wantsCleanAgentStdout,
 } from '../../apps/shared/launch-target.js'
+import { pickCustomProviderModels } from '../../apps/shared/prompts.js'
 import { setAgentStdoutMode, isAgentStdoutMode } from '../../../src/utils/agent-io.js'
 import { findGeminiBinary, prepareGeminiChildEnv, launchGemini } from './launch.js'
 import {
@@ -39,7 +43,7 @@ ${pc.bold('Usage:')}
 ${pc.bold('Options:')}
   --trace      Write proxy debug logs to ~/.anygate/logs/ and show errors on exit
   --provider   Boot provider id (skip wizard when paired with --model or non-interactive)
-  --model      Boot model id (skip wizard when paired with --provider or non-interactive)
+  --model      Boot model id (comma-separated id1,id2 launches a custom catalog, first id boots)
   --help       Show this command help
   --version    Show version
 
@@ -65,7 +69,12 @@ ${pc.bold('Examples:')}
 export async function runGeminiCommand(
   geminiArgs: string[],
   trace = false,
-  launch: { launchProvider?: string; launchModel?: string; launchAllModels?: boolean } = {}
+  launch: {
+    launchProvider?: string
+    launchModel?: string
+    launchModelIds?: string[]
+    launchAllModels?: boolean
+  } = {}
 ): Promise<number> {
   if (geminiArgs.includes('--help') || geminiArgs.includes('-h')) {
     console.log(geminiHelpText())
@@ -86,14 +95,29 @@ export async function runGeminiCommand(
 
   const prefs = loadPreferences()
   const launchAllModels = Boolean(launch.launchAllModels || launch.launchModel === 'All')
+  const launchModelIds =
+    launch.launchModelIds ??
+    (launch.launchModel && isModelListValue(launch.launchModel)
+      ? parseModelListValue(launch.launchModel)
+      : undefined)
   const launchPlan = planLaunchWizard({
+    // modelIds ride along even with allModels so the wizard rejects the mix
+    // instead of silently launching everything.
     explicit: launchAllModels
-      ? { providerId: launch.launchProvider, allModels: true }
-      : { providerId: launch.launchProvider, modelId: launch.launchModel },
+      ? {
+          providerId: launch.launchProvider,
+          allModels: true,
+          ...(launchModelIds ? { modelIds: launchModelIds } : {}),
+        }
+      : launchModelIds
+        ? { providerId: launch.launchProvider, modelIds: launchModelIds }
+        : { providerId: launch.launchProvider, modelId: launch.launchModel },
     childArgs: passthroughArgs,
     agent: 'gemini',
     prefs,
   })
+  /** Ordered ids for the custom subset; [0] boots. Empty = full provider catalog. */
+  let customModelIds: string[] = []
 
   if (launchPlan.error) {
     console.error(pc.red(`\nError: ${launchPlan.error}\n`))
@@ -139,17 +163,39 @@ export async function runGeminiCommand(
   }
 
   if (launchPlan.skip && launchPlan.target) {
-    const resolved = findProviderAndModel(compatible, launchPlan.target)
-    if (!resolved) {
-      p.log.error(
-        `Provider/model not found: ${launchPlan.target.providerId} / ${launchPlan.target.modelId}`
-      )
-      return 1
-    }
-    activeProvider = resolved.provider
-    selectedModel = resolved.model
-    if (!agentStdout) {
-      p.log.step(`Using ${selectedModel.name || selectedModel.id} (${activeProvider.name})`)
+    if (launchPlan.target.modelIds) {
+      const resolved = findProvidersAndModels(compatible, launchPlan.target)
+      if (!resolved || resolved.models.length === 0) {
+        p.log.error(
+          `Provider/model not found: ${launchPlan.target.providerId} / ${(launchPlan.target.modelIds ?? []).join(',')}`
+        )
+        return 1
+      }
+      if (resolved.missingIds.length > 0) {
+        p.log.error(
+          `Model${resolved.missingIds.length === 1 ? '' : 's'} not found on ${resolved.provider.name}: ${resolved.missingIds.join(', ')}`
+        )
+        return 1
+      }
+      activeProvider = resolved.provider
+      selectedModel = resolved.models[0]!
+      customModelIds = resolved.models.map(m => m.id)
+      if (!agentStdout) {
+        p.log.step(`Using ${resolved.models.length} models from ${activeProvider.name}`)
+      }
+    } else {
+      const resolved = findProviderAndModel(compatible, launchPlan.target)
+      if (!resolved) {
+        p.log.error(
+          `Provider/model not found: ${launchPlan.target.providerId} / ${launchPlan.target.modelId}`
+        )
+        return 1
+      }
+      activeProvider = resolved.provider
+      selectedModel = resolved.model
+      if (!agentStdout) {
+        p.log.step(`Using ${selectedModel.name || selectedModel.id} (${activeProvider.name})`)
+      }
     }
   } else {
     if (!agentStdout) {
@@ -172,9 +218,43 @@ export async function runGeminiCommand(
       selectedModel = favPick.model
     } else {
       activeProvider = chosenProvider
-      const chosenModel = await pickGeminiModel(activeProvider, prefs)
-      if (!chosenModel || chosenModel === 'back') return 0
-      selectedModel = chosenModel
+      const geminiModeChoice = await p.select<string>({
+        message: `Launch mode for ${activeProvider.name}?`,
+        options: [
+          {
+            value: 'specific',
+            label: 'One model',
+            hint: 'Pick a starting model (full catalog stays in the switcher)',
+          },
+          {
+            value: 'custom',
+            label: 'Choose models…',
+            hint: 'Pick which models appear in the switcher',
+          },
+          {
+            value: 'all',
+            label: `All models (${activeProvider.models.length})`,
+            hint: 'Every model from this provider in the switcher',
+          },
+        ],
+      })
+      if (p.isCancel(geminiModeChoice)) return 0
+
+      if (geminiModeChoice === 'custom') {
+        const pickedCustom = await pickCustomProviderModels(activeProvider, {
+          ...prefs,
+          lastModel: prefs.lastGeminiModel,
+        })
+        if (!pickedCustom || pickedCustom === 'back') return 0
+        customModelIds = pickedCustom.selectedIds
+        const boot = activeProvider.models.find(m => m.id === customModelIds[0])
+        if (!boot) return 0
+        selectedModel = boot
+      } else {
+        const chosenModel = await pickGeminiModel(activeProvider, prefs)
+        if (!chosenModel || chosenModel === 'back') return 0
+        selectedModel = chosenModel
+      }
     }
 
     if (!agentStdout) {
@@ -196,8 +276,15 @@ export async function runGeminiCommand(
     return 1
   }
 
-  // Build route mapping for proxy catalog
-  const providerRoutes: ProxyRoute[] = activeProvider.models.map(m => ({
+  // Build route mapping for proxy catalog (custom subsets scope it to the
+  // picked models, in picker order — otherwise the full provider catalog).
+  const scopedModels =
+    customModelIds.length > 0
+      ? customModelIds
+          .map(id => activeProvider.models.find(m => m.id === id))
+          .filter(m => m !== undefined)
+      : activeProvider.models
+  const providerRoutes: ProxyRoute[] = scopedModels.map(m => ({
     aliasId: m.id,
     realModelId: m.upstreamModelId || m.id,
     displayName: m.name || m.id,
@@ -312,6 +399,12 @@ export async function runGeminiCommand(
       p.log.info(
         pc.dim(
           `All ${activeProvider.models.length} ${activeProvider.name} models are available — type .model <id> to switch.`
+        )
+      )
+    } else if (customModelIds.length > 0) {
+      p.log.info(
+        pc.dim(
+          `${customModelIds.length} chosen ${activeProvider.name} model${customModelIds.length === 1 ? '' : 's'} available — type .model <id> to switch.`
         )
       )
     }

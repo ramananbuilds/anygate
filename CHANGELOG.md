@@ -1,5 +1,104 @@
 # Changelog
 
+## 0.6.6 (2026-10-21)
+
+### Feature: hand-picked multi-model launch catalogs ("Choose models…")
+
+The `Launch mode for X?` wizard step (after `Which provider?`) is now three-way
+in every app launcher (`claude`, `codex`, `codex-app`, `claude-app`, `gemini`,
+`agy`/`antigravity`/`antigravity-ide`): **One model** · **Choose models…** ·
+**All models**. The new shared picker (`pickCustomProviderModels` in
+`src/apps/shared/prompts.ts`) filters the provider's models by price
+(**All / Free / Paid** with live counts, via `classifyFreeStatus` — free means
+`isFree` or `verified_free`/`free_provider`, unknown-price shows under All only)
+plus text search, then multi-selects with paged accumulation for large catalogs.
+The subset launches through each launcher's existing catalog path (first pick
+boots), capped at `MAX_MODEL_CATALOG` (20) like favorites. Non-interactive use:
+`--model "id1,id2"` (`LaunchTarget.modelIds`, per-entry `provider__model` slug
+support, `--all-models` + list rejected). The **Apps & Launch** dashboard modal
+gained the same third mode — **Choose models…** with provider select, All/Free/Paid
+segmented filter (live counts), search, and a capped (20) checkbox lineup whose
+first pick boots; it POSTs `modelIds` to `/api/apps/launch`, which sanitizes and
+forwards them as comma-joined `--model`.
+
+- **Tests**: `tests/apps/shared/custom-picker-filter.test.ts` (7),
+  `tests/apps/shared/provider-custom-routes.test.ts` (3),
+  `tests/cli/cli-custom-models.test.ts` (13), `tests/apps/native-launcher.test.ts`
+  +5 (comma emission, trim/dedupe/cap, mixing errors, whitelist),
+  `tests/ui/ui-api-apps.test.ts` +2 (modelIds forwarding + 400s),
+  `tests/apps/codex-command.test.ts` +3 (subset proxy order/boot-first,
+  unknown-id error, `--all-models` + list mixing guard — the last caught a real
+  bug where launchers dropped the list and silently launched everything).
+
+### Fix: modal action buttons no longer fall below the fold
+
+The **Choose models…** dialog grows a long provider/model list, which pushed
+Cancel/Launch off the bottom of the viewport with no way to reach them. The
+`Modal` primitive (`src/ui/app/src/lib/components/primitives/Modal.svelte`) is
+now a height-capped flex column — `max-height: calc(100dvh - 48px)`, a
+scrolling `.modal-body` (`overflow-y: auto`, `min-height: 0`) and a new optional
+**footer slot** rendered outside the scroll area, so primary actions stay
+pinned and clickable at any window size. Every dialog uses it now (Apps &
+Launch ×2, Add provider, Delete provider, Settings export/import/preset); a
+footer whose snippet renders nothing collapses instead of leaving an empty
+strip. Replaces the earlier sticky-row hack, which clipped the bottom of the
+buttons because it offset past the scroll container's clip edge.
+
+### Feature: per-provider model picker for the server gateway
+
+The **Server** tab now picks *which models* the gateway exposes, the same way
+the app launchers pick a launch catalog. The original **provider chip grid**
+under *Providers to serve* is unchanged; each selected provider now gets a
+collapsible model block **directly below the grid, in provider order**, with a
+checkbox per model. Above the blocks sits a view filter —
+**All / Free / Paid / Favorites** (live counts) — plus a search box. The panel
+header now carries the **Start server / Stop server** button, which used to sit
+in a trailing action row at the bottom of the panel.
+
+The **Favorites** filter and the *Favorites only* serve filter are two
+different things, and the panel keeps them apart:
+
+- The **view filter** only narrows what the lists show. Picking *Favorites*
+  opens every provider that holds a favorite, so the matches are not buried in
+  a collapsed block, and each header shows how many models it currently
+  matches (`· 7 shown`).
+- The ***Favorites only* serve filter** intersects the ticked models with the
+  favorites — the gateway serves a model only if it is *both* ticked and a
+  favorite. A favorite that is not ticked is therefore dropped, which used to
+  look like "favorites don't work". The panel now says so: a note reports how
+  many of your favorites will be served and how many are excluded by the model
+  selection, a **Tick the favorites** action puts them back into the selection,
+  and the rows the serve filters exclude are dimmed so the picker never
+  disagrees with the "N models exposed" count. The same wording is used by the
+  gateway's own error messages (which filter stage dropped the last model).
+
+The selection is honoured by the gateway, not just displayed:
+
+- `GET /api/server/providers` now returns each provider's routable model list
+  (`providerDetailsFromCatalog` in `src/gateway/server/server.ts`; models are
+  de-duplicated by id so a keyed list can't render a model twice).
+- `POST /api/server/start` takes `exposedModels` — a list of `providerId:modelId`
+  keys, the same shape favorites use. An empty list means "every model of the
+  exposed providers"; a non-empty list narrows the catalog to exactly those
+  models via the new `filterServerModelsBySelection`
+  (`src/gateway/server/catalog-filter.ts`), applied after the provider filter.
+  The gateway refuses to start when the selection matches no model.
+- The selection is persisted in `config.json` under `server.exposedModels` and
+  restored when the panel loads; the panel shows the exact number of models
+  the gateway will serve, and refuses to start with an empty selection instead
+  of silently serving the whole catalog.
+
+- **Tests**: the selection rules are pure functions in the SPA
+  (`src/ui/app/src/lib/server/selection.ts`) and are covered by
+  `tests/ui/server-model-selection.test.ts` (17);
+  `tests/gateway/server-provider-details.test.ts` (4) covers the provider/model
+  payload; `tests/gateway/server-catalog-filter.test.ts` +3 covers the new
+  filter; `tests/ui/ui-api-server.test.ts` +8 covers the start-request
+  contract, persistence, the empty-selection error and the favorites-only
+  intersection; `tests/ui/toggle-binding.test.ts` +11 pins the header button,
+  the request wiring, the restored provider selector, the model lists below it
+  and the favorites filter.
+
 ## 0.6.5 (2026-10-16)
 
 ### Fix: Zen free-tier models now work end-to-end (`opencode-cloud` + Responses bodies)

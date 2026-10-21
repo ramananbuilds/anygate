@@ -74,6 +74,12 @@ import {
 } from '../shared/cloud-code-backend.js'
 import type { ProxyRoute } from '../../../src/gateway/proxy/anthropic-proxy.js'
 import { navOption } from '../../apps/shared/ui.js'
+import {
+  findProvidersAndModels,
+  isModelListValue,
+  parseModelListValue,
+} from '../../apps/shared/launch-target.js'
+import { pickCustomProviderModels } from '../../apps/shared/prompts.js'
 
 function codexProxyRouteToCodexRoute(
   route: CodexProxyRoute,
@@ -346,6 +352,7 @@ export async function runCodexAppCommand(
     vertex?: boolean
     launchProvider?: string
     launchModel?: string
+    launchModelIds?: string[]
     launchAllModels?: boolean
   } = {}
 ): Promise<number> {
@@ -435,6 +442,18 @@ export async function runCodexAppCommand(
   // selecting a specific model still launched with all favorites.
   let favoritesMode = false
   let useProviderAll = false
+  let useProviderCustom = false
+  /** Ordered ids for the custom subset (provider-custom mode); [0] boots. */
+  let customModelIds: string[] = []
+  const launchModelIds =
+    opts.launchModelIds ??
+    (opts.launchModel && isModelListValue(opts.launchModel)
+      ? parseModelListValue(opts.launchModel)
+      : undefined)
+  if (opts.launchAllModels && launchModelIds) {
+    p.log.error('Use either --all-models or --model id1,id2, not both.')
+    return 1
+  }
   // Non-interactive favorites launch: when --favorites is passed (e.g. from the
   // web UI "All favorites" mode), skip the picker + launch-confirm prompts and
   // go straight into the favorites catalog.
@@ -448,7 +467,7 @@ export async function runCodexAppCommand(
 
   if (
     (!configOnly && opts.launchProvider && opts.launchModel) ||
-    (opts.launchProvider && (opts.launchAllModels || opts.launchModel === 'All'))
+    (opts.launchProvider && (opts.launchAllModels || opts.launchModel === 'All' || launchModelIds))
   ) {
     if (opts.launchAllModels || opts.launchModel === 'All') {
       const foundProvider = compatible.find(lp => lp.id === opts.launchProvider)
@@ -461,6 +480,30 @@ export async function runCodexAppCommand(
       useProviderAll = true
       if (!configOnly) {
         p.log.step(`Using all ${activeProvider.models.length} models from ${activeProvider.name}`)
+      }
+    } else if (launchModelIds) {
+      const resolved = findProvidersAndModels(compatible, {
+        providerId: opts.launchProvider,
+        modelIds: launchModelIds,
+      })
+      if (!resolved || resolved.models.length === 0) {
+        p.log.error(
+          `Provider/model not found: ${opts.launchProvider} / ${launchModelIds.join(',')}`
+        )
+        return 1
+      }
+      if (resolved.missingIds.length > 0) {
+        p.log.error(
+          `Model${resolved.missingIds.length === 1 ? '' : 's'} not found on ${resolved.provider.name}: ${resolved.missingIds.join(', ')}`
+        )
+        return 1
+      }
+      activeProvider = providerForCodexPicker(resolved.provider)
+      selectedModel = resolved.models[0]!
+      customModelIds = resolved.models.map(m => m.id)
+      useProviderCustom = true
+      if (!configOnly) {
+        p.log.step(`Using ${resolved.models.length} models from ${activeProvider.name}`)
       }
     } else {
       const bootSelection = resolveBootSelection(
@@ -521,7 +564,7 @@ export async function runCodexAppCommand(
         } else {
           activeProvider = providerForCodexPicker(pickedProvider)
 
-          // Ask: pick a specific model, or launch all models from this provider
+          // Ask: one model, a hand-picked subset, or all models from this provider
           const modelModeChoice = await p.select<string>({
             message: `Launch mode for ${activeProvider.name}?`,
             options: [
@@ -529,6 +572,11 @@ export async function runCodexAppCommand(
                 value: 'specific',
                 label: 'One model',
                 hint: 'Pick a specific model',
+              },
+              {
+                value: 'custom',
+                label: 'Choose models…',
+                hint: 'Pick which models appear in the model switcher',
               },
               {
                 value: 'all',
@@ -546,6 +594,22 @@ export async function runCodexAppCommand(
           if (modelModeChoice === 'all') {
             useProviderAll = true
             selectedModel = activeProvider.models[0]!
+            break
+          }
+
+          if (modelModeChoice === 'custom') {
+            const pickedCustom = await pickCustomProviderModels(activeProvider, {
+              ...prefs,
+              lastModel: prefs.lastCodexModel,
+            })
+            if (pickedCustom === 'back') {
+              currentInitialProvider = activeProvider.id
+              continue
+            }
+            if (!pickedCustom) return 0
+            customModelIds = pickedCustom.selectedIds
+            selectedModel = activeProvider.models.find(m => m.id === customModelIds[0])!
+            useProviderCustom = true
             break
           }
 
@@ -572,7 +636,7 @@ export async function runCodexAppCommand(
 
   activeProvider.apiKey = apiKey
 
-  if (hasFavorites && !configOnly && !useProviderAll) {
+  if (hasFavorites && !configOnly && !useProviderAll && !useProviderCustom) {
     p.log.info(
       `Favorites mode active — Codex App picker will show ${favorites.length + 1} models (1 starting + ${favorites.length} favorites).`
     )
@@ -581,8 +645,19 @@ export async function runCodexAppCommand(
 
   let cloudCodeBackend: CloudCodeBackend | null = null
   let cloudCodeBackendFav: CloudCodeBackend | null = null
+  // Custom subsets scope the catalog build to the picked models (in picker
+  // order) so cloud-code backends only start for models actually launched.
+  const customProvider =
+    useProviderCustom && !favoritesMode
+      ? {
+          ...activeProvider,
+          models: customModelIds
+            .map(id => activeProvider.models.find(m => m.id === id))
+            .filter((m): m is LocalProviderModel => m !== undefined),
+        }
+      : activeProvider
   const appProviderRoutes = !favoritesMode
-    ? await buildCodexAppProviderCatalogRoutes(activeProvider, apiKey, selectedModel.id, trace)
+    ? await buildCodexAppProviderCatalogRoutes(customProvider, apiKey, selectedModel.id, trace)
     : null
   cloudCodeBackend = appProviderRoutes?.backend ?? null
 
@@ -612,7 +687,8 @@ export async function runCodexAppCommand(
   if (!configOnly) {
     const modelLabel = formatCodexModelLabel(selectedModel)
     const isExplicitLaunch =
-      Boolean(opts.launchProvider) && Boolean(opts.launchModel || opts.launchAllModels)
+      Boolean(opts.launchProvider) &&
+      Boolean(opts.launchModel || opts.launchAllModels || launchModelIds)
     const confirmed =
       useFavoritesCatalog ||
       isExplicitLaunch ||

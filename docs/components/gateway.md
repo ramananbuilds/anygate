@@ -43,7 +43,7 @@ src/gateway/
 │   ├── auth.ts                 # API key validation
 │   ├── models.ts               # Model catalog formatting
 │   ├── vendor-mask.ts          # Discovery ID masking
-│   └── catalog-filter.ts       # Provider/favorites/free filtering
+│   └── catalog-filter.ts       # Provider/favorites/selection/free filtering
 ├── web-search/
 │   ├── tool.ts                 # Web search tool factory
 │   ├── duckduckgo.ts           # DuckDuckGo backend
@@ -67,6 +67,24 @@ src/gateway/
 | `createLanguageModel()` | `providers/provider-factory.ts` | Dynamic SDK provider import |
 | `startServer()` | `server/router.ts` | Start gateway HTTP server |
 | `runServerCommand()` | `server/server.ts` | Server wizard + lifecycle |
+
+## Exposure filters
+
+`server/catalog-filter.ts` narrows the model catalog the gateway serves. The
+stages run in this order, and each one can empty the catalog:
+
+1. **Providers** — only the exposed providers (`server.exposedProviders`).
+2. **Selection** — only the ticked models (`server.exposedModels`, a list of
+   `providerId:modelId` keys). An empty list means *every* model of the exposed
+   providers, never "none".
+3. **Favorites** — with `server.favoritesOnly`, only the models that are
+   favorites (`providerId` + `modelId`). A favorite that is not ticked in the
+   selection is dropped: served = ticked ∧ favorite.
+4. **Free** — with `server.freeModelsOnly`, only the free models.
+
+`src/ui/server-control.ts` reports which stage emptied the catalog, so the
+message names the filter the user has to change instead of blaming the
+selection that did match.
 
 ## Dependencies
 

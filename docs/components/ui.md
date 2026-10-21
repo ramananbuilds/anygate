@@ -26,7 +26,9 @@ src/ui/
 │   │   │   └── models/ModelRow.svelte
 │   │   ├── stores/        # Svelte 5 reactive stores
 │   │   │   └── favorites.svelte.ts
-│   │   └── lib/           # Shared utilities
+│   │   ├── lib/           # Shared utilities
+│   │   │   ├── api/       # Typed endpoint wrappers + mock data
+│   │   │   └── server/    # Gateway model-selection rules (pure functions)
 │   ├── dist/              # Built SPA output
 │   ├── vite.config.ts     # Vite build configuration
 │   └── package.json       # anygate-ui package

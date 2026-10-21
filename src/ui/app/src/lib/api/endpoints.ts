@@ -138,6 +138,7 @@ export function launchApp(body: {
   favorites?: boolean
   providerId?: string
   modelId?: string
+  modelIds?: string[]
   cwd?: string
   favoritesCatalog?: boolean
   allModels?: boolean
@@ -156,7 +157,7 @@ export function getServerStatus(): Promise<ServerStatusPayload> {
   return getJson<ServerStatusPayload>('/api/server/status')
 }
 export function getServerProviders(): Promise<UiServerProvidersResponse> {
-  if (useMockApi) return Promise.resolve({ providers: [] })
+  if (useMockApi) return Promise.resolve(mock.mockServerProviders())
   return getJson<UiServerProvidersResponse>('/api/server/providers')
 }
 export function startServer(

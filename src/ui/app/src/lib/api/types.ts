@@ -140,6 +140,11 @@ export interface ServerStartRequest {
   favoritesOnly: boolean
   freeModelsOnly: boolean
   exposedProviders: string[] | null
+  /**
+   * Hand-picked models to expose, as `providerId:modelId` keys.
+   * `null`/empty means "every model of the exposed providers".
+   */
+  exposedModels?: string[] | null
   maskGatewayIds: boolean
   listenMode: ServerListenMode
   passwordMode?: 'saved' | 'new'
@@ -158,6 +163,7 @@ export interface ServerSavedConfig {
   favoritesOnly: boolean
   freeModelsOnly: boolean
   exposedProviders: string[] | null
+  exposedModels: string[] | null
   maskGatewayIds: boolean
   listenMode: ServerListenMode
   hasSavedPassword: boolean
@@ -178,6 +184,7 @@ export interface ServerStatusPayload {
   networkUrls?: ServerNetworkUrl[]
   apiKey?: string
   exposedProviders?: string[] | null
+  exposedModels?: string[] | null
   favoritesOnly?: boolean
   freeModelsOnly?: boolean
   maskGatewayIds?: boolean
@@ -185,11 +192,20 @@ export interface ServerStatusPayload {
   models?: ServerModelRow[]
 }
 
+export interface UiServerProviderModel {
+  id: string
+  name: string
+  isFree: boolean
+  freeStatus?: 'verified_free' | 'free_provider' | 'paid' | 'unknown'
+}
+
 export interface UiServerProviderOption {
   id: string
   name: string
-  /** Matches the backend's `providerOptionsFromCatalog` field name. */
+  /** Matches the backend's `providerDetailsFromCatalog` field name. */
   modelCount: number
+  /** Every model this provider can expose — the server's model picker lists these. */
+  models: UiServerProviderModel[]
 }
 
 export interface UiServerProvidersResponse {

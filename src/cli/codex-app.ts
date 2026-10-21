@@ -19,7 +19,7 @@ Usage:
 
 Options:
   --provider <id>    Use a specific provider (skip picker)
-  --model <id>       Use a specific model (skip picker)
+  --model <id>       Use a specific model, or id1,id2 for a custom catalog (skip picker)
   --vertex           Use Vertex AI backend
   --help, -h         Show this help
   -v, --version      Show version
@@ -32,6 +32,7 @@ This command launches the ChatGPT Desktop app with anygate's provider registry.
     vertex: parsed.vertex,
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
+    launchModelIds: parsed.launchModelIds,
     launchAllModels: parsed.launchAllModels || parsed.launchModel === 'All',
   })
 }

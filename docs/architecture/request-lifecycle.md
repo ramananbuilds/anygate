@@ -91,6 +91,26 @@ CLI parse → buildCatalogRoutes(startingModel, favorites)
 
 The alias ID format is `providerId__modelId` (double underscore). Claude Code's model list endpoint returns all aliases, enabling mid-session model switching.
 
+## Path 3b: Provider Custom Catalog (Hand-Picked Subset)
+
+When the user picks **Choose models…** at the `Launch mode for X?` step (or passes
+`--model id1,id2`):
+
+```text
+CLI parse → parseModelListValue() → LaunchTarget.modelIds
+  → pickCustomProviderModels()      // shared picker: All/Free/Paid filter + search + multiselect
+  → buildProviderCustomRoutes(provider, selectedIds, startingRoute)  // Claude
+     (Codex/Gemini/Antigravity/Desktop filter their own model lists instead)
+  → existing startProxyCatalog() / startCodexProxy() / server catalog path
+  → first pick boots; /model switcher shows exactly the subset (max 20)
+```
+
+The price filter treats a model as free when `isFree` or `freeStatus` is
+`verified_free`/`free_provider` (`classifyFreeStatus`); unknown-price models only
+appear under All. CLI lists reject unknown ids and refuse `--all-models` mixed
+with a list. `POST /api/apps/launch` accepts an optional `modelIds` array that
+is sanitized (trim/dedupe/cap) and forwarded as comma-joined `--model`.
+
 ## Path 4: API Server (Gateway Mode)
 
 ```text
@@ -131,6 +151,7 @@ CLI parse → handleUiCommand()
   → REST API handles:
       GET /api/providers, /api/models, /api/apps
       POST /api/apps/launch → spawns `anygate claude --provider X --model Y`
+      (or `--model id1,id2` when the dashboard passes `modelIds`)
       POST /api/server/start → starts gateway in-process
       POST /api/providers/add → template-based provider setup
       POST /api/oauth/* → device code flows in browser

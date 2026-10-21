@@ -71,9 +71,13 @@ import { getCodexProxyDebugLogPath, printTraceLog } from '../../apps/shared/trac
 import { setAgentStdoutMode, isAgentStdoutMode } from '../../../src/utils/agent-io.js'
 import {
   findProviderAndModel,
+  findProvidersAndModels,
+  isModelListValue,
+  parseModelListValue,
   planLaunchWizard,
   wantsCleanAgentStdout,
 } from '../../apps/shared/launch-target.js'
+import { pickCustomProviderModels } from '../../apps/shared/prompts.js'
 
 export { findCodexBinary } from './launch.js'
 export { codexCompatibleProviders } from './routing.js'
@@ -92,7 +96,7 @@ ${pc.bold('Usage:')}
 ${pc.bold('Options:')}
   --trace      Write proxy debug logs to ~/.anygate/logs/ and show errors on exit
   --provider   Boot provider id (skip wizard when paired with --model or non-interactive)
-  --model      Boot model id (skip wizard when paired with --provider or non-interactive)
+  --model      Boot model id (comma-separated id1,id2 launches a custom catalog, first id boots)
   --vertex     Use Claude models through Google Vertex AI
   --restore    Remove interrupted-session overlay files
   --config     Preview/write launch configuration without starting Codex
@@ -360,6 +364,7 @@ export async function runCodexCommand(
   launch: {
     launchProvider?: string
     launchModel?: string
+    launchModelIds?: string[]
     launchAllModels?: boolean
     vertex?: boolean
   } = {}
@@ -419,10 +424,23 @@ export async function runCodexCommand(
 
   const prefs = loadPreferences()
   const launchAllModels = Boolean(launch.launchAllModels || launch.launchModel === 'All')
+  const launchModelIds =
+    launch.launchModelIds ??
+    (launch.launchModel && isModelListValue(launch.launchModel)
+      ? parseModelListValue(launch.launchModel)
+      : undefined)
   const launchPlan = planLaunchWizard({
+    // modelIds ride along even with allModels so the wizard rejects the mix
+    // instead of silently launching everything.
     explicit: launchAllModels
-      ? { providerId: launch.launchProvider, allModels: true }
-      : { providerId: launch.launchProvider, modelId: launch.launchModel },
+      ? {
+          providerId: launch.launchProvider,
+          allModels: true,
+          ...(launchModelIds ? { modelIds: launchModelIds } : {}),
+        }
+      : launchModelIds
+        ? { providerId: launch.launchProvider, modelIds: launchModelIds }
+        : { providerId: launch.launchProvider, modelId: launch.launchModel },
     childArgs: passthroughArgs,
     agent: 'codex',
     prefs,
@@ -499,9 +517,36 @@ export async function runCodexCommand(
 
   const favorites = prefs.favoriteModels ?? []
   const hasFavorites = favorites.length > 0
-  let catalogMode: false | 'favorites' | 'provider-all' = false
+  let catalogMode: false | 'favorites' | 'provider-all' | 'provider-custom' = false
+  /** Ordered ids for the custom subset (provider-custom mode); [0] boots. */
+  let customModelIds: string[] = []
+  let activeProvider = compatible.find(lp => lp.id === prefs.lastCodexProvider) ?? compatible[0]!
+  let selectedModel =
+    activeProvider.models.find(m => m.id === prefs.lastCodexModel) ?? activeProvider.models[0]!
   if (launchPlan.skip && launchPlan.target && launchPlan.target.allModels) {
     catalogMode = 'provider-all'
+  }
+  if (launchPlan.skip && launchPlan.target?.modelIds) {
+    const preselected = findProvidersAndModels(compatible, launchPlan.target)
+    if (!preselected || preselected.models.length === 0) {
+      const message = `Provider/model not found: ${launchPlan.target.providerId} / ${(launchPlan.target.modelIds ?? []).join(',')}`
+      if (!configOnly) p.log.error(message)
+      else console.error(message)
+      return 1
+    }
+    if (preselected.missingIds.length > 0) {
+      const message = `Model${preselected.missingIds.length === 1 ? '' : 's'} not found on ${preselected.provider.name}: ${preselected.missingIds.join(', ')}`
+      if (!configOnly) p.log.error(message)
+      else console.error(message)
+      return 1
+    }
+    activeProvider = preselected.provider
+    selectedModel = preselected.models[0]!
+    customModelIds = preselected.models.map(m => m.id)
+    catalogMode = 'provider-custom'
+    if (!agentStdout && !configOnly) {
+      p.log.step(`Using ${preselected.models.length} models from ${activeProvider.name}`)
+    }
   }
   // Bug fix: favoritesActive is now only true when the user explicitly
   // chose the favorites catalog in the picker — not merely because favorites
@@ -517,10 +562,6 @@ export async function runCodexCommand(
     )
     p.log.info('Edit with `anygate models`.')
   }
-  let activeProvider = compatible.find(lp => lp.id === prefs.lastCodexProvider) ?? compatible[0]!
-  let selectedModel =
-    activeProvider.models.find(m => m.id === prefs.lastCodexModel) ?? activeProvider.models[0]!
-
   if (!configOnly && launchPlan.skip && launchPlan.target) {
     if (launchPlan.target.allModels) {
       const foundProvider = compatible.find(lp => lp.id === launchPlan.target!.providerId)
@@ -533,6 +574,11 @@ export async function runCodexCommand(
       catalogMode = 'provider-all'
       if (!agentStdout) {
         p.log.step(`Using all ${activeProvider.models.length} models from ${activeProvider.name}`)
+      }
+    } else if (launchPlan.target.modelIds) {
+      // Already resolved above (shared with --config); just confirm the step.
+      if (!agentStdout) {
+        p.log.step(`Using ${customModelIds.length} models from ${activeProvider.name}`)
       }
     } else {
       const resolved = findProviderAndModel(compatible, launchPlan.target)
@@ -579,7 +625,7 @@ export async function runCodexCommand(
       } else {
         activeProvider = pickedProvider as LocalProvider
 
-        // Ask: pick a specific model, or launch all models from this provider
+        // Ask: one model, a hand-picked subset, or all models from this provider
         const modelModeChoice = await p.select<string>({
           message: `Launch mode for ${activeProvider.name}?`,
           options: [
@@ -587,6 +633,11 @@ export async function runCodexCommand(
               value: 'specific',
               label: 'One model',
               hint: 'Pick a specific model',
+            },
+            {
+              value: 'custom',
+              label: 'Choose models…',
+              hint: 'Pick which models appear in the picker',
             },
             {
               value: 'all',
@@ -604,6 +655,22 @@ export async function runCodexCommand(
         if (modelModeChoice === 'all') {
           catalogMode = 'provider-all'
           selectedModel = activeProvider.models[0]!
+          break
+        }
+
+        if (modelModeChoice === 'custom') {
+          const pickedCustom = await pickCustomProviderModels(activeProvider, {
+            ...prefs,
+            lastModel: prefs.lastCodexModel,
+          })
+          if (pickedCustom === 'back') {
+            currentInitialProvider = activeProvider.id
+            continue
+          }
+          if (!pickedCustom) return 0
+          customModelIds = pickedCustom.selectedIds
+          selectedModel = activeProvider.models.find(m => m.id === customModelIds[0])!
+          catalogMode = 'provider-custom'
           break
         }
 
@@ -644,6 +711,14 @@ export async function runCodexCommand(
 
   const route = resolveCodexRoute(activeProvider, selectedModel, apiKey)
 
+  /** Routable models for the custom subset, in picker order. */
+  const customRoutableModels = (): LocalProviderModel[] => {
+    const allRoutable = routableModelsForProvider(activeProvider, 'codex')
+    return customModelIds
+      .map(id => allRoutable.find(m => m.id === id))
+      .filter((m): m is LocalProviderModel => m !== undefined)
+  }
+
   if (!configOnly && !(launchPlan.skip && launchPlan.target)) {
     const modelLabel = formatCodexModelLabel(selectedModel)
     const confirmed = await confirmCodexLaunch(
@@ -660,8 +735,11 @@ export async function runCodexCommand(
   let cloudCodeBackendFav: CloudCodeBackend | null = null
   try {
     let proxyPort: number | undefined
-    if (catalogMode === 'provider-all') {
-      const routable = routableModelsForProvider(activeProvider, 'codex')
+    if (catalogMode === 'provider-all' || catalogMode === 'provider-custom') {
+      const routable =
+        catalogMode === 'provider-custom'
+          ? customRoutableModels()
+          : routableModelsForProvider(activeProvider, 'codex')
       const backendModels = routable.filter(m => needsCloudCodeBackend(m, activeProvider.authType))
       const regularModels = routable.filter(m => !needsCloudCodeBackend(m, activeProvider.authType))
 
@@ -865,9 +943,16 @@ export async function runCodexCommand(
             routableModelsForProvider(activeProvider, 'codex'),
             proxyPort
           )
-        : favoritesActive && resolvedFavorites.length > 0 && proxyPort && startingFavorite
-          ? await writeFavoritesLaunchArtifacts(resolvedFavorites, startingFavorite, proxyPort)
-          : await writeLaunchArtifacts(route, selectedModel, activeProvider.name, proxyPort)
+        : catalogMode === 'provider-custom' && proxyPort
+          ? await writeAllModelsLaunchArtifacts(
+              activeProvider,
+              selectedModel,
+              customRoutableModels(),
+              proxyPort
+            )
+          : favoritesActive && resolvedFavorites.length > 0 && proxyPort && startingFavorite
+            ? await writeFavoritesLaunchArtifacts(resolvedFavorites, startingFavorite, proxyPort)
+            : await writeLaunchArtifacts(route, selectedModel, activeProvider.name, proxyPort)
 
     writeSessionLock({
       pid: process.pid,
@@ -885,10 +970,13 @@ export async function runCodexCommand(
       console.log(pc.bold(pc.cyan('  CONFIG PREVIEW — anygate codex')))
       console.log('')
 
-      if (catalogMode === 'provider-all') {
-        const allModels = routableModelsForProvider(activeProvider, 'codex')
+      if (catalogMode === 'provider-all' || catalogMode === 'provider-custom') {
+        const allModels =
+          catalogMode === 'provider-custom'
+            ? customRoutableModels()
+            : routableModelsForProvider(activeProvider, 'codex')
         console.log(
-          `  ${pc.bold('Mode:')}     Provider Catalog (${allModels.length} model${allModels.length !== 1 ? 's' : ''})`
+          `  ${pc.bold('Mode:')}     ${catalogMode === 'provider-custom' ? 'Custom Catalog' : 'Provider Catalog'} (${allModels.length} model${allModels.length !== 1 ? 's' : ''})`
         )
         console.log(`  ${pc.bold('Provider:')} ${activeProvider.name}`)
         console.log(`  ${pc.bold('Starting model:')} ${selectedModel.id}`)
@@ -936,7 +1024,7 @@ export async function runCodexCommand(
     }
 
     const favoritesLaunch = favoritesActive && resolvedFavorites.length > 0
-    const providerAllLaunch = catalogMode === 'provider-all'
+    const providerAllLaunch = catalogMode === 'provider-all' || catalogMode === 'provider-custom'
     const launchModelId = favoritesLaunch
       ? codexCliFavoritesSlug(activeProvider.id, selectedModel.id)
       : selectedModel.id

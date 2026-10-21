@@ -16,7 +16,7 @@ Usage:
 
 Options:
   --provider <id>    Use a specific provider (skip picker)
-  --model <id>       Use a specific model (skip picker)
+  --model <id>       Use a specific model, or id1,id2 for a custom catalog (skip picker)
   --trace            Write debug log to /tmp/anygate-debug.log
   -h, --help         Show this help
   -v, --version      Show version
@@ -42,7 +42,7 @@ Usage:
 
 Options:
   --provider <id>    Use a specific provider (skip picker)
-  --model <id>       Use a specific model (skip picker)
+  --model <id>       Use a specific model, or id1,id2 for a custom catalog (skip picker)
   --trace            Write debug log to /tmp/anygate-debug.log
   -h, --help         Show this help
   -v, --version      Show version
@@ -74,7 +74,7 @@ Usage:
 
 Options:
   --provider <id>    Use a specific provider (skip picker)
-  --model <id>       Use a specific model (skip picker)
+  --model <id>       Use a specific model, or id1,id2 for a custom catalog (skip picker)
   --trace            Write debug log to /tmp/anygate-debug.log
   -h, --help         Show this help
   -v, --version      Show version
@@ -105,6 +105,7 @@ export async function handleAgyCommand(parsed: ParsedArgs): Promise<number> {
   return runAgyCommand(parsed.claudeArgs ?? [], parsed.trace ?? false, {
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
+    launchModelIds: parsed.launchModelIds,
     launchAllModels: parsed.launchAllModels || parsed.launchModel === 'All',
   })
 }
@@ -122,6 +123,7 @@ export async function handleAntigravityAppCommand(parsed: ParsedArgs): Promise<n
   return runAntigravityAppCommand(parsed.claudeArgs ?? [], parsed.trace ?? false, {
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
+    launchModelIds: parsed.launchModelIds,
     launchAllModels: parsed.launchAllModels || parsed.launchModel === 'All',
   })
 }
@@ -139,6 +141,7 @@ export async function handleAntigravityIdeCommand(parsed: ParsedArgs): Promise<n
   return runAntigravityIdeCommand(parsed.claudeArgs ?? [], parsed.trace ?? false, {
     launchProvider: parsed.launchProvider,
     launchModel: parsed.launchModel,
+    launchModelIds: parsed.launchModelIds,
     launchAllModels: parsed.launchAllModels || parsed.launchModel === 'All',
   })
 }

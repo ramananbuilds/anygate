@@ -48,6 +48,12 @@ export interface ParsedArgs {
   launchProvider?: string
   launchModel?: string
   /**
+   * Parsed form of a comma-separated `--model id1,id2` value (first id boots,
+   * capped downstream at MAX_MODEL_CATALOG). Only set for multi-model lists —
+   * single ids and `All` keep this undefined and use `launchModel`.
+   */
+  launchModelIds?: string[]
+  /**
    * Launch with every model from `launchProvider` in the app's switcher,
    * instead of a single `launchModel`. Mirrors how `--favorites` builds a
    * catalog, but scoped to one provider.
@@ -122,6 +128,8 @@ export interface UserPreferences {
   launchPresets?: LaunchPreset[]
   server?: {
     exposedProviders?: string[]
+    /** Hand-picked models to expose, as `providerId:modelId` keys. Empty means "all models of the exposed providers". */
+    exposedModels?: string[]
     maskGatewayIds?: boolean
     favoritesOnly?: boolean
     password?: string
